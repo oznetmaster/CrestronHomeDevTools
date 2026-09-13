@@ -29,6 +29,6 @@ Inspect the actual `.nupkg` and console archive, not just build directories. Ver
 
 ## Publish and verify
 
-Commit the reviewed source/documentation and create an annotated version tag. Publish the reviewed library package to NuGet and attach the console ZIP, release notes and checksums to the matching GitHub release. Do not rebuild or replace assets silently after publication. Verify the visible version, download names, checksums, documentation and package metadata.
+Commit and push the reviewed source/documentation, then dispatch `release.yml` from `main` with the committed version. The workflow validates the release, publishes the library to NuGet, creates the annotated version tag and publishes the matching GitHub release with the console ZIP, library package and checksums. Do not rebuild or replace assets silently after publication. Verify the visible version, download names, checksums, documentation and package metadata.
 
 A later dependency-only documentation/test update need not create a runtime release unless it changes the distributed product or fixes behavior. The NUnit workflow release has its own source/dependency pins; update those deliberately after DevTools becomes publicly consumable.

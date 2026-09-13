@@ -37,8 +37,9 @@ jobs:
           if ($env:RELEASE_VERSION -notmatch '^\d+\.\d+\.\d+$') { throw 'Use major.minor.patch.' }
           [xml]$props = Get-Content Directory.Build.props -Raw
           if ($props.Project.PropertyGroup.Version -ne $env:RELEASE_VERSION) { throw 'Commit the intended version first.' }
-          git show-ref --verify --quiet "refs/tags/v$env:RELEASE_VERSION"
-          if ($LASTEXITCODE -eq 0) { throw 'Release tag already exists.' }
+          $existingTag = git tag --list "v$env:RELEASE_VERSION"
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect release tags.' }
+          if ($existingTag) { throw 'Release tag already exists.' }
           if (-not '${{ vars.NUGET_USER }}') { throw 'Configure NUGET_USER and NuGet Trusted Publishing first.' }
       - name: Build and validate release
         run: ./tools/BuildRelease.ps1 -Version $env:RELEASE_VERSION
