@@ -1,0 +1,14 @@
+<!-- Copyright (c) 2026 Neil Colvin. Licensed under the MIT License. See LICENSE. -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
+  <ItemGroup><ProjectReference Include="../CrestronHomeDevTools/CrestronHomeDevTools.csproj" /></ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.9" />
+    <InternalsVisibleTo Include="CrestronHomeDevTools.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="../README.md;../CHANGELOG.md;../RELEASE-NOTES.md;../THIRD-PARTY-NOTICES.md;../LICENSE" Link="%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="../docs/**/*" Link="docs/%(RecursiveDir)%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="../licenses/*" Link="licenses/%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,6 @@
+<!-- Copyright (c) 2026 Neil Colvin. Licensed under the MIT License. See LICENSE. -->
+<Solution>
+  <Project Path="CrestronHomeDevTools/CrestronHomeDevTools.csproj" />
+  <Project Path="CrestronHomeDevTools.Tests/CrestronHomeDevTools.Tests.csproj" />
+  <Project Path="CrestronHomeDevTools.Console/CrestronHomeDevTools.Console.csproj" />
+</Solution>

@@ -1,0 +1,73 @@
+# Copyright (c) 2026 Neil Colvin. Licensed under the MIT License; see LICENSE.
+name: Release
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Committed release version (major.minor.patch)
+        required: true
+        type: string
+permissions:
+  contents: write
+  id-token: write
+concurrency:
+  group: release
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: windows-latest
+    environment: release
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.401
+      - name: Verify release identity
+        run: |
+          if ($env:GITHUB_REF -ne 'refs/heads/main') { throw 'Release from main.' }
+          if ($env:RELEASE_VERSION -notmatch '^\d+\.\d+\.\d+$') { throw 'Use major.minor.patch.' }
+          [xml]$props = Get-Content Directory.Build.props -Raw
+          if ($props.Project.PropertyGroup.Version -ne $env:RELEASE_VERSION) { throw 'Commit the intended version first.' }
+          git show-ref --verify --quiet "refs/tags/v$env:RELEASE_VERSION"
+          if ($LASTEXITCODE -eq 0) { throw 'Release tag already exists.' }
+          if (-not '${{ vars.NUGET_USER }}') { throw 'Configure NUGET_USER and NuGet Trusted Publishing first.' }
+      - name: Build and validate release
+        run: ./tools/BuildRelease.ps1 -Version $env:RELEASE_VERSION
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ inputs.version }}
+          path: artifacts/release/*
+          if-no-files-found: error
+      - name: Obtain short-lived NuGet credential
+        id: login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ vars.NUGET_USER }}
+      - name: Publish NuGet package
+        env:
+          NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
+        run: |
+          dotnet nuget push "artifacts/release/CrestronHomeDevTools.$env:RELEASE_VERSION.nupkg" --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json
+          if ($LASTEXITCODE -ne 0) { throw 'NuGet publication failed.' }
+      - name: Tag and publish GitHub release
+        run: |
+          git diff --exit-code
+          if ($LASTEXITCODE -ne 0) { throw 'Build modified tracked source.' }
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git tag -a "v$env:RELEASE_VERSION" -m "CrestronHomeDevTools v$env:RELEASE_VERSION"
+          if ($LASTEXITCODE -ne 0) { throw 'Tag creation failed.' }
+          git push origin "refs/tags/v$env:RELEASE_VERSION"
+          if ($LASTEXITCODE -ne 0) { throw 'Tag push failed.' }
+          $assets = @(Get-ChildItem artifacts/release -File | Select-Object -ExpandProperty FullName)
+          gh release create "v$env:RELEASE_VERSION" @assets --verify-tag --title "CrestronHomeDevTools v$env:RELEASE_VERSION" --notes-file RELEASE-NOTES.md
+          if ($LASTEXITCODE -ne 0) { throw 'GitHub release publication failed.' }

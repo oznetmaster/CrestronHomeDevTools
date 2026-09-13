@@ -1,0 +1,46 @@
+# Changelog
+
+## 1.0.0 — 2026-09-14
+
+- Add a configuration-management protocol reference covering verified discovery, authentication, request/response envelopes, commands, asynchronous events, V1/V2 lifecycle sequences, configuration reboot, retry rules and validation limits. Link it from README and the API/compatibility guides. — initial development preview
+
+- Use Home's configuration reboot operation after a confirmed V1 swap. An immediate SSH console reboot did not retain the staged driver version during validation; standalone SSH reboot remains a separate command.
+
+- Fix V1 update sequencing: wait for the exact driver-swap completion event, validate reboot/reconfiguration requirements, and request reboot once. A missing event or lost update response never implies permission to reboot. Found during hardware validation.
+
+### Added
+
+- Confirmed whole-processor reboot API and interactive console command, with target-specific confirmation, pinned SSH and no automatic retry. Unattended reboot requires an explicit matching target confirmation. Lifecycle reboot support is opt-in and preserves scope/version guards.
+
+- Independent .NET 10 configuration-management library, interactive console and automation CLI.
+- Credential-free processor discovery, exact system-name resolution and explicit address selection.
+- Authenticated WebSocket/HTTPS sessions with verified certificate pins, cancellation and asynchronous operation tracking.
+- Driver/device inventory, update eligibility, reviewed update plans and guarded reboot-free reload.
+- SFTP package inspection/upload/import with SSH key verification, SHA-256 recording and catalogue readiness checks.
+- Guarded install/update/reuse of an explicitly identified instance, including first installation and reinstallation after removal.
+- Identity/version/dependency-checked removal with disappearance verification.
+- Named Windows DPAPI profiles, masked credential entry, private settings/environment input, descriptive command help, JSON CLI results and documented exit codes.
+- Complete user/API/compatibility/release documentation, third-party notices and a link to the separate NUnit CI orchestration guide.
+
+### Fixed
+
+- Retry bounded restart-readiness reads when Home temporarily returns HTTP 500/502/503/504 during startup. Preserve authentication/request failures and never retry mutation commands. Found during the authorized hardware reboot test.
+
+- Interactive setup no longer rejects valid credentials because of an empty catalogue filter; it validates the management service directly.
+- Unfiltered catalogue reads use advertised categories; HTTP errors identify the failed session/read/command stage.
+- Driver-version comparisons retain all numeric components while accepting different zero-padding across package, catalogue and installed versions.
+
+### Validation
+
+- Validate CP4-R / Home 4.11.322: authenticated inventory, temporary Entity V2 import/install/update/reuse/reload, one configuration reboot and recovery, 116 processor tests before and after restart, and removal/lease cleanup. Verify all seven existing driver instances retain their identities, room assignments and versions and are Loaded. Document per-model limits; CP4-R V1 lifecycle remains unverified.
+- 157 offline NUnit tests pass without processor credentials or Crestron SDK dependencies.
+- On MC4-R / Home 4.11.322: authenticated reads, discovery/name resolution, SFTP import, install/update/reuse, targeted V2 reload and removal/reinstallation were verified.
+- DevTools supported the complete gated KasaTapo workflow and the later six-driver processor validation. The broader workflow and its test policies belong to Crestron Home NUnit.
+
+### Release status
+
+Initial public release: the library is distributed through NuGet and the Windows console through GitHub Releases. The release workflow builds and validates artifacts before publishing with NuGet Trusted Publishing. See [release notes](RELEASE-NOTES.md) and the [release procedure](docs/Releasing.md).
+
+### V1 hardware validation
+
+A complete unattended Apple TV V1 workflow subsequently passed on the development MC4-R: 116 local tests, 105 processor driver tests, 11 processor SDK lifecycle tests and three read-only installed-driver health checks. It installed a fresh Entity V2 test host, staged the V1 update, received the matching swap-completion event, requested one Home configuration reboot, reconnected and verified lease ownership, verified the new driver version was Loaded, online, ready and configured, then removed the test host and released the lease. Independent checks confirmed the other 19 driver instances retained their identities and versions and were Loaded. The first V1 attempt exposed an incorrect assumption that swap initiates reboot; it required one separately recorded assisted reboot and was not counted as an unattended pass. A second attempt confirmed swap completion but an immediate SSH reboot returned with the previous version; it was stopped, reconciled and retained as a failed validation. The passing run used Home configuration reboot instead. V1 initial-install/removal reboot paths still have simulated coverage only. The SDK lifecycle tests and read-only health checks do not establish playback or device-control behavior.

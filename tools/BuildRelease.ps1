@@ -1,0 +1,44 @@
+# Copyright (c) 2026 Neil Colvin. Licensed under the MIT License; see LICENSE.
+param([Parameter(Mandatory)][string] $Version)
+$ErrorActionPreference = 'Stop'
+$root = Split-Path $PSScriptRoot -Parent
+Push-Location $root
+try {
+    $release = Join-Path $root 'artifacts/release'
+    if (Test-Path $release) { throw 'Use fresh release staging.' }
+    dotnet test CrestronHomeDevTools.slnx -c Release --logger 'trx;LogFileName=release.trx' --results-directory artifacts/tests
+    if ($LASTEXITCODE -ne 0) { throw 'Tests failed.' }
+    [xml]$results = Get-Content artifacts/tests/release.trx -Raw
+    if ([int]$results.TestRun.ResultSummary.Counters.passed -ne 157 -or [int]$results.TestRun.ResultSummary.Counters.total -ne 157) { throw 'Expected 157 passing tests.' }
+    dotnet pack CrestronHomeDevTools/CrestronHomeDevTools.csproj -c Release --no-build -o $release
+    if ($LASTEXITCODE -ne 0) { throw 'Library pack failed.' }
+    $console = Join-Path $root ('artifacts/console-' + [Guid]::NewGuid().ToString('N'))
+    dotnet publish CrestronHomeDevTools.Console/CrestronHomeDevTools.Console.csproj -c Release -r win-x64 --self-contained true -o $console -p:RuntimeFrameworkVersion=10.0.12 -p:DebugType=None -p:DebugSymbols=false
+    if ($LASTEXITCODE -ne 0) { throw 'Console publish failed.' }
+    $assets = Get-Content CrestronHomeDevTools.Console/obj/project.assets.json -Raw | ConvertFrom-Json -AsHashtable
+    $pack = @($assets.packageFolders.Keys | ForEach-Object { Join-Path $_ 'microsoft.netcore.app.runtime.win-x64/10.0.12' } | Where-Object { Test-Path $_ }) | Select-Object -First 1
+    if (-not $pack) { throw 'Runtime pack not found.' }
+    $notices = Join-Path $console 'licenses/bundled-runtime'
+    New-Item -ItemType Directory -Path $notices -Force | Out-Null
+    foreach ($file in @('LICENSE.TXT','THIRD-PARTY-NOTICES.TXT')) { Copy-Item (Join-Path $pack $file) $notices }
+    & (Join-Path $console 'CrestronHomeDevTools.Console.exe') --help
+    if ($LASTEXITCODE -ne 0) { throw 'Console smoke test failed.' }
+    [IO.Compression.ZipFile]::CreateFromDirectory($console, (Join-Path $release 'CrestronHomeDevTools.Console-win-x64.zip'))
+    foreach ($file in Get-ChildItem $release -File) {
+        $zip = [IO.Compression.ZipFile]::OpenRead($file.FullName)
+        try {
+            if (@($zip.Entries | Where-Object FullName -Match '(?i)(\.profile$|\.local\.json$|LiveTestSettings\.json$|\.csproj\.user$|\.Local\.targets$|\.pfx$|(^|/)(TestResults|obj|bin)/)').Count) { throw "Private file in $($file.Name)." }
+            foreach ($required in @('README.md','LICENSE','CHANGELOG.md','RELEASE-NOTES.md','THIRD-PARTY-NOTICES.md','docs/ProtocolReference.md')) {
+                if (-not ($zip.Entries | Where-Object FullName -EQ $required)) { throw "Missing $required in $($file.Name)." }
+            }
+            if ($file.Extension -eq '.nupkg') {
+                $entry = $zip.Entries | Where-Object FullName -Like '*.nuspec' | Select-Object -First 1
+                $reader = [IO.StreamReader]::new($entry.Open())
+                try { [xml]$spec = $reader.ReadToEnd() } finally { $reader.Dispose() }
+                if ($spec.package.metadata.id -ne 'CrestronHomeDevTools' -or $spec.package.metadata.version -ne $Version) { throw 'Unexpected NuGet identity.' }
+            }
+        } finally { $zip.Dispose() }
+    }
+    $lines = @(Get-ChildItem $release -File | Sort-Object Name | ForEach-Object { (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant() + '  ' + $_.Name })
+    [IO.File]::WriteAllLines((Join-Path $release 'SHA256SUMS.txt'),$lines)
+} finally { Pop-Location }
