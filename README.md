@@ -91,7 +91,7 @@ See the [end-to-end CI guide](https://github.com/oznetmaster/CrestronHomeNUnit/b
 - [Configuration-management protocol reference](docs/ProtocolReference.md): discovery packets, authentication, request/response formats, commands, events, V1/V2 lifecycle sequences and recovery rules.
 - [Compatibility and validation](docs/Compatibility.md): tested environment, V1/V2 limits and failure semantics.
 - [Release procedure](docs/Releasing.md): versioning, packages, console distribution, documentation and validation.
-- [Changelog](CHANGELOG.md) and [draft release notes](RELEASE-NOTES.md).
+- [Changelog](CHANGELOG.md) and [release notes](RELEASE-NOTES.md).
 - [Third-party notices](THIRD-PARTY-NOTICES.md) and [MIT license](LICENSE).
 
 ## Build and validate
