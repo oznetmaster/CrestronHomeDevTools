@@ -147,6 +147,37 @@ public sealed class ConfigurationTests
 		}
 
 	[Test]
+	public async Task CatalogueLongSearch_IntersectsEveryBatchByIdentity ()
+		{
+		var wanted = new DriverInfo { Id = "wanted", Model = "Example Long Driver Model With Seven Words" };
+		var connection = new FakeConnection (
+			new[] { wanted, new DriverInfo { Id = "first-only" }, new DriverInfo { Id = "first-two" } },
+			new[] { new DriverInfo { Id = "wanted" }, new DriverInfo { Id = "first-two" } },
+			new[] { new DriverInfo { Id = "wanted" }, new DriverInfo { Id = "last-only" } });
+		var drivers = await new ConfigurationClient (connection).GetDriversAsync (wanted.Model);
+		Assert.That (drivers.Select (driver => driver.Id), Is.EqualTo (new[] { "wanted" }));
+		Assert.That (drivers.Single ().Model, Is.EqualTo (wanted.Model));
+		Assert.That (connection.Calls.Select (call => call.Parameters.GetProperty ("substringFilterTextTokens").GetArrayLength ()), Is.EqualTo (new[] { 3, 3, 1 }));
+		Assert.That (connection.Calls.SelectMany (call => call.Parameters.GetProperty ("substringFilterTextTokens").EnumerateArray ().Select (token => token.GetString ())), Is.EqualTo (wanted.Model.Split (' ')));
+		}
+
+	[Test]
+	public async Task CatalogueLongSearch_StopsWhenNoCandidateCanMatch ()
+		{
+		var connection = new FakeConnection ((object)Array.Empty<DriverInfo> ());
+		Assert.That (await new ConfigurationClient (connection).GetDriversAsync ("WeatherLink Live Weather Station"), Is.Empty);
+		Assert.That (connection.Calls.Count, Is.EqualTo (1));
+		}
+
+	[Test]
+	public void CatalogueLongSearch_MissingLaterResponseDoesNotReturnPartialMatches ()
+		{
+		var connection = new FakeConnection (new[] { new DriverInfo { Id = "candidate" } }, null);
+		Assert.ThrowsAsync<ProcessorApiException> (async () => await new ConfigurationClient (connection).GetDriversAsync ("WeatherLink Live Weather Station"));
+		Assert.That (connection.Calls.Count, Is.EqualTo (2));
+		}
+
+	[Test]
 	public async Task CatalogueWithoutCategories_DoesNotSendInvalidEmptyRequest ()
 		{
 		var connection = new FakeConnection ((object)Array.Empty<object> ());

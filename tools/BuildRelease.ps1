@@ -9,7 +9,7 @@ try {
     dotnet test CrestronHomeDevTools.slnx -c Release --logger 'trx;LogFileName=release.trx' --results-directory artifacts/tests
     if ($LASTEXITCODE -ne 0) { throw 'Tests failed.' }
     [xml]$results = Get-Content artifacts/tests/release.trx -Raw
-    if ([int]$results.TestRun.ResultSummary.Counters.passed -ne 157 -or [int]$results.TestRun.ResultSummary.Counters.total -ne 157) { throw 'Expected 157 passing tests.' }
+    if ([int]$results.TestRun.ResultSummary.Counters.passed -ne 162 -or [int]$results.TestRun.ResultSummary.Counters.total -ne 162) { throw 'Expected 162 passing tests.' }
     dotnet pack CrestronHomeDevTools/CrestronHomeDevTools.csproj -c Release --no-build -o $release
     if ($LASTEXITCODE -ne 0) { throw 'Library pack failed.' }
     $console = Join-Path $root ('artifacts/console-' + [Guid]::NewGuid().ToString('N'))

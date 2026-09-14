@@ -38,13 +38,29 @@ public sealed class ConfigurationClient : IAsyncDisposable
 			if (filterIds.Length == 0)
 				return [];
 			}
-		return await DriverCommandAsync<DriverInfo[]> ("getDrivers", new
+		// Home rejects more than three search tokens. Intersect catalogue IDs so all
+		// requested terms retain the processor's matching rules without broadening the result.
+		DriverInfo[]? matches = null;
+		foreach (string[] batch in tokens.Chunk (3).DefaultIfEmpty ([]))
 			{
-			filterType = "PrimaryFunction",
-			filterIds,
-			substringFilterTextTokens = tokens,
-			excludeFilterIds = Array.Empty<string> ()
-			}, cancellationToken).ConfigureAwait (false) ?? throw new ProcessorApiException ("Driver catalogue response was missing.");
+			var drivers = await DriverCommandAsync<DriverInfo[]> ("getDrivers", new
+				{
+				filterType = "PrimaryFunction",
+				filterIds,
+				substringFilterTextTokens = batch,
+				excludeFilterIds = Array.Empty<string> ()
+				}, cancellationToken).ConfigureAwait (false) ?? throw new ProcessorApiException ("Driver catalogue response was missing.");
+			if (matches is null)
+				matches = drivers;
+			else
+				{
+				var ids = drivers.Select (driver => driver.Id).ToHashSet (StringComparer.Ordinal);
+				matches = matches.Where (driver => ids.Contains (driver.Id)).ToArray ();
+				}
+			if (matches.Length == 0)
+				break;
+			}
+		return matches ?? [];
 		}
 
 	private sealed record DriverCategory (string Id);

@@ -2,7 +2,9 @@
 
 An independent .NET 10 library, interactive console and automation CLI for Crestron Home configuration management. Discover processors, inspect installed devices, deploy driver packages, install or update Entity V2 driver instances, and verify their loaded versions without operating Configure Pro.
 
-**Version 1.0.0.** The configuration-management interface is unofficial and firmware-dependent, [documented here from verified behavior](docs/ProtocolReference.md). This is not an official Crestron API SDK. The library has no dependency on Crestron SDK assemblies, proprietary client binaries or NUnit.
+**Version 1.1.0.** The configuration-management interface is unofficial and firmware-dependent, [documented here from verified behavior](docs/ProtocolReference.md). This is not an official Crestron API SDK. The library has no dependency on Crestron SDK assemblies, proprietary client binaries or NUnit.
+
+Version 1.1.0 adds shared processor reservations, coordinated build deployment, reboot startup verification and read-only stored-package inspection; see [processor coordination and storage](docs/ProcessorCoordination.md).
 
 ## Contents
 
@@ -35,7 +37,7 @@ The two target values must match; credentials and verified SSH trust still come 
 
 ## Get started
 
-Install the library with `dotnet add package CrestronHomeDevTools --version 1.0.0`. Download the self-contained Windows x64 console from [GitHub Releases](https://github.com/oznetmaster/CrestronHomeDevTools/releases/latest), extract the complete ZIP, and run `CrestronHomeDevTools.Console.exe`. Its first run opens processor/profile setup; `--help` lists commands.
+Install the library with `dotnet add package CrestronHomeDevTools --version 1.1.0`. Download the self-contained Windows x64 console from [GitHub Releases](https://github.com/oznetmaster/CrestronHomeDevTools/releases/latest), extract the complete ZIP, and run `CrestronHomeDevTools.Console.exe`. Its first run opens processor/profile setup; `--help` lists commands.
 
 To build from source with the .NET 10 SDK:
 
@@ -82,12 +84,13 @@ Credentials and trusted fingerprints come from the calling application. Device p
 
 DevTools handles configuration management. Crestron Home NUnit handles test discovery, inputs and execution. Its workflow backend combines them to run local tests, build and retain exact packages, deploy and activate a test host, run processor/live tests, optionally update the actual driver after the gates pass, inspect that installed driver, and optionally remove the test instance.
 
-See the [end-to-end CI guide](https://github.com/oznetmaster/CrestronHomeNUnit/blob/HEAD/docs/ContinuousIntegration.md). The NUnit workflow CLI consumes the published DevTools NuGet package; a source checkout is optional for development. A Visual Studio Test Explorer adapter is not implemented yet; local tests continue using NUnit's existing adapter, and automation can invoke the CLI today.
+See the [end-to-end CI guide](https://github.com/oznetmaster/CrestronHomeNUnit/blob/HEAD/docs/ContinuousIntegration.md). The released NUnit workflow CLI consumes the published DevTools NuGet package; a source checkout is optional for development. NUnit's current source also contains a workflow Test Explorer adapter validated through VSTest and a real processor workflow. It is not yet part of the published release; see [adapter setup and validation limits](https://github.com/oznetmaster/CrestronHomeNUnit/blob/HEAD/docs/VisualStudioTestExplorer.md).
 
 ## Documentation
 
 - [User and CLI guide](docs/UserGuide.md): setup, profiles, commands, exit codes and troubleshooting.
 - [Library API guide](docs/LibraryGuide.md): component responsibilities and examples.
+- [Processor coordination and storage](docs/ProcessorCoordination.md): shared reservations, build deployment, reboot waits and retained package inspection.
 - [Configuration-management protocol reference](docs/ProtocolReference.md): discovery packets, authentication, request/response formats, commands, events, V1/V2 lifecycle sequences and recovery rules.
 - [Compatibility and validation](docs/Compatibility.md): tested environment, V1/V2 limits and failure semantics.
 - [Release procedure](docs/Releasing.md): versioning, packages, console distribution, documentation and validation.
@@ -104,7 +107,7 @@ dotnet pack CrestronHomeDevTools/CrestronHomeDevTools.csproj -c Release -o artif
 dotnet publish CrestronHomeDevTools.Console/CrestronHomeDevTools.Console.csproj -c Release -o artifacts/console
 ```
 
-The offline suite currently contains **157 tests** and needs no processor or credentials. Push/PR CI builds, runs the offline tests and packs the library. The separate release workflow validates the versioned library and self-contained Windows console, retains their checksums, then publishes NuGet and GitHub assets.
+The offline suite currently contains **162 tests** and needs no processor or credentials. Push/PR CI builds, runs the offline tests and packs the library. The separate release workflow validates the versioned library and self-contained Windows console, retains their checksums, then publishes NuGet and GitHub assets.
 
 ## Privacy and compatibility
 

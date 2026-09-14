@@ -211,7 +211,7 @@ The verified implementation addresses gateway device **`-6`**. Every command in 
 | Suffix | `Parameters` | Expected `Result` and use |
 |---|---|---|
 | `getDriverMetadataFilterOptions` | `{"filterType":"PrimaryFunction"}` | Array of category objects; client uses each `Id` |
-| `getDrivers` | `filterType`, `filterIds`, `substringFilterTextTokens`, `excludeFilterIds` | Array of catalogue entries |
+| `getDrivers` | `filterType`, `filterIds`, `substringFilterTextTokens` (at most three tokens), `excludeFilterIds` | Array of catalogue entries |
 | `getDriver` | `{"driverId":"example-catalogue-entry"}` | Catalogue entry or null |
 | `getDevicesEligibleForDriverUpdate` | `{"driverId":"example-catalogue-entry"}` | Eligibility object below |
 | `beginLocalDriverRefresh` | `{}` | Operation ID; import local staged packages |
@@ -430,3 +430,7 @@ The complete anonymous configuration schema, complete device/command schemas, di
 When extending this reference, record the tested model/firmware, command spelling and parameter types, response/event fields, correlation requirements and independent final-state checks. Clearly label new observations and unverified assumptions. A passing simulated test establishes client behavior; it does not by itself establish processor behavior.
 
 Copyright (c) 2026 Neil Colvin. This original reference is distributed under the project's [MIT license](../LICENSE). Crestron and Crestron Home retain their respective trademarks. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.; see the [project disclaimer](../README.md#license-and-crestron-disclaimer).
+
+### Long catalogue searches
+
+Home rejects more than three search tokens with HTTP 422; Configure Pro prevents these requests in its search UI. DevTools supports longer model names by querying batches of at most three tokens and intersecting catalogue IDs. It preserves all requested terms and propagates a failed or missing response rather than returning a partial match. This is a sequence of read-only searches, not a retry of a mutation.

@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.1.0 — 2026-09-14
+
+- Support catalogue searches longer than three words by issuing bounded search batches and intersecting catalogue IDs. Fixes HTTP 422 when a workflow looks up models such as WeatherLink Live Weather Station.
+
+- Coordinate console mutations with NUnit workflows, desktop runners and updated processor test hosts through the same processor-side lease. Verify owner contents, prevent release during active tests and retain uncertain outcomes for inspection.
+- Keep standalone reboot reservations through shutdown and authenticated Home startup instead of releasing at acknowledgement; use a bounded 600-second default startup wait.
+- Add `capabilities` and a shared PowerShell build deployment entry point that requires lease support, passes credentials privately, waits for catalogue readiness and reports failures to the build.
+- Add read-only `stored-packages` inspection with manifest identities, storage sizes and conservative device/catalogue references. No package deletion is performed.
+- Document coordinated CI/build/manual development and the distinction between instance removal and retained packages. Link to the separately released NUnit Test Explorer adapter.
+
+- Validate 162 offline tests, cross-tool processor locking, active-test release refusal, reboot recovery, retained-package inspection and complete WeatherLink/Overkiz update workflows on MC4-R / Home 4.11.322.
+
 ## 1.0.0 — 2026-09-14
 
 - Add a configuration-management protocol reference covering verified discovery, authentication, request/response envelopes, commands, asynchronous events, V1/V2 lifecycle sequences, configuration reboot, retry rules and validation limits. Link it from README and the API/compatibility guides. — initial development preview

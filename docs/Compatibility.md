@@ -35,7 +35,7 @@ The CP4-R validation installed a temporary Apple TV Entity V2 test host and pass
 
 On MC4-R, verified operations include authentication, system-name resolution, catalogue/device reads, import, initial test-instance installation, guarded update, current-instance reuse, targeted Entity V2 reload, and removal followed by installation. All six driver test packages subsequently ran 400 distinct offline/lifecycle tests twice on that processor. A separate KasaTapo end-to-end workflow passed its then-current 57 local and 57 processor tests, three live checks and seven checks of the updated actual driver, then removed its test instance and released its lease.
 
-The offline DevTools suite contains **157 passing tests**. Hosted CI checks offline behavior; it cannot establish hardware compatibility unless a separately configured LAN agent runs the hardware workflow.
+The offline DevTools suite contains **162 passing tests**. Hosted CI checks offline behavior; it cannot establish hardware compatibility unless a separately configured LAN agent runs the hardware workflow.
 
 Confirmed reboot handling has simulated coverage for acceptance, cancellation and uncertain outcomes. Its underlying SSH command was observed during an earlier authorized recovery; the wrapper has now been exercised on hardware, exposing a startup-readiness case that was fixed; see the evidence below.
 

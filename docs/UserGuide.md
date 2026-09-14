@@ -46,6 +46,8 @@ CLI commands do not prompt for missing trust or silently accept a new key. Suppl
 | Command | Action |
 |---|---|
 | `discover` | Discover local Home processors without credentials. |
+| `capabilities` | Report automation feature support without connecting (new source). |
+| `stored-packages` | Read retained package manifests, sizes and matching device/catalogue references (new source; no deletion). |
 | `configure [--profile NAME]` | Save a selected processor and encrypted credentials. |
 | `drivers [--search TEXT]` | List catalogue packages and catalogue IDs. Narrow the search if results are limited. |
 | `devices` | List installed devices, instance IDs and room IDs. Shows IDs, names, models and room IDs; omits full device properties. |
@@ -61,7 +63,9 @@ CLI commands do not prompt for missing trust or silently accept a new key. Suppl
 | `remove --device ID --model NAME --version VERSION` | Remove only the matching instance after identity and dependency checks. |
 | `help` / `exit` | Show usage / leave interactive mode. |
 
-Common options are `--processor`, `--profile`, `--settings` and `--timeout`. The operation timeout defaults to 120 seconds. Catalogue IDs belong with `--driver`; installed instance IDs belong with `--device`. Room/location IDs are neither of those.
+Common options are `--processor`, `--profile`, `--settings` and `--timeout`. The operation timeout defaults to 120 seconds; current source uses 600 seconds for reboot startup verification. Catalogue IDs belong with `--driver`; installed instance IDs belong with `--device`. Room/location IDs are neither of those.
+
+Version 1.1.0 coordinates mutation commands with updated NUnit tools/test hosts using a processor-side reservation. Busy processors reject another mutation; unconfirmed outcomes retain the reservation. Reboot waits for shutdown and authenticated startup before release. See [coordination, build deployment and storage inspection](ProcessorCoordination.md).
 
 ## Deploy and activate
 
@@ -81,7 +85,7 @@ Changed package contents require a new version. Identical version strings cannot
 
 Use `plan-update` when applying the processor's update operation to a reviewed group of eligible instances. The plan records versions and IDs; `update` rechecks those values before submitting. A changed scope, missing eligibility or reboot requirement closes the operation. Keep the plan private.
 
-Removal checks the exact ID, model, version and affected dependencies, then waits for the instance to disappear. The catalogue package remains available for a later install. Save test results and confirm no test is running before removing a processor test host. DevTools does not know NUnit execution state; the higher-level workflow owns that decision. Do not infer completed removal merely because a tile vanished or its room assignment was cleared.
+Removal checks the exact ID, model, version and affected dependencies, then waits for the instance to disappear. The catalogue package remains available for a later install. Save test results and confirm no test is running before removing a processor test host. Updated tools and hosts coordinate that exclusion through the shared reservation; older hosts and other clients do not. Do not infer completed removal merely because a tile vanished or its room assignment was cleared.
 
 ## Outputs and exit codes
 
