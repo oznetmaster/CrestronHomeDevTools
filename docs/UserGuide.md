@@ -1,5 +1,7 @@
 # Console and CLI guide
 
+**Processor compatibility:** Configuration-management commands require a **V2 Crestron Home processor**. V1 Crestron Home processors do not support these commands. This refers to the processor platform, not the driver type: supported V2 processors can host V1 drivers, whose update workflow requires an explicitly authorized reboot.
+
 ## Contents
 
 - [Starting the console](#starting-the-console)

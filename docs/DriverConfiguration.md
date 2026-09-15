@@ -1,5 +1,7 @@
 # Inspect and configure an installed driver
 
+**Processor compatibility:** Configuration-management commands require a **V2 Crestron Home processor**. V1 Crestron Home processors do not support these commands. This refers to the processor platform, not the driver type: supported V2 processors can host V1 drivers, whose update workflow requires an explicitly authorized reboot.
+
 DevTools 1.2.0 adds `driver-configuration` and `configure-driver` to both the interactive console and the one-command CLI. The first reads current configuration; the second performs initial configuration after installation. `configure` continues to mean choosing a processor and saving its encrypted connection profile.
 
 ## Read current settings

@@ -1,5 +1,7 @@
 # Compatibility and validation
 
+**Processor compatibility:** Configuration-management commands require a **V2 Crestron Home processor**. V1 Crestron Home processors do not support these commands. This refers to the processor platform, not the driver type: supported V2 processors can host V1 drivers, whose update workflow requires an explicitly authorized reboot.
+
 ## Runtime and dependencies
 
 The library and console target .NET 10. There is no net472 build and no requirement to install this library on a processor. It is a development-computer/CI client of the processor configuration interface.

@@ -1,5 +1,7 @@
 # Configuration-management protocol reference
 
+**Processor compatibility:** Configuration-management commands require a **V2 Crestron Home processor**. V1 Crestron Home processors do not support these commands. This refers to the processor platform, not the driver type: supported V2 processors can host V1 drivers, whose update workflow requires an explicitly authorized reboot.
+
 This is an unofficial configuration-management interface, documented here from verified behavior and the independently implemented CrestronHomeDevTools client. It is not an official Crestron specification or a promise of compatibility with future firmware. We have not found an official specification for this management interface.
 
 The reference describes the subset needed for discovery, authenticated inventory, package import, driver installation/update/removal and restart recovery. It is separate from the public Home control REST API and from the Crestron Home NUnit test protocol.

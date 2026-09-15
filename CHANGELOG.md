@@ -1,5 +1,10 @@
 # Changelog
 
+## Documentation - 2026-09-15 (no package release)
+
+- State that configuration-management commands require V2 Crestron Home processors; V1 processors do not support them. Distinguish processor compatibility from supported V1 driver update/reboot workflows.
+- Correct the README installation example to the current 1.2.0 library release.
+
 ## 1.2.0 - 2026-09-15
 
 Add reusable initial-driver configuration and read-only inspection of current settings to the .NET 10 library, interactive console and CLI.
