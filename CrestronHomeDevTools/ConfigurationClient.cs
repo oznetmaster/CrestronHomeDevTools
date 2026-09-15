@@ -149,6 +149,64 @@ public sealed class ConfigurationClient : IAsyncDisposable
 			}, cancellationToken).ConfigureAwait (false));
 		}
 
+	/// <summary>Read the processor's configured location identities without device settings.</summary>
+	public async Task<IReadOnlyList<ProcessorLocation>> GetLocationsAsync (CancellationToken cancellationToken = default)
+		=> await _connection.GetAsync<ProcessorLocation[]> ("v2/Locations", cancellationToken).ConfigureAwait (false)
+			?? throw new ProcessorApiException ("Location inventory response was missing.");
+
+	/// <summary>Move one childless installed driver to an existing room, preserving its identity and version.</summary>
+	public async Task<DriverRoomMoveResult> MoveDriverInstanceAsync (int deviceId, string expectedModel, string expectedVersion,
+		 int expectedLocationId, int destinationLocationId, TimeSpan timeout, CancellationToken cancellationToken = default)
+		{
+		ArgumentException.ThrowIfNullOrWhiteSpace (expectedModel);
+		ArgumentException.ThrowIfNullOrWhiteSpace (expectedVersion);
+		if (deviceId <= 0 || expectedLocationId <= 0 || destinationLocationId <= 0 || timeout <= TimeSpan.Zero)
+			throw new ArgumentException ("Device, original room, destination room and timeout must be positive.");
+		using var deadline = CancellationTokenSource.CreateLinkedTokenSource (cancellationToken);
+		deadline.CancelAfter (timeout);
+		var locations = await GetLocationsAsync (deadline.Token).ConfigureAwait (false);
+		if (locations.Count (location => location.Id == destinationLocationId && location.Category == "Room") != 1)
+			throw new InvalidOperationException ("The destination must identify exactly one existing room.");
+		var original = await GetDeviceAsync (deviceId, deadline.Token).ConfigureAwait (false)
+			?? throw new InvalidOperationException ("The selected driver instance was not found.");
+		bool IdentityMatches (DeviceInfo device) => device.Id == deviceId && device.Model == expectedModel && device.ParentDeviceId == DriverControllerId
+			&& device.Name == original.Name && device.PropertyValues.TryGetValue ("cp.driverInformation:version", out var version)
+			&& version.ValueKind == JsonValueKind.String && DriverVersions.Equal (version.GetString (), expectedVersion);
+		if (!IdentityMatches (original) || original.LocationId != expectedLocationId || !original.Commands.Contains ("cp.deviceConfiguration:setLocation"))
+			throw new InvalidOperationException ("Driver identity, original room or advertised move command changed.");
+		if (!original.PropertyValues.TryGetValue ("cp.driverConfiguration:supportsUnloadReloadDriver", out var supports) || supports.ValueKind != JsonValueKind.True
+			|| !original.PropertyValues.TryGetValue ("cp.driverConfiguration:swapDriverRequiresReboot", out var reboot) || reboot.ValueKind != JsonValueKind.False
+			|| !original.PropertyValues.TryGetValue ("cp.driverConfiguration:driverLoadingStatus", out var loading) || loading.GetString () != "Loaded")
+			throw new InvalidOperationException ("Room moves require a loaded driver with confirmed reboot-free lifecycle support.");
+		var devices = await GetDevicesAsync (deadline.Token).ConfigureAwait (false);
+		if (devices.Any (device => device.ParentDeviceId == deviceId))
+			throw new InvalidOperationException ("Managed-child room changes need a separate reviewed plan; this operation moves childless driver instances only.");
+		if (devices.Any (device => device.Id != deviceId && device.LocationId == destinationLocationId && device.Name == original.Name))
+			throw new InvalidOperationException ("The destination already contains another device with this name.");
+		bool changed = expectedLocationId != destinationLocationId;
+		if (changed)
+			{
+			var current = await GetDeviceAsync (deviceId, deadline.Token).ConfigureAwait (false);
+			if (current == null || !IdentityMatches (current) || current.LocationId != expectedLocationId)
+				throw new InvalidOperationException ("Driver identity or room changed before submission.");
+			await ExecuteDeviceCommandAsync (deviceId, "cp.deviceConfiguration:setLocation", new
+				{
+				// This command requires a JSON number. A string can be treated as null/removal.
+				locationId = destinationLocationId
+				}, deadline.Token).ConfigureAwait (false);
+			}
+		while (true)
+			{
+			var current = await GetDeviceAsync (deviceId, deadline.Token).ConfigureAwait (false);
+			if (current == null || !IdentityMatches (current) || current.LocationId != expectedLocationId && current.LocationId != destinationLocationId)
+				throw new InvalidOperationException ("Room move outcome is unconfirmed; inspect the instance before retrying.");
+			if (current.LocationId == destinationLocationId && current.PropertyValues.TryGetValue ("cp.driverConfiguration:driverLoadingStatus", out var status)
+				&& status.ValueKind == JsonValueKind.String && status.GetString () == "Loaded")
+				return new (deviceId, expectedModel, expectedVersion, expectedLocationId, destinationLocationId, changed);
+			await Task.Delay (500, deadline.Token).ConfigureAwait (false);
+			}
+		}
+
 	public async Task RemoveDriverInstanceAsync (int deviceId, string expectedModel, string expectedVersion, TimeSpan timeout, CancellationToken cancellationToken = default, DriverRebootHandler? rebootHandler = null)
 		{
 		ArgumentException.ThrowIfNullOrWhiteSpace (expectedModel);

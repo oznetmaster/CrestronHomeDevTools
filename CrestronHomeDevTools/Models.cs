@@ -137,3 +137,6 @@ public interface IConfigurationConnection : IAsyncDisposable
 	Task<T?> ExecuteAsync<T> (int deviceId, string commandName, object? parameters = null, CancellationToken cancellationToken = default);
 	Task<OperationResult> WaitForOperationAsync (string operationId, TimeSpan timeout, CancellationToken cancellationToken = default);
 	}
+
+public sealed record ProcessorLocation (int Id, string? Name, string? Category);
+public sealed record DriverRoomMoveResult (int DeviceId, string Model, string Version, int OriginalLocationId, int LocationId, bool Changed);

@@ -14,5 +14,9 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
-      - run: dotnet test CrestronHomeDevTools.slnx -c Release
+      - name: Verify complete discovered test coverage
+        shell: pwsh
+        run: |
+          ./tools/Test-DiscoveredCoverageGuards.ps1
+          ./tools/Test-DiscoveredCoverage.ps1 -Configuration Release -ResultsDirectory artifacts/tests
       - run: dotnet pack CrestronHomeDevTools/CrestronHomeDevTools.csproj -c Release --no-build -o artifacts

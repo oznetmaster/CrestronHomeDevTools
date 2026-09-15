@@ -126,6 +126,7 @@ Authenticated request paths used by this implementation are:
 |---|---|---|
 | GET | `v2/login` | Validate the session and accept a refreshed key header |
 | GET | `v2/Devices` | Device inventory |
+| GET | `v2/Locations` | Configured locations; array of objects including numeric `Id`, `Name` and `Category` |
 | GET | `v2/Devices/{deviceId}` | One device, including commands and properties |
 | POST | `v2/Devices/{deviceId}/Command` | Execute a named capability command |
 
@@ -258,6 +259,7 @@ These fields can be absent or null; DevTools refuses to infer support from missi
 | Target | Full command | Parameters | Outcome |
 |---|---|---|---|
 | Intended installed instance | `cp.deviceConfiguration:setLocation` | `{"locationId":null}` | Verified removal path for supported instances; confirm inventory disappearance |
+| Loaded childless instance | `cp.deviceConfiguration:setLocation` | `{"locationId":41002}` | Move to an existing room; verify unchanged instance identity and loaded version |
 | Unique processor device advertising this command | `cp.processorOperations:beginReboot` | `{"rebootReasonInAFewWords":"Authorized development driver update"}` | Operation ID acknowledging a Home configuration reboot request |
 
 Do not hard-code the positive processor device ID for reboot. DevTools discovers the unique device advertising `cp.processorOperations:beginReboot`, obtains explicit caller confirmation, rechecks its identity/capability and sends the command once. A missing or ambiguous target stops the operation.
@@ -453,3 +455,6 @@ Copyright (c) 2026 Neil Colvin. This original reference is distributed under the
 ### Long catalogue searches
 
 Home rejects more than three search tokens with HTTP 422; Configure Pro prevents these requests in its search UI. DevTools supports longer model names by querying batches of at most three tokens and intersecting catalogue IDs. It preserves all requested terms and propagates a failed or missing response rather than returning a partial match. This is a sequence of read-only searches, not a retry of a mutation.
+## Room-move validation
+
+On MC4-R / Home 4.11.322, a temporary Entity V2 test instance moved to another room and back without changing its ID or version, including verification on a fresh connection. `setLocation` requires a numeric room ID, unlike the string used by `commissionDevice`. A string supplied to `setLocation` was treated as removal; never substitute that representation. The typed helper restricts moves to loaded childless drivers with confirmed reboot-free lifecycle support. See [room moves](RoomMoves.md).

@@ -14,6 +14,7 @@ This source includes initial driver configuration and read-only inspection of cu
 - [Get started](#get-started)
 - [Library example](#library-example)
 - [Driver configuration](docs/DriverConfiguration.md)
+- [Moving drivers between rooms](docs/RoomMoves.md)
 - [Deployment and tests](#deployment-and-tests)
 - [Documentation](#documentation)
 - [Build and validate](#build-and-validate)
@@ -28,7 +29,7 @@ This source includes initial driver configuration and read-only inspection of cu
 | `CrestronHomeDevTools.Console` | Interactive `ch>` prompt and one-command CLI using the same library. Distributed separately from the library. |
 | `CrestronHomeDevTools.Tests` | Offline NUnit regression tests for discovery parsing, authentication, command handling, update/removal guards, profiles and deployment validation. |
 
-Supported operations include discovery by processor name, credentials and certificate validation, driver/device inventory, SFTP upload, catalogue import, reviewed updates, guarded install/update/reuse, targeted reload and explicit instance removal. Reboots require explicit authorization; submitted configuration changes are never replayed after a connection failure.
+Supported operations include discovery by processor name, credentials and certificate validation, driver/device inventory, SFTP upload, catalogue import, reviewed updates, guarded install/update/reuse, targeted reload, guarded room moves for loaded childless drivers, and explicit instance removal. See [room moves](docs/RoomMoves.md) for scope and validation. Reboots require explicit authorization; submitted configuration changes are never replayed after a connection failure.
 
 The `reboot` command supports interactive confirmation or explicit unattended authorization:
 

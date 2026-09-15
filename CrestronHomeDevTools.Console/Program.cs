@@ -32,7 +32,10 @@ return await RunSafelyAsync (args);
 
 static async Task<int> RunSafelyAsync (string[] args, bool interactive = false)
 	{
-	try { return await RunAsync (args, interactive); }
+	try
+		{
+		return await RunAsync (args, interactive);
+		}
 	catch (IOException exception)
 		{
 		// Final lease cleanup can fail after the command itself has completed.
@@ -45,7 +48,11 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 	{
 	if (args is ["capabilities"])
 		{
-		Console.WriteLine (JsonSerializer.Serialize (new { SharedProcessorLease = 1, VerifiedPackageImport = true }));
+		Console.WriteLine (JsonSerializer.Serialize (new
+			{
+			SharedProcessorLease = 1,
+			VerifiedPackageImport = true
+			}));
 		return 0;
 		}
 	if (args.Length == 0 || args[0] is "help" or "--help" or "-h")
@@ -59,6 +66,7 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
               drivers [--search text]  List available driver packages and their catalogue IDs.
               stored-packages          Inspect retained packages and matching device references.
               devices                  List installed devices, their IDs, names and room IDs.
+              locations                List configured rooms and their IDs.
               driver-configuration --device ID
                                        Show current settings; honour driver-defined masking.
               eligibility --driver ID  Show installed devices eligible for that driver update.
@@ -85,6 +93,8 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
               configure-driver --device ID --model NAME --version VERSION --input FILE
                                        Apply private initial settings or ordered wizard steps.
                                        Verify configured state; preserve existing configuration.
+              move --device ID --model NAME --version VERSION --from-room ID --room ID
+                                       Move a childless driver; verify identity, room and loaded state.
               remove --device ID --model NAME --version VERSION
                                        Remove a matching instance and verify it disappeared.
                                        Refuses reboot requirements or other affected devices.
@@ -139,7 +149,8 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 				"configure" or "discover" => Array.Empty<string> (),
 				"drivers" => ["search"],
 				"driver-configuration" => ["device"],
-				"devices" or "refresh" or "stored-packages" => [],
+				"devices" or "locations" or "refresh" or "stored-packages" => [],
+				"move" => ["device", "model", "version", "from-room", "room"],
 				"reboot" => ["confirm-reboot"],
 				"deploy" => ["package"],
 				"activate" => ["driver", "name", "room", "device"],
@@ -172,7 +183,7 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 			}
 		string? driverId = command is "eligibility" or "plan-update" or "activate" ? Required ("driver") : null;
 		var deviceId = 0;
-		if (command is "reload" or "reload-scope" or "remove" or "configure-driver" or "driver-configuration")
+		if (command is "move" or "reload" or "reload-scope" or "remove" or "configure-driver" or "driver-configuration")
 			{
 			if (!int.TryParse (Required ("device"), out deviceId) || deviceId <= 0)
 				throw new ArgumentException ("Device ID must be a positive integer.");
@@ -183,7 +194,8 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 			{
 			configurationInputs = DriverConfiguration.ReadInputs (Required ("input"));
 			configurationTarget = new (deviceId, Required ("model"), Required ("version"), "Configure");
-			if (!Version.TryParse (configurationTarget.Version, out _)) throw new ArgumentException ("Expected driver version is invalid.");
+			if (!Version.TryParse (configurationTarget.Version, out _))
+				throw new ArgumentException ("Expected driver version is invalid.");
 			}
 		var jsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true, WriteIndented = true };
 		if (command == "discover")
@@ -230,7 +242,7 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 			WebSocketPort = settings.WebSocketPort,
 			CertificateSha256 = Setting ("CRESTRON_HOME_CERT_SHA256", settings.CertificateSha256)
 			};
-		if (command is "reboot" or "activate" or "remove" or "deploy" or "refresh" or "reload" or "update" or "configure-driver")
+		if (command is "move" or "reboot" or "activate" or "remove" or "deploy" or "refresh" or "reload" or "update" or "configure-driver")
 			{
 			var leaseFingerprint = Setting ("CRESTRON_HOME_SSH_FINGERPRINT", settings.SshFingerprint)
 				?? throw new ArgumentException ("Processor mutations require a verified SSH fingerprint for the shared lease. Run configure first.");
@@ -238,7 +250,14 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 			var leaseDirectory = Path.Combine (Environment.GetFolderPath (Environment.SpecialFolder.LocalApplicationData), "CrestronHomeDevTools", "Leases");
 			Directory.CreateDirectory (leaseDirectory);
 			leaseReceiptPath = Path.Combine (leaseDirectory, lease.Owner + ".json");
-			await File.WriteAllTextAsync (leaseReceiptPath, JsonSerializer.Serialize (new { Host = host, SshFingerprint = leaseFingerprint, Owner = lease.Owner, State = "Held", Command = command }, jsonOptions), cancellation.Token);
+			await File.WriteAllTextAsync (leaseReceiptPath, JsonSerializer.Serialize (new
+				{
+				Host = host,
+				SshFingerprint = leaseFingerprint,
+				Owner = lease.Owner,
+				State = "Held",
+				Command = command
+				}, jsonOptions), cancellation.Token);
 			Console.Error.WriteLine ("Processor lease acquired; private receipt: " + leaseReceiptPath);
 			}
 		if (command == "reboot")
@@ -260,7 +279,11 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 				await lease!.VerifyAfterReconnectAsync (host, cancellation.Token);
 				mutationStopped = true;
 				}
-			Console.WriteLine (JsonSerializer.Serialize (new { reboot.Status, StartupVerified = reboot.Status == ProcessorRebootStatus.Accepted && mutationStopped }, jsonOptions));
+			Console.WriteLine (JsonSerializer.Serialize (new
+				{
+				reboot.Status,
+				StartupVerified = reboot.Status == ProcessorRebootStatus.Accepted && mutationStopped
+				}, jsonOptions));
 			Console.Error.WriteLine (reboot.Status switch
 				{
 					ProcessorRebootStatus.Cancelled => "Reboot cancelled; no command was sent.",
@@ -295,6 +318,18 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 				Console.Error.WriteLine ("Installing, updating or verifying the configured driver instance; waiting for its requested version to load.");
 				mutationSubmitted = true;
 				result = await DriverInstanceLifecycle.EnsureAsync (client, driverId!, Required ("name"), roomId, existingId, timeout, cancellation.Token);
+				break;
+			case "locations":
+				result = await client.GetLocationsAsync (cancellation.Token);
+				break;
+			case "move":
+				if (!int.TryParse (Required ("from-room"), out var fromRoom) || fromRoom <= 0
+					|| !int.TryParse (Required ("room"), out var toRoom) || toRoom <= 0)
+					throw new ArgumentException ("Room IDs must be positive integers.");
+				var moveModel = Required ("model");
+				var moveVersion = Required ("version");
+				mutationSubmitted = true;
+				result = await client.MoveDriverInstanceAsync (deviceId, moveModel, moveVersion, fromRoom, toRoom, timeout, cancellation.Token);
 				break;
 			case "remove":
 				mutationSubmitted = true;
@@ -395,9 +430,15 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 				{
 				using var cleanup = new CancellationTokenSource (TimeSpan.FromSeconds (20));
 				await lease.ReleaseAsync (cleanup.Token);
-				if (leaseReceiptPath != null) await File.WriteAllTextAsync (leaseReceiptPath, JsonSerializer.Serialize (new { Owner = lease.Owner, State = "Released" }));
+				if (leaseReceiptPath != null)
+					await File.WriteAllTextAsync (leaseReceiptPath, JsonSerializer.Serialize (new
+						{
+						Owner = lease.Owner,
+						State = "Released"
+						}));
 				}
-			else if (lease != null) Console.Error.WriteLine ("Processor lease retained: submitted operation or reboot startup has not been confirmed stopped. Inspect the private receipt and processor before releasing it.");
+			else if (lease != null)
+				Console.Error.WriteLine ("Processor lease retained: submitted operation or reboot startup has not been confirmed stopped. Inspect the private receipt and processor before releasing it.");
 			}
 		catch { throw new IOException ("Processor lease release could not be confirmed; inspect the private receipt before another operation."); }
 		finally { lease?.Dispose (); Console.CancelKeyPress -= cancelHandler; }

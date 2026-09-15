@@ -6,10 +6,8 @@ Push-Location $root
 try {
     $release = Join-Path $root 'artifacts/release'
     if (Test-Path $release) { throw 'Use fresh release staging.' }
-    dotnet test CrestronHomeDevTools.slnx -c Release --logger 'trx;LogFileName=release.trx' --results-directory artifacts/tests
-    if ($LASTEXITCODE -ne 0) { throw 'Tests failed.' }
-    [xml]$results = Get-Content artifacts/tests/release.trx -Raw
-    if ([int]$results.TestRun.ResultSummary.Counters.passed -ne 191 -or [int]$results.TestRun.ResultSummary.Counters.total -ne 191) { throw 'Expected 191 passing tests.' }
+    & ./tools/Test-DiscoveredCoverageGuards.ps1
+    & ./tools/Test-DiscoveredCoverage.ps1 -Configuration Release -ResultsDirectory artifacts/tests
     dotnet pack CrestronHomeDevTools/CrestronHomeDevTools.csproj -c Release --no-build -o $release
     if ($LASTEXITCODE -ne 0) { throw 'Library pack failed.' }
     $console = Join-Path $root ('artifacts/console-' + [Guid]::NewGuid().ToString('N'))
@@ -28,7 +26,7 @@ try {
         $zip = [IO.Compression.ZipFile]::OpenRead($file.FullName)
         try {
             if (@($zip.Entries | Where-Object FullName -Match '(?i)(\.profile$|\.local\.json$|LiveTestSettings\.json$|\.csproj\.user$|\.Local\.targets$|\.pfx$|(^|/)(TestResults|obj|bin)/)').Count) { throw "Private file in $($file.Name)." }
-            foreach ($required in @('README.md','LICENSE','CHANGELOG.md','RELEASE-NOTES.md','THIRD-PARTY-NOTICES.md','docs/ProtocolReference.md','docs/DriverConfiguration.md')) {
+            foreach ($required in @('README.md','LICENSE','CHANGELOG.md','RELEASE-NOTES.md','THIRD-PARTY-NOTICES.md','docs/ProtocolReference.md','docs/DriverConfiguration.md','docs/RoomMoves.md')) {
                 if (-not ($zip.Entries | Where-Object FullName -EQ $required)) { throw "Missing $required in $($file.Name)." }
             }
             if ($file.Extension -eq '.nupkg') {
