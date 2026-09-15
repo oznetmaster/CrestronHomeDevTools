@@ -320,6 +320,23 @@ The tested automated path is for a package that can be commissioned successfully
 
 Other commissioning outcomes, missing IDs or dropped responses require inspection before another attempt. DevTools does not automatically answer arbitrary commissioning forms. Initial Entity V2 test-host installation, removal and subsequent reinstallation have hardware evidence. The optional V1 reboot-after-install path has simulated coverage only; a swap reboot flag does not establish initial-install behavior.
 
+### Configure a newly installed Entity V2 driver
+
+Installation and configuration are separate. A newly installed driver can report `Loaded` and `isConfigured: false` while its normal `configurationItems` list is empty. Its initial wizard may still be required.
+
+The following command shapes were inspected in Configure Pro. The two-step Wiser Heat Gateway wizard was exercised on an MC4-R running Home 4.11.322. Call them on the verified new driver instance, under the same processor lease used for installation:
+
+| Command | Parameters | Result |
+|---|---|---|
+| `cp.driverConfiguration:getFirstConfigurationStep` | `{"isReconfiguring":false}` | Step object or null |
+| `cp.driverConfiguration:applyConfigurationStep` | `{"stepId":"Connection","configurationItemValues":{"_Host_":"192.0.2.10","HubSecret":"REPLACE_LOCALLY"},"isReconfiguring":false}` | Next step, a step containing validation errors, or null on completion |
+
+A step exposes `Id`, `ConfigurationErrors` and `Items`. Each item has an `Id` and `Value` metadata including `ReadOnly`. Submitted values are strings, including numeric and Boolean choices. Supply an explicit ordered plan, validate each advertised step and writable item, and stop on validation errors, repeated/unexpected steps or transport uncertainty. Null after the final planned step confirms wizard completion; verify `isConfigured`, online and ready state separately.
+
+Do not assume that omitted values accept the UI defaults. Wiser's HeatSettings step failed with an empty values dictionary and succeeded when its displayed choices were supplied explicitly. The full unattended workflow subsequently passed local and processor tests, initial installation, both configuration steps and installed-driver health checks. No heating controls were operated.
+
+`cp.driverConfiguration:applyConfiguration` uses `{"configurationItemValues":{"SettingId":"value"},"isoCulture":"en-GB"}` and returns configuration errors or null/empty success. That shape was inspected in Configure Pro; the hardware evidence above uses the step-based wizard. These commands are available through `ExecuteDeviceCommandAsync`; the released typed lifecycle helper does not automatically configure a driver. The NUnit workflow in version 1.2.1 supports private initial-configuration files and preserves already configured instances. Keep settings and raw error responses private, since they can contain credentials.
+
 ### Existing instance and Entity V2 update
 
 Validate the target's ID, model, name, location and installed version. If it is already at the requested version, confirm Loaded state. If it is older, obtain and review update eligibility, then recheck it immediately before `beginSwapDriverForAllEligibleDevices`.
