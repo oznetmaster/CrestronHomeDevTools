@@ -2,15 +2,16 @@
 
 An independent .NET 10 library, interactive console and automation CLI for Crestron Home configuration management. Discover processors, inspect installed devices, deploy driver packages, install or update Entity V2 driver instances, and verify their loaded versions without operating Configure Pro.
 
-**Version 1.1.0.** The configuration-management interface is unofficial and firmware-dependent, [documented here from verified behavior](docs/ProtocolReference.md). This is not an official Crestron API SDK. The library has no dependency on Crestron SDK assemblies, proprietary client binaries or NUnit.
+The configuration-management interface is unofficial and firmware-dependent, [documented here from verified behavior](docs/ProtocolReference.md). This is not an official Crestron API SDK. The library has no dependency on Crestron SDK assemblies, proprietary client binaries or NUnit.
 
-Version 1.1.0 adds shared processor reservations, coordinated build deployment, reboot startup verification and read-only stored-package inspection; see [processor coordination and storage](docs/ProcessorCoordination.md).
+This source includes initial driver configuration and read-only inspection of current settings. See [driver configuration](docs/DriverConfiguration.md) for the commands, private input format, masking rules and library API. Shared processor reservations continue to coordinate development operations.
 
 ## Contents
 
 - [What is included](#what-is-included)
 - [Get started](#get-started)
 - [Library example](#library-example)
+- [Driver configuration](docs/DriverConfiguration.md)
 - [Deployment and tests](#deployment-and-tests)
 - [Documentation](#documentation)
 - [Build and validate](#build-and-validate)

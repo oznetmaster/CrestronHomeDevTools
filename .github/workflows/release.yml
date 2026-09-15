@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Committed release version (major.minor.patch)
+        description: New release version (major.minor.patch)
         required: true
         type: string
 permissions:
@@ -36,11 +36,29 @@ jobs:
           if ($env:GITHUB_REF -ne 'refs/heads/main') { throw 'Release from main.' }
           if ($env:RELEASE_VERSION -notmatch '^\d+\.\d+\.\d+$') { throw 'Use major.minor.patch.' }
           [xml]$props = Get-Content Directory.Build.props -Raw
-          if ($props.Project.PropertyGroup.Version -ne $env:RELEASE_VERSION) { throw 'Commit the intended version first.' }
+          if ([version]$env:RELEASE_VERSION -le [version]$props.Project.PropertyGroup.Version) { throw 'Select a new release version.' }
           $existingTag = git tag --list "v$env:RELEASE_VERSION"
           if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect release tags.' }
           if ($existingTag) { throw 'Release tag already exists.' }
           if (-not '${{ vars.NUGET_USER }}') { throw 'Configure NUGET_USER and NuGet Trusted Publishing first.' }
+      - name: Prepare version and release changelog locally
+        run: |
+          $propsPath = Join-Path $PWD 'Directory.Build.props'
+          $propsText = [IO.File]::ReadAllText($propsPath)
+          [IO.File]::WriteAllText($propsPath, [regex]::Replace($propsText, '<Version>[^<]+</Version>', "<Version>$env:RELEASE_VERSION</Version>"))
+          $changelog = Join-Path $PWD 'CHANGELOG.md'
+          $existing = [IO.File]::ReadAllText($changelog)
+          $notes = [IO.File]::ReadAllText((Join-Path $PWD 'RELEASE-NOTES.md'))
+          if (-not $notes.StartsWith("# CrestronHomeDevTools $env:RELEASE_VERSION")) { throw 'Release notes version mismatch.' }
+          $body = $notes.Substring($notes.IndexOf("`n") + 1).Trim()
+          $entry = "## $env:RELEASE_VERSION - $([DateTime]::UtcNow.ToString('yyyy-MM-dd'))`n`n$body`n`n"
+          $firstBreak = $existing.IndexOf("`n")
+          [IO.File]::WriteAllText($changelog, $existing.Substring(0, $firstBreak + 1) + "`n" + $entry + $existing.Substring($firstBreak + 1).TrimStart())
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add Directory.Build.props CHANGELOG.md
+          git commit -m "Release CrestronHomeDevTools $env:RELEASE_VERSION"
+          if ($LASTEXITCODE -ne 0) { throw 'Release preparation failed.' }
       - name: Build and validate release
         run: ./tools/BuildRelease.ps1 -Version $env:RELEASE_VERSION
       - uses: actions/upload-artifact@v4
@@ -67,7 +85,7 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git tag -a "v$env:RELEASE_VERSION" -m "CrestronHomeDevTools v$env:RELEASE_VERSION"
           if ($LASTEXITCODE -ne 0) { throw 'Tag creation failed.' }
-          git push origin "refs/tags/v$env:RELEASE_VERSION"
+          git push --atomic origin HEAD:refs/heads/main "refs/tags/v$env:RELEASE_VERSION"
           if ($LASTEXITCODE -ne 0) { throw 'Tag push failed.' }
           $assets = @(Get-ChildItem artifacts/release -File | Select-Object -ExpandProperty FullName)
           gh release create "v$env:RELEASE_VERSION" @assets --verify-tag --title "CrestronHomeDevTools v$env:RELEASE_VERSION" --notes-file RELEASE-NOTES.md

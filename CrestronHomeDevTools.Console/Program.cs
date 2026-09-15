@@ -59,6 +59,8 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
               drivers [--search text]  List available driver packages and their catalogue IDs.
               stored-packages          Inspect retained packages and matching device references.
               devices                  List installed devices, their IDs, names and room IDs.
+              driver-configuration --device ID
+                                       Show current settings; honour driver-defined masking.
               eligibility --driver ID  Show installed devices eligible for that driver update.
               reload-scope --device ID Show devices associated with a proposed driver reload.
 
@@ -80,6 +82,9 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
               activate --driver ID --name NAME --room ID [--device ID]
                                        Install if absent, upgrade if older, or verify loaded.
                                        Waits for update readiness; refuses ambiguous targets.
+              configure-driver --device ID --model NAME --version VERSION --input FILE
+                                       Apply private initial settings or ordered wizard steps.
+                                       Verify configured state; preserve existing configuration.
               remove --device ID --model NAME --version VERSION
                                        Remove a matching instance and verify it disappeared.
                                        Refuses reboot requirements or other affected devices.
@@ -133,11 +138,13 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 			{
 				"configure" or "discover" => Array.Empty<string> (),
 				"drivers" => ["search"],
+				"driver-configuration" => ["device"],
 				"devices" or "refresh" or "stored-packages" => [],
 				"reboot" => ["confirm-reboot"],
 				"deploy" => ["package"],
 				"activate" => ["driver", "name", "room", "device"],
 				"remove" => ["device", "model", "version"],
+				"configure-driver" => ["device", "model", "version", "input"],
 				"eligibility" => ["driver"],
 				"plan-update" => ["driver", "output"],
 				"update" => ["plan"],
@@ -165,10 +172,18 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 			}
 		string? driverId = command is "eligibility" or "plan-update" or "activate" ? Required ("driver") : null;
 		var deviceId = 0;
-		if (command is "reload" or "reload-scope" or "remove")
+		if (command is "reload" or "reload-scope" or "remove" or "configure-driver" or "driver-configuration")
 			{
 			if (!int.TryParse (Required ("device"), out deviceId) || deviceId <= 0)
 				throw new ArgumentException ("Device ID must be a positive integer.");
+			}
+		DriverConfiguration.Inputs? configurationInputs = null;
+		DriverInstanceReady? configurationTarget = null;
+		if (command == "configure-driver")
+			{
+			configurationInputs = DriverConfiguration.ReadInputs (Required ("input"));
+			configurationTarget = new (deviceId, Required ("model"), Required ("version"), "Configure");
+			if (!Version.TryParse (configurationTarget.Version, out _)) throw new ArgumentException ("Expected driver version is invalid.");
 			}
 		var jsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true, WriteIndented = true };
 		if (command == "discover")
@@ -215,7 +230,7 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 			WebSocketPort = settings.WebSocketPort,
 			CertificateSha256 = Setting ("CRESTRON_HOME_CERT_SHA256", settings.CertificateSha256)
 			};
-		if (command is "reboot" or "activate" or "remove" or "deploy" or "refresh" or "reload" or "update")
+		if (command is "reboot" or "activate" or "remove" or "deploy" or "refresh" or "reload" or "update" or "configure-driver")
 			{
 			var leaseFingerprint = Setting ("CRESTRON_HOME_SSH_FINGERPRINT", settings.SshFingerprint)
 				?? throw new ArgumentException ("Processor mutations require a verified SSH fingerprint for the shared lease. Run configure first.");
@@ -259,6 +274,14 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 		string? operationId = null;
 		switch (command)
 			{
+			case "driver-configuration":
+				result = await DriverConfigurationInspection.GetAsync (client, deviceId, cancellation.Token);
+				break;
+			case "configure-driver":
+				Console.Error.WriteLine ("Applying private initial configuration to the matching driver; waiting for configured state.");
+				mutationSubmitted = true;
+				result = await DriverConfiguration.ConfigureAsync (client, configurationTarget!, configurationInputs!, timeout, cancellation.Token);
+				break;
 			case "activate":
 				if (!int.TryParse (Required ("room"), out var roomId) || roomId <= 0)
 					throw new ArgumentException ("Room ID must be a positive integer.");
