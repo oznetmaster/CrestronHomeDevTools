@@ -1,0 +1,62 @@
+# Copyright (c) 2026 Neil Colvin.
+# Licensed under the MIT License. See LICENSE in the repository root.
+# Copy only into a private trusted orchestration repository. Source template,
+# not an enabled workflow. Replace the tooling commit before use.
+name: Prepare unsigned Crestron submission review
+on:
+  workflow_call:
+    inputs:
+      enabled:
+        type: boolean
+        required: true
+      artifact_kind:
+        type: string
+        required: true
+      source_commit:
+        type: string
+        required: true
+      candidate_sha256:
+        type: string
+        required: true
+      inventory_sha256:
+        type: string
+        required: true
+      mapping_sha256:
+        type: string
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: crestron-submission-review
+  cancel-in-progress: false
+jobs:
+  prepare-review:
+    if: ${{ inputs.enabled && (github.event_name == 'workflow_dispatch' || github.event_name == 'release') }}
+    runs-on: [self-hosted, Windows, crestron-submission-review]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: oznetmaster/CrestronHomeDevTools
+          ref: REPLACE_WITH_AUDITED_FULL_TOOLING_COMMIT
+          persist-credentials: false
+      - name: Build the pinned offline validator
+        shell: pwsh
+        run: dotnet build CrestronHomeDevTools.Console/CrestronHomeDevTools.Console.csproj -c Release
+      - name: Prepare private unsigned review
+        shell: pwsh
+        env:
+          REVIEW_KIND: ${{ inputs.artifact_kind }}
+          REVIEW_SOURCE: ${{ inputs.source_commit }}
+          REVIEW_CANDIDATE: ${{ inputs.candidate_sha256 }}
+          REVIEW_INVENTORY: ${{ inputs.inventory_sha256 }}
+          REVIEW_MAPPING: ${{ inputs.mapping_sha256 }}
+        run: |
+          if (-not $env:CRESTRON_SUBMISSION_REVIEW_SETTINGS) { throw 'Private review settings are not configured.' }
+          $settings = Get-Content -LiteralPath $env:CRESTRON_SUBMISSION_REVIEW_SETTINGS -Raw | ConvertFrom-Json
+          $expectedValidator = Join-Path $PWD 'CrestronHomeDevTools.Console/bin/Release/net10.0/CrestronHomeDevTools.Console.dll'
+          if ((Resolve-Path -LiteralPath $settings.validator).Path -ne (Resolve-Path -LiteralPath $expectedValidator).Path) { throw 'Private settings must select the validator built from the pinned tooling checkout.' }
+          if ((Resolve-Path -LiteralPath $settings.dotnet).Path -ne (Get-Command dotnet).Source) { throw 'Private settings must select the build runtime.' }
+          python tools/submission/prepare_review.py --settings "$env:CRESTRON_SUBMISSION_REVIEW_SETTINGS" --artifact-kind "$env:REVIEW_KIND" --source-commit "$env:REVIEW_SOURCE" --candidate-sha256 "$env:REVIEW_CANDIDATE" --inventory-sha256 "$env:REVIEW_INVENTORY" --mapping-sha256 "$env:REVIEW_MAPPING"
+          if ($LASTEXITCODE -ne 0) { throw 'Unsigned review preparation failed; no submission was sent.' }
+          'Unsigned review prepared privately. Signing and delivery remain pending.' >> $env:GITHUB_STEP_SUMMARY
