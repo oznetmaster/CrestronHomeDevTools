@@ -19,6 +19,7 @@ Reviewed V1 removal can preserve other instances sharing the same driver code ac
 - [Moving drivers between rooms](docs/RoomMoves.md)
 - [Deployment and tests](#deployment-and-tests)
 - [Automated Crestron submission plan and progress](docs/CrestronSubmission.md)
+- [Submission delivery journal and reconciliation](docs/submission/DeliveryJournal.md) (source development; no uploader or sender configured)
 - [Documentation](#documentation)
 - [Build and validate](#build-and-validate)
 - [Privacy and compatibility](#privacy-and-compatibility)
