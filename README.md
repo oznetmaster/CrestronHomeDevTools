@@ -44,7 +44,7 @@ The two target values must match; credentials and verified SSH trust still come 
 
 ## Get started
 
-Source development includes offline package/evidence checks and [help generation with opt-in package build hooks](docs/submission/HelpBuild.md). These do not send a submission or establish self-test completion. See the [submission plan and validation limits](docs/CrestronSubmission.md). These additions are not part of the currently published 1.4.0 binaries.
+Source development includes offline package/evidence checks, [help generation with opt-in package build hooks](docs/submission/HelpBuild.md), and [unsigned self-test form generation](docs/submission/FormGeneration.md). These do not send a submission or establish self-test completion. See the [submission plan and validation limits](docs/CrestronSubmission.md). These additions are not part of the currently published 1.4.0 binaries.
 
 Install the library with `dotnet add package CrestronHomeDevTools --version 1.2.0`. Download the self-contained Windows x64 console from [GitHub Releases](https://github.com/oznetmaster/CrestronHomeDevTools/releases/latest), extract the complete ZIP, and run `CrestronHomeDevTools.Console.exe`. Its first run opens processor/profile setup; `--help` lists commands.
 

@@ -14,4 +14,6 @@ NUnit and test tooling are not dependencies of the configuration runtime library
 
 Processor discovery was adapted from Neil Colvin's MIT-licensed Crestron Home NUnit project. DevTools has no runtime dependency on that project.
 
+The source-only submission document tools install lxml, Pillow, pypdf and ReportLab through `tools/submission/requirements.txt`. Those packages retain their own copyright and license notices; they are not dependencies of the published configuration runtime library. [ReportLab 4.4.9](https://pypi.org/project/reportlab/4.4.9/) is BSD licensed and generates the self-test companion pages. Official Crestron help/form templates are supplied separately and retain Crestron's rights; none is included in this source repository.
+
 No Crestron SDK assembly, `Newtonsoft.Json.Compact.dll`, Configure Pro binary, decompiled source or captured configuration traffic is distributed by this project. Crestron and Crestron Home are trademarks or registered trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc. Its MIT license does not relicense Crestron's software or documentation.

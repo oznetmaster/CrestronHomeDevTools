@@ -25,5 +25,7 @@ jobs:
           cache-dependency-path: tools/submission/requirements.txt
       - name: Install document dependencies
         run: python -m pip install -r tools/submission/requirements.txt
+      - name: Build offline submission validator
+        run: dotnet build CrestronHomeDevTools.Console/CrestronHomeDevTools.Console.csproj -c Release
       - name: Run all discovered offline document tests
         run: python tools/submission/run_tests.py
