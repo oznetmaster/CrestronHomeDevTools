@@ -58,6 +58,12 @@ elif sys.argv[1] == 'pack':
             package.writestr(name + '.pdf', b'wrong help')
         else:
             package.write(root / 'patched/IncludeInPkg' / (name + '.pdf'), name + '.pdf')
+        notice = root / 'patched/IncludeInPkg/THIRD-PARTY-NOTICES.txt'
+        if notice.exists():
+            if (root.parent / 'corrupt-notices').exists():
+                package.writestr(notice.name, b'changed notices')
+            else:
+                package.write(notice, notice.name)
 else:
     source = Path(sys.argv[-1])
     with ZipFile(source) as archive:
@@ -104,6 +110,26 @@ else:
         return subprocess.run([self.dotnet, "msbuild", str(self.project), "-t:Build", "-nologo", "-v:minimal", "-nr:false", *properties],
                               cwd=self.root, env=env, capture_output=True, text=True, timeout=60,
                               creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
+
+    def test_dependency_notices_follow_real_msbuild_packaging_and_reject_corruption(self):
+        import test_dependency_notices
+        dependency = test_dependency_notices.DependencyNoticeTests()
+        dependency.setUp()
+        self.addCleanup(dependency.doCleanups)
+        binary = self.root / "bin"
+        binary.mkdir(exist_ok=True)
+        (binary / "merge_inputs.txt").write_bytes(dependency.inputs.read_bytes())
+        properties = ("-p:SubmissionDependencyNotices=" + str(dependency.manifest),
+                      "-p:TargetPath=" + str(dependency.driver))
+        result = self.run_build(*properties)
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        reports = list((self.root / "obj/submission-help").glob("*/packaged-notices.json"))
+        self.assertEqual(1, len(reports))
+        self.assertTrue(json.loads(reports[0].read_text())["packagedNoticesVerified"])
+        (self.root / "corrupt-notices").write_text("synthetic corruption")
+        result = self.run_build(*properties)
+        self.assertNotEqual(0, result.returncode)
+        self.assertEqual(1, len(list((self.root / "obj/submission-help").glob("*/packaged-notices.json"))))
 
     def test_real_msbuild_prepares_then_stages_after_assets_and_verifies_packaged_bytes(self):
         for attempt in range(2):

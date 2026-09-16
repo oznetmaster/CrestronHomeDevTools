@@ -67,6 +67,7 @@ Keep the DOCX, PDF, `help-receipt.json`, `package-paths.json` and `packaged-help
 | `SubmissionHelpTemplateSha256` | Reviewed template digest |
 | `SubmissionHelpContent` | Driver's public content JSON; supplied by the driver project |
 | `SubmissionDeveloperToken` | Approved developer filename component |
+| `SubmissionDependencyNotices` | Optional reviewed merge inventory; Wiser supplies it. See [dependency notices](DependencyNotices.md). |
 | `SubmissionSupportEmail` / `SubmissionSupportWebsite` | Approved public contact; supply one or both. Wiser uses only its GitHub website. Website support requires source newer than 1.5.0. |
 
 Paths are build-local settings, not values to commit to a driver repository. Use explicit arguments, environment-backed properties or a privately excluded local targets file. `BuildForTests=true` and design-time builds skip the integration. A submission build must not automatically deploy before its package checks complete.

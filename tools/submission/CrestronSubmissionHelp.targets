@@ -5,13 +5,16 @@ Licensed under the MIT License. See LICENSE in the repository root.
 <Project>
   <PropertyGroup>
     <SubmissionHelpTargetsImported>true</SubmissionHelpTargetsImported>
+    <SubmissionDependencyNoticesSupported>true</SubmissionDependencyNoticesSupported>
     <_SubmissionHelpScript>$(MSBuildThisFileDirectory)package_help.py</_SubmissionHelpScript>
     <_SubmissionNormalizeScript>$(MSBuildThisFileDirectory)normalize_package.py</_SubmissionNormalizeScript>
+    <_SubmissionNoticesScript>$(MSBuildThisFileDirectory)dependency_notices.py</_SubmissionNoticesScript>
   </PropertyGroup>
   <PropertyGroup Condition="'$(CrestronSubmission)' == 'true' And '$(BuildForTests)' != 'true' And '$(DesignTimeBuild)' != 'true'">
     <!-- Evaluation gives this project invocation its own directory; no stale receipt is reused. -->
     <_SubmissionHelpWork>$([System.IO.Path]::GetFullPath($([System.IO.Path]::Combine('$(MSBuildProjectDirectory)', '$(BaseIntermediateOutputPath)', 'submission-help', '$([System.Guid]::NewGuid().ToString())'))))</_SubmissionHelpWork>
     <_SubmissionHelpReceipt>$(_SubmissionHelpWork)/help-receipt.json</_SubmissionHelpReceipt>
+    <_SubmissionNoticesReceipt>$(_SubmissionHelpWork)/notices-receipt.json</_SubmissionNoticesReceipt>
     <MergeDependenciesContinueOnError>false</MergeDependenciesContinueOnError>
     <PackageDriverContinueOnError>false</PackageDriverContinueOnError>
     <PackageDriverIgnoreExitCode>false</PackageDriverIgnoreExitCode>
@@ -24,6 +27,7 @@ Licensed under the MIT License. See LICENSE in the repository root.
     <Error Condition="!Exists('$(SubmissionHelpTemplate)') Or '$(SubmissionHelpTemplateSha256)' == ''" Text="Provide the pinned official help template and its SHA-256." />
     <Error Condition="!Exists('$(SubmissionHelpContent)') Or !Exists('$(DriverManifestFile)')" Text="Provide the public help content and driver manifest." />
     <Error Condition="'$(SubmissionDeveloperToken)' == '' Or ('$(SubmissionSupportEmail)' == '' And '$(SubmissionSupportWebsite)' == '')" Text="Provide the approved public developer token and at least one support email or website." />
+    <Error Condition="'$(SubmissionDependencyNotices)' != '' And !Exists('$(SubmissionDependencyNotices)')" Text="Provide the reviewed dependency-notice inventory." />
   </Target>
 
   <!-- Drivers call validation before their version bump and prepare before CoreCompile. -->
@@ -35,11 +39,13 @@ Licensed under the MIT License. See LICENSE in the repository root.
   <Target Name="StageSubmissionHelp" DependsOnTargets="PrepareSubmissionHelp" Condition="'$(CrestronSubmission)' == 'true' And '$(BuildForTests)' != 'true' And '$(DesignTimeBuild)' != 'true'">
     <Exec Command="&quot;$(SubmissionPython)&quot; &quot;$(_SubmissionHelpScript)&quot; stage --manifest &quot;$(DriverManifestFile)&quot; --content &quot;$(SubmissionHelpContent)&quot; --assembly &quot;$(AssemblyName)&quot; --receipt &quot;$(_SubmissionHelpReceipt)&quot; --include-directory &quot;$(TargetDir)patched/IncludeInPkg&quot;" />
     <Delete Files="$(TargetDir)$(AssemblyName).pkg" />
+    <Exec Condition="'$(SubmissionDependencyNotices)' != ''" Command="&quot;$(SubmissionPython)&quot; &quot;$(_SubmissionNoticesScript)&quot; stage --manifest &quot;$(SubmissionDependencyNotices)&quot; --merge-inputs &quot;$(TargetDir)merge_inputs.txt&quot; --driver-assembly &quot;$(TargetPath)&quot; --include-directory &quot;$(TargetDir)patched/IncludeInPkg&quot; --receipt &quot;$(_SubmissionNoticesReceipt)&quot;" />
   </Target>
 
   <!-- Call only AFTER ManifestUtil succeeds. The receipt stays in obj, outside the PKG. -->
   <Target Name="VerifySubmissionHelp" Condition="'$(CrestronSubmission)' == 'true' And '$(BuildForTests)' != 'true' And '$(DesignTimeBuild)' != 'true'">
     <Exec Command="&quot;$(SubmissionPython)&quot; &quot;$(_SubmissionNormalizeScript)&quot; --package &quot;$(TargetDir)$(AssemblyName).pkg&quot; --report &quot;$(_SubmissionHelpWork)/package-paths.json&quot;" />
+    <Exec Condition="'$(SubmissionDependencyNotices)' != ''" Command="&quot;$(SubmissionPython)&quot; &quot;$(_SubmissionNoticesScript)&quot; verify --manifest &quot;$(SubmissionDependencyNotices)&quot; --merge-inputs &quot;$(TargetDir)merge_inputs.txt&quot; --driver-assembly &quot;$(TargetPath)&quot; --receipt &quot;$(_SubmissionNoticesReceipt)&quot; --package &quot;$(TargetDir)$(AssemblyName).pkg&quot; --report &quot;$(_SubmissionHelpWork)/packaged-notices.json&quot;" />
     <Exec Command="&quot;$(SubmissionPython)&quot; &quot;$(_SubmissionHelpScript)&quot; verify --manifest &quot;$(DriverManifestFile)&quot; --content &quot;$(SubmissionHelpContent)&quot; --assembly &quot;$(AssemblyName)&quot; --receipt &quot;$(_SubmissionHelpReceipt)&quot; --package &quot;$(TargetDir)$(AssemblyName).pkg&quot; --report &quot;$(_SubmissionHelpWork)/packaged-help.json&quot;" />
     <Message Importance="high" Text="Submission help packaged and verified. Retain $(_SubmissionHelpWork) with the candidate build artifacts. Full submission validation remains required." />
   </Target>
