@@ -124,7 +124,11 @@ def compile_plan(plan_path, plan_sha256, inventory_path, inventory_sha256, sourc
                 hours, seconds = divmod(seconds, 3600)
                 minutes, seconds = divmod(seconds, 60)
                 duration = (str(days) + "." if days else "") + f"{hours:02}:{minutes:02}:{seconds:02}"
-                rules.append({"id": identifier, "minimumDuration": duration, "allowNotApplicable": check["method"] == "absence"})
+                rules.append({"id": identifier, "minimumDuration": duration, "allowNotApplicable": check["method"] == "absence",
+                              "execution": {"target": scope, "method": check["method"],
+                                            "requiredOutcome": "NotApplicable" if check["method"] == "absence" else "Passed",
+                                            "responseLimitSeconds": limit, "restore": check["restore"],
+                                            "maximumSampleGapSeconds": None}})
                 tasks.append({"observationId": identifier, "officialItem": row["id"], "target": scope,
                               "method": check["method"], "expectation": check["expectation"], "minimumSeconds": minimum,
                               "responseLimitSeconds": limit, "restore": check["restore"], "producer": None,

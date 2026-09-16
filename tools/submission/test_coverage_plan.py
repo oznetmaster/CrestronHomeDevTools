@@ -58,6 +58,18 @@ class CoveragePlanTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'source changed'):
             self.compile()
 
+    def test_executable_policy_retains_scope_timing_restoration_and_absence(self):
+        self.plan['requirements'][0]['checks'][0]['responseLimitSeconds'] = 2
+        policy, _, contract = self.compile()
+        for rule, task in zip(policy['requirements'], contract['tasks']):
+            execution = rule['execution']
+            self.assertEqual(task['target'], execution['target'])
+            self.assertEqual(task['method'], execution['method'])
+            self.assertEqual(task['responseLimitSeconds'], execution['responseLimitSeconds'])
+            self.assertEqual(task['restore'], execution['restore'])
+            self.assertEqual(task['requiredOutcome'], execution['requiredOutcome'])
+            self.assertIsNone(execution['maximumSampleGapSeconds'])
+
     def test_checkout_line_endings_do_not_change_coverage_source_identity(self):
         normalized = self.ui + b'\n'
         self.plan['sources'][0]['sha256'] = sha(normalized)

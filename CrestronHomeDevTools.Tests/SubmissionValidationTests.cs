@@ -84,6 +84,20 @@ public sealed class SubmissionValidationTests
 		}
 
 	[Test]
+	public void CombinedFileGateEnforcesExecutionRequirementsFromPinnedPolicy ()
+		{
+		Write ("policy.json", new SubmissionEvidencePolicy (1, [new ("ui.navigation", TimeSpan.Zero, Execution:
+			new ("home/tile", "android", SubmissionEvidenceOutcome.Passed, null, false))]));
+		RebindIdentity (_candidate.Identity with { PolicySha256 = Digest ("policy.json") });
+		var missing = Check ();
+		Assert.That (missing.ValidationChecksPassed, Is.False);
+		Assert.That (missing.Evidence!.Issues.Select (i => i.Code), Does.Contain ("execution-missing"));
+		_observations = _observations with { Observations = [_observations.Observations[0] with { Execution = new ("home/tile", "android") }] };
+		Write ("observations.json", _observations);
+		Assert.That (Check ().ValidationChecksPassed, Is.True);
+		}
+
+	[Test]
 	public void CorrectPackageDigestDoesNotBypassPackageStructure ()
 		{
 		using var package = SubmissionPackageTests.Package ("missingPdf");

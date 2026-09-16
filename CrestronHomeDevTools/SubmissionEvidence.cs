@@ -11,11 +11,13 @@ public enum SubmissionEvidenceOutcome
 	}
 
 public sealed record SubmissionEvidenceIdentity (string PackageSha256, string SourceCommit, string PolicySha256, string TemplateSha256);
-public sealed record SubmissionRequirement (string Id, TimeSpan MinimumDuration, bool AllowNotApplicable = false);
+public sealed record SubmissionRequirement (string Id, TimeSpan MinimumDuration, bool AllowNotApplicable = false,
+	SubmissionExecutionRequirements? Execution = null);
 public sealed record SubmissionEvidenceFile (string RelativePath, string Sha256);
 public sealed record SubmissionObservation (
 	string RequirementId, SubmissionEvidenceIdentity Identity, SubmissionEvidenceOutcome Outcome,
-	DateTimeOffset StartedUtc, DateTimeOffset FinishedUtc, IReadOnlyList<SubmissionEvidenceFile> Files, string Rationale = "");
+	DateTimeOffset StartedUtc, DateTimeOffset FinishedUtc, IReadOnlyList<SubmissionEvidenceFile> Files, string Rationale = "",
+	SubmissionExecutionObservation? Execution = null);
 public sealed record SubmissionEvidenceIssue (string RequirementId, string Code, string Message);
 public sealed record SubmissionEvidenceReport (IReadOnlyList<SubmissionEvidenceIssue> Issues)
 	{
@@ -55,6 +57,7 @@ public static class SubmissionEvidence
 		foreach (var requirement in requirements)
 			{
 			cancellationToken.ThrowIfCancellationRequested ();
+			SubmissionExecution.ValidatePolicy (requirement);
 			var matches = observations.Where (item => item.RequirementId == requirement.Id).ToArray ();
 			if (matches.Length == 0)
 				{
@@ -63,6 +66,7 @@ public static class SubmissionEvidence
 				}
 			foreach (var observation in matches)
 				{
+				SubmissionExecution.Evaluate (requirement, observation, issues);
 				if (!ValidIdentity (observation.Identity) || !SameIdentity (candidate, observation.Identity))
 					Issue (requirement.Id, "identity-mismatch", "Evidence belongs to another package, source commit, policy or official form revision.");
 				if (observation.StartedUtc == default || observation.FinishedUtc < observation.StartedUtc || observation.FinishedUtc > now)
