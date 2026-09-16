@@ -44,7 +44,7 @@ Website-only support requires the updated source validator after 1.5.0. The exis
     "driverId": "DRIVER_GUID",
     "driverVersion": "1.0.000.0000",
     "kind": "NewDriver",
-    "developerFilenameToken": "NeilColvin",
+    "developerFilenameToken": "ExampleDeveloper",
     "publicSupportWebsite": "https://example.org/driver-support"
   }
 }

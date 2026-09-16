@@ -30,14 +30,14 @@ Generation exit 0 means draft generation succeeded, never that the driver passed
 
 The top-level fields are `schemaVersion: 1`, `status: "draft"`, the exact `inventorySha256`, `sourceHashMode: "line-endings-lf"`, a descriptive `driver`, `sources` and `requirements`. Unexpected fields are rejected. Each source has a checkout-relative `path`, its `sha256` and a `surface`: a short UI name such as `platform`/`room`, or null for behavior/configuration/localization source. Source digests normalize CRLF to LF so Git checkout line-ending conversion does not require a new coverage review; other bytes remain significant. These are coverage-source identities, not exact compiled-artifact hashes. Package/candidate/policy pins still identify exact bytes. Include all files relevant to the planned behavior. Source hashes must match before compilation; review a new snapshot when they change.
 
-For each UI source, the generator inventories the tile, named layouts, controls with IDs and button groups. Examples are `room/tile`, `room/layout/MainPage`, `room/MainPage/BoostButton` and `room/EditSchedulePage/buttongroup-1`. Repeated IDs, duplicate surfaces and unsupported unidentified elements are rejected. Each discovered target must appear in at least one planned check. This coverage condition detects omitted targets; it does not prove all of their behavior has been tested. Runtime-generated dialogs and conditional controls must also be explicitly covered by the plan and observed producer inventory.
+For each UI source, the generator inventories the tile, named layouts, controls with IDs and button groups. Illustrative targets are `device/tile`, `device/layout/MainPage`, `device/MainPage/ActionButton` and `device/DetailsPage/buttongroup-1`; use the actual surface/layout/control IDs declared by the consuming driver. Repeated IDs, duplicate surfaces and unsupported unidentified elements are rejected. Each discovered target must appear in at least one planned check. This coverage condition detects omitted targets; it does not prove all of their behavior has been tested. Runtime-generated dialogs and conditional controls must also be explicitly covered by the plan and observed producer inventory.
 
 Each official item has its inventory `id` and a nonempty `checks` list. A check contains:
 
 | Field | Meaning |
 | --- | --- |
 | `id` | Stable lowercase name for this subcondition. |
-| `targets` | Distinct explicit UI targets, or abstract context targets beginning with `$`, such as `$config.hub-host` or `$network-outage`. Real device IDs, room assignments and credentials belong in private producer bindings. |
+| `targets` | Distinct explicit UI targets, or abstract context targets beginning with `$`, such as `$config.device-host` or `$network-outage`. Real device IDs, room assignments and credentials belong in private producer bindings. |
 | `method` | `android`, `configuration`, `combined`, `absence`, `outage` or `endurance`; a declaration of required evidence, not an implementation. |
 | `expectation` | Concrete behavior the producer must assert, including affected devices, conditional variants and restoration scope. |
 | `minimumSeconds` | Nonnegative duration. Generated policy preserves the official inventory floor, including the 24-hour requirement. |
