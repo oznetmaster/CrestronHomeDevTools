@@ -45,7 +45,7 @@ Website-only support requires the updated source validator after 1.5.0. The exis
     "driverVersion": "1.0.000.0000",
     "kind": "NewDriver",
     "developerFilenameToken": "NeilColvin",
-    "publicSupportWebsite": "https://github.com/oznetmaster/WiserHeatCrestronDriver"
+    "publicSupportWebsite": "https://example.org/driver-support"
   }
 }
 ```

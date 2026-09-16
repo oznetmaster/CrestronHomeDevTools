@@ -2,7 +2,7 @@
 
 `tools/submission/coverage_plan.py` expands a reviewed source snapshot and coverage blueprint into a draft evidence policy, a complete form mapping and scoped producer tasks. It does not execute tests, generate observations, approve the policy or fill a form. It is source tooling: use the matching tagged DevTools checkout. Python scripts are not embedded in the NuGet package or console ZIP.
 
-The first concrete blueprint is [Wiser's Extension plan](https://github.com/oznetmaster/WiserHeatCrestronDriver/blob/master/submission/extension-coverage-plan.json). It enumerates gateway and managed-room UI, configuration, timing, restoration, outage, endurance and two-instance checks. It is a planning artifact with unresolved execution bindings, not passed self-test evidence.
+Keep the concrete blueprint in the driver repository. Enumerate its UI, configuration, response timing, restoration, outage, endurance and multiple-instance checks. A planning artifact with unresolved execution bindings is not passed self-test evidence.
 
 ## Generate a draft
 
@@ -14,7 +14,7 @@ python tools/submission/coverage_plan.py --plan DRIVER/submission/extension-cove
 
 The uppercase values are placeholders. Review changes before updating pins; simply recalculating all digests after source changes does not establish coverage. A source snapshot is distinct from the final Release source-commit/package identity, which must also be pinned by trusted CI.
 
-The tracked official inventory JSON files and Wiser coverage blueprint use Git attributes that keep LF line endings on every platform. Their pins still hash exact bytes. Existing private drafts made from earlier CRLF inventory copies retain their old identities; regenerate a new draft with the reviewed LF inventory instead of editing an old report or reusing its digest.
+The tracked official inventory JSON files use Git attributes that keep LF line endings on every platform. Their pins still hash exact bytes. Existing private drafts made from earlier CRLF inventory copies retain their old identities; regenerate a new draft with the reviewed LF inventory instead of editing an old report or reusing its digest.
 
 The output contains:
 

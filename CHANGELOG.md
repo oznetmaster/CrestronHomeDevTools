@@ -10,7 +10,7 @@ Add reusable UI instance association and offline tools for preparing optional Cr
 - `SubmissionDelivery` provides a transport interface, durable delivery intent/receipts and explicit reconciliation. No built-in uploader, mail sender or CLI send command is included. Synthetic transport tests do not establish real delivery.
 - Source tools generate draft coverage policies, help from a supplied official template, unsigned self-test forms and a private review bundle. These Python scripts require the matching tagged checkout and pinned dependencies; they are not embedded in the NuGet package or console ZIP.
 
-Validation: all 377 offline .NET tests passed. A source-library pilot on a development V2 MC4-R observed a Wiser Debug gateway's temporary name in the minimized Android emulator, opened its page, and restored the name and Home screen. Inventory and observed Hot Water/Away labels were preserved, and both reservations were released. No physical control command was sent. The Python submission tooling's synthetic review checks also passed under the installed Windows runner service.
+Validation: all 377 offline .NET tests passed. A source-library pilot on a development V2 MC4-R observed a sample driver Debug gateway's temporary name in the minimized Android emulator, opened its page, and restored the name and Home screen. Inventory and observed control labels were preserved, and both reservations were released. No physical control command was sent. The Python submission tooling's synthetic review checks also passed under the installed Windows runner service.
 
 Exact Release-candidate UI validation, physical control coverage, Android operation under a service/logout, crash recovery, approved complete submission evidence, signing and real delivery remain pending. These tools do not certify a driver or imply Crestron acceptance.
 
@@ -27,7 +27,7 @@ Add opt-in removal of a V1 driver instance when other installed instances share 
 - After the authorized Home configuration reboot, verify disappearance of the selected instance and preservation of the other instances' identities, rooms, versions, configured state and reported configuration items.
 - Default removal remains restricted to a single instance. Unknown or expanded scope, lost responses and uncertain recovery do not trigger retries or automatic broader removal.
 
-Apple TV V1 initial installation and removal were verified on a development MC4-R. Startup verification was resumed after a timeout without repeating installation or reboot; subsequent removal and its configuration reboot preserved all original devices, removed the temporary instance and released the reservation. This does not establish pairing or playback behavior. No CP4-R validation was repeated for this change.
+V1 driver initial installation and removal were verified on a development MC4-R. Startup verification was resumed after a timeout without repeating installation or reboot; subsequent removal and its configuration reboot preserved all original devices, removed the temporary instance and released the reservation. This does not establish pairing or playback behavior. No CP4-R validation was repeated for this change.
 
 See [V1 installation and removal](docs/V1DriverRemoval.md), [compatibility](docs/Compatibility.md), [CHANGELOG.md](CHANGELOG.md) and [third-party notices](THIRD-PARTY-NOTICES.md). The standalone CLI's ordinary remove command remains reboot-free; advanced orchestration uses the library or NUnit workflow.
 
@@ -64,7 +64,7 @@ Add reusable initial-driver configuration and read-only inspection of current se
 - Already configured instances are preserved. Submitted settings are never retried after uncertain failure. The CLI holds the shared processor lease, retains uncertain outcomes and keeps values out of routine configuration diagnostics.
 - `DriverConfigurationInspection.GetAsync`, `DriverConfiguration.ReadInputs` and `DriverConfiguration.ConfigureAsync` expose the same behavior to other development tools.
 
-All 191 offline tests pass. MC4-R / Home 4.11.322 validation read installed Wiser settings, preserved the configured instance, and completed the two-step wizard on a separate temporary instance. Cleanup removed the temporary instance after explicit inspection of its shared reload scope and confirmed the original driver was ready with unchanged settings. No heating controls were operated.
+All 191 offline tests pass. MC4-R / Home 4.11.322 validation read installed sample driver settings, preserved the configured instance, and completed the two-step wizard on a separate temporary instance. Cleanup removed the temporary instance after explicit inspection of its shared reload scope and confirmed the original driver was ready with unchanged settings. No heating controls were operated.
 
 Install CrestronHomeDevTools 1.2.0 from NuGet, or extract the complete matching Windows console ZIP from GitHub. No Crestron SDK is required by this library or console.
 
@@ -74,7 +74,7 @@ Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are tra
 
 ## 1.1.0 — 2026-09-14
 
-- Support catalogue searches longer than three words by issuing bounded search batches and intersecting catalogue IDs. Fixes HTTP 422 when a workflow looks up models such as WeatherLink Live Weather Station.
+- Support catalogue searches longer than three words by issuing bounded search batches and intersecting catalogue IDs. Fixes HTTP 422 when a workflow looks up models such as Example Multi Word Device Model.
 
 - Coordinate console mutations with NUnit workflows, desktop runners and updated processor test hosts through the same processor-side lease. Verify owner contents, prevent release during active tests and retain uncertain outcomes for inspection.
 - Keep standalone reboot reservations through shutdown and authenticated Home startup instead of releasing at acknowledgement; use a bounded 600-second default startup wait.
@@ -82,7 +82,7 @@ Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are tra
 - Add read-only `stored-packages` inspection with manifest identities, storage sizes and conservative device/catalogue references. No package deletion is performed.
 - Document coordinated CI/build/manual development and the distinction between instance removal and retained packages. Link to the separately released NUnit Test Explorer adapter.
 
-- Validate 162 offline tests, cross-tool processor locking, active-test release refusal, reboot recovery, retained-package inspection and complete WeatherLink/Overkiz update workflows on MC4-R / Home 4.11.322.
+- Validate 162 offline tests, cross-tool processor locking, active-test release refusal, reboot recovery, retained-package inspection and complete representative Entity V2 update workflows on MC4-R / Home 4.11.322.
 
 ## 1.0.0 — 2026-09-14
 
@@ -119,7 +119,7 @@ Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are tra
 - Validate CP4-R / Home 4.11.322: authenticated inventory, temporary Entity V2 import/install/update/reuse/reload, one configuration reboot and recovery, 116 processor tests before and after restart, and removal/lease cleanup. Verify all seven existing driver instances retain their identities, room assignments and versions and are Loaded. Document per-model limits; CP4-R V1 lifecycle remains unverified.
 - 157 offline NUnit tests pass without processor credentials or Crestron SDK dependencies.
 - On MC4-R / Home 4.11.322: authenticated reads, discovery/name resolution, SFTP import, install/update/reuse, targeted V2 reload and removal/reinstallation were verified.
-- DevTools supported the complete gated KasaTapo workflow and the later six-driver processor validation. The broader workflow and its test policies belong to Crestron Home NUnit.
+- DevTools supported the complete gated sample outlet driver workflow and the later six-driver processor validation. The broader workflow and its test policies belong to Crestron Home NUnit.
 
 ### Release status
 
@@ -127,4 +127,4 @@ Initial public release: the library is distributed through NuGet and the Windows
 
 ### V1 hardware validation
 
-A complete unattended Apple TV V1 workflow subsequently passed on the development MC4-R: 116 local tests, 105 processor driver tests, 11 processor SDK lifecycle tests and three read-only installed-driver health checks. It installed a fresh Entity V2 test host, staged the V1 update, received the matching swap-completion event, requested one Home configuration reboot, reconnected and verified lease ownership, verified the new driver version was Loaded, online, ready and configured, then removed the test host and released the lease. Independent checks confirmed the other 19 driver instances retained their identities and versions and were Loaded. The first V1 attempt exposed an incorrect assumption that swap initiates reboot; it required one separately recorded assisted reboot and was not counted as an unattended pass. A second attempt confirmed swap completion but an immediate SSH reboot returned with the previous version; it was stopped, reconciled and retained as a failed validation. The passing run used Home configuration reboot instead. V1 initial-install/removal reboot paths still have simulated coverage only. The SDK lifecycle tests and read-only health checks do not establish playback or device-control behavior.
+A complete unattended V1 driver workflow subsequently passed on the development MC4-R: 116 local tests, 105 processor driver tests, 11 processor SDK lifecycle tests and three read-only installed-driver health checks. It installed a fresh Entity V2 test host, staged the V1 update, received the matching swap-completion event, requested one Home configuration reboot, reconnected and verified lease ownership, verified the new driver version was Loaded, online, ready and configured, then removed the test host and released the lease. Independent checks confirmed the other 19 driver instances retained their identities and versions and were Loaded. The first V1 attempt exposed an incorrect assumption that swap initiates reboot; it required one separately recorded assisted reboot and was not counted as an unattended pass. A second attempt confirmed swap completion but an immediate SSH reboot returned with the previous version; it was stopped, reconciled and retained as a failed validation. The passing run used Home configuration reboot instead. V1 initial-install/removal reboot paths still have simulated coverage only. The SDK lifecycle tests and read-only health checks do not establish playback or device-control behavior.

@@ -41,11 +41,11 @@ Without `--draft`, unresolved `pending` items or declared UI pages without figur
 
 `python tools/submission/run_tests.py` runs all discovered offline document, form and MSBuild integration tests and rejects empty/skipped runs. Build the DevTools console in Release first for the [form tests](FormGeneration.md). The integration tests require the .NET SDK (`dotnet` on PATH, or `SUBMISSION_TEST_DOTNET` pointing to it); `SUBMISSION_TEST_VALIDATOR` can select an explicit built console DLL. They exercise the real build engine with a synthetic template, renderer and package compiler, plus the real offline evidence validator; they never deploy a package. The separate `Submission help builder` GitHub workflow installs Python and .NET and runs these tests without a processor, emulator, signature or proprietary SDK template. The workflow has been prepared locally; hosted execution has not yet been validated.
 
-The Wiser review draft was generated from its public content source and rendered by these tools. All four PDF pages were visually checked and matched the canonical document renderer pixel-for-pixel. Only `word/document.xml` and the explicitly updated document-property parts changed; the original template and all other parts were preserved. The draft remains incomplete and is not included in a driver package.
+A development review draft was rendered and visually inspected against the pinned template. Printed layout and untouched template parts were preserved. This validates the exercised generation/rendering path, not the completeness or approval of a consuming driver's help.
 
 ## Package build integration
 
-`package_help.py` and `CrestronSubmissionHelp.targets` connect help generation to a new-driver submission build. Wiser Heat is the first project with these hooks. The tools remain source-only, outside the released DevTools package. Check out a reviewed, pinned DevTools source revision alongside the driver and set `SubmissionToolsDirectory` to its `tools/submission` directory. Do not add a modern .NET DevTools dependency to the processor driver's `net472` project.
+`package_help.py` and `CrestronSubmissionHelp.targets` connect help generation to a new-driver submission build. The tools remain source-only, outside the released DevTools package. Check out a reviewed, pinned DevTools source revision alongside the driver and set `SubmissionToolsDirectory` to its `tools/submission` directory. Do not add a modern .NET DevTools dependency to the processor driver's `net472` project.
 
 The sequence is enforced as follows:
 
@@ -67,26 +67,25 @@ Keep the DOCX, PDF, `help-receipt.json`, `package-paths.json` and `packaged-help
 | `SubmissionHelpTemplateSha256` | Reviewed template digest |
 | `SubmissionHelpContent` | Driver's public content JSON; supplied by the driver project |
 | `SubmissionDeveloperToken` | Approved developer filename component |
-| `SubmissionDependencyNotices` | Optional reviewed merge inventory; Wiser supplies it. See [dependency notices](DependencyNotices.md). |
-| `SubmissionSupportEmail` / `SubmissionSupportWebsite` | Approved public contact; supply one or both. Wiser uses only its GitHub website. Website support requires source newer than 1.5.0. |
+| `SubmissionDependencyNotices` | Optional reviewed merge inventory supplied by the driver. See [dependency notices](DependencyNotices.md). |
+| `SubmissionSupportEmail` / `SubmissionSupportWebsite` | Approved public contact; supply one or both. Website support requires source newer than 1.5.0. |
 
 Paths are build-local settings, not values to commit to a driver repository. Use explicit arguments, environment-backed properties or a privately excluded local targets file. `BuildForTests=true` and design-time builds skip the integration. A submission build must not automatically deploy before its package checks complete.
 
 To add another driver, import `CrestronSubmissionHelp.targets` only when explicitly selected, reject a missing import before the version bump, call `StageSubmissionHelp` immediately after the asset copy and before ManifestUtil, and call `VerifySubmissionHelp` immediately after ManifestUtil. Merely attaching a staging target with `BeforeTargets="PackageDriver"` is incorrect if `PackageDriver` then clears `IncludeInPkg`. Preserve the driver's GUID and prepare a new candidate version before eventual hardware testing. The current helper enforces the new-submission developer filename rule; adapting it for an existing portal driver's naming exemption remains separate work.
 
-The Wiser hooks passed a real project evaluation and rejected the current incomplete content without compiling or changing its manifest version. Its ordinary `BuildForTests` Release build succeeded. The offline MSBuild fixture verifies successful preparation/staging/packaging order, fresh receipts on repeated builds, rejection of ignored packaging errors and compatibility with ordinary/test/design-time builds. This does not yet prove a final Wiser package built by ManifestUtil: its missing facts and screenshots must be completed first.
+A consuming project evaluation rejected incomplete content before compilation or manifest-version changes, while its ordinary test build remained usable. Offline MSBuild fixtures verify preparation/staging/packaging order, fresh receipts, rejected packaging errors and ordinary/test/design-time compatibility. A final Release package built with actual ManifestUtil remains to be verified.
 
 ## Remaining integration
 
-Next, complete the driver-specific public content and approved UI figures, verify accurate licensing and support details, and pin the CI renderer/toolchain/fonts. Validate a complete Wiser candidate with the actual ManifestUtil and connect its retained receipts to the trusted candidate/evidence producer. Roll the hooks out to the other drivers after that validation. Hosted rendering and the final submission CI job remain pending; ordinary publication is unaffected.
+Next, complete the driver-specific public content and approved UI figures, verify accurate licensing and support details, and pin the CI renderer/toolchain/fonts. Validate a complete Release candidate with the actual ManifestUtil and connect its retained receipts to the trusted candidate/evidence producer. Validate the hooks for each consuming build layout. Hosted rendering and the final submission CI job remain pending; ordinary publication is unaffected.
 
-The first content profile will be Wiser Heat. Its driver license is MIT with the Commons Clause, unlike DevTools' MIT license; the generated help must preserve that distinction. Wiser public support is its GitHub repository and issue tracker; its Email field is empty. The separate private submission correspondence address does not belong in help or driver metadata. Exact supported models, minimum firmware, screenshots and candidate-specific test environment must be supported by evidence, not inferred from this renderer check.
+The help must preserve the consuming driver's actual license and third-party notices; do not assume they match DevTools' MIT license. Public support may use a repository and issue tracker. Keep private submission correspondence out of public help and metadata. Supported models, firmware, figures and candidate test environments require evidence, not inference from renderer checks.
 
 See the [submission plan](../CrestronSubmission.md) for the remaining help, evidence, signing and delivery work.
-
 
 ### Archive path correction after 1.5.0
 
 The source checkout now includes `normalize_package.py` in the opt-in packaging hook. It corrects the raw backslash names emitted by ManifestUtil before the final candidate hash and any hardware tests. This correction is newer than the 1.5.0 tag: use a reviewed source revision containing the script and targets together. Do not run it on an already published or tested candidate; changed archive bytes require a new candidate and new evidence. Each build must own its output directory exclusively.
 
-A private copy of the released Wiser 1.3.7 package was checked with the published 1.5.0 preflight after normalization. All payload bytes were preserved, all three backslash entry names were corrected, and the archive-path defect disappeared. The original release bytes were unchanged. Missing submission naming, help and support metadata remain defects in that old release; this check does not make it a submission candidate. The offline MSBuild integration also checks the normalization/verification order and refuses collisions before emitting successful packaged-help evidence.
+Archive normalization was checked on a private copy of an actual package: payload bytes were preserved, separator defects were corrected and original release bytes were unchanged. That structural correction does not fix missing submission metadata or help. Offline MSBuild integration also checks normalization order and rejects collisions before successful packaged-help evidence is emitted.

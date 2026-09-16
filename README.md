@@ -128,7 +128,7 @@ Connection profiles are stored outside the checkout under `%LOCALAPPDATA%/Crestr
 
 Real connection files, device bindings, update plans and logs stay outside source control or are locally excluded using `.git/info/exclude`. Do not commit those exclusions or private paths. Public examples use placeholders. A processor supplies its own Crestron runtime; this library does not need or redistribute `Newtonsoft.Json.Compact.dll`.
 
-Development management operations were verified on MC4-R and CP4-R / Crestron Home 4.11.322. Both passed Entity V2 lifecycle and configuration reboot/recovery checks. The complete unattended Apple TV V1 update/reboot/verification workflow was verified on MC4-R only. Discovery alone does not establish management compatibility with another processor. Read the [validation limits](docs/Compatibility.md). Cancellation stops waiting; it cannot undo a submitted processor operation.
+Development management operations were verified on MC4-R and CP4-R / Crestron Home 4.11.322. Both passed Entity V2 lifecycle and configuration reboot/recovery checks. The complete unattended V1 driver update/reboot/verification workflow was verified on MC4-R only. Discovery alone does not establish management compatibility with another processor. Read the [validation limits](docs/Compatibility.md). Cancellation stops waiting; it cannot undo a submitted processor operation.
 
 ## License and Crestron disclaimer
 

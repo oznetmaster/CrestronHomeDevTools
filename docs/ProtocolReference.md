@@ -328,16 +328,16 @@ Other commissioning outcomes, missing IDs or dropped responses require inspectio
 
 Installation and configuration are separate. A newly installed driver can report `Loaded` and `isConfigured: false` while its normal `configurationItems` list is empty. Its initial wizard may still be required.
 
-The following command shapes were inspected in Configure Pro. The two-step Wiser Heat Gateway wizard was exercised on an MC4-R running Home 4.11.322. Call them on the verified new driver instance, under the same processor lease used for installation:
+The following command shapes were inspected in Configure Pro, and a representative two-step driver wizard was exercised on MC4-R / Home 4.11.322. Call them on the verified new instance under the processor lease used for installation:
 
 | Command | Parameters | Result |
 |---|---|---|
 | `cp.driverConfiguration:getFirstConfigurationStep` | `{"isReconfiguring":false}` | Step object or null |
-| `cp.driverConfiguration:applyConfigurationStep` | `{"stepId":"Connection","configurationItemValues":{"_Host_":"192.0.2.10","HubSecret":"REPLACE_LOCALLY"},"isReconfiguring":false}` | Next step, a step containing validation errors, or null on completion |
+| `cp.driverConfiguration:applyConfigurationStep` | `{"stepId":"Connection","configurationItemValues":{"_Host_":"192.0.2.10","CredentialSettingId":"REPLACE_LOCALLY"},"isReconfiguring":false}` | Next step, a step containing validation errors, or null on completion |
 
-A step exposes `Id`, `ConfigurationErrors` and `Items`. Each item has an `Id` and `Value` metadata including `ReadOnly`. Submitted values are strings, including numeric and Boolean choices. Supply an explicit ordered plan, validate each advertised step and writable item, and stop on validation errors, repeated/unexpected steps or transport uncertainty. Null after the final planned step confirms wizard completion; verify `isConfigured`, online and ready state separately.
+The step and item IDs in the example are placeholders; obtain the actual IDs from the driver's advertised wizard. A step exposes `Id`, `ConfigurationErrors` and `Items`. Each item has an `Id` and `Value` metadata including `ReadOnly`. Submitted values are strings, including numeric and Boolean choices. Supply an explicit ordered plan, validate each advertised step and writable item, and stop on validation errors, repeated/unexpected steps or transport uncertainty. Null after the final planned step confirms wizard completion; verify `isConfigured`, online and ready state separately.
 
-Do not assume that omitted values accept the UI defaults. Wiser's HeatSettings step failed with an empty values dictionary and succeeded when its displayed choices were supplied explicitly. The full unattended workflow subsequently passed local and processor tests, initial installation, both configuration steps and installed-driver health checks. No heating controls were operated.
+Do not assume omitted values accept UI defaults. One tested step rejected an empty values dictionary but accepted its displayed choices supplied explicitly. Validate the actual wizard schema for each driver. Successful configuration does not establish physical-device control.
 
 `cp.driverConfiguration:applyConfiguration` uses `{"configurationItemValues":{"SettingId":"value"},"isoCulture":"en-GB"}` and returns configuration errors or null/empty success. That shape was inspected in Configure Pro; the hardware evidence above uses the step-based wizard. These commands are available through `ExecuteDeviceCommandAsync`; DevTools 1.2.0 provides `DriverConfiguration.ConfigureAsync` and the `configure-driver` command for initial configuration; `driver-configuration` reads current settings without advancing the wizard. See [the configuration guide](DriverConfiguration.md). The installation helper itself does not automatically submit settings. The NUnit workflow in version 1.2.1 supports private initial-configuration files and preserves already configured instances. Keep settings and raw error responses private, since they can contain credentials.
 
@@ -398,7 +398,7 @@ A reopened TCP port, responsive SSH console or successful login is insufficient 
 3. Optionally resolves the exact system name again. No match may be temporary while booting; multiple matches stop automatic selection.
 4. Reauthenticates with the expected TLS trust and performs a device-inventory read.
 5. Verifies retained orchestration ownership where applicable, then checks the expected driver identity, exact numeric version and `Loaded` state.
-6. Performs application-specific readiness/health checks. Online, ready and configured were checked for the validated Apple TV update; these checks do not establish playback behavior.
+6. Performs application-specific readiness/health checks. Online, ready and configured were checked for the validated V1 driver update; these checks do not establish playback behavior.
 
 During hardware startup, an inventory request returned HTTP 500 after authentication succeeded. The bounded readiness loop now retries read-only startup transport failures and HTTP 500/502/503/504. Authentication and request errors remain failures. These retries do not apply to configuration mutation commands.
 
