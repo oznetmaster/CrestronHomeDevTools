@@ -58,7 +58,7 @@ Each item is complete only after its stated validation. The list is updated as w
 | S05 | Unattended worker and resource reservation | Prove operation from the installed runner service or a controlled interactive-session worker; enforce shared processor lease plus Android lock; survive unavailable emulator | Planned |
 | S06 | Wiser installation/configuration and UI coverage | Exact release package, home/room placement, all supported controls/subpages, device feedback and restored starting state; include Setup/Configure UI requirements | Planned |
 | S07 | Recovery, multi-instance and endurance coverage | Real required outage durations, 24-hour observation, isolation, persistence and deletion; recover safely after cancellation/reboot | Planned; outage hardware deferred |
-| S08 | Help/form generation | SDK help template, correct support metadata, matching embedded PDF filename; pinned official form fields and template hashes; render checks; complete evidence only | Unsigned form proof exists |
+| S08 | Help/form generation | SDK help template, correct support metadata, matching embedded PDF filename; pinned official form fields and template hashes; render checks; complete evidence only | Unsigned form proof exists; official help template and local headless rendering verified; generation/integration pending |
 | S09 | Signature and delivery authorization | Private signature asset and sender configured; exact bundle/form hashes bound to signing authorization; test delivery to a controlled destination | Waiting for later provisioning |
 | S10 | Crestron upload and email adapters | Confirm service behavior, capture download URL and mail receipt; uncertain outcomes require reconciliation; crash-safe duplicate prevention | Planned; no documented upload API established |
 | S11 | Reusable final CI stage and Wiser pilot | Trusted release only, dry-run bundle first, then one authorized real submission with durable receipt; rerun does not submit twice | Planned |
@@ -92,6 +92,8 @@ The current Android proof covers navigation and displayed weather sections only.
 ## Documents, signature and delivery
 
 Create help from the SDK's help template, including supported models, setup, limitations, troubleshooting and public support details. For a new portal driver, use an agreed developer/company component in matching `.pkg`, `.dll` and help `.pdf` basenames. Existing portal drivers have a documented naming exemption; preserve their published identity. Renaming an already-built package is insufficient.
+
+The [headless help build notes](submission/HelpBuild.md) record the official template pin, verified local renderer and remaining document-build integration. Word and an interactive desktop are not required for the conversion step.
 
 Fetch official self-test PDFs from the published sources, pin and inspect their hashes/field mappings, and stop on an unexpected template change. Do not redistribute SDK templates or other proprietary assets without checking their terms. Keep the original official pages intact when filling forms. Record non-applicability on a companion matrix; confirm how Crestron expects it represented before final delivery.
 
