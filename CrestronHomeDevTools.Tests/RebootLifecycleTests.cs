@@ -217,6 +217,110 @@ public sealed class RebootLifecycleTests
 		Assert.That (fresh.Reads, Is.EqualTo (1));
 		}
 
+	[TestCase ("name")]
+	[TestCase ("room")]
+	[TestCase ("parent")]
+	[TestCase ("version")]
+	[TestCase ("configured")]
+	[TestCase ("configuration")]
+	[TestCase ("missing")]
+	public async Task ReviewedSharedRemovalWaitsForPreservedInstance (string changed)
+		{
+		var other = Device ("1.0") with
+			{
+			Id = 18,
+			Name = "Keep",
+			ParentDeviceId = -6
+			};
+		other.PropertyValues["cp.driverConfiguration:isConfigured"] = JsonSerializer.SerializeToElement (true);
+		other.PropertyValues["cp.driverConfiguration:configurationItems"] = JsonSerializer.SerializeToElement (new
+			{
+			Example = "original"
+			});
+		var altered = other with
+			{
+			PropertyValues = new (other.PropertyValues)
+			};
+		if (changed == "name")
+			altered = altered with
+				{
+				Name = "Changed"
+				};
+		if (changed == "room")
+			altered = altered with
+				{
+				LocationId = 99
+				};
+		if (changed == "parent")
+			altered = altered with
+				{
+				ParentDeviceId = 99
+				};
+		if (changed == "version")
+			altered.PropertyValues["cp.driverInformation:version"] = JsonSerializer.SerializeToElement ("2.0");
+		if (changed == "configured")
+			altered.PropertyValues["cp.driverConfiguration:isConfigured"] = JsonSerializer.SerializeToElement (false);
+		if (changed == "configuration")
+			altered.PropertyValues["cp.driverConfiguration:configurationItems"] = JsonSerializer.SerializeToElement (new
+				{
+				Example = "changed"
+				});
+		var first = changed == "missing" ? new Dictionary<string, DeviceInfo> () : new ()
+			{
+			["18"] = altered
+			};
+		var original = new Fake (Device ("1.0"), new[] { 18, 17 }, other, null);
+		var fresh = new Fake (first, new Dictionary<string, DeviceInfo> { ["18"] = other });
+		await new ConfigurationClient (original).RemoveDriverInstanceAsync (17, "Example", "1.0", TimeSpan.FromSeconds (3), rebootHandler:
+			 new ((_, _) => Task.CompletedTask, (_, _, _) => Task.FromResult (new ConfigurationClient (fresh)))
+				 {
+				 RebootAfterRemoval = true,
+				 AdditionalRemovalRebootDeviceIds = [18]
+				 });
+		Assert.That (fresh.Reads, Is.EqualTo (2));
+		Assert.That (original.Targets.Where (c => c.Command.EndsWith (":setLocation")).Select (c => c.Id), Is.EqualTo (new[] { 17 }));
+		}
+
+	[TestCase (new[] { 18, 18 }, true)]
+	[TestCase (new[] { 17 }, true)]
+	[TestCase (new[] { -1 }, true)]
+	[TestCase (new[] { 19 }, true)]
+	[TestCase (new[] { 18 }, false)]
+	public void SharedRemovalRejectsUnreviewedOrInvalidScope (int[] reviewed, bool reboot)
+		{
+		var original = new Fake (Device ("1.0", reboot), new[] { 17, 18 });
+		Assert.ThrowsAsync<InvalidOperationException> (async () => await new ConfigurationClient (original).RemoveDriverInstanceAsync (17, "Example", "1.0", TimeSpan.FromSeconds (3), rebootHandler:
+			 new ((_, _) => throw new AssertionException ("Unexpected authorization"), (_, _, _) => throw new AssertionException ("Unexpected reboot"))
+				 {
+				 RebootAfterRemoval = reboot,
+				 AdditionalRemovalRebootDeviceIds = reviewed
+				 }));
+		Assert.That (original.Commands.Any (c => c.EndsWith (":setLocation")), Is.False);
+		}
+
+	[TestCase ("missing")]
+	[TestCase ("model")]
+	[TestCase ("version")]
+	[TestCase ("loading")]
+	public void SharedRemovalRequiresHealthyOriginalInstances (string problem)
+		{
+		var other = Device (problem == "version" ? "2.0" : "1.0") with
+			{
+			Id = 18,
+			Model = problem == "model" ? "Other" : "Example"
+			};
+		if (problem == "loading")
+			other.PropertyValues["cp.driverConfiguration:driverLoadingStatus"] = JsonSerializer.SerializeToElement ("Loading");
+		var original = new Fake (Device ("1.0"), new[] { 17, 18 }, problem == "missing" ? null : other);
+		Assert.ThrowsAsync<InvalidOperationException> (async () => await new ConfigurationClient (original).RemoveDriverInstanceAsync (17, "Example", "1.0", TimeSpan.FromSeconds (3), rebootHandler:
+			 new ((_, _) => throw new AssertionException ("Unexpected operation"), (_, _, _) => throw new AssertionException ("Unexpected reboot"))
+				 {
+				 RebootAfterRemoval = true,
+				 AdditionalRemovalRebootDeviceIds = [18]
+				 }));
+		Assert.That (original.Commands.Any (c => c.EndsWith (":setLocation")), Is.False);
+		}
+
 	[Test]
 	public void MissingRestartTimesOutWithoutConnectingOrRebooting ()
 		{
@@ -293,6 +397,7 @@ public sealed class RebootLifecycleTests
 		{
 		private readonly Queue<object?> _responses = new (responses);
 		public List<string> Commands { get; } = [];
+		public List<(int Id, string Command)> Targets { get; } = [];
 		public bool SwapWaited
 			{
 			get; private set;
@@ -335,6 +440,7 @@ public sealed class RebootLifecycleTests
 		public Task<T?> ExecuteAsync<T> (int deviceId, string command, object? parameters = null, CancellationToken token = default)
 			{
 			Commands.Add (command);
+			Targets.Add ((deviceId, command));
 			return Next<T> ();
 			}
 		public Task<OperationResult> WaitForOperationAsync (string operationId, TimeSpan timeout, CancellationToken token = default) => throw new AssertionException ("Reboot path must recover instead of waiting for an old operation stream.");

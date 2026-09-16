@@ -8,6 +8,8 @@ The configuration-management interface is unofficial and firmware-dependent, [do
 
 This source includes initial driver configuration and read-only inspection of current settings. See [driver configuration](docs/DriverConfiguration.md) for the commands, private input format, masking rules and library API. Shared processor reservations continue to coordinate development operations.
 
+Reviewed V1 removal can preserve other instances sharing the same driver code across an explicitly authorized Home reboot. See [V1 installation and removal](docs/V1DriverRemoval.md) for the opt-in scope, preservation checks and validation limits.
+
 ## Contents
 
 - [What is included](#what-is-included)

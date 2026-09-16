@@ -115,4 +115,6 @@ For updates, eligibility must explicitly say swap is supported and whether reboo
 
 Initial installation and removal can be configured separately using `RebootAfterInstall` / `RebootAfterRemoval` on the handler. These mean an explicit reboot after the operation has returned successfully. Use them only where that sequence is known to be required; a swap-requires-reboot flag does not by itself establish initial installation/removal behavior. The workflow avoids a second explicit reboot if the old management connection has already ended. A lost installation/removal response remains uncertain and is not replayed.
 
+For a reviewed shared V1 reload scope, `AdditionalRemovalRebootDeviceIds` explicitly identifies existing instances that must be preserved. It requires `RebootAfterRemoval`; the scope must match exactly and preservation is verified after restart. See [V1 installation and removal](V1DriverRemoval.md) for the contract and hardware evidence.
+
 The low-level `BeginDriverUpdateAsync(..., allowProcessorReboot: true)` permits submission of a reboot-required swap. It does not request the reboot or perform recovery; callers must wait for matching swap completion and then use the configuration reboot sequence. Prefer the lifecycle handler or NUnit workflow when test execution must continue afterward.

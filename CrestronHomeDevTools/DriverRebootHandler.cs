@@ -35,6 +35,9 @@ public sealed record DriverRebootHandler (
 		{
 		get; init;
 		}
+	// Explicitly reviewed existing instances that share this V1 driver's reload scope.
+	// These instances are preserved, never selected for removal.
+	public int[] AdditionalRemovalRebootDeviceIds { get; init; } = [];
 	}
 
 public static class ProcessorRestartRecovery

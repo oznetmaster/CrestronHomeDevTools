@@ -226,8 +226,23 @@ public sealed class ConfigurationClient : IAsyncDisposable
 					 || !device.PropertyValues.TryGetValue ("cp.driverConfiguration:swapDriverRequiresReboot", out var reboot) || reboot.ValueKind != JsonValueKind.False)))
 			throw new InvalidOperationException ("This instance is not confirmed to support removal without reboot.");
 		var affected = await GetReloadAffectedDevicesAsync (deviceId, deadline.Token).ConfigureAwait (false);
-		if (affected.Count != 1 || affected[0] != deviceId)
+		var additional = rebootHandler?.AdditionalRemovalRebootDeviceIds ?? [];
+		if (additional.Length > 0 && (rebootHandler?.RebootAfterRemoval != true || additional.Any (id => id <= 0 || id == deviceId)
+			|| additional.Distinct ().Count () != additional.Length))
+			throw new InvalidOperationException ("Additional removal scope requires distinct reviewed instances and an explicit reboot policy.");
+		if (affected.Count != additional.Length + 1 || affected.Distinct ().Count () != affected.Count
+			|| !affected.Order ().SequenceEqual (additional.Append (deviceId).Order ()))
 			throw new InvalidOperationException ("The dependency scope includes other devices or is unknown; automatic removal was not submitted.");
+		var preserved = new List<DeviceInfo> ();
+		foreach (var id in additional)
+			{
+			var other = await GetDeviceAsync (id, deadline.Token).ConfigureAwait (false)
+				?? throw new InvalidOperationException ("A reviewed shared instance is missing.");
+			if (other.Model != expectedModel || Property (other, "cp.driverConfiguration:driverLoadingStatus") != "Loaded"
+				|| !DriverVersions.Equal (Property (other, "cp.driverInformation:version"), expectedVersion))
+				throw new InvalidOperationException ("A reviewed shared instance changed model, version or loading state.");
+			preserved.Add (other);
+			}
 		var removalReboot = rebootHandler?.RebootAfterRemoval == true
 			 ? new DriverRebootRequest ("Remove", deviceId, expectedModel, expectedVersion, DriverRebootMode.ExplicitAfterOperation) : null;
 		if (removalReboot != null)
@@ -238,8 +253,24 @@ public sealed class ConfigurationClient : IAsyncDisposable
 			}, deadline.Token).ConfigureAwait (false);
 		var verification = removalReboot == null ? this : await rebootHandler!.RecoverAsync (removalReboot, this, deadline.Token).ConfigureAwait (false);
 		// Verify disappearance, rather than mistaking a removed room assignment for disposal.
-		while ((await verification.GetDevicesAsync (deadline.Token).ConfigureAwait (false)).Any (current => current.Id == deviceId))
+		while (true)
+			{
+			var current = await verification.GetDevicesAsync (deadline.Token).ConfigureAwait (false);
+			if (current.All (item => item.Id != deviceId) && preserved.All (old => current.Any (item => Preserved (old, item))))
+				break;
 			await Task.Delay (500, deadline.Token).ConfigureAwait (false);
+			}
+		static string? Property (DeviceInfo value, string name) => value.PropertyValues.TryGetValue (name, out var item) ? item.ToString () : null;
+		static bool SameProperty (DeviceInfo old, DeviceInfo current, string name)
+			{
+			bool before = old.PropertyValues.TryGetValue (name, out var first), after = current.PropertyValues.TryGetValue (name, out var second);
+			return before == after && (!before || JsonElement.DeepEquals (first, second));
+			}
+		static bool Preserved (DeviceInfo old, DeviceInfo current) => old.Id == current.Id && old.Name == current.Name && old.Model == current.Model
+			&& old.ParentDeviceId == current.ParentDeviceId && old.LocationId == current.LocationId
+			&& DriverVersions.Equal (Property (old, "cp.driverInformation:version"), Property (current, "cp.driverInformation:version"))
+			&& Property (current, "cp.driverConfiguration:driverLoadingStatus") == "Loaded"
+			&& SameProperty (old, current, "cp.driverConfiguration:isConfigured") && SameProperty (old, current, "cp.driverConfiguration:configurationItems");
 		}
 
 	public async Task<IReadOnlyList<DriverInstanceState>> WaitForDriverVersionAsync (IReadOnlyList<int> deviceIds, string expectedVersion, TimeSpan timeout, CancellationToken cancellationToken = default)
