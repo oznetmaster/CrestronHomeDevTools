@@ -96,6 +96,8 @@ The source coverage compiler also carries scoped execution requirements into the
 
 The source [optional private CI review stage](submission/ReviewStage.md) now connects the real validator, unsigned form generator and evidence bundle. It rejects client/library/test artifacts and Debug revisions, compares form/bundle identities and writes a completion receipt only after all checks pass. Its synthetic integration passed in a separate workflow under the installed Windows runner service. The reusable template still needs a real candidate pilot; no real driver review, signature or delivery has been enabled by this addition.
 
+The source [Android evidence audit](submission/AndroidEvidence.md) now independently checks retained discovery/TRX coverage, candidate/run identity, fixture and capture digests, capture intervals and matching restoration. It requires trusted release/coordinator pins and rejects Debug candidates. Regression checks and parsing of the real Wiser development artifacts passed. A trusted producer binding, complete requirement mapping and actual Release execution remain necessary; the audit creates no passing official observations.
+
 ## Hardware and failure handling
 
 - Reserve the processor for the full test/install/configure/reboot/remove sequence. All participating tools must use the existing shared lease. Reserve the Android session separately and acquire resources in one documented order.

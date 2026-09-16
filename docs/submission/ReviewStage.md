@@ -4,6 +4,8 @@ The source `tools/submission/prepare_review.py` connects evidence validation, un
 
 Use this only after testing an immutable actual-driver Release candidate. Ordinary build/test/publication jobs remain independent. Client/library and processor-test releases must not invoke it. The command rejects those artifact kinds and Debug revision numbers. A GitHub release does not imply portal submission.
 
+The source [Android evidence audit](AndroidEvidence.md) can check the Android workflow's retained run before scoped observations are prepared. It is a separate prerequisite check; `prepare_review.py` does not currently invoke it or authenticate a producer. An audit receipt alone cannot fill missing official requirements.
+
 The trusted release job supplies four independent pins: candidate declaration SHA-256, reviewed official inventory SHA-256, reviewed form mapping SHA-256 and full source commit. Do not calculate replacement pins from untrusted hardware-worker output. The candidate declaration already pins the package, policy and official template. The caller is responsible for establishing the driver identity, complete applicable policy and trusted evidence provenance.
 
 Create a private settings file on the worker with exactly these fields (replace the example paths):
