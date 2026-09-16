@@ -22,9 +22,30 @@ On this development machine, LibreOffice 26.8.0 was extracted into a task-local 
 
 The extracted renderer successfully converted all three pages of the unchanged official help template. All pages were visually inspected. This proves the local rendering dependency works; it does not validate a completed driver help file, a hosted runner installation or the final CI build step.
 
+## Source tools
+
+The source-only Python tools are in `tools/submission`; they are not yet included in the published CLI/NuGet package. Install their pinned Python dependencies from `tools/submission/requirements.txt`. No Word/COM automation or Crestron SDK assemblies are used. The original official DOCX is supplied locally, not redistributed with these tools.
+
+```text
+python tools/submission/build_help.py --template OFFICIAL.docx --template-sha256 PINNED_SHA256 --content help-content.json --output Driver.review.docx --draft
+python tools/submission/render_help.py --docx Driver.review.docx --docx-sha256 BUILD_REPORT_SHA256 --soffice ABSOLUTE_LIBREOFFICE_EXECUTABLE --output-directory pdf-output
+```
+
+`BUILD_REPORT_SHA256` is the `docxSha256` from the first command's JSON output, retained by the build job. Use a fresh output path/directory. Existing documents are never overwritten. The builder checks the template digest and section layout, preserves unchanged ZIP parts byte-for-byte, and supports prose, bullets, headings and PNG figures. The renderer uses an isolated temporary LibreOffice profile, suppresses desktop windows, bounds execution time, stops its renderer process tree on timeout and rejects missing, encrypted, attachment-bearing or text-incomplete PDFs. Its report records the PDF hash, renderer version and page count. Visual inspection remains necessary; source text extraction alone cannot prove that a page is free of clipping or that an image is correct.
+
+The content format has `schemaVersion: 1`, `title`, public `author`, a four-component `version`, `pending` review items, declared `uiPages`, and `sections`. Required section keys, in official order, are `driver`, `notes`, `requirements`, `installation`, `experience`, `limitations`, `features`, `environment`, `models`, `contact`, `history`, and `license`. Each section contains a nonempty block array. Text blocks have `kind` (`paragraph`, `bullet`, `heading2`, or `heading3`) and `text`. Text is inserted as text, not interpreted as markup. Document properties use the supplied author/title and remove the template's stale dates and page/word counts.
+
+An image block in `experience` has `kind: "image"`, `pageId`, `path`, `sha256`, and `caption`. The `pageId` must uniquely match a declared UI page. The PNG is loaded relative to the content file, its approved digest is checked, and its original bytes are embedded. It is scaled proportionally to fit a 5.5-inch figure box and followed by its caption. Paths cannot escape the content directory. Approve/redact images before recording their digests; the builder is not a redaction tool.
+
+Without `--draft`, unresolved `pending` items or declared UI pages without figures fail the build. A draft requires a `.review.docx` name, carries a visible review label and lists the unresolved items. A final-mode build only establishes that the declared content is complete; it does not independently prove the accuracy of firmware/model claims, completeness of the declared page inventory or test evidence. Those facts still need the submission policy and review gates.
+
+`python tools/submission/run_tests.py` runs all discovered offline document tests and rejects empty/skipped runs. The separate `Submission help builder` GitHub workflow runs these tests without a processor, emulator, signature or proprietary SDK template. The workflow has been prepared locally; hosted execution has not yet been validated.
+
+The Wiser review draft was generated from its public content source and rendered by these tools. All four PDF pages were visually checked and matched the canonical document renderer pixel-for-pixel. Only `word/document.xml` and the explicitly updated document-property parts changed; the original template and all other parts were preserved. The draft remains incomplete and is not included in a driver package.
+
 ## Remaining integration
 
-The reusable help builder must consume a driver-specific public content file, retain the template's structure, replace every example/placeholder, add approved UI figures and include accurate licensing and support details. It must pin its template, toolchain and fonts; preserve the original template; render the result; and report the final PDF digest. Each driver then packages that PDF before candidate creation.
+Next, complete the driver-specific public content and approved UI figures, verify accurate licensing and support details, and pin the CI renderer/toolchain/fonts. Connect the builder and renderer to each driver's package build before candidate creation. Generation and local rendering are implemented; release packaging and hosted rendering integration remain pending.
 
 The first content profile will be Wiser Heat. Its driver license is MIT with the Commons Clause, unlike DevTools' MIT license; the generated help must preserve that distinction. Public support is `support@marvelous.com`. The separate private submission correspondence address does not belong in help or driver metadata. Exact supported models, minimum firmware, screenshots and candidate-specific test environment must be supported by evidence, not inferred from this renderer check.
 

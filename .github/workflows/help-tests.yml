@@ -1,0 +1,23 @@
+# Copyright (c) 2026 Neil Colvin.
+# Licensed under the MIT License. See LICENSE in the repository root.
+name: Submission help builder
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: tools/submission/requirements.txt
+      - name: Install document dependencies
+        run: python -m pip install -r tools/submission/requirements.txt
+      - name: Run all discovered offline document tests
+        run: python tools/submission/run_tests.py
