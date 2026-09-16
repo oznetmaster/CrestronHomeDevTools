@@ -18,6 +18,7 @@ Reviewed V1 removal can preserve other instances sharing the same driver code ac
 - [Driver configuration](docs/DriverConfiguration.md)
 - [Moving drivers between rooms](docs/RoomMoves.md)
 - [Deployment and tests](#deployment-and-tests)
+- [Automated Crestron submission plan and progress](docs/CrestronSubmission.md)
 - [Documentation](#documentation)
 - [Build and validate](#build-and-validate)
 - [Privacy and compatibility](#privacy-and-compatibility)
@@ -42,6 +43,8 @@ reboot --processor DEVELOPMENT --confirm-reboot DEVELOPMENT
 The two target values must match; credentials and verified SSH trust still come from the selected profile/settings. Applications can supply their own confirmation dialog through the library API. The NUnit workflow supports reboot-required updates with `allowProcessorReboot: true`; see [V1 development and reboot policy](https://github.com/oznetmaster/CrestronHomeNUnit/blob/HEAD/docs/ContinuousIntegration.md#v1-development-and-reboot-policy).
 
 ## Get started
+
+Source development now includes an offline `submission-check` command for portal package structure. It does not send a submission or establish self-test completion. See the [submission plan and validation limits](docs/CrestronSubmission.md). This command is not part of the currently published 1.4.0 binaries.
 
 Install the library with `dotnet add package CrestronHomeDevTools --version 1.2.0`. Download the self-contained Windows x64 console from [GitHub Releases](https://github.com/oznetmaster/CrestronHomeDevTools/releases/latest), extract the complete ZIP, and run `CrestronHomeDevTools.Console.exe`. Its first run opens processor/profile setup; `--help` lists commands.
 

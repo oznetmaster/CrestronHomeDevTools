@@ -1,0 +1,440 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Requirement/field inventory, not an executable or approved coverage policy",
+  "sourceUrl": "https://sdkcon78221.crestron.com/downloads/Test-Plans/Extension-Test-Plan.pdf",
+  "templateSha256": "b84555dfbed30a577dc38600bd82cad2099aea3320e1a9b62c04cecc5038a340",
+  "templatePages": 5,
+  "fieldMappingMethod": "Page order then vertical position; original PDF annotation order is not reliable",
+  "requirements": [
+    {
+      "id": "extension.configuration.01",
+      "label": "Catalogue",
+      "page": 1,
+      "field": "Check Box1",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "extension.configuration.02",
+      "label": "Connection dialog",
+      "page": 1,
+      "field": "Check Box2",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "extension.configuration.03",
+      "label": "Attribute dialogs",
+      "page": 1,
+      "field": "Check Box3",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "extension.configuration.04",
+      "label": "Room installation",
+      "page": 1,
+      "field": "Check Box4",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "extension.configuration.05",
+      "label": "Persistent settings",
+      "page": 1,
+      "field": "Check Box5",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "extension.views.01",
+      "label": "Home placement",
+      "page": 1,
+      "field": "Check Box6",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "extension.views.02",
+      "label": "Room placement",
+      "page": 1,
+      "field": "Check Box7",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "extension.views.03",
+      "label": "Default action",
+      "page": 2,
+      "field": "Check Box8",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "extension.views.04",
+      "label": "Close controls",
+      "page": 2,
+      "field": "Check Box11",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "extension.views.05",
+      "label": "Tile feedback",
+      "page": 2,
+      "field": "Check Box12",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "extension.views.06",
+      "label": "Offline feedback",
+      "page": 2,
+      "field": "Check Box13",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "extension.views.07",
+      "label": "Online recovery",
+      "page": 2,
+      "field": "Check Box14",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "extension.controls.01",
+      "label": "Control inventory",
+      "page": 2,
+      "field": "Check Box15",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "extension.controls.02",
+      "label": "Segmented sliders",
+      "page": 2,
+      "field": "Check Box16",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "extension.controls.03",
+      "label": "Toggle buttons",
+      "page": 2,
+      "field": "Check Box17",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "extension.controls.04",
+      "label": "Status buttons",
+      "page": 3,
+      "field": "Check Box19",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "extension.controls.05",
+      "label": "Toggle sliders",
+      "page": 3,
+      "field": "Check Box20",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "extension.controls.06",
+      "label": "Radial gauges",
+      "page": 3,
+      "field": "Check Box21",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "extension.controls.07",
+      "label": "Buttons",
+      "page": 3,
+      "field": "Check Box22",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "extension.controls.08",
+      "label": "Button grouping",
+      "page": 3,
+      "field": "Check Box23",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "extension.controls.09",
+      "label": "Selector buttons",
+      "page": 3,
+      "field": "Check Box24",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "extension.controls.10",
+      "label": "Button lists",
+      "page": 3,
+      "field": "Check Box25",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "extension.controls.11",
+      "label": "Navigation pads",
+      "page": 3,
+      "field": "Check Box26",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "extension.controls.12",
+      "label": "Keypads",
+      "page": 4,
+      "field": "Check Box27",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "extension.controls.13",
+      "label": "Thermostats",
+      "page": 4,
+      "field": "Check Box28",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "extension.controls.14",
+      "label": "Text entry",
+      "page": 4,
+      "field": "Check Box29",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "extension.controls.15",
+      "label": "Checkboxes",
+      "page": 4,
+      "field": "Check Box30",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "extension.controls.16",
+      "label": "Confirmation dialogs",
+      "page": 4,
+      "field": "Check Box31",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "extension.controls.17",
+      "label": "Action selectors",
+      "page": 4,
+      "field": "Check Box32",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "extension.controls.18",
+      "label": "Subpages",
+      "page": 4,
+      "field": "Check Box33",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "extension.controls.19",
+      "label": "Multiple instances",
+      "page": 4,
+      "field": "Check Box34",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "extension.system.01",
+      "label": "Power outage",
+      "page": 5,
+      "field": "Check Box35",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "extension.system.02",
+      "label": "Network outage",
+      "page": 5,
+      "field": "Check Box36",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "extension.system.03",
+      "label": "Endurance",
+      "page": 5,
+      "field": "Check Box37",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 86400
+    },
+    {
+      "id": "extension.system.04",
+      "label": "Removal",
+      "page": 5,
+      "field": "Check Box38",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    }
+  ],
+  "signingFields": [
+    {
+      "page": 5,
+      "field": "Text95"
+    },
+    {
+      "page": 5,
+      "field": "Date93_af_date"
+    }
+  ]
+}

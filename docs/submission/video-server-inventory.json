@@ -1,0 +1,248 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Requirement/field inventory, not an executable or approved coverage policy",
+  "sourceUrl": "https://sdkcon78221.crestron.com/downloads/Test-Plans/Video-Server-Test-Plan.pdf",
+  "templateSha256": "88627ae5edc766d9aa36a6a38f3e99d49cfbd12e9bd660aa7f524155286004dd",
+  "templatePages": 3,
+  "fieldMappingMethod": "Page order then vertical position; original PDF annotation order is not reliable",
+  "requirements": [
+    {
+      "id": "video-server.simpl.01",
+      "label": "Wrapper inputs/outputs",
+      "page": 1,
+      "field": "Check Box1",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "video-server.configuration.01",
+      "label": "Display/audio prerequisites",
+      "page": 1,
+      "field": "Check Box89",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "video-server.configuration.02",
+      "label": "Catalogue",
+      "page": 1,
+      "field": "Check Box90",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "video-server.configuration.03",
+      "label": "Connection dialog",
+      "page": 1,
+      "field": "Check Box91",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "video-server.configuration.04",
+      "label": "Attribute dialogs",
+      "page": 1,
+      "field": "Check Box92",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "video-server.configuration.05",
+      "label": "Room installation",
+      "page": 1,
+      "field": "Check Box93",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "video-server.configuration.06",
+      "label": "Source routes",
+      "page": 1,
+      "field": "Check Box94",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "video-server.controls.01",
+      "label": "Source selection",
+      "page": 2,
+      "field": "Check Box96",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "video-server.controls.02",
+      "label": "Navigation",
+      "page": 2,
+      "field": "Check Box97",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "video-server.controls.03",
+      "label": "Media transport",
+      "page": 2,
+      "field": "Check Box99",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "video-server.controls.04",
+      "label": "Keypad",
+      "page": 2,
+      "field": "Check Box100",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "video-server.controls.05",
+      "label": "Additional functions",
+      "page": 2,
+      "field": "Check Box101",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "video-server.controls.06",
+      "label": "Room power-off",
+      "page": 2,
+      "field": "Check Box102",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "video-server.controls.07",
+      "label": "Cooldown restart",
+      "page": 2,
+      "field": "Check Box103",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "video-server.controls.08",
+      "label": "Warmup queue",
+      "page": 2,
+      "field": "Check Box104",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "video-server.system.01",
+      "label": "Power outage",
+      "page": 2,
+      "field": "Check Box105",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "video-server.system.02",
+      "label": "Network outage",
+      "page": 3,
+      "field": "Check Box106",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    },
+    {
+      "id": "video-server.system.03",
+      "label": "Endurance",
+      "page": 3,
+      "field": "Check Box107",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 86400
+    },
+    {
+      "id": "video-server.system.04",
+      "label": "Removal",
+      "page": 3,
+      "field": "Check Box108",
+      "checkedAppearance": [
+        "/Yes"
+      ],
+      "coverageStatus": "not-mapped",
+      "requiresAllApplicableSubconditions": true,
+      "minimumObservationSeconds": 0
+    }
+  ],
+  "signingFields": [
+    {
+      "page": 3,
+      "field": "Text95"
+    },
+    {
+      "page": 3,
+      "field": "Date93_af_date"
+    }
+  ]
+}

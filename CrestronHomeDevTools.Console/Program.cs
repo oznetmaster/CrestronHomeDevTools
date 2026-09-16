@@ -73,6 +73,9 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
               reload-scope --device ID Show devices associated with a proposed driver reload.
 
             Save settings or prepare an update (no processor changes):
+              submission-check --package FILE --driver GUID --version A.B.C.D
+                --kind new|update --support-email ADDRESS [--developer-name-token TOKEN]
+                                       Check portal package structure offline; no submission occurs.
               configure                Choose a processor and save encrypted credentials locally.
               plan-update --driver ID --output plan.json
                                        Save update versions and affected device IDs for review.
@@ -153,6 +156,7 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 				"move" => ["device", "model", "version", "from-room", "room"],
 				"reboot" => ["confirm-reboot"],
 				"deploy" => ["package"],
+				"submission-check" => ["package", "driver", "version", "kind", "developer-name-token", "support-email"],
 				"activate" => ["driver", "name", "room", "device"],
 				"remove" => ["device", "model", "version"],
 				"configure-driver" => ["device", "model", "version", "input"],
@@ -198,6 +202,19 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 				throw new ArgumentException ("Expected driver version is invalid.");
 			}
 		var jsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true, WriteIndented = true };
+		if (command == "submission-check")
+			{
+			var kind = Required ("kind") switch
+				{
+					"new" => PortalSubmissionKind.NewDriver,
+					"update" => PortalSubmissionKind.ExistingDriverUpdate,
+					_ => throw new ArgumentException ("Submission kind must be new or update (an existing portal driver).")
+					};
+			var report = SubmissionPackage.Inspect (Required ("package"), new (
+				Required ("driver"), Required ("version"), kind, options.GetValueOrDefault ("developer-name-token", ""), Required ("support-email")));
+			Console.WriteLine (JsonSerializer.Serialize (report, jsonOptions));
+			return report.PackageChecksPassed ? 0 : 1;
+			}
 		if (command == "discover")
 			{
 			Console.WriteLine (JsonSerializer.Serialize (await ProcessorDiscovery.FindAsync (cancellation.Token), jsonOptions));
