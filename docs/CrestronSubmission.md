@@ -22,13 +22,13 @@ This is deliberately a structural report, not submission readiness. It does not 
 
 ## Intended release path
 
-1. Select a release candidate from trusted source, build it once, and record source commit, toolchain, driver GUID/version and package SHA-256.
+1. Select a release candidate from trusted source, generate its final help PDF, build the package once with that PDF embedded, and record source commit, toolchain, driver GUID/version and package SHA-256.
 2. Check package contents, help PDF, support/developer metadata and release identity.
 3. Run desktop tests and reserve the development processor and Android instance for the whole hardware/UI sequence.
 4. Install the exact candidate, configure it, run processor tests and live device checks, and verify the installed driver UI using the Android app. A passing processor test package does not prove that the production package works.
 5. Complete the applicable official self-test requirements, including persistence, multiple instances, recovery, endurance and removal. Restore device state, reconcile interrupted operations and remove only automation-owned temporary instances/packages.
 6. Evaluate a versioned evidence manifest. Each applicable requirement must have complete, passing evidence for this candidate and environment. Record justified non-applicability separately. Missing, partial, failed or inconclusive evidence blocks submission.
-7. Generate the help document and completed official self-test form, verify rendered pages, and apply the developer's authorized signature to the exact completed form. Help must already be inside the tested package; never insert it after hardware validation.
+7. Generate the completed official self-test form from the passing evidence, verify rendered pages, and apply the developer's authorized signature to the exact completed form. Help is generated in step 1 and must already be inside the tested package; never insert it after hardware validation.
 8. Upload the validated package to Crestron's file-sharing service, save its returned download URL, and email that URL with the signed form through the configured sender.
 9. Retain a durable submission receipt and expose a concise CI summary. Crestron's later review/acceptance is a separate external state.
 
@@ -58,7 +58,7 @@ Each item is complete only after its stated validation. The list is updated as w
 | S05 | Unattended worker and resource reservation | Prove operation from the installed runner service or a controlled interactive-session worker; enforce shared processor lease plus Android lock; survive unavailable emulator | Planned |
 | S06 | Wiser installation/configuration and UI coverage | Exact release package, home/room placement, all supported controls/subpages, device feedback and restored starting state; include Setup/Configure UI requirements | Planned |
 | S07 | Recovery, multi-instance and endurance coverage | Real required outage durations, 24-hour observation, isolation, persistence and deletion; recover safely after cancellation/reboot | Planned; outage hardware deferred |
-| S08 | Help/form generation | SDK help template, correct support metadata, matching embedded PDF filename; pinned official form fields and template hashes; render checks; complete evidence only | Help builder/renderer tested; Wiser review PDF inspected; figures, completed forms and packaging integration pending |
+| S08 | Help/form generation | SDK help template, correct support metadata, matching embedded PDF filename; pinned official form fields and template hashes; render checks; complete evidence only | Help builder/renderer and MSBuild hooks tested; Wiser draft inspected and incomplete candidate rejected; final ManifestUtil build, figures, forms and CI integration pending |
 | S09 | Signature and delivery authorization | Private signature asset and sender configured; exact bundle/form hashes bound to signing authorization; test delivery to a controlled destination | Waiting for later provisioning |
 | S10 | Crestron upload and email adapters | Confirm service behavior, capture download URL and mail receipt; uncertain outcomes require reconciliation; crash-safe duplicate prevention | Planned; no documented upload API established |
 | S11 | Reusable final CI stage and Wiser pilot | Trusted release only, dry-run bundle first, then one authorized real submission with durable receipt; rerun does not submit twice | Planned |

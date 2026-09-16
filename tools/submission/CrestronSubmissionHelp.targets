@@ -1,0 +1,44 @@
+<!--
+Copyright (c) 2026 Neil Colvin.
+Licensed under the MIT License. See LICENSE in the repository root.
+-->
+<Project>
+  <PropertyGroup>
+    <SubmissionHelpTargetsImported>true</SubmissionHelpTargetsImported>
+    <_SubmissionHelpScript>$(MSBuildThisFileDirectory)package_help.py</_SubmissionHelpScript>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(CrestronSubmission)' == 'true' And '$(BuildForTests)' != 'true' And '$(DesignTimeBuild)' != 'true'">
+    <!-- Evaluation gives this project invocation its own directory; no stale receipt is reused. -->
+    <_SubmissionHelpWork>$([System.IO.Path]::GetFullPath($([System.IO.Path]::Combine('$(MSBuildProjectDirectory)', '$(BaseIntermediateOutputPath)', 'submission-help', '$([System.Guid]::NewGuid().ToString())'))))</_SubmissionHelpWork>
+    <_SubmissionHelpReceipt>$(_SubmissionHelpWork)/help-receipt.json</_SubmissionHelpReceipt>
+    <MergeDependenciesContinueOnError>false</MergeDependenciesContinueOnError>
+    <PackageDriverContinueOnError>false</PackageDriverContinueOnError>
+    <PackageDriverIgnoreExitCode>false</PackageDriverIgnoreExitCode>
+  </PropertyGroup>
+
+  <Target Name="ValidateSubmissionHelpSettings" Condition="'$(CrestronSubmission)' == 'true' And '$(BuildForTests)' != 'true' And '$(DesignTimeBuild)' != 'true'">
+    <Error Condition="'$(Configuration)' != 'Release'" Text="Crestron submission candidates require Release configuration." />
+    <Error Condition="'$(MergeDependenciesContinueOnError)' != 'false' Or '$(PackageDriverContinueOnError)' != 'false' Or '$(PackageDriverIgnoreExitCode)' != 'false'" Text="Submission packaging cannot ignore merge or ManifestUtil failures." />
+    <Error Condition="!Exists('$(SubmissionPython)') Or !Exists('$(SubmissionSoffice)')" Text="Set SubmissionPython and SubmissionSoffice to explicit installed executable paths." />
+    <Error Condition="!Exists('$(SubmissionHelpTemplate)') Or '$(SubmissionHelpTemplateSha256)' == ''" Text="Provide the pinned official help template and its SHA-256." />
+    <Error Condition="!Exists('$(SubmissionHelpContent)') Or !Exists('$(DriverManifestFile)')" Text="Provide the public help content and driver manifest." />
+    <Error Condition="'$(SubmissionDeveloperToken)' == '' Or '$(SubmissionSupportEmail)' == ''" Text="Provide the approved public developer token and support email." />
+  </Target>
+
+  <!-- Drivers call validation before their version bump and prepare before CoreCompile. -->
+  <Target Name="PrepareSubmissionHelp" BeforeTargets="CoreCompile" DependsOnTargets="ValidateSubmissionHelpSettings;BumpDriverVersion" Condition="'$(CrestronSubmission)' == 'true' And '$(BuildForTests)' != 'true' And '$(DesignTimeBuild)' != 'true'">
+    <Exec Command="&quot;$(SubmissionPython)&quot; &quot;$(_SubmissionHelpScript)&quot; prepare --manifest &quot;$(DriverManifestFile)&quot; --content &quot;$(SubmissionHelpContent)&quot; --assembly &quot;$(AssemblyName)&quot; --developer-token &quot;$(SubmissionDeveloperToken)&quot; --support-email &quot;$(SubmissionSupportEmail)&quot; --template &quot;$(SubmissionHelpTemplate)&quot; --template-sha256 &quot;$(SubmissionHelpTemplateSha256)&quot; --soffice &quot;$(SubmissionSoffice)&quot; --output-directory &quot;$(_SubmissionHelpWork)&quot;" />
+  </Target>
+
+  <!-- Call AFTER copying ordinary IncludeInPkg assets, immediately BEFORE ManifestUtil. -->
+  <Target Name="StageSubmissionHelp" DependsOnTargets="PrepareSubmissionHelp" Condition="'$(CrestronSubmission)' == 'true' And '$(BuildForTests)' != 'true' And '$(DesignTimeBuild)' != 'true'">
+    <Exec Command="&quot;$(SubmissionPython)&quot; &quot;$(_SubmissionHelpScript)&quot; stage --manifest &quot;$(DriverManifestFile)&quot; --content &quot;$(SubmissionHelpContent)&quot; --assembly &quot;$(AssemblyName)&quot; --receipt &quot;$(_SubmissionHelpReceipt)&quot; --include-directory &quot;$(TargetDir)patched/IncludeInPkg&quot;" />
+    <Delete Files="$(TargetDir)$(AssemblyName).pkg" />
+  </Target>
+
+  <!-- Call only AFTER ManifestUtil succeeds. The receipt stays in obj, outside the PKG. -->
+  <Target Name="VerifySubmissionHelp" Condition="'$(CrestronSubmission)' == 'true' And '$(BuildForTests)' != 'true' And '$(DesignTimeBuild)' != 'true'">
+    <Exec Command="&quot;$(SubmissionPython)&quot; &quot;$(_SubmissionHelpScript)&quot; verify --manifest &quot;$(DriverManifestFile)&quot; --content &quot;$(SubmissionHelpContent)&quot; --assembly &quot;$(AssemblyName)&quot; --receipt &quot;$(_SubmissionHelpReceipt)&quot; --package &quot;$(TargetDir)$(AssemblyName).pkg&quot; --report &quot;$(_SubmissionHelpWork)/packaged-help.json&quot;" />
+    <Message Importance="high" Text="Submission help packaged and verified. Retain $(_SubmissionHelpWork) with the candidate build artifacts. Full submission validation remains required." />
+  </Target>
+</Project>
