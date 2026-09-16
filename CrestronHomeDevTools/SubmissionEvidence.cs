@@ -114,7 +114,7 @@ public static class SubmissionEvidence
 		left.PolicySha256.Equals (right.PolicySha256, StringComparison.OrdinalIgnoreCase) &&
 		left.TemplateSha256.Equals (right.TemplateSha256, StringComparison.OrdinalIgnoreCase);
 
-	private static bool SafeEvidencePath (string root, string? relative, out string path)
+	internal static bool SafeEvidencePath (string root, string? relative, out string path)
 		{
 		path = string.Empty;
 		if (string.IsNullOrWhiteSpace (relative) || Path.IsPathRooted (relative) || relative.Contains (':') ||

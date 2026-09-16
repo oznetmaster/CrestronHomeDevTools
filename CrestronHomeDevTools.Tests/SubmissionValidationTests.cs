@@ -2,6 +2,7 @@
 // Licensed under the MIT License. See LICENSE in the repository root.
 
 using System.Diagnostics;
+using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -206,6 +207,185 @@ public sealed class SubmissionValidationTests
 		}
 
 	private string PathFor (string relative) => Path.Combine (_directory, relative);
+
+	private SubmissionBundleReport Bundle () => SubmissionBundle.Create (PathFor ("private.zip"), PathFor ("candidate.json"), _candidateDigest,
+		PathFor (PACKAGE_NAME), PathFor ("policy.json"), PathFor ("template.pdf"), PathFor ("observations.json"), PathFor ("evidence"), Now);
+	private SubmissionBundleReport CheckBundle (string digest) => SubmissionBundle.Check (PathFor ("private.zip"), digest, _candidateDigest, _directory, Now);
+
+	[Test]
+	public void BundleRetainsOnlyReferencedFilesAndRevalidatesAfterOriginalsChange ()
+		{
+		File.WriteAllText (PathFor ("evidence/private-settings.json"), "Private fixture: must not be copied");
+		var bundle = Bundle ();
+		Assert.That (bundle.ValidationChecksPassed, Is.True);
+		Assert.That (bundle.BundleSha256, Is.EqualTo (Digest ("private.zip")));
+		Assert.That (bundle.FileCount, Is.EqualTo (6));
+		using (var zip = ZipFile.OpenRead (PathFor ("private.zip")))
+			{
+			Assert.That (zip.Entries.Select (entry => entry.FullName), Does.Not.Contain ("evidence/private-settings.json"));
+			Assert.That (zip.Entries.Select (entry => entry.FullName), Does.Contain ("package/" + PACKAGE_NAME));
+			using var entry = zip.GetEntry ("package/" + PACKAGE_NAME)!.Open ();
+			Assert.That (Convert.ToHexString (SHA256.HashData (entry)).ToLowerInvariant (), Is.EqualTo (_candidate.Identity.PackageSha256));
+			}
+		File.WriteAllText (PathFor ("evidence/trace.txt"), "Changed after snapshot");
+		File.WriteAllText (PathFor (PACKAGE_NAME), "Changed after snapshot");
+		Assert.That (CheckBundle (bundle.BundleSha256).ValidationChecksPassed, Is.True);
+		Assert.That (Directory.GetDirectories (_directory, ".submission-*"), Is.Empty);
+		}
+
+	[Test]
+	public void BundleDoesNotOverwriteExistingDestination ()
+		{
+		var first = Bundle ();
+		Assert.Throws<IOException> (() => Bundle ());
+		Assert.That (Digest ("private.zip"), Is.EqualTo (first.BundleSha256));
+		}
+
+	[TestCase ("candidate.json")]
+	[TestCase (PACKAGE_NAME)]
+	[TestCase ("policy.json")]
+	[TestCase ("template.pdf")]
+	[TestCase ("evidence/trace.txt")]
+	public void InvalidInputsCannotProduceFinishedBundle (string changed)
+		{
+		File.AppendAllText (PathFor (changed), "changed");
+		Assert.Throws<InvalidDataException> (() => Bundle ());
+		Assert.That (File.Exists (PathFor ("private.zip")), Is.False);
+		Assert.That (Directory.GetDirectories (_directory, ".submission-*"), Is.Empty);
+		}
+
+	[Test]
+	public void RepackedArchiveRequiresNewIndependentBundleDigest ()
+		{
+		var bundle = Bundle ();
+		using (var zip = ZipFile.Open (PathFor ("private.zip"), ZipArchiveMode.Update)) zip.GetEntry ("template.pdf")!.LastWriteTime = Now;
+		Assert.Throws<InvalidDataException> (() => CheckBundle (bundle.BundleSha256));
+		Assert.That (CheckBundle (Digest ("private.zip")).ValidationChecksPassed, Is.True);
+		}
+
+	[TestCase ("candidate.json", false)]
+	[TestCase ("evidence/trace.txt", false)]
+	[TestCase ("evidence/unreferenced.txt", true)]
+	[TestCase ("../escape.txt", true)]
+	[TestCase ("evidence/../escape.txt", true)]
+	[TestCase ("evidence/CON.txt", true)]
+	[TestCase ("evidence/Trace.txt", true)]
+	[TestCase ("evidence/link.txt", true)]
+	public void RehashingArchiveCannotBypassContainedEvidenceAndPathValidation (string name, bool extra)
+		{
+		Bundle ();
+		using (var zip = ZipFile.Open (PathFor ("private.zip"), ZipArchiveMode.Update))
+			{
+			if (!extra) zip.GetEntry (name)!.Delete ();
+			var entry = zip.CreateEntry (name);
+			if (name == "evidence/link.txt") entry.ExternalAttributes = 0xA000 << 16;
+			using var writer = new StreamWriter (entry.Open ());
+			writer.Write ("Changed contents");
+			}
+		if (extra) Assert.Throws<InvalidDataException> (() => CheckBundle (Digest ("private.zip")));
+		else Assert.That (CheckBundle (Digest ("private.zip")).ValidationChecksPassed, Is.False);
+		Assert.That (Directory.GetDirectories (_directory, ".submission-*"), Is.Empty);
+		}
+
+	[Test]
+	public void DuplicateArchiveEntriesAreRejected ()
+		{
+		Bundle ();
+		using (var zip = ZipFile.Open (PathFor ("private.zip"), ZipArchiveMode.Update)) zip.CreateEntry ("candidate.json");
+		Assert.Throws<InvalidDataException> (() => CheckBundle (Digest ("private.zip")));
+		}
+
+	[TestCase ("../private.txt")]
+	[TestCase ("nested/../../private.txt")]
+	[TestCase ("nested/CON.txt")]
+	[TestCase ("nested/CON .txt")]
+	[TestCase ("C:/private.txt")]
+	public void UnsafeObservationCannotCopyFilesIntoBundle (string relative)
+		{
+		Write ("observations.json", _observations with { Observations = [_observations.Observations[0] with
+			{ Files = [new (relative, new ('a', 64))] }] });
+		Assert.Throws<InvalidDataException> (() => Bundle ());
+		Assert.That (File.Exists (PathFor ("private.zip")), Is.False);
+		}
+
+	[Test]
+	public void MissingArchiveEvidenceIsRejected ()
+		{
+		Bundle ();
+		using (var zip = ZipFile.Open (PathFor ("private.zip"), ZipArchiveMode.Update)) zip.GetEntry ("evidence/trace.txt")!.Delete ();
+		Assert.Throws<InvalidDataException> (() => CheckBundle (Digest ("private.zip")));
+		}
+
+	[Test]
+	public void ExcessiveExpandedEntryIsRejectedBeforeExtraction ()
+		{
+		Bundle ();
+		using (var zip = ZipFile.Open (PathFor ("private.zip"), ZipArchiveMode.Update))
+			{
+			using var destination = zip.CreateEntry ("evidence/oversized.txt", CompressionLevel.Fastest).Open ();
+			var zeros = new byte[1024 * 1024];
+			for (var i = 0; i < 65; i++) destination.Write (zeros);
+			}
+		Assert.Throws<InvalidDataException> (() => CheckBundle (Digest ("private.zip")));
+		Assert.That (Directory.GetDirectories (_directory, ".submission-*"), Is.Empty);
+		}
+
+	[Test]
+	public void ArchiveWithTooManyEntriesIsRejected ()
+		{
+		using (var zip = ZipFile.Open (PathFor ("private.zip"), ZipArchiveMode.Create))
+			for (var i = 0; i < 4097; i++) zip.CreateEntry ("evidence/item" + i);
+		Assert.Throws<InvalidDataException> (() => CheckBundle (Digest ("private.zip")));
+		}
+
+	[Test]
+	public void IncompleteObservationCannotProduceBundle ()
+		{
+		Write ("observations.json", _observations with { Observations = [] });
+		Assert.Throws<InvalidDataException> (() => Bundle ());
+		Assert.That (File.Exists (PathFor ("private.zip")), Is.False);
+		}
+
+	[Test]
+	public void CancellationLeavesNoPublishedBundle ()
+		{
+		Assert.Throws<OperationCanceledException> (() => SubmissionBundle.Create (PathFor ("private.zip"), PathFor ("candidate.json"), _candidateDigest,
+			PathFor (PACKAGE_NAME), PathFor ("policy.json"), PathFor ("template.pdf"), PathFor ("observations.json"), PathFor ("evidence"), Now, new CancellationToken (true)));
+		Assert.That (File.Exists (PathFor ("private.zip")), Is.False);
+		Assert.That (Directory.GetDirectories (_directory, ".submission-*"), Is.Empty);
+		}
+
+	[Test]
+	public async Task BundleCliCreatesAndChecksWithoutProcessorCredentials ()
+		{
+		var finished = DateTimeOffset.UtcNow.AddMinutes (-1);
+		Write ("observations.json", _observations with { Observations = _observations.Observations.Select (item => item with
+			{ StartedUtc = finished.AddMinutes (-1), FinishedUtc = finished }).ToArray () });
+		using var created = await BundleCli ("submission-bundle-create", "--output", PathFor ("private.zip"),
+			"--candidate", PathFor ("candidate.json"), "--candidate-sha256", _candidateDigest, "--package", PathFor (PACKAGE_NAME),
+			"--policy", PathFor ("policy.json"), "--template", PathFor ("template.pdf"), "--observations", PathFor ("observations.json"), "--evidence", PathFor ("evidence"));
+		Assert.That (created.RootElement.GetProperty ("ValidationChecksPassed").GetBoolean (), Is.True);
+		using var verified = await BundleCli ("submission-bundle-check", "--bundle", PathFor ("private.zip"),
+			"--bundle-sha256", created.RootElement.GetProperty ("BundleSha256").GetString ()!, "--candidate-sha256", _candidateDigest, "--scratch", _directory);
+		Assert.That (verified.RootElement.GetProperty ("ValidationChecksPassed").GetBoolean (), Is.True);
+		}
+
+	private static async Task<JsonDocument> BundleCli (params string[] args)
+		{
+		var start = new ProcessStartInfo ("dotnet") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+		start.ArgumentList.Add (Path.Combine (AppContext.BaseDirectory, "CrestronHomeDevTools.Console.dll"));
+		foreach (var argument in args) start.ArgumentList.Add (argument);
+		start.ArgumentList.Add ("--profile");
+		start.ArgumentList.Add ("nonexistent-submission-test-profile");
+		using var process = Process.Start (start)!;
+		var output = process.StandardOutput.ReadToEndAsync ();
+		var errors = process.StandardError.ReadToEndAsync ();
+		using var deadline = new CancellationTokenSource (TimeSpan.FromSeconds (30));
+		try { await process.WaitForExitAsync (deadline.Token); }
+		finally { if (!process.HasExited) process.Kill (true); }
+		Assert.That (process.ExitCode, Is.Zero, await errors);
+		return JsonDocument.Parse (await output);
+		}
 	private string Digest (string relative) => Convert.ToHexString (SHA256.HashData (File.ReadAllBytes (PathFor (relative)))).ToLowerInvariant ();
 	private void Write<T> (string relative, T value) => File.WriteAllText (PathFor (relative), JsonSerializer.Serialize (value, JsonOptions));
 	private void SaveCandidate ()

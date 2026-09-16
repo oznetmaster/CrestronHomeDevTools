@@ -77,6 +77,11 @@ public static class SubmissionValidation
 		}
 
 	private static FileStream Open (string path) => new (path, FileMode.Open, FileAccess.Read, FileShare.Read);
+	internal static T ReadFile<T> (string path)
+		{
+		using var input = Open (path);
+		return Read<T> (ReadJsonBytes (input));
+		}
 	private static string Hash (byte[] bytes) => Convert.ToHexString (SHA256.HashData (bytes)).ToLowerInvariant ();
 	private static bool SameHash (string left, string? right) => left.Equals (right, StringComparison.OrdinalIgnoreCase);
 	private static byte[] ReadJsonBytes (FileStream input)
