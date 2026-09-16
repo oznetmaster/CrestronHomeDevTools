@@ -31,7 +31,7 @@ class MsBuildHelpTests(unittest.TestCase):
         fake.write_text('''# Synthetic test tools, never used for driver builds.
 import json, sys
 from pathlib import Path
-from zipfile import ZipFile
+from zipfile import ZipFile, ZipInfo
 sys.path.insert(0, TOOLS)
 import build_help
 from test_render_help import pdf
@@ -46,6 +46,12 @@ elif sys.argv[1] == 'pack':
     with ZipFile(root / (name + '.pkg'), 'w') as package:
         package.writestr(name + '.dll', b'synthetic; never deployed')
         package.writestr(name + '.dat', json.dumps(metadata))
+        raw_path = 'Translations' + chr(92) + 'en-US.json'
+        entry = ZipInfo(raw_path)
+        entry.filename = entry.orig_filename = raw_path
+        package.writestr(entry, b'{}')
+        if (root.parent / 'collision').exists():
+            package.writestr('Translations/en-US.json', b'different')
         if (root.parent / 'corrupt-help').exists():
             package.writestr(name + '.pdf', b'wrong help')
         else:
@@ -104,6 +110,11 @@ else:
             reports = list((self.root / "obj/submission-help").glob("*/packaged-help.json"))
             self.assertEqual(len(reports), attempt + 1)
             self.assertTrue(all(json.loads(path.read_text())["packagedHelpVerified"] for path in reports))
+            for report in reports:
+                paths = json.loads(report.with_name('package-paths.json').read_text())
+                self.assertTrue(paths['payloadBytesPreserved'])
+                self.assertEqual(len(paths['renamedEntries']), 1)
+                self.assertEqual(paths['packageSha256'], json.loads(report.read_text())['packageSha256'])
         self.assertTrue((self.root / "compiled.txt").exists())
         self.assertTrue((self.root / "bin/patched/IncludeInPkg/UiDefinition.xml").exists())
 
@@ -152,6 +163,13 @@ else:
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Release configuration", result.stdout + result.stderr)
         self.assertFalse((self.root / "compiled.txt").exists())
+
+    def test_normalization_collision_stops_before_successful_help_receipt(self):
+        (self.root / 'collision').touch()
+        result = self.run_build()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('collide', result.stdout + result.stderr)
+        self.assertFalse(list((self.root / 'obj/submission-help').glob('*/packaged-help.json')))
 
 
 if __name__ == "__main__":

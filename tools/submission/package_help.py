@@ -122,7 +122,7 @@ def verify(receipt, manifest, content, assembly, package):
     # Hash and inspect the same snapshot. Subsequent candidate checks pin this package hash.
     data = package.read_bytes()
     with ZipFile(io.BytesIO(data)) as archive:
-        names = archive.namelist()
+        names = [entry.orig_filename for entry in archive.infolist()]
         if len(names) > 4096 or len(set(n.casefold() for n in names)) != len(names):
             raise ValueError("Package contains excessive or duplicate entries")
         if any("\\" in n or ":" in n or n.startswith("/") or any(p in (".", "..") for p in n.split("/")) for n in names):

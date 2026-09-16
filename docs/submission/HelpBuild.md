@@ -52,9 +52,10 @@ The sequence is enforced as follows:
 1. Validate submission settings before the driver's version preparation. Require Release configuration and reject options that ignore merge or ManifestUtil errors.
 2. Before `CoreCompile`, compare the help's four-component version with the prepared manifest, verify the public support email and developer filename component, and build final-mode help in a fresh `obj/submission-help/<unique-id>` directory. Pending content or missing declared screenshots stops the build. There is no draft bypass in this path.
 3. After copying ordinary `IncludeInPkg` assets, recheck source/DOCX/PDF hashes and stage the generated PDF. A competing source PDF is an error. Remove only the expected old candidate `.pkg` before invoking ManifestUtil so an earlier package cannot stand in for a failed build.
-4. After ManifestUtil succeeds, read the package and require exact root DLL/DAT/PDF basenames and case, the expected GUID/version/support metadata, and byte-for-byte equality with the rendered PDF. Write `packaged-help.json` with the package, PDF and help-receipt hashes.
+4. After ManifestUtil succeeds, normalize Windows archive separators to forward slashes. Reject traversal, colliding names, file/directory conflicts, encrypted entries and links. Preserve and recheck every payload byte before replacing this fresh build output. Record the original/final hashes and renamed entries in `package-paths.json`. Already normalized archives retain their exact bytes.
+5. Read the resulting package and require exact root DLL/DAT/PDF basenames and case, the expected GUID/version/support metadata, and byte-for-byte equality with the rendered PDF. Write `packaged-help.json` with the final package, PDF and help-receipt hashes.
 
-Keep the DOCX, PDF, `help-receipt.json` and `packaged-help.json` as candidate build artifacts. Only the PDF goes into `IncludeInPkg`. The reports contain hashes and public driver identity, not local input paths. The trusted candidate/evidence producer must consume the recorded package digest and the same package bytes; rebuilding or modifying a package requires new evidence. These reports establish build consistency, not visual approval, authenticated test evidence or permission to sign/send.
+Keep the DOCX, PDF, `help-receipt.json`, `package-paths.json` and `packaged-help.json` as candidate build artifacts. Only the PDF goes into `IncludeInPkg`. The reports contain hashes and public driver identity, not local input paths. The trusted candidate/evidence producer must consume the recorded package digest and the same package bytes; rebuilding or modifying a package requires new evidence. These reports establish build consistency, not visual approval, authenticated test evidence or permission to sign/send.
 
 | Property | Value |
 |---|---|
@@ -80,3 +81,10 @@ Next, complete the driver-specific public content and approved UI figures, verif
 The first content profile will be Wiser Heat. Its driver license is MIT with the Commons Clause, unlike DevTools' MIT license; the generated help must preserve that distinction. Public support is `support@marvelous.com`. The separate private submission correspondence address does not belong in help or driver metadata. Exact supported models, minimum firmware, screenshots and candidate-specific test environment must be supported by evidence, not inferred from this renderer check.
 
 See the [submission plan](../CrestronSubmission.md) for the remaining help, evidence, signing and delivery work.
+
+
+### Archive path correction after 1.5.0
+
+The source checkout now includes `normalize_package.py` in the opt-in packaging hook. It corrects the raw backslash names emitted by ManifestUtil before the final candidate hash and any hardware tests. This correction is newer than the 1.5.0 tag: use a reviewed source revision containing the script and targets together. Do not run it on an already published or tested candidate; changed archive bytes require a new candidate and new evidence. Each build must own its output directory exclusively.
+
+A private copy of the released Wiser 1.3.7 package was checked with the published 1.5.0 preflight after normalization. All payload bytes were preserved, all three backslash entry names were corrected, and the archive-path defect disappeared. The original release bytes were unchanged. Missing submission naming, help and support metadata remain defects in that old release; this check does not make it a submission candidate. The offline MSBuild integration also checks the normalization/verification order and refuses collisions before emitting successful packaged-help evidence.

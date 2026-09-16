@@ -8,7 +8,7 @@ import subprocess
 import sys
 import unittest
 from unittest.mock import patch
-from zipfile import ZipFile
+from zipfile import ZipFile, ZipInfo
 
 import build_help
 import package_help
@@ -89,6 +89,17 @@ class PackageHelpTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "incomplete"):
             self.prepare()
         self.assertFalse(self.receipt.exists())
+
+    def test_verification_rejects_raw_backslashes_even_on_windows(self):
+        self.prepare()
+        self.stage()
+        self.make_package()
+        info = ZipInfo('Translations/en-US.json')
+        info.filename = info.orig_filename = 'Translations' + chr(92) + 'en-US.json'
+        with ZipFile(self.package, 'a') as archive:
+            archive.writestr(info, b'{}')
+        with self.assertRaisesRegex(ValueError, 'unsafe archive paths'):
+            self.verify()
 
     def test_missing_declared_screenshot_never_produces_a_receipt(self):
         self.fixture.content["uiPages"] = ["home"]

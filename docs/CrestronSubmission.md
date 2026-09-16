@@ -1,6 +1,6 @@
 # Automated Crestron driver submission
 
-This is the implementation plan and progress record for making Crestron submission the final stage of driver release CI. It starts with Wiser Heat, then covers WeatherLink, KasaTapo, Overkiz, Tesla and Apple TV. Processor test packages and independent client libraries are not portal submissions.
+This is the implementation plan and progress record for making Crestron submission the final stage of driver release CI. Complete Wiser Heat end to end first, then roll the validated workflow out to WeatherLink, KasaTapo, Overkiz, Tesla and Apple TV. Shared tooling changes needed by Wiser remain in scope; implementing other driver submissions waits until that pilot is complete. Processor test packages and independent client libraries are not portal submissions.
 
 Submission is an explicit opt-in extension, never a mandatory consequence of using the development tools. A client or library workflow ends after its configured tests and ordinary publication. A driver workflow can also update/test the installed driver and its UI without submitting anything. Only a driver release that explicitly enables submission enters the additional evidence, form, signature and delivery gates below. Those gates must not be imported as prerequisites of general test, build or GitHub/NuGet release jobs.
 
@@ -10,7 +10,7 @@ The developer has confirmed that all six are new portal submissions. Use develop
 
 ## Offline package preflight
 
-The source includes `SubmissionPackage.Inspect` and this CLI command (not yet released):
+DevTools 1.5.0 includes `SubmissionPackage.Inspect` and this CLI command:
 
 ```text
 submission-check --package NeilColvin_Platform_Example_IP.pkg --driver DRIVER_GUID --version 1.0.000.0000 --kind new --developer-name-token NeilColvin --support-email support@marvelous.com
@@ -57,7 +57,7 @@ Each item is complete only after its stated validation. The list is updated as w
 | S02 | Offline package preflight | Tests reject mismatched names/version/GUID, missing help/developer data and malformed archives; audit actual released packages | Structural checker tested; Wiser release audited; other drivers pending |
 | S03 | Candidate/evidence manifest and strict gate | Reject stale/cross-package evidence, skipped controls, incomplete restoration, missing files and duplicate IDs; no hard-coded total test counts | Evaluator, combined offline CLI and private evidence archive/check commands tested; authenticated producer, final signing/delivery integration and subcondition policies pending |
 | S04 | Android automation library and NUnit fixture foundation | Target verification, stable selectors, bounded waits, screenshots/hierarchy, cancellation and serial selection; repeated read-only runs pass | Complete Wiser Debug workflow passed with optional name binding, released CLI/TestAdapter 1.7.1 and DevTools 1.5.0, minimized Google emulator, both UI cases, restored name/Home, unchanged inventory/state and temporary test storage cleanup. Exact Release-candidate validation remains pending |
-| S05 | Unattended worker and resource reservation | Prove operation from the installed runner service or a controlled interactive-session worker; enforce shared processor lease plus Android lock; survive unavailable emulator | Combined reservations/release passed in the logged-in CLI workflow. The installed NETWORK SERVICE runner can query the existing Google emulator and running app through ADB. Complete UI tests under the service, shared cross-account storage, startup/logout/session-0 and crash recovery remain pending |
+| S05 | Unattended worker and resource reservation | Prove operation from the installed runner service or a controlled interactive-session worker; enforce shared processor lease plus Android lock; survive unavailable emulator | Both Wiser UI cases passed under NETWORK SERVICE against the existing Google emulator, including temporary name binding, Home/name restoration and preserved inventory/gateway state. Shared cross-account reservation storage is provisioned and both reservations were released. Full deployment under that account, emulator startup/logout/reboot and crash recovery remain pending |
 | S06 | Wiser installation/configuration and UI coverage | Exact release package, home/room placement, all supported controls/subpages, device feedback and restored starting state; include Setup/Configure UI requirements | Planned |
 | S07 | Recovery, multi-instance and endurance coverage | Real required outage durations, 24-hour observation, isolation, persistence and deletion; recover safely after cancellation/reboot | Planned; outage hardware deferred |
 | S08 | Help/form generation | SDK help template, correct support metadata, matching embedded PDF filename; pinned official form fields and template hashes; render checks; complete evidence only | Help/MSBuild hooks and unsigned form generator tested; Wiser help/form drafts inspected; final candidate, figures, approved mapping, real evidence-backed form and CI integration pending |
