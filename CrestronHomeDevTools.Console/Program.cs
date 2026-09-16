@@ -76,6 +76,9 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
               submission-check --package FILE --driver GUID --version A.B.C.D
                 --kind new|update --support-email ADDRESS [--developer-name-token TOKEN]
                                        Check portal package structure offline; no submission occurs.
+              submission-evidence-check --candidate FILE --candidate-sha256 SHA256
+                --package FILE --policy FILE --template FILE --observations FILE --evidence DIR
+                                       Check candidate, policy, form and retained evidence offline.
               configure                Choose a processor and save encrypted credentials locally.
               plan-update --driver ID --output plan.json
                                        Save update versions and affected device IDs for review.
@@ -157,6 +160,7 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 				"reboot" => ["confirm-reboot"],
 				"deploy" => ["package"],
 				"submission-check" => ["package", "driver", "version", "kind", "developer-name-token", "support-email"],
+				"submission-evidence-check" => ["candidate", "candidate-sha256", "package", "policy", "template", "observations", "evidence"],
 				"activate" => ["driver", "name", "room", "device"],
 				"remove" => ["device", "model", "version"],
 				"configure-driver" => ["device", "model", "version", "input"],
@@ -202,6 +206,14 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 				throw new ArgumentException ("Expected driver version is invalid.");
 			}
 		var jsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true, WriteIndented = true };
+		if (command == "submission-evidence-check")
+			{
+			var report = SubmissionValidation.CheckFiles (Required ("candidate"), Required ("candidate-sha256"),
+				Required ("package"), Required ("policy"), Required ("template"), Required ("observations"),
+				Required ("evidence"), DateTimeOffset.UtcNow, cancellation.Token);
+			Console.WriteLine (JsonSerializer.Serialize (report, jsonOptions));
+			return report.ValidationChecksPassed ? 0 : 1;
+			}
 		if (command == "submission-check")
 			{
 			var kind = Required ("kind") switch

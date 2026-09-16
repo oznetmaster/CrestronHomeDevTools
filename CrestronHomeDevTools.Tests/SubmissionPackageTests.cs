@@ -117,7 +117,7 @@ public sealed class SubmissionPackageTests
 		Assert.Throws<ArgumentException> (() => SubmissionPackage.Inspect (stream, Basename + ".pkg", requirements));
 		}
 
-	private static MemoryStream Package (string? defect = null)
+	internal static MemoryStream Package (string? defect = null)
 		{
 		var stream = new MemoryStream ();
 		using (var zip = new ZipArchive (stream, ZipArchiveMode.Create, true))
