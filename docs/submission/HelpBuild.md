@@ -24,7 +24,7 @@ The extracted renderer successfully converted all three pages of the unchanged o
 
 ## Source tools
 
-The source-only Python tools are in `tools/submission`; they are not yet included in the published CLI/NuGet package. Install their pinned Python dependencies from `tools/submission/requirements.txt`. No Word/COM automation or Crestron SDK assemblies are used. The original official DOCX is supplied locally, not redistributed with these tools.
+The source-only Python tools are in `tools/submission`; they are not embedded in the console ZIP or NuGet package. Use the matching tagged DevTools checkout. Install their pinned Python dependencies from `tools/submission/requirements.txt`. No Word/COM automation or Crestron SDK assemblies are used. The original official DOCX is supplied locally, not redistributed with these tools.
 
 ```text
 python tools/submission/build_help.py --template OFFICIAL.docx --template-sha256 PINNED_SHA256 --content help-content.json --output Driver.review.docx --draft

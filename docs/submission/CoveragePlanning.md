@@ -1,6 +1,6 @@
 # Plan driver-specific submission coverage
 
-`tools/submission/coverage_plan.py` expands a reviewed source snapshot and coverage blueprint into a draft evidence policy, a complete form mapping and scoped producer tasks. It does not execute tests, generate observations, approve the policy or fill a form. It is source-only tooling, outside the published 1.4.0 binaries.
+`tools/submission/coverage_plan.py` expands a reviewed source snapshot and coverage blueprint into a draft evidence policy, a complete form mapping and scoped producer tasks. It does not execute tests, generate observations, approve the policy or fill a form. It is source tooling: use the matching tagged DevTools checkout. Python scripts are not embedded in the NuGet package or console ZIP.
 
 The first concrete blueprint is [Wiser's Extension plan](https://github.com/oznetmaster/WiserHeatCrestronDriver/blob/master/submission/extension-coverage-plan.json). It enumerates gateway and managed-room UI, configuration, timing, restoration, outage, endurance and two-instance checks. It is a planning artifact with unresolved execution bindings, not passed self-test evidence.
 

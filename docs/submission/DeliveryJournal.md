@@ -1,6 +1,6 @@
 # Delivery intent, receipts and reconciliation
 
-The source `SubmissionDelivery` API records the upload/email boundary for a future Crestron delivery adapter. It has no built-in uploader, SMTP client or CLI send command and is not in the published 1.4.0 library. Tests use synthetic local transports; no driver has been submitted through this code.
+The `SubmissionDelivery` API, introduced in 1.5.0, records the upload/email boundary for a future Crestron delivery adapter. It has no built-in uploader, SMTP client or CLI send command. Tests use synthetic local transports; no driver has been submitted through this code.
 
 Crestron's [published submission procedure](https://sdkcon78221.crestron.com/sdk/Crestron_Certified_Drivers_SDK/Content/Topics/Submit-a-Driver/Submit-a-Driver.htm) requires its file-sharing service for the `.pkg`, then an email to `drivers@crestron.com` with subject `Driver Submission Package`, the returned download URL and the signed self-test plan attached. The sending email address receives subsequent correspondence. An email-provider acceptance receipt is not proof that Crestron received, approved or certified the driver.
 

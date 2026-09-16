@@ -1,6 +1,6 @@
 # Generating the official self-test review form
 
-`tools/submission/self_test_form.py` generates an unsigned, interactive review PDF. It preserves the official form's printed pages, adds a companion matrix, and can populate checkboxes from evidence checked by the existing DevTools offline validator. It does not apply a signature/date, upload, email, authorize delivery or claim Crestron acceptance. These tools are source-only and are not included in the published 1.4.0 binaries.
+`tools/submission/self_test_form.py` generates an unsigned, interactive review PDF. It preserves the official form's printed pages, adds a companion matrix, and can populate checkboxes from evidence checked by the existing DevTools offline validator. It does not apply a signature/date, upload, email, authorize delivery or claim Crestron acceptance. These Python tools require the matching tagged DevTools checkout; they are not embedded in the NuGet package or console ZIP.
 
 The [submission plan](../CrestronSubmission.md) remains authoritative for the work still required. A generated form is one build artifact, not a replacement for the complete driver-specific policy, trusted evidence producer, visual review and signing authorization.
 

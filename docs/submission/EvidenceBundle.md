@@ -1,6 +1,6 @@
 # Retain and verify a private submission evidence bundle
 
-The source-only `submission-bundle-create` and `submission-bundle-check` commands retain a validated snapshot for later submission stages. They are not included in the published 1.4.0 tools. Both run offline without processor credentials, an emulator or an email account.
+The `submission-bundle-create` and `submission-bundle-check` commands, introduced in 1.5.0, retain a validated snapshot for later submission stages. Both run offline without processor credentials, an emulator or an email account.
 
 The bundle is private working evidence. It may contain unredacted screenshots, device names or other private information from the referenced files. Do not attach it to a public GitHub release or send it to Crestron as the final submission package. The final delivery package and its disclosure review remain separate work.
 

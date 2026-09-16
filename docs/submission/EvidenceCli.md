@@ -1,6 +1,6 @@
 # Checking submission evidence in CI
 
-The source-only `submission-evidence-check` command combines package preflight and evidence validation. It makes no processor connection, writes no files, signs nothing and sends nothing. It is not included in the published 1.4.0 tools.
+The `submission-evidence-check` command, introduced in 1.5.0, combines package preflight and evidence validation. It makes no processor connection, writes no files, signs nothing and sends nothing. It is included in the 1.5.0 console.
 
 ```text
 CrestronHomeDevTools.Console submission-evidence-check --candidate candidate.json --candidate-sha256 TRUSTED_SHA256 --package NeilColvin_Platform_Example_IP.pkg --policy policy.json --template Extension-Test-Plan.pdf --observations observations.json --evidence evidence

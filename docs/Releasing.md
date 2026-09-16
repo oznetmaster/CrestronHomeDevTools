@@ -9,9 +9,9 @@ For driver repositories using these tools, release runtime fixes or changed prod
 ## Prepare source and documentation
 
 1. Review the intended public source. Exclude real credentials/profiles, private settings, deployment bindings, personal paths, captured traffic and local logs/results. Check Git's tracked file list; local exclusions do not hide files already tracked.
-2. Set the chosen version in `Directory.Build.props`. Assign the changelog heading/date and update `RELEASE-NOTES.md` to describe the final release.
+2. Choose a version greater than the current `Directory.Build.props` value and prepare `RELEASE-NOTES.md` with that version in its first heading. The release workflow updates the version and inserts the dated changelog entry locally before validation, then publishes that commit with the tag. Do not pre-bump the version or duplicate the changelog entry.
 3. Check README links, supported commands, dependency versions, license notices and compatibility evidence. Record known limitations without implying support for untested firmware or an unimplemented VS adapter.
-4. Create/review the public repository and CI configuration. Push/PR CI tests and packs. The separate `release.yml` workflow is dispatched from `main` with the version already committed in `Directory.Build.props`. Configure NuGet Trusted Publishing for owner/repository `oznetmaster/CrestronHomeDevTools`, workflow `release.yml`, environment `release`, package glob `CrestronHomeDevTools`, and permission to publish new packages and versions. Set repository variable `NUGET_USER` to the NuGet account name. The workflow builds and validates before requesting its short-lived publishing credential.
+4. Create/review the public repository and CI configuration. Push/PR CI tests and packs. The separate `release.yml` workflow is dispatched from `main` with the new version matching the prepared release notes. Configure NuGet Trusted Publishing for owner/repository `oznetmaster/CrestronHomeDevTools`, workflow `release.yml`, environment `release`, package glob `CrestronHomeDevTools`, and permission to publish new packages and versions. Set repository variable `NUGET_USER` to the NuGet account name. The workflow builds and validates before requesting its short-lived publishing credential.
 
 ## Validate and assemble
 
@@ -29,6 +29,6 @@ Inspect the actual `.nupkg` and console archive, not just build directories. Ver
 
 ## Publish and verify
 
-Commit and push the reviewed source/documentation, then dispatch `release.yml` from `main` with the committed version. The workflow validates the release, publishes the library to NuGet, creates the annotated version tag and publishes the matching GitHub release with the console ZIP, library package and checksums. Do not rebuild or replace assets silently after publication. Verify the visible version, download names, checksums, documentation and package metadata.
+Commit and push the reviewed source/documentation, then dispatch `release.yml` from `main` with the new version matching the prepared release notes. The workflow validates the release, publishes the library to NuGet, creates the annotated version tag and publishes the matching GitHub release with the console ZIP, library package and checksums. Do not rebuild or replace assets silently after publication. Verify the visible version, download names, checksums, documentation and package metadata.
 
 A later dependency-only documentation/test update need not create a runtime release unless it changes the distributed product or fixes behavior. The NUnit workflow release has its own source/dependency pins; update those deliberately after DevTools becomes publicly consumable.

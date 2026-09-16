@@ -17,9 +17,10 @@ Reviewed V1 removal can preserve other instances sharing the same driver code ac
 - [Library example](#library-example)
 - [Driver configuration](docs/DriverConfiguration.md)
 - [Moving drivers between rooms](docs/RoomMoves.md)
+- [Associating Android tiles with installed drivers](docs/DriverUiBinding.md)
 - [Deployment and tests](#deployment-and-tests)
 - [Automated Crestron submission plan and progress](docs/CrestronSubmission.md)
-- [Submission delivery journal and reconciliation](docs/submission/DeliveryJournal.md) (source development; no uploader or sender configured)
+- [Submission delivery journal and reconciliation](docs/submission/DeliveryJournal.md) (transport boundary; no built-in uploader or sender)
 - [Documentation](#documentation)
 - [Build and validate](#build-and-validate)
 - [Privacy and compatibility](#privacy-and-compatibility)
@@ -45,9 +46,11 @@ The two target values must match; credentials and verified SSH trust still come 
 
 ## Get started
 
-Source development includes offline package/evidence checks, [private evidence bundle creation and verification](docs/submission/EvidenceBundle.md), [help generation with opt-in package build hooks](docs/submission/HelpBuild.md), and [unsigned self-test form generation](docs/submission/FormGeneration.md). The [optional private CI review stage](docs/submission/ReviewStage.md) connects the form and bundle checks and supplies a reusable workflow template. These do not send a submission or establish self-test completion. See the [submission plan and validation limits](docs/CrestronSubmission.md). These additions are not part of the currently published 1.4.0 binaries.
+Version 1.5.0 adds offline package/evidence checks and the library APIs for guarded UI name binding and delivery journaling. The console includes [private evidence bundle creation and verification](docs/submission/EvidenceBundle.md).
 
-Install the library with `dotnet add package CrestronHomeDevTools --version 1.2.0`. Download the self-contained Windows x64 console from [GitHub Releases](https://github.com/oznetmaster/CrestronHomeDevTools/releases/latest), extract the complete ZIP, and run `CrestronHomeDevTools.Console.exe`. Its first run opens processor/profile setup; `--help` lists commands.
+Separate source tools provide [help generation with opt-in package build hooks](docs/submission/HelpBuild.md), [unsigned self-test form generation](docs/submission/FormGeneration.md), and an [optional private CI review stage](docs/submission/ReviewStage.md). These Python scripts require the matching tagged checkout and its pinned dependencies; they are not embedded in the NuGet package or console ZIP. These tools do not send a submission or establish self-test completion. See the [submission plan and validation limits](docs/CrestronSubmission.md).
+
+Install the library with `dotnet add package CrestronHomeDevTools --version 1.5.0`. Download the self-contained Windows x64 console from [GitHub Releases](https://github.com/oznetmaster/CrestronHomeDevTools/releases/latest), extract the complete ZIP, and run `CrestronHomeDevTools.Console.exe`. Its first run opens processor/profile setup; `--help` lists commands.
 
 To build from source with the .NET 10 SDK:
 
