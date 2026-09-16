@@ -1,0 +1,2 @@
+# Keep reviewed submission inventory digests stable across Git checkouts.
+docs/submission/*-inventory.json text eol=lf

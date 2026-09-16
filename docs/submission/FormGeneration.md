@@ -30,6 +30,8 @@ The Wiser draft was generated with the actual pinned Extension form. All seven p
 
 First prepare the candidate, approved policy and retained observations described in [EvidenceCli.md](EvidenceCli.md). Add a separately reviewed form mapping:
 
+The source [coverage blueprint generator](CoveragePlanning.md) can prepare the draft policy and complete mapping from explicit driver-specific scopes. It leaves every producer unbound and generates no observations; complete review and execution remain necessary before using those files here.
+
 ```json
 {
   "schemaVersion": 1,
