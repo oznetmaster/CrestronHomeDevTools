@@ -26,6 +26,8 @@ All documents use schema version 1, exact camel-case property names, UTF-8 witho
 
 The following examples explain the format. Replace the uppercase placeholders with actual values before use. They are intentionally not passing evidence.
 
+Website-only support requires the updated source validator after 1.5.0. The existing `publicSupportEmail` field remains supported. Specify at least one approved contact; if both are configured, both must match the package metadata. These are public support contacts, separate from the private sender used for submission correspondence.
+
 `candidate.json`:
 
 ```json
@@ -42,7 +44,7 @@ The following examples explain the format. Replace the uppercase placeholders wi
     "driverVersion": "1.0.000.0000",
     "kind": "NewDriver",
     "developerFilenameToken": "NeilColvin",
-    "publicSupportEmail": "support@marvelous.com"
+    "publicSupportWebsite": "https://github.com/oznetmaster/WiserHeatCrestronDriver"
   }
 }
 ```

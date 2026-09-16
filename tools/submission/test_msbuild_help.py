@@ -43,6 +43,8 @@ elif sys.argv[1] == 'pack':
         sys.exit(7)
     metadata = {'driverId': 'ff6818a8-af92-49ea-aeaf-1b7f02c30b2f', 'driverVersion': '1.2.003.0000',
                 'assemblyFileName': name + '.dll', 'developerContact': {'email': 'support@example.org'}}
+    developer = json.loads((root.parent / 'driver.json').read_text())['GeneralInformation']['Developer']
+    metadata['developerContact'] = {'email': developer.get('Email', ''), 'website': developer.get('Website', '')}
     with ZipFile(root / (name + '.pkg'), 'w') as package:
         package.writestr(name + '.dll', b'synthetic; never deployed')
         package.writestr(name + '.dat', json.dumps(metadata))
@@ -126,6 +128,19 @@ else:
         self.assertIn("incomplete", result.stdout + result.stderr)
         self.assertFalse((self.root / "compiled.txt").exists())
         self.assertFalse((self.root / "bin").exists())
+
+    def test_website_only_support_is_passed_through_real_msbuild(self):
+        website = 'https://github.com/example/driver'
+        self.fixture.general['Developer']['Email'] = ''
+        self.fixture.general['Developer']['Website'] = website
+        self.fixture.save()
+        result = self.run_build('-p:SubmissionSupportEmail=', '-p:SubmissionSupportWebsite=' + website)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        reports = list((self.root / 'obj/submission-help').glob('*/packaged-help.json'))
+        self.assertEqual(len(reports), 1)
+        receipt = json.loads(reports[0].with_name('help-receipt.json').read_text())
+        self.assertEqual(receipt['identity']['supportWebsite'], website)
+        self.assertEqual(receipt['identity']['supportEmail'], '')
 
     def test_ordinary_test_and_designtime_builds_do_not_require_renderer(self):
         for properties in (("-p:CrestronSubmission=false",), ("-p:BuildForTests=true",), ("-p:DesignTimeBuild=true",)):

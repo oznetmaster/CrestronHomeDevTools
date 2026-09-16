@@ -10,6 +10,7 @@ import re
 import subprocess
 import sys
 from uuid import UUID
+from urllib.parse import urlsplit
 from zipfile import BadZipFile, ZipFile
 
 from lxml import etree as ET
@@ -39,13 +40,20 @@ def version(value):
     return parts
 
 
-def identity(manifest, content, assembly, developer_token, support_email):
+def identity(manifest, content, assembly, developer_token, support_email, support_website=""):
     if not isinstance(assembly, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,180}", assembly):
         raise ValueError("Use a plain driver assembly basename without a path or extension")
     if not re.fullmatch(r"[A-Za-z0-9-]+", developer_token) or developer_token not in assembly.split("_"):
         raise ValueError("New submission assembly name must include the developer token")
-    if not re.fullmatch(r"[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+", support_email):
+    if not support_email and not support_website:
+        raise ValueError("Provide an approved public support email or website")
+    if support_email and not re.fullmatch(r"[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+", support_email):
         raise ValueError("Provide the approved public support email")
+    if support_website:
+        url = urlsplit(support_website)
+        if (url.scheme not in ("http", "https") or not url.hostname or url.username is not None or
+                url.password is not None or any(c.isspace() for c in support_website)):
+            raise ValueError("Provide an absolute HTTP or HTTPS support website without embedded credentials")
     manifest_bytes, source = read_json(manifest)
     content_bytes, help_content = read_json(content)
     general = source["GeneralInformation"]
@@ -53,19 +61,24 @@ def identity(manifest, content, assembly, developer_token, support_email):
     if version(general["DriverVersion"]) != version(help_content["version"]):
         raise ValueError("Help version differs from the driver manifest; update the public content")
     developer = general["Developer"]
-    if text(developer["Email"]).casefold() != support_email.casefold():
+    if support_email and text(developer.get("Email")).casefold() != support_email.casefold():
         raise ValueError("Manifest must contain the approved public support email")
+    if support_website and developer.get("Website") != support_website:
+        raise ValueError("Manifest must contain the approved public support website")
     text(developer["Company"])
     if not isinstance(general.get("DependencyGroup"), str):
         raise ValueError("Manifest requires a DependencyGroup string")
-    return {"assemblyName": assembly, "driverId": driver_id, "driverVersion": general["DriverVersion"],
+    result = {"assemblyName": assembly, "driverId": driver_id, "driverVersion": general["DriverVersion"],
             "developerToken": developer_token, "supportEmail": support_email,
             "manifestSha256": sha(manifest_bytes), "contentSha256": sha(content_bytes)}
+    if support_website:
+        result["supportWebsite"] = support_website
+    return result
 
 
 def prepare(manifest, content, assembly, developer_token, support_email, template,
-            template_digest, soffice, output_directory):
-    expected = identity(manifest, content, assembly, developer_token, support_email)
+            template_digest, soffice, output_directory, support_website=""):
+    expected = identity(manifest, content, assembly, developer_token, support_email, support_website)
     output = Path(output_directory).resolve()
     # Each MSBuild invocation owns a new directory. Never accept an earlier build's PDF.
     output.mkdir(parents=True, exist_ok=False)
@@ -74,7 +87,7 @@ def prepare(manifest, content, assembly, developer_token, support_email, templat
     if built["contentSha256"] != expected["contentSha256"]:
         raise ValueError("Help content changed during generation")
     rendered = render(docx, built["docxSha256"], soffice, output)
-    if identity(manifest, content, assembly, developer_token, support_email) != expected:
+    if identity(manifest, content, assembly, developer_token, support_email, support_website) != expected:
         raise ValueError("Manifest or help content changed during rendering")
     receipt = {"schemaVersion": 1, "identity": expected, "build": built, "render": rendered}
     write_json(output / "help-receipt.json", receipt)
@@ -87,7 +100,7 @@ def checked_help(receipt_path, manifest, content, assembly):
     if type(receipt["schemaVersion"]) is not int or receipt["schemaVersion"] != 1:
         raise ValueError("Unsupported help receipt version")
     expected = receipt["identity"]
-    current = identity(manifest, content, assembly, expected["developerToken"], expected["supportEmail"])
+    current = identity(manifest, content, assembly, expected["developerToken"], expected["supportEmail"], expected.get("supportWebsite", ""))
     if current != expected:
         raise ValueError("Help receipt belongs to different build inputs")
     built, rendered = receipt["build"], receipt["render"]
@@ -141,7 +154,8 @@ def verify(receipt, manifest, content, assembly, package):
         if (str(UUID(metadata["driverId"])) != expected["driverId"] or
                 version(metadata["driverVersion"]) != version(expected["driverVersion"]) or
                 metadata["assemblyFileName"] != assembly + ".dll" or
-                text(metadata["developerContact"]["email"]).casefold() != expected["supportEmail"].casefold()):
+                (expected["supportEmail"] and text(metadata["developerContact"].get("email")).casefold() != expected["supportEmail"].casefold()) or
+                (expected.get("supportWebsite") and metadata["developerContact"].get("website") != expected["supportWebsite"])):
             raise ValueError("Packaged driver identity or public support metadata differs from the help build")
     return {"schemaVersion": 1, "packageFileName": package.name, "packageSha256": sha(data),
             "helpReceiptSha256": receipt_digest, "pdfSha256": sha(pdf), "packagedHelpVerified": True,
@@ -156,7 +170,9 @@ def main():
         for field in ("manifest", "content", "assembly"):
             sub.add_argument("--" + field, required=True)
         if name == "prepare":
-            fields = ("developer-token", "support-email", "template", "template-sha256", "soffice", "output-directory")
+            fields = ("developer-token", "template", "template-sha256", "soffice", "output-directory")
+            sub.add_argument("--support-email", default="")
+            sub.add_argument("--support-website", default="")
         else:
             fields = ("receipt", "include-directory") if name == "stage" else ("receipt", "package", "report")
         for field in fields:

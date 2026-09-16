@@ -23,12 +23,12 @@ Licensed under the MIT License. See LICENSE in the repository root.
     <Error Condition="!Exists('$(SubmissionPython)') Or !Exists('$(SubmissionSoffice)')" Text="Set SubmissionPython and SubmissionSoffice to explicit installed executable paths." />
     <Error Condition="!Exists('$(SubmissionHelpTemplate)') Or '$(SubmissionHelpTemplateSha256)' == ''" Text="Provide the pinned official help template and its SHA-256." />
     <Error Condition="!Exists('$(SubmissionHelpContent)') Or !Exists('$(DriverManifestFile)')" Text="Provide the public help content and driver manifest." />
-    <Error Condition="'$(SubmissionDeveloperToken)' == '' Or '$(SubmissionSupportEmail)' == ''" Text="Provide the approved public developer token and support email." />
+    <Error Condition="'$(SubmissionDeveloperToken)' == '' Or ('$(SubmissionSupportEmail)' == '' And '$(SubmissionSupportWebsite)' == '')" Text="Provide the approved public developer token and at least one support email or website." />
   </Target>
 
   <!-- Drivers call validation before their version bump and prepare before CoreCompile. -->
   <Target Name="PrepareSubmissionHelp" BeforeTargets="CoreCompile" DependsOnTargets="ValidateSubmissionHelpSettings;BumpDriverVersion" Condition="'$(CrestronSubmission)' == 'true' And '$(BuildForTests)' != 'true' And '$(DesignTimeBuild)' != 'true'">
-    <Exec Command="&quot;$(SubmissionPython)&quot; &quot;$(_SubmissionHelpScript)&quot; prepare --manifest &quot;$(DriverManifestFile)&quot; --content &quot;$(SubmissionHelpContent)&quot; --assembly &quot;$(AssemblyName)&quot; --developer-token &quot;$(SubmissionDeveloperToken)&quot; --support-email &quot;$(SubmissionSupportEmail)&quot; --template &quot;$(SubmissionHelpTemplate)&quot; --template-sha256 &quot;$(SubmissionHelpTemplateSha256)&quot; --soffice &quot;$(SubmissionSoffice)&quot; --output-directory &quot;$(_SubmissionHelpWork)&quot;" />
+    <Exec Command="&quot;$(SubmissionPython)&quot; &quot;$(_SubmissionHelpScript)&quot; prepare --manifest &quot;$(DriverManifestFile)&quot; --content &quot;$(SubmissionHelpContent)&quot; --assembly &quot;$(AssemblyName)&quot; --developer-token &quot;$(SubmissionDeveloperToken)&quot; --support-email &quot;$(SubmissionSupportEmail)&quot; --support-website &quot;$(SubmissionSupportWebsite)&quot; --template &quot;$(SubmissionHelpTemplate)&quot; --template-sha256 &quot;$(SubmissionHelpTemplateSha256)&quot; --soffice &quot;$(SubmissionSoffice)&quot; --output-directory &quot;$(_SubmissionHelpWork)&quot;" />
   </Target>
 
   <!-- Call AFTER copying ordinary IncludeInPkg assets, immediately BEFORE ManifestUtil. -->

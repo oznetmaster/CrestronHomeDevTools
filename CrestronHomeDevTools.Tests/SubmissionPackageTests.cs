@@ -117,6 +117,28 @@ public sealed class SubmissionPackageTests
 		Assert.Throws<ArgumentException> (() => SubmissionPackage.Inspect (stream, Basename + ".pkg", requirements));
 		}
 
+	[Test]
+	public void WebsiteSupportDoesNotRequirePublicEmail ()
+		{
+		using var stream = Package ("websiteOnly");
+		var requirements = Requirements with { PublicSupportEmail = "", PublicSupportWebsite = "https://github.com/example/driver" };
+		Assert.That (SubmissionPackage.Inspect (stream, Basename + ".pkg", requirements).PackageChecksPassed, Is.True);
+		var wrong = SubmissionPackage.Inspect (stream, Basename + ".pkg", requirements with { PublicSupportWebsite = "https://github.com/example/other" });
+		Assert.That (wrong.Issues.Select (i => i.Code), Does.Contain ("support-website"));
+		}
+
+	[TestCase ("")]
+	[TestCase ("github.com/example/driver")]
+	[TestCase ("file:///private")]
+	[TestCase ("https://user:password@example.com/")]
+	[TestCase ("https://example.com/a b")]
+	public void MissingOrInvalidWebsiteContactIsRejected (string website)
+		{
+		using var stream = Package ("websiteOnly");
+		Assert.Throws<ArgumentException> (() => SubmissionPackage.Inspect (stream, Basename + ".pkg",
+			Requirements with { PublicSupportEmail = "", PublicSupportWebsite = website }));
+		}
+
 	internal static MemoryStream Package (string? defect = null)
 		{
 		var stream = new MemoryStream ();
@@ -134,7 +156,7 @@ public sealed class SubmissionPackageTests
 				["manufacturer"] = "Example Manufacturer",
 				["driverVersion"] = "1.2.003.0000",
 				["developer"] = "Example Developer",
-				["developerContact"] = new { company = "Example Developer", email = defect == "missingEmail" ? "" : "support@example.com" },
+				["developerContact"] = new { company = "Example Developer", email = defect is "missingEmail" or "websiteOnly" ? "" : "support@example.com", website = "https://github.com/example/driver" },
 				["dependencyGroup"] = "",
 				["assemblyFileName"] = defect == "wrongReference" ? "Other.dll" : Basename + ".dll"
 				};

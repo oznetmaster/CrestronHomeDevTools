@@ -50,7 +50,7 @@ The Wiser review draft was generated from its public content source and rendered
 The sequence is enforced as follows:
 
 1. Validate submission settings before the driver's version preparation. Require Release configuration and reject options that ignore merge or ManifestUtil errors.
-2. Before `CoreCompile`, compare the help's four-component version with the prepared manifest, verify the public support email and developer filename component, and build final-mode help in a fresh `obj/submission-help/<unique-id>` directory. Pending content or missing declared screenshots stops the build. There is no draft bypass in this path.
+2. Before `CoreCompile`, compare the help's four-component version with the prepared manifest, verify the configured public support email and/or website and developer filename component, and build final-mode help in a fresh `obj/submission-help/<unique-id>` directory. Pending content or missing declared screenshots stops the build. There is no draft bypass in this path.
 3. After copying ordinary `IncludeInPkg` assets, recheck source/DOCX/PDF hashes and stage the generated PDF. A competing source PDF is an error. Remove only the expected old candidate `.pkg` before invoking ManifestUtil so an earlier package cannot stand in for a failed build.
 4. After ManifestUtil succeeds, normalize Windows archive separators to forward slashes. Reject traversal, colliding names, file/directory conflicts, encrypted entries and links. Preserve and recheck every payload byte before replacing this fresh build output. Record the original/final hashes and renamed entries in `package-paths.json`. Already normalized archives retain their exact bytes.
 5. Read the resulting package and require exact root DLL/DAT/PDF basenames and case, the expected GUID/version/support metadata, and byte-for-byte equality with the rendered PDF. Write `packaged-help.json` with the final package, PDF and help-receipt hashes.
@@ -66,7 +66,8 @@ Keep the DOCX, PDF, `help-receipt.json`, `package-paths.json` and `packaged-help
 | `SubmissionHelpTemplate` | Local copy of the official help DOCX |
 | `SubmissionHelpTemplateSha256` | Reviewed template digest |
 | `SubmissionHelpContent` | Driver's public content JSON; supplied by the driver project |
-| `SubmissionDeveloperToken` / `SubmissionSupportEmail` | Approved public identity; supplied by the driver project |
+| `SubmissionDeveloperToken` | Approved developer filename component |
+| `SubmissionSupportEmail` / `SubmissionSupportWebsite` | Approved public contact; supply one or both. Wiser uses only its GitHub website. Website support requires source newer than 1.5.0. |
 
 Paths are build-local settings, not values to commit to a driver repository. Use explicit arguments, environment-backed properties or a privately excluded local targets file. `BuildForTests=true` and design-time builds skip the integration. A submission build must not automatically deploy before its package checks complete.
 
@@ -78,7 +79,7 @@ The Wiser hooks passed a real project evaluation and rejected the current incomp
 
 Next, complete the driver-specific public content and approved UI figures, verify accurate licensing and support details, and pin the CI renderer/toolchain/fonts. Validate a complete Wiser candidate with the actual ManifestUtil and connect its retained receipts to the trusted candidate/evidence producer. Roll the hooks out to the other drivers after that validation. Hosted rendering and the final submission CI job remain pending; ordinary publication is unaffected.
 
-The first content profile will be Wiser Heat. Its driver license is MIT with the Commons Clause, unlike DevTools' MIT license; the generated help must preserve that distinction. Public support is `support@marvelous.com`. The separate private submission correspondence address does not belong in help or driver metadata. Exact supported models, minimum firmware, screenshots and candidate-specific test environment must be supported by evidence, not inferred from this renderer check.
+The first content profile will be Wiser Heat. Its driver license is MIT with the Commons Clause, unlike DevTools' MIT license; the generated help must preserve that distinction. Wiser public support is its GitHub repository and issue tracker; its Email field is empty. The separate private submission correspondence address does not belong in help or driver metadata. Exact supported models, minimum firmware, screenshots and candidate-specific test environment must be supported by evidence, not inferred from this renderer check.
 
 See the [submission plan](../CrestronSubmission.md) for the remaining help, evidence, signing and delivery work.
 

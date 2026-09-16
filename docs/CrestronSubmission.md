@@ -6,19 +6,21 @@ Submission is an explicit opt-in extension, never a mandatory consequence of usi
 
 Status as of 16 September 2026: a combined Wiser development workflow passed desktop, processor, read-only live and Android NUnit tests, including gated driver update, repeated saved-endpoint/Home restoration and temporary test-package cleanup. End-to-end submission is not implemented or enabled. No submission has been sent by this work.
 
-The developer has confirmed that all six are new portal submissions. Use developer name **Neil Colvin**, filename component **NeilColvin**, and public support email **support@marvelous.com**. A separate private correspondence address has been supplied outside the repository. A GitHub Issues link can supplement the support email in each help document.
+The developer has confirmed that all six are new portal submissions. Use developer name **Neil Colvin**, filename component **NeilColvin**, and Wiser public support through its GitHub repository. Wiser uses **https://github.com/oznetmaster/WiserHeatCrestronDriver** with an empty public Email field. A separate private correspondence address has been supplied outside the repository. Wiser's help links to the repository and its issue tracker. Other driver rollout remains deferred until Wiser is complete.
 
 ## Offline package preflight
 
-DevTools 1.5.0 includes `SubmissionPackage.Inspect` and this CLI command:
+DevTools 1.5.0 introduced `SubmissionPackage.Inspect` and `submission-check`. The source version now also accepts website-only support; the example below requires that updated build:
 
 ```text
-submission-check --package NeilColvin_Platform_Example_IP.pkg --driver DRIVER_GUID --version 1.0.000.0000 --kind new --developer-name-token NeilColvin --support-email support@marvelous.com
+submission-check --package NeilColvin_Platform_Example_IP.pkg --driver DRIVER_GUID --version 1.0.000.0000 --kind new --developer-name-token NeilColvin --support-website https://github.com/oznetmaster/WiserHeatCrestronDriver
 ```
 
 For an update to a driver already on the portal, use `--kind update`. That exempts only the developer filename component. All matching filename, manifest and help checks still apply. A GitHub release of a driver does not by itself make it an existing portal driver.
 
-The command emits a JSON report and exits 0 when structural checks pass, 1 when defects are found, or 2 for invalid arguments. No processor profile is required. It checks exact root package/DLL/DAT/help naming, expected GUID/version, generated developer/dependency metadata, the approved public support email, DLL reference, PDF header, duplicate/unsafe archive paths and certain known private test-input filenames. It hashes the inspected bytes while holding the file open.
+The command emits a JSON report and exits 0 when structural checks pass, 1 when defects are found, or 2 for invalid arguments. No processor profile is required. It checks exact root package/DLL/DAT/help naming, expected GUID/version, generated developer/dependency metadata, the configured public support email and/or website, DLL reference, PDF header, duplicate/unsafe archive paths and certain known private test-input filenames. It hashes the inspected bytes while holding the file open.
+
+Crestron requires support contact information; the checker's configured contact must match the package. It accepts a reviewed HTTP/HTTPS support website, email, or both. A website URL check does not prove that its support route is usable. The archive separator convention is this tool's consistency check, not a demonstrated Crestron rejection.
 
 This is deliberately a structural report, not submission readiness. It does not establish PDF readability/content/support details, authenticity of developer data, ManifestUtil toolchain provenance, absence of all possible secrets, supported device behavior, completed self-test evidence or signing authorization. Subsequent gates must validate those separately.
 
@@ -115,7 +117,7 @@ Fetch official self-test PDFs from the published sources, pin and inspect their 
 
 The source [self-test form generator](submission/FormGeneration.md) now creates blank review drafts or invokes the offline evidence validator before populating an unsigned interactive form. It checks every checkbox's mapping and canonical/widget appearance consistency, preserves the printed official pages, and leaves signature/date blank. Non-applicable items remain unchecked with their rationales on the companion matrix. The actual Wiser draft has no attestations; a real candidate with complete approved evidence remains required.
 
-The signature image will be supplied later. Its presence does not prove test completion. Signing must be bound to an explicitly authorized signer, policy and exact completed form/candidate. Initially use a review gate; unattended signing can be enabled after the developer authorizes a defined policy. The sender address and support address are separate settings. The developer has provided a private correspondence address and approved support@marvelous.com for public support; only the latter belongs in tracked driver metadata/help.
+The signature image will be supplied later. Its presence does not prove test completion. Signing must be bound to an explicitly authorized signer, policy and exact completed form/candidate. Initially use a review gate; unattended signing can be enabled after the developer authorizes a defined policy. The sender address and support address are separate settings. The developer has provided a private correspondence address. Wiser's public support is its GitHub repository and issue tracker; the private correspondence address must not appear in driver metadata or help.
 
 The published delivery path uses the Crestron file-sharing service and email. A stable supported API has not been established. Inspect the actual service before choosing an HTTP adapter or browser worker, and verify any terms/automation restrictions. The source [delivery journal](submission/DeliveryJournal.md) persists intent before invoking a transport, retains provider receipts and blocks automatic replay of uncertain outcomes. Its synthetic tests cover duplicates, simultaneous calls and explicit reconciliation. No real uploader or mail adapter is wired yet. A deterministic mail Message-ID alone does not guarantee exactly-once delivery; reconcile uncertain sends through the provider/sent mailbox.
 
@@ -125,7 +127,7 @@ Only the intended package, signed form and approved support material go to Crest
 
 The work can proceed before these are supplied, but the corresponding final tests/delivery cannot:
 
-- Portal status and public identity are confirmed: all six are new; Neil Colvin / NeilColvin / support@marvelous.com. Apply those to the actual submission candidates.
+- Portal status and public identity are confirmed: all six are new; Neil Colvin / NeilColvin. Wiser uses its GitHub URL for public support with an empty Email field. Apply the reviewed identity to its actual submission candidate.
 - Supply the signature image and authorize its use once the form and signing policy are reviewable.
 - Configure a supported sender and access to submission responses; determine whether the uploader can be automated reliably.
 - Provide controlled interruption hardware/network isolation if full power/network tests are required. These were deferred in the current development setup.

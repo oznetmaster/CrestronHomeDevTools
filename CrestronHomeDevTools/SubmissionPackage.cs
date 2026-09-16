@@ -15,7 +15,11 @@ public enum PortalSubmissionKind
 	}
 
 public sealed record SubmissionPackageRequirements (
-	string DriverId, string DriverVersion, PortalSubmissionKind Kind, string DeveloperFilenameToken, string PublicSupportEmail);
+	string DriverId, string DriverVersion, PortalSubmissionKind Kind, string DeveloperFilenameToken, string PublicSupportEmail = "")
+	{
+	/// <summary>Approved public support URL. Email, website, or both may be specified.</summary>
+	public string? PublicSupportWebsite { get; init; }
+	}
 
 public sealed record SubmissionPackageIssue (string Code, string Message);
 
@@ -45,8 +49,16 @@ public static class SubmissionPackage
 			throw new ArgumentException ("Expected driver version must have four numeric components.", nameof (requirements));
 		if (requirements.Kind is not (PortalSubmissionKind.NewDriver or PortalSubmissionKind.ExistingDriverUpdate))
 			throw new ArgumentException ("Specify whether this is a new portal driver or an existing portal driver update.", nameof (requirements));
-		if (!MailAddress.TryCreate (requirements.PublicSupportEmail, out var supportAddress) || supportAddress.Address != requirements.PublicSupportEmail)
+		bool hasEmail = !string.IsNullOrEmpty (requirements.PublicSupportEmail);
+		bool hasWebsite = !string.IsNullOrEmpty (requirements.PublicSupportWebsite);
+		if (!hasEmail && !hasWebsite)
+			throw new ArgumentException ("Provide an approved public support email or website.", nameof (requirements));
+		if (hasEmail && (!MailAddress.TryCreate (requirements.PublicSupportEmail, out var supportAddress) || supportAddress.Address != requirements.PublicSupportEmail))
 			throw new ArgumentException ("Provide the approved public support email address.", nameof (requirements));
+		if (hasWebsite && (!Uri.TryCreate (requirements.PublicSupportWebsite, UriKind.Absolute, out var website) ||
+			website.Scheme is not ("https" or "http") || string.IsNullOrEmpty (website.Host) || !string.IsNullOrEmpty (website.UserInfo) ||
+			requirements.PublicSupportWebsite!.Any (char.IsWhiteSpace)))
+			throw new ArgumentException ("Provide an absolute HTTP or HTTPS support website without embedded credentials.", nameof (requirements));
 		if (requirements.Kind == PortalSubmissionKind.NewDriver &&
 			 (string.IsNullOrWhiteSpace (requirements.DeveloperFilenameToken) || requirements.DeveloperFilenameToken.Any (c => !char.IsAsciiLetterOrDigit (c) && c != '-')))
 			throw new ArgumentException ("New submissions require a developer filename token containing letters, digits or hyphens.", nameof (requirements));
@@ -99,8 +111,10 @@ public static class SubmissionPackage
 			var hasContact = metadata.TryGetProperty ("developerContact", out var contact) && contact.ValueKind == JsonValueKind.Object;
 			if (!HasText (metadata, "developer") || !hasContact || !HasText (contact, "company"))
 				Issue ("developer-metadata", "Generated package metadata must identify the developer and developer contact company.");
-			if (!hasContact || !HasText (contact, "email") || !contact.GetProperty ("email").GetString ()!.Equals (requirements.PublicSupportEmail, StringComparison.OrdinalIgnoreCase))
+			if (hasEmail && (!hasContact || !HasText (contact, "email") || !contact.GetProperty ("email").GetString ()!.Equals (requirements.PublicSupportEmail, StringComparison.OrdinalIgnoreCase)))
 				Issue ("support-email", "Generated package metadata must contain the approved public support email, not a private submission address.");
+			if (hasWebsite && (!hasContact || !HasText (contact, "website") || !contact.GetProperty ("website").GetString ()!.Equals (requirements.PublicSupportWebsite, StringComparison.Ordinal)))
+				Issue ("support-website", "Generated package metadata must contain the approved public support website.");
 			if (!metadata.TryGetProperty ("dependencyGroup", out var dependency) || dependency.ValueKind != JsonValueKind.String)
 				Issue ("dependency-group", "Generated package metadata must contain a dependencyGroup string; an empty string is valid for a standalone driver.");
 			if (!metadata.TryGetProperty ("assemblyFileName", out var assembly) || assembly.ValueKind != JsonValueKind.String ||

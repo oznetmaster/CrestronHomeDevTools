@@ -62,6 +62,27 @@ public sealed class SubmissionValidationTests
 			});
 		}
 
+	[Test]
+	public async Task WebsiteOnlyCandidatePassesEvidenceBundleAndCliWithoutPublicEmail ()
+		{
+		using var package = SubmissionPackageTests.Package ("websiteOnly");
+		File.WriteAllBytes (PathFor (PACKAGE_NAME), package.ToArray ());
+		_candidate = _candidate with { PackageRequirements = _candidate.PackageRequirements with
+			{ PublicSupportEmail = "", PublicSupportWebsite = "https://github.com/example/driver" } };
+		RebindIdentity (_candidate.Identity with { PackageSha256 = Digest (PACKAGE_NAME) });
+		var declaration = System.Text.Json.Nodes.JsonNode.Parse (File.ReadAllText (PathFor ("candidate.json")))!;
+		declaration["packageRequirements"]!.AsObject ().Remove ("publicSupportEmail");
+		File.WriteAllText (PathFor ("candidate.json"), declaration.ToJsonString (JsonOptions));
+		_candidateDigest = Digest ("candidate.json");
+		Assert.That (Check ().ValidationChecksPassed, Is.True);
+		Bundle ();
+		Assert.That (CheckBundle (Digest ("private.zip")).ValidationChecksPassed, Is.True);
+		using var cli = await BundleCli ("submission-check", "--package", PathFor (PACKAGE_NAME),
+			"--driver", _candidate.PackageRequirements.DriverId, "--version", "1.2.003.0000", "--kind", "new",
+			"--developer-name-token", "ExampleDeveloper", "--support-website", "https://github.com/example/driver");
+		Assert.That (cli.RootElement.GetProperty ("PackageChecksPassed").GetBoolean (), Is.True);
+		}
+
 	[TestCase ("candidate.json", "candidate-digest")]
 	[TestCase (PACKAGE_NAME, "package-digest")]
 	[TestCase ("policy.json", "policy-digest")]

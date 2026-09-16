@@ -74,7 +74,8 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 
             Save settings or prepare an update (no processor changes):
               submission-check --package FILE --driver GUID --version A.B.C.D
-                --kind new|update --support-email ADDRESS [--developer-name-token TOKEN]
+                --kind new|update [--support-email ADDRESS] [--support-website URL] [--developer-name-token TOKEN]
+                Provide at least one approved public support contact: email or website.
                                        Check portal package structure offline; no submission occurs.
               submission-evidence-check --candidate FILE --candidate-sha256 SHA256
                 --package FILE --policy FILE --template FILE --observations FILE --evidence DIR
@@ -165,7 +166,7 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 				"move" => ["device", "model", "version", "from-room", "room"],
 				"reboot" => ["confirm-reboot"],
 				"deploy" => ["package"],
-				"submission-check" => ["package", "driver", "version", "kind", "developer-name-token", "support-email"],
+				"submission-check" => ["package", "driver", "version", "kind", "developer-name-token", "support-email", "support-website"],
 				"submission-evidence-check" => ["candidate", "candidate-sha256", "package", "policy", "template", "observations", "evidence"],
 				"submission-bundle-create" => ["output", "candidate", "candidate-sha256", "package", "policy", "template", "observations", "evidence"],
 				"submission-bundle-check" => ["bundle", "bundle-sha256", "candidate-sha256", "scratch"],
@@ -246,7 +247,8 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 					_ => throw new ArgumentException ("Submission kind must be new or update (an existing portal driver).")
 					};
 			var report = SubmissionPackage.Inspect (Required ("package"), new (
-				Required ("driver"), Required ("version"), kind, options.GetValueOrDefault ("developer-name-token", ""), Required ("support-email")));
+				Required ("driver"), Required ("version"), kind, options.GetValueOrDefault ("developer-name-token", ""), options.GetValueOrDefault ("support-email", ""))
+				{ PublicSupportWebsite = options.GetValueOrDefault ("support-website") });
 			Console.WriteLine (JsonSerializer.Serialize (report, jsonOptions));
 			return report.PackageChecksPassed ? 0 : 1;
 			}

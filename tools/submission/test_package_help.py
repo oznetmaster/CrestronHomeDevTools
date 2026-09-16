@@ -31,6 +31,8 @@ class PackageHelpTests(unittest.TestCase):
         self.receipt = self.output / "help-receipt.json"
         self.include = self.root / "IncludeInPkg"
         self.package = self.root / (self.assembly + ".pkg")
+        self.support_email = "support@example.org"
+        self.support_website = ""
         self.save()
 
     def save(self):
@@ -50,15 +52,15 @@ class PackageHelpTests(unittest.TestCase):
     def prepare(self):
         with patch.object(render_help, "run_process", side_effect=self.fake_process):
             return package_help.prepare(self.manifest, self.fixture.content_path, self.assembly,
-                                        "Example", "support@example.org", self.fixture.template,
-                                        self.fixture.digest, sys.executable, self.output)
+                                        "Example", self.support_email, self.fixture.template,
+                                        self.fixture.digest, sys.executable, self.output, self.support_website)
 
     def stage(self):
         return package_help.stage(self.receipt, self.manifest, self.fixture.content_path, self.assembly, self.include)
 
     def make_package(self, pdf=None, driver_version=None, pdf_name=None):
         metadata = {"driverId": self.general["Guid"], "driverVersion": driver_version or self.general["DriverVersion"],
-                    "assemblyFileName": self.assembly + ".dll", "developerContact": {"email": "support@example.org"}}
+                    "assemblyFileName": self.assembly + ".dll", "developerContact": {"email": self.general["Developer"].get("Email", ""), "website": self.general["Developer"].get("Website", "")}}
         with ZipFile(self.package, "w") as archive:
             archive.writestr(self.assembly + ".dll", b"synthetic DLL; never deployed")
             archive.writestr(self.assembly + ".dat", json.dumps(metadata))
@@ -120,6 +122,30 @@ class PackageHelpTests(unittest.TestCase):
         self.save()
         with self.assertRaisesRegex(ValueError, "approved public"):
             self.prepare()
+
+    def test_website_only_contact_survives_prepare_stage_and_verification(self):
+        self.support_email = ""
+        self.support_website = "https://github.com/example/driver"
+        self.general["Developer"].pop("Email")
+        self.general["Developer"]["Website"] = self.support_website
+        self.save()
+        prepared = self.prepare()
+        self.assertEqual(prepared['identity']['supportWebsite'], self.support_website)
+        self.stage()
+        self.make_package()
+        self.assertTrue(self.verify()['packagedHelpVerified'])
+        self.general['Developer']['Website'] = 'https://github.com/example/different'
+        self.make_package()
+        with self.assertRaisesRegex(ValueError, 'support metadata'):
+            self.verify()
+
+    def test_missing_or_unapproved_website_contact_stops_before_rendering(self):
+        self.support_email = ""
+        for website in ('', 'github.com/example/driver', 'file:///private', 'https://user:pass@example.com', 'https://example.com/a b', 'https://github.com/example/driver'):
+            self.support_website = website
+            with self.subTest(website=website), self.assertRaises(ValueError):
+                self.prepare()
+        self.assertFalse(self.output.exists())
 
     def test_missing_developer_filename_token_is_rejected(self):
         self.assembly = "Platform_Device_IP"
