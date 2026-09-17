@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.6.0 - 2026-09-17
+
+Add journaled managed-child setup, test bindings and cleanup, resumable endurance collection, and the remaining offline signing and delivery-preparation stages. These tools support ordinary development CI independently of optional driver submission.
+
+- `DriverConfiguration.BeginManagedDeviceAsync` enters a newly commissioned child's initial configuration even when it already reports configured. `ManagedDeviceCommissioning` records setup/readiness and removes only its journal-owned leaf child after the caller verifies restoration. The console exposes `commission-child` and `remove-created-child`.
+- `ManagedDeviceValidation.RunAsync` supplies actual created IDs to a caller's test producer, verifies reservation ownership around every stage, and removes children in reverse order only after confirmed restoration. Failed tests remain failed after successful cleanup. Partial setup, unknown outcomes and unconfirmed restoration retain receipts for reconciliation.
+- `SubmissionEndurance`, its reservation monitor and the endurance CLI persist candidate-bound observations across worker invocations. They reject missed-interval, identity and interrupted-probe conditions, pin the external producer bundle, and retain uncertain ownership. Functional checks remain the responsibility of the explicitly selected producer.
+- Release archives preserve nested documentation paths and verify every source document is present exactly once. Package and help checks accept reviewed support websites, normalize archive separators before candidate hashing, bind dependency notices to packaged/merged content, and reject unnamed supporting PDFs.
+- Tagged source tools audit Android evidence, prepare an exact signing copy, apply an explicitly authorized private signature image, revalidate a signed review, and prepare delivery artifacts. These Python tools require the matching source checkout and pinned dependencies; they are not embedded in the NuGet package or console ZIP.
+
+Validation: the complete offline .NET suite passed. Real CP4-R checks passed managed-child commissioning and cleanup through both library and CLI, independent readiness/inventory checks, and a caller-supplied Android editor test with verified hub/UI restoration and owned-child removal. No physical heating command or processor reboot was sent in those checks. Endurance reservation/collection infrastructure passed real processor checks with **synthetic functional observations**, not a final driver endurance run. Offline document/signing/preparation checks use synthetic forms and signatures.
+
+The normal combined NUnit CLI/Test Explorer plan still needs integration of the new managed-child APIs. A trusted driver-specific endurance producer, unattended scheduler deployment/restart validation and the actual immutable candidate period remain outstanding. Real final-form signing, supported uploader/mail adapters and end-to-end delivery are not implemented or validated by this release. No submission or certification is claimed.
+
+See [managed-child validation](docs/ManagedChildValidation.md), [driver configuration](docs/DriverConfiguration.md), [endurance collection](docs/submission/EnduranceCollection.md), [submission stages](docs/CrestronSubmission.md) and [release history](CHANGELOG.md).
+
+Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
+
 ## 1.5.0 - 2026-09-16
 
 Add reusable UI instance association and offline tools for preparing optional Crestron driver submission evidence. Ordinary development, testing and publication remain independent of submission.
