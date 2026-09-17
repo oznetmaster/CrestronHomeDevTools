@@ -54,7 +54,7 @@ def indexed(items, key):
     return result
 
 
-def inspect_form(reader, inventory, expected_values=None, page_offset=0):
+def inspect_form(reader, inventory, expected_values=None, page_offset=0, signing_values=None):
     if reader.is_encrypted or reader.attachments or len(reader.pages) != inventory["templatePages"] + page_offset:
         raise ValueError("Official form page count or document structure changed")
     requirements = indexed(inventory["requirements"], "field")
@@ -100,8 +100,12 @@ def inspect_form(reader, inventory, expected_values=None, page_offset=0):
                     raise ValueError("Checkbox has an unexpected value")
                 if widget.get("/AS") != target or not appearances[target].get_object().get_data():
                     raise ValueError("Checkbox appearance differs from its logical value")
-            elif value != "":
-                raise ValueError("Signature and date fields must remain blank")
+            else:
+                target = signing_values[name] if signing_values is not None else ""
+                if value != target:
+                    raise ValueError("Signature or date field differs from the expected value")
+                if signing_values is not None and (not appearances or not appearances.get_object().get_data()):
+                    raise ValueError("Signed fields require a visible appearance")
     if seen != expected.keys():
         raise ValueError("A canonical field has no page widget")
 
@@ -171,15 +175,16 @@ def validate_evidence(inventory, inventory_digest, mapping_path, mapping_digest,
     return rows, identity, result.stdout.decode("utf-8")
 
 
-def companion(title, author, rows, identity, draft):
+def companion(title, author, rows, identity, draft, signing_copy=False):
     buffer = io.BytesIO()
     body = ParagraphStyle("body", fontName="Helvetica", fontSize=9, leading=12, spaceAfter=8)
     small = ParagraphStyle("small", parent=body, fontSize=8, leading=10, spaceAfter=0)
     heading = ParagraphStyle("heading", parent=body, fontName="Helvetica-Bold", fontSize=17, leading=21, spaceAfter=10)
     def paragraph(value, style=body):
         return Paragraph(escape(str(value)).replace("\n", "<br/>"), style)
-    story = [paragraph(title, heading), paragraph("UNSIGNED REVIEW - NOT FOR SUBMISSION", heading),
-             paragraph("Prepared for " + author + ". Signature and date fields are blank. Crestron's original interactive form follows this companion matrix."),
+    story = [paragraph(title, heading), paragraph("SELF-TEST EVIDENCE SUMMARY" if signing_copy else "UNSIGNED REVIEW - NOT FOR SUBMISSION", heading),
+             paragraph("Prepared for " + author + ". Crestron's original interactive form follows this companion matrix." if signing_copy else
+                       "Prepared for " + author + ". Signature and date fields are blank. Crestron's original interactive form follows this companion matrix."),
              paragraph("No requirements have been attested. Every checkbox remains blank." if draft else
                        "Checkboxes are checked only when every mapped observation passed validation for the identified candidate. This does not authenticate the evidence producer or establish Crestron approval."),
              paragraph("Non-applicable items remain unchecked and are explained in the matrix. Confirm their representation with Crestron before signing. Review every page, mapping and applicable subcondition before authorizing a signature.")]
@@ -233,12 +238,14 @@ def vector_check_appearances(writer, inventory):
             states[NameObject(fields[widget["/T"]]["checkedAppearance"][0])] = writer._add_object(appearance)
 
 
-def write_form(source_bytes, inventory, output, title, author, rows, identity, draft):
+def write_form(source_bytes, inventory, output, title, author, rows, identity, draft, signing_copy=False):
     output = Path(output)
     if not output.name.endswith(".review.pdf") or output.exists():
         raise ValueError("Use a new .review.pdf output; signing is a separate authorized stage")
     text(title)
     text(author)
+    if signing_copy and draft:
+        raise ValueError("A blank draft cannot be prepared for signing")
     declared = indexed(inventory["requirements"], "id")
     resolved = indexed(rows, "id")
     allowed = {"NotTested"} if draft else {"Passed", "NotApplicable"}
@@ -248,7 +255,7 @@ def write_form(source_bytes, inventory, output, title, author, rows, identity, d
     inspect_form(source, inventory)
     values = {r["field"]: NameObject(r["checkedAppearance"][0] if resolved[r["id"]]["state"] == "Passed" else "/Off")
               for r in inventory["requirements"]}
-    cover = companion(title, author, rows, identity, draft)
+    cover = companion(title, author, rows, identity, draft, signing_copy)
     writer = PdfWriter()
     writer.clone_document_from_reader(source)
     vector_check_appearances(writer, inventory)
@@ -274,12 +281,12 @@ def write_form(source_bytes, inventory, output, title, author, rows, identity, d
             "checkedRequirements": [row["id"] for row in rows if row["state"] == "Passed"],
             "notApplicableRequirements": [row["id"] for row in rows if row["state"] == "NotApplicable"],
             "signatureBlank": True, "dateBlank": True, "visualReviewRequired": True,
-            "signingAuthorizationRequired": True, "submissionReady": False}
+            "signingAuthorizationRequired": True, "submissionReady": False, "signingCopy": signing_copy}
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("draft", "from-evidence"))
+    parser.add_argument("mode", choices=("draft", "from-evidence", "for-signing"))
     for field in ("template", "inventory", "inventory-sha256", "output", "title", "author", "report"):
         parser.add_argument("--" + field, required=True)
     for field in ("mapping", "mapping-sha256", "candidate", "candidate-sha256", "policy", "observations", "package", "evidence", "dotnet", "validator"):
@@ -303,14 +310,14 @@ def main():
                             args.observations, args.package, args.evidence, args.dotnet, args.validator)
         if args.mode == "draft" and any(evidence_options):
             raise ValueError("Use from-evidence mode to evaluate candidate evidence; draft mode never attests tests")
-        if args.mode == "from-evidence":
+        if args.mode in ("from-evidence", "for-signing"):
             if not all(evidence_options):
                 raise ValueError("Evidence mode requires all pinned candidate, policy, mapping and validator inputs")
             rows, checked, validation_json = validate_evidence(inventory, args.inventory_sha256, args.mapping, args.mapping_sha256,
                 args.candidate, args.candidate_sha256, args.policy, args.observations, args.package, args.template,
                 args.evidence, args.dotnet, args.validator)
             identity.update(checked)
-        report = write_form(source, inventory, args.output, args.title, args.author, rows, identity, args.mode == "draft")
+        report = write_form(source, inventory, args.output, args.title, args.author, rows, identity, args.mode == "draft", args.mode == "for-signing")
         report["validationReportJson"] = validation_json
         write_json(args.report, report)
         print(json.dumps(report, indent=2))
