@@ -26,6 +26,9 @@ public sealed record SubmissionEnduranceCheckpoint (int SchemaVersion, string Pl
 /// </summary>
 public static class SubmissionEndurance
 	{
+	/// <summary>Validate a producer's received plan without creating a journal or contacting a processor.</summary>
+	public static void ValidatePlan (SubmissionEndurancePlan plan) => _ = PlanDigest (plan);
+
 	private static readonly JsonSerializerOptions JsonOptions = new ()
 		{ PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = true, Converters = { new JsonStringEnumConverter () } };
 	private const int MaximumEvidenceBytes = 4 * 1024 * 1024;

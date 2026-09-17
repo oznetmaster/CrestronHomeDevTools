@@ -48,13 +48,13 @@ The two target values must match; credentials and verified SSH trust still come 
 
 ## Get started
 
-Version 1.6.0 adds [managed-child setup, validation and cleanup](docs/ManagedChildValidation.md), resumable endurance collection and further offline submission preparation. It retains the package/evidence checks, guarded UI name binding and delivery journals introduced in 1.5.0. The console includes [private evidence bundle creation and verification](docs/submission/EvidenceBundle.md).
+Version 1.7.0 adds bounded [processor uptime observations](docs/ProcessorUptime.md) and a public plan-validation entry point for external endurance producers. These APIs support monitoring independently of optional submission. Version 1.6.0 added [managed-child setup, validation and cleanup](docs/ManagedChildValidation.md), resumable endurance collection and further offline submission preparation. It retains the package/evidence checks, guarded UI name binding and delivery journals introduced in 1.5.0. The console includes [private evidence bundle creation and verification](docs/submission/EvidenceBundle.md).
 
 Separate source tools provide [help generation with opt-in package build hooks](docs/submission/HelpBuild.md), [Android evidence auditing](docs/submission/AndroidEvidence.md), [unsigned self-test form generation](docs/submission/FormGeneration.md), and an [optional private CI review stage](docs/submission/ReviewStage.md). These Python scripts require a pinned source checkout and its pinned dependencies; they are not embedded in the NuGet package or console ZIP. Use the matching tag for released source tools. These tools do not send a submission or establish self-test completion. See the [submission plan and validation limits](docs/CrestronSubmission.md).
 
 **Source tools included in the 1.6.0 tag:** [image signing](docs/submission/FormSigning.md), the optional review-to-signing handoff, the [private signing stage](docs/submission/SigningStage.md) and [final delivery preparation](docs/submission/DeliveryPreparation.md) require a pinned, reviewed source commit containing those tools. Use the 1.6.0 tag or a later matching release; they are not embedded in the NuGet package or console ZIP. Their synthetic integration checks pass; a real approved signature, final driver candidate and supported delivery remain pending.
 
-Install the library with `dotnet add package CrestronHomeDevTools --version 1.6.0`. Download the self-contained Windows x64 console from [GitHub Releases](https://github.com/oznetmaster/CrestronHomeDevTools/releases/latest), extract the complete ZIP, and run `CrestronHomeDevTools.Console.exe`. Its first run opens processor/profile setup; `--help` lists commands.
+Install the library with `dotnet add package CrestronHomeDevTools --version 1.7.0`. Download the self-contained Windows x64 console from [GitHub Releases](https://github.com/oznetmaster/CrestronHomeDevTools/releases/latest), extract the complete ZIP, and run `CrestronHomeDevTools.Console.exe`. Its first run opens processor/profile setup; `--help` lists commands.
 
 To build from source with the .NET 10 SDK:
 
@@ -108,7 +108,7 @@ See the [end-to-end CI guide](https://github.com/oznetmaster/CrestronHomeNUnit/b
 - [User and CLI guide](docs/UserGuide.md): setup, profiles, commands, exit codes and troubleshooting.
 - [Library API guide](docs/LibraryGuide.md): component responsibilities and examples.
 - [Processor coordination and storage](docs/ProcessorCoordination.md): shared reservations, build deployment, reboot waits and retained package inspection.
-- [Processor uptime observations](docs/ProcessorUptime.md): local source addition for bounded, read-only uptime evidence; not yet in the published 1.6.0 package.
+- [Processor uptime observations](docs/ProcessorUptime.md): bounded, read-only SSH observations for consumer-owned monitoring; requires 1.7.0 or later.
 - [Configuration-management protocol reference](docs/ProtocolReference.md): discovery packets, authentication, request/response formats, commands, events, V1/V2 lifecycle sequences and recovery rules.
 - [Compatibility and validation](docs/Compatibility.md): tested environment, V1/V2 limits and failure semantics.
 - [Release procedure](docs/Releasing.md): versioning, packages, console distribution, documentation and validation.

@@ -1,6 +1,6 @@
 # Processor uptime observations
 
-This API is a local source addition after DevTools 1.6.0. It is not included in the published 1.6.0 package. Release availability will be documented when the endurance integration is ready.
+Requires CrestronHomeDevTools 1.7.0 or later. This is a library API; it does not install a monitoring worker or start an endurance run.
 
 `ProcessorUptime.ReadAsync(host, credential, sshFingerprint, timeout, cancellationToken)` opens an authenticated SSH console, waits for its observed prompt, and sends the read-only `uptime` command once. It does not reboot, change configuration, disable logging or acquire a processor reservation. The caller owns coordination with other development operations.
 

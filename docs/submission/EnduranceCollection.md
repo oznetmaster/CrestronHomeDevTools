@@ -1,6 +1,6 @@
 # Resumable endurance collection
 
-`SubmissionEndurance`, `SubmissionEnduranceMonitor`, `SubmissionEnduranceProcessProbe` and the endurance CLI commands require DevTools 1.6.0 or later. Their journals, collection, reservation orchestration and child-process protocol have regression tests. Reservation acquisition, blocking of a competing owner, collection across separate worker processes, and verified release have also passed on a real processor. That infrastructure check used synthetic functional outcomes and was not a driver endurance test. The real driver-function producer, scheduler deployment, operating-system restart validation and 24-hour candidate run remain to be completed.
+`SubmissionEndurance`, `SubmissionEnduranceMonitor`, `SubmissionEnduranceProcessProbe` and the endurance CLI commands require DevTools 1.6.0 or later. Their journals, collection, reservation orchestration and child-process protocol have regression tests and real-processor validation. Consumer-owned probes have also exercised short real-function observations, standard evidence export and deliberate driver-restart rejection. These checks do not constitute a final candidate endurance period. The consuming project remains responsible for its probe, scheduler, interruption/restart validation, approved policy and complete candidate-specific duration.
 
 ## What the collector does
 
@@ -12,9 +12,15 @@ Each producer result supplies the identities it actually verified, the processor
 
 `SubmissionEndurance.Export` returns a standard `SubmissionObservation` only after the full interval has passed and the existing evidence validator accepts the retained samples. It rechecks evidence hashes on export. This output can enter the normal evidence and bundle pipeline; it does not bypass that pipeline, authenticate the producer or establish complete coverage of the official test plan.
 
+## Validate a received plan
+
+`SubmissionEndurance.ValidatePlan(plan)` requires 1.7.0 or later. It performs the collector's structural validation without creating a journal or contacting a processor. An external producer can use it before comparing the entire request with its independently reviewed binding. It checks complete identity pins, the read-only endurance contract, positive duration and cadence, and room for the probe within the sample gap. It does not approve a policy, authenticate a caller, establish an official duration, or verify the actual package and device.
+
 ## Producer and reservation requirements
 
 The consuming driver supplies its functional probe. A TCP connection, driver readiness flag or successful HTTP status alone is insufficient. The probe must verify the installed candidate and perform the approved, driver-specific functional comparison with an independent observation. Retain enough information to review that comparison. Keep credentials out of probe results and exception messages intended for evidence.
+
+A processor boot identity alone cannot detect a driver process restarting within the same boot. The probe must also bind and verify a suitable driver-lifetime identity and evidence that its observed state is fresh. The same package version and a ready flag do not establish continuity. When using an inferred boot window, retain the original reviewed baseline and bounded clock tolerance; never move the baseline to accept later observations. See [processor uptime](../ProcessorUptime.md) for the API and clock limitations.
 
 The trusted orchestration layer must acquire and maintain the shared processor reservation for the **whole endurance run**, including between scheduler invocations. Every sample must verify that ownership is still valid. The plan's reservation string is a binding, not a lease implementation. The collector's local exclusive file lock prevents overlapping invocations against one journal; it cannot stop another computer or a different journal from accessing the processor. Shared physical devices also need coordination across processors.
 
