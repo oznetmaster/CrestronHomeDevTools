@@ -45,7 +45,7 @@ No evidence ZIP, signature source image, authorization file, worker settings or 
 
 After a crash, a directory without a valid completion marker is incomplete and must not be consumed. The tool will not reuse that directory. Creating another signed copy is preparation only; never use a new directory to bypass an uncertain upload or email recorded by the [delivery journal](DeliveryJournal.md).
 
-The signed-review receipt deliberately retains `visualReviewRequired: true`, `deliveryAuthorized: false`, `submissionReady: false` and `deliveryAttempted: false`. Render and review every signed page before authorizing the exact package/form pair for delivery. The downstream delivery stage must recheck the trusted receipt, file hashes, policy/evidence freshness and its separate delivery authorization. An old signing receipt alone is insufficient.
+The signed-review receipt deliberately retains `visualReviewRequired: true`, `deliveryAuthorized: false`, `submissionReady: false` and `deliveryAttempted: false`. Render and review every signed page before authorizing the exact package/form pair for delivery. The [final delivery preparation stage](DeliveryPreparation.md) rechecks the trusted receipt, file hashes, evidence freshness and its separate delivery authorization before preparing a plan. An old signing receipt alone is insufficient.
 
 ## Optional GitHub job
 

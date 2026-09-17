@@ -21,6 +21,7 @@ Reviewed V1 removal can preserve other instances sharing the same driver code ac
 - [Deployment and tests](#deployment-and-tests)
 - [Automated Crestron submission plan and progress](docs/CrestronSubmission.md)
 - [Submission delivery journal and reconciliation](docs/submission/DeliveryJournal.md) (transport boundary; no built-in uploader or sender)
+- [Final submission delivery preparation](docs/submission/DeliveryPreparation.md) (approved signed artifacts to a private plan; no sending)
 - [Documentation](#documentation)
 - [Build and validate](#build-and-validate)
 - [Privacy and compatibility](#privacy-and-compatibility)
@@ -50,7 +51,7 @@ Version 1.5.0 adds offline package/evidence checks and the library APIs for guar
 
 Separate source tools provide [help generation with opt-in package build hooks](docs/submission/HelpBuild.md), [Android evidence auditing](docs/submission/AndroidEvidence.md), [unsigned self-test form generation](docs/submission/FormGeneration.md), and an [optional private CI review stage](docs/submission/ReviewStage.md). These Python scripts require a pinned source checkout and its pinned dependencies; they are not embedded in the NuGet package or console ZIP. Use the matching tag for released source tools. These tools do not send a submission or establish self-test completion. See the [submission plan and validation limits](docs/CrestronSubmission.md).
 
-**Source additions after 1.5.0:** [image signing](docs/submission/FormSigning.md), the optional review-to-signing handoff and the [private signing stage](docs/submission/SigningStage.md) require a pinned, reviewed source commit containing those tools. They are not in the 1.5.0 tag. Their synthetic integration checks pass; a real approved signature, final driver candidate and supported delivery remain pending.
+**Source additions after 1.5.0:** [image signing](docs/submission/FormSigning.md), the optional review-to-signing handoff, the [private signing stage](docs/submission/SigningStage.md) and [final delivery preparation](docs/submission/DeliveryPreparation.md) require a pinned, reviewed source commit containing those tools. They are not in the 1.5.0 tag. Their synthetic integration checks pass; a real approved signature, final driver candidate and supported delivery remain pending.
 
 Install the library with `dotnet add package CrestronHomeDevTools --version 1.5.0`. Download the self-contained Windows x64 console from [GitHub Releases](https://github.com/oznetmaster/CrestronHomeDevTools/releases/latest), extract the complete ZIP, and run `CrestronHomeDevTools.Console.exe`. Its first run opens processor/profile setup; `--help` lists commands.
 

@@ -4,6 +4,8 @@ The `SubmissionDelivery` API, introduced in 1.5.0, records the upload/email boun
 
 Crestron's [published submission procedure](https://sdkcon78221.crestron.com/sdk/Crestron_Certified_Drivers_SDK/Content/Topics/Submit-a-Driver/Submit-a-Driver.htm) requires its file-sharing service for the `.pkg`, then an email to `drivers@crestron.com` with subject `Driver Submission Package`, the returned download URL and the signed self-test plan attached. The sending email address receives subsequent correspondence. An email-provider acceptance receipt is not proof that Crestron received, approved or certified the driver.
 
+The source [final delivery preparation stage](DeliveryPreparation.md) produces the plan from a completed signed review, freshly validated evidence and separately pinned final approval. It does not invoke this API or send anything; real transport integration remains pending.
+
 ## Required upstream checks
 
 Before calling `ExecuteAsync`, the trusted workflow must validate the exact Release package, complete applicable evidence, reviewed form, signature authorization and final signed PDF. `SubmissionDeliveryPlan` binds candidate, review, authorization, package and signed-form SHA-256 values, exact filenames, sender and recipient. The API checks digest syntax and the actual delivery file bytes. It does not authenticate the signer, inspect a signature, approve the recipient, or establish that an arbitrary document called `self-test.pdf` is a completed official form. The calling workflow must establish those facts and retain the plan and authorization separately.
