@@ -19,10 +19,12 @@ from render_help import run_process
 import self_test_form as forms
 
 
-def prepare(settings_path, candidate_digest, inventory_digest, mapping_digest, source_commit, artifact_kind):
+def prepare(settings_path, candidate_digest, inventory_digest, mapping_digest, source_commit, artifact_kind, *, signing_copy=False):
     # These pins come from the trusted release job, separately from worker settings.
     if artifact_kind != "driver":
         raise ValueError("Submission review is only available for an explicitly selected driver release")
+    if type(signing_copy) is not bool:
+        raise ValueError("Signing-copy selection must be a boolean")
     for digest in (candidate_digest, inventory_digest, mapping_digest):
         if not re.fullmatch(r"[0-9a-f]{64}", digest):
             raise ValueError("Supply independent lowercase SHA-256 release pins")
@@ -60,8 +62,10 @@ def prepare(settings_path, candidate_digest, inventory_digest, mapping_digest, s
             inventory, inventory_digest, settings["mapping"], mapping_digest,
             settings["candidate"], candidate_digest, settings["policy"], settings["observations"],
             settings["package"], settings["template"], settings["evidence"], settings["dotnet"], settings["validator"])
+        identity["inventorySha256"] = inventory_digest
         form = completed / "self-test.review.pdf"
-        report = forms.write_form(source, inventory, form, settings["title"], settings["author"], rows, identity, False)
+        report = forms.write_form(source, inventory, form, settings["title"], settings["author"], rows, identity, False,
+                                  signing_copy=signing_copy)
         report["validationReportJson"] = validation_json
         write_json(completed / "form-report.json", report)
         arguments = [settings["dotnet"], settings["validator"], "submission-bundle-create",
@@ -88,6 +92,8 @@ def prepare(settings_path, candidate_digest, inventory_digest, mapping_digest, s
         receipt = {"schemaVersion": 1, "state": "UnsignedReviewPrepared", "sourceCommit": source_commit,
                    "candidateSha256": candidate_digest, "inventorySha256": inventory_digest,
                    "mappingSha256": mapping_digest, "formSha256": report["formSha256"],
+                   "formReportSha256": sha((completed / "form-report.json").read_bytes()),
+                   "signingCopy": signing_copy,
                    "bundleSha256": bundle["BundleSha256"], "visualReviewRequired": True,
                    "producerAuthenticationRequired": True, "signingAuthorizationRequired": True,
                    "submissionReady": False, "deliveryAttempted": False}
@@ -106,10 +112,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ("settings", "candidate-sha256", "inventory-sha256", "mapping-sha256", "source-commit", "artifact-kind"):
         parser.add_argument("--" + name, required=True)
+    parser.add_argument("--prepare-for-signing", action="store_true",
+                        help="Prepare the evidence-backed unsigned signing copy; does not authorize or apply a signature")
     args = parser.parse_args()
     try:
         report = prepare(args.settings, args.candidate_sha256, args.inventory_sha256, args.mapping_sha256,
-                         args.source_commit, args.artifact_kind)
+                         args.source_commit, args.artifact_kind, signing_copy=args.prepare_for_signing)
         print(json.dumps(report, indent=2))
         return 0
     except (ValueError, OSError, KeyError, TypeError, PdfReadError, LayoutError, subprocess.SubprocessError):

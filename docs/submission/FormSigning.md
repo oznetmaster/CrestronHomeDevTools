@@ -8,6 +8,8 @@ This feature requires the matching DevTools source checkout and the dependencies
 
 Use all the evidence arguments documented in [FormGeneration.md](FormGeneration.md), but select `for-signing` instead of `from-evidence`. The same .NET evidence validator and complete official-field mapping are required. Drafts and ordinary unsigned review copies cannot be signed by this tool.
 
+Alternatively, use the [private CI review stage](ReviewStage.md) with `--prepare-for-signing` (workflow input `prepare_for_signing: true`). It retains the signing copy, exact form report and validated evidence bundle together. Use its `formSha256` and `formReportSha256` when reviewing the subsequent authorization; do not regenerate the form between review and signing. The release pins and signing authorization still come from separately trusted stages.
+
 The signing copy uses a neutral evidence-summary heading so it remains correct after signing. Its signature/date fields are still blank, its filename ends in `.review.pdf`, and its report records `signingCopy: true` and `submissionReady: false`. Render and review every page, including non-applicability rationales, before authorizing the exact PDF. A previously approved draft or a different form hash is insufficient.
 
 Retain the package, evidence and report as immutable private candidate artifacts. Signing does not rebuild the package or rerun hardware tests. Candidate validation and evidence freshness must still be checked by the final submission gate.

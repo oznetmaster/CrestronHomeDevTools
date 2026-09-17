@@ -9,6 +9,10 @@ on:
       enabled:
         type: boolean
         required: true
+      prepare_for_signing:
+        description: Prepare an unsigned signing copy; does not authorize a signature or delivery
+        type: boolean
+        default: false
       artifact_kind:
         type: string
         required: true
@@ -51,12 +55,15 @@ jobs:
           REVIEW_CANDIDATE: ${{ inputs.candidate_sha256 }}
           REVIEW_INVENTORY: ${{ inputs.inventory_sha256 }}
           REVIEW_MAPPING: ${{ inputs.mapping_sha256 }}
+          REVIEW_SIGNING_COPY: ${{ inputs.prepare_for_signing }}
         run: |
           if (-not $env:CRESTRON_SUBMISSION_REVIEW_SETTINGS) { throw 'Private review settings are not configured.' }
           $settings = Get-Content -LiteralPath $env:CRESTRON_SUBMISSION_REVIEW_SETTINGS -Raw | ConvertFrom-Json
           $expectedValidator = Join-Path $PWD 'CrestronHomeDevTools.Console/bin/Release/net10.0/CrestronHomeDevTools.Console.dll'
           if ((Resolve-Path -LiteralPath $settings.validator).Path -ne (Resolve-Path -LiteralPath $expectedValidator).Path) { throw 'Private settings must select the validator built from the pinned tooling checkout.' }
           if ((Resolve-Path -LiteralPath $settings.dotnet).Path -ne (Get-Command dotnet).Source) { throw 'Private settings must select the build runtime.' }
-          python tools/submission/prepare_review.py --settings "$env:CRESTRON_SUBMISSION_REVIEW_SETTINGS" --artifact-kind "$env:REVIEW_KIND" --source-commit "$env:REVIEW_SOURCE" --candidate-sha256 "$env:REVIEW_CANDIDATE" --inventory-sha256 "$env:REVIEW_INVENTORY" --mapping-sha256 "$env:REVIEW_MAPPING"
+          $reviewOptions = @()
+          if ($env:REVIEW_SIGNING_COPY -eq 'true') { $reviewOptions += '--prepare-for-signing' }
+          python tools/submission/prepare_review.py --settings "$env:CRESTRON_SUBMISSION_REVIEW_SETTINGS" --artifact-kind "$env:REVIEW_KIND" --source-commit "$env:REVIEW_SOURCE" --candidate-sha256 "$env:REVIEW_CANDIDATE" --inventory-sha256 "$env:REVIEW_INVENTORY" --mapping-sha256 "$env:REVIEW_MAPPING" @reviewOptions
           if ($LASTEXITCODE -ne 0) { throw 'Unsigned review preparation failed; no submission was sent.' }
           'Unsigned review prepared privately. Signing and delivery remain pending.' >> $env:GITHUB_STEP_SUMMARY
