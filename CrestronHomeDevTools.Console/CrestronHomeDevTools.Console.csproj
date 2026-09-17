@@ -11,5 +11,6 @@
     <None Include="../docs/**/*" Link="docs/%(RecursiveDir)%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" />
     <None Include="../licenses/*" Link="licenses/%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" />
     <None Include="../scripts/*.ps1" Link="scripts/%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="../scripts/endurance/*.ps1" Link="scripts/endurance/%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

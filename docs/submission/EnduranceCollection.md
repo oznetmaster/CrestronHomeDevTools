@@ -36,7 +36,7 @@ Each due observation reconnects and verifies ownership before invoking the suppl
 
 The monitor stores its ownership record in `monitor.json`. Collector checkpoints and retained samples are kept separately under `SubmissionEnduranceMonitor.GetEvidenceDirectory(privateRunDirectory)`. Use that evidence directory with `SubmissionEndurance.ReadCheckpoint` and `Export`. The separate locations preserve the collector's rejection of orphaned evidence instead of weakening that check to accommodate monitor files. Credentials are not written into either journal.
 
-This API does not install a Windows service or scheduled task. The CLI described below supports separate scheduler invocations. Its private files and credentials must survive a worker restart. Protect shared physical devices separately when other processors can access them.
+The API itself does not install a Windows service or scheduled task. Source scheduler scripts are described in the [Windows worker guide](WindowsEnduranceWorker.md); they are not included in the 1.7.0 release archive. The CLI described below supports separate scheduler invocations. Its private files and credentials must survive a worker restart. Protect shared physical devices separately when other processors can access them.
 
 The producer must be read-only and obey cancellation. Tests that change physical state, simulate outages or require restoration belong in separately reserved fixtures with their own recovery evidence. The API rejects policies requiring a response measurement or state restoration because this collector does not implement those actions. An approved submission plan may need both periodic read-only observations and those separate functional/control tests.
 

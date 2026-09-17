@@ -108,6 +108,7 @@ See the [end-to-end CI guide](https://github.com/oznetmaster/CrestronHomeNUnit/b
 - [User and CLI guide](docs/UserGuide.md): setup, profiles, commands, exit codes and troubleshooting.
 - [Library API guide](docs/LibraryGuide.md): component responsibilities and examples.
 - [Processor coordination and storage](docs/ProcessorCoordination.md): shared reservations, build deployment, reboot waits and retained package inspection.
+- [Windows endurance worker](docs/submission/WindowsEnduranceWorker.md): optional scheduled observations, private service-account setup, interruption handling and alert requirements; scheduler scripts are currently source additions after 1.7.0.
 - [Processor uptime observations](docs/ProcessorUptime.md): bounded, read-only SSH observations for consumer-owned monitoring; requires 1.7.0 or later.
 - [Configuration-management protocol reference](docs/ProtocolReference.md): discovery packets, authentication, request/response formats, commands, events, V1/V2 lifecycle sequences and recovery rules.
 - [Compatibility and validation](docs/Compatibility.md): tested environment, V1/V2 limits and failure semantics.

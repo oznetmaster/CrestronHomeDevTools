@@ -6,6 +6,7 @@ Push-Location $root
 try {
     $release = Join-Path $root 'artifacts/release'
     if (Test-Path $release) { throw 'Use fresh release staging.' }
+    & ./tools/endurance/Test-EnduranceScheduler.ps1 -ResultsDirectory artifacts/scheduler-tests
     & ./tools/Test-DiscoveredCoverageGuards.ps1
     & ./tools/Test-DiscoveredCoverage.ps1 -Configuration Release -ResultsDirectory artifacts/tests
     dotnet pack CrestronHomeDevTools/CrestronHomeDevTools.csproj -c Release --no-build -o $release
@@ -32,6 +33,11 @@ try {
             foreach ($document in Get-ChildItem (Join-Path $root 'docs') -File -Recurse) {
                 $relative = [IO.Path]::GetRelativePath($root, $document.FullName).Replace('\', '/')
                 if (@($zip.Entries | Where-Object FullName -CEQ $relative).Count -ne 1) { throw "Missing or duplicated document $relative in $($file.Name)." }
+            }
+            if ($file.Extension -eq '.zip') {
+                foreach ($name in @('Invoke-EnduranceScheduledTick.ps1','New-EnduranceScheduleConfiguration.ps1','Register-EnduranceScheduledTask.ps1')) {
+                    if (@($zip.Entries | Where-Object FullName -CEQ ('scripts/endurance/' + $name)).Count -ne 1) { throw "Missing scheduled-worker script $name." }
+                }
             }
             if ($file.Extension -eq '.nupkg') {
                 $entry = $zip.Entries | Where-Object FullName -Like '*.nuspec' | Select-Object -First 1
