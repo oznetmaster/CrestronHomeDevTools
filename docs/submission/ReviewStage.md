@@ -1,6 +1,6 @@
 # Optional private CI review stage
 
-The source `tools/submission/prepare_review.py` connects evidence validation, unsigned form generation and private evidence retention. This is the review preparation portion of the final submission stage. It does not execute missing tests, authenticate the evidence producer, approve a policy, render/sign a form or upload/email a submission. This Python script requires the matching tagged DevTools checkout; it is not embedded in the NuGet package or console ZIP.
+The source `tools/submission/prepare_review.py` connects evidence validation, unsigned form generation and private evidence retention. This is the review preparation portion of the final submission stage. It does not execute missing tests, authenticate the evidence producer, approve a policy, render/sign a form or upload/email a submission. This Python script requires a pinned DevTools source checkout; it is not embedded in the NuGet package or console ZIP. The optional signing-copy handoff described below was added after 1.5.0; see [source availability](../../README.md#get-started).
 
 Use this only after testing an immutable actual-driver Release candidate. Ordinary build/test/publication jobs remain independent. Client/library and processor-test releases must not invoke it. The command rejects those artifact kinds and Debug revision numbers. A GitHub release does not imply portal submission.
 
