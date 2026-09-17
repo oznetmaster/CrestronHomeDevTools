@@ -108,6 +108,7 @@ See the [end-to-end CI guide](https://github.com/oznetmaster/CrestronHomeNUnit/b
 - [User and CLI guide](docs/UserGuide.md): setup, profiles, commands, exit codes and troubleshooting.
 - [Library API guide](docs/LibraryGuide.md): component responsibilities and examples.
 - [Processor coordination and storage](docs/ProcessorCoordination.md): shared reservations, build deployment, reboot waits and retained package inspection.
+- [Processor uptime observations](docs/ProcessorUptime.md): local source addition for bounded, read-only uptime evidence; not yet in the published 1.6.0 package.
 - [Configuration-management protocol reference](docs/ProtocolReference.md): discovery packets, authentication, request/response formats, commands, events, V1/V2 lifecycle sequences and recovery rules.
 - [Compatibility and validation](docs/Compatibility.md): tested environment, V1/V2 limits and failure semantics.
 - [Release procedure](docs/Releasing.md): versioning, packages, console distribution, documentation and validation.
