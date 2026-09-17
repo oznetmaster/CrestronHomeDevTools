@@ -26,7 +26,7 @@ try {
         $zip = [IO.Compression.ZipFile]::OpenRead($file.FullName)
         try {
             if (@($zip.Entries | Where-Object FullName -Match '(?i)(\.profile$|\.local\.json$|LiveTestSettings\.json$|\.csproj\.user$|\.Local\.targets$|\.pfx$|(^|/)(TestResults|obj|bin)/)').Count) { throw "Private file in $($file.Name)." }
-            foreach ($required in @('README.md','LICENSE','CHANGELOG.md','RELEASE-NOTES.md','THIRD-PARTY-NOTICES.md','docs/ProtocolReference.md','docs/DriverConfiguration.md','docs/RoomMoves.md')) {
+            foreach ($required in @('README.md','LICENSE','CHANGELOG.md','RELEASE-NOTES.md','THIRD-PARTY-NOTICES.md','docs/ProtocolReference.md','docs/DriverConfiguration.md','docs/RoomMoves.md','docs/ManagedChildValidation.md','docs/submission/EnduranceCollection.md','docs/submission/FormSigning.md','docs/submission/SigningStage.md','docs/submission/DeliveryPreparation.md')) {
                 if (-not ($zip.Entries | Where-Object FullName -EQ $required)) { throw "Missing $required in $($file.Name)." }
             }
             if ($file.Extension -eq '.nupkg') {

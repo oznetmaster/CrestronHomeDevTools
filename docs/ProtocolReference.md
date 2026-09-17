@@ -58,7 +58,7 @@ The current client binds an IPv4 socket to local port 41794, enables broadcast a
 
 | Byte offsets, zero-based | Query contents |
 |---|---|
-| 0–9 | `14 00 00 00 01 04 00 03 00 00` in hexadecimal |
+| 0â€“9 | `14 00 00 00 01 04 00 03 00 00` in hexadecimal |
 | 10 onward | ASCII workstation hostname, at most 255 bytes |
 | Remaining bytes | Zero padding, including a terminator after the hostname |
 
@@ -66,7 +66,7 @@ The meanings of all header bytes have not been established; the table records th
 
 ### Native UDP reply
 
-The parser accepts replies from source port 41794 with a length of 266–4096 bytes and prefix `15 00 00 00`. It reads the system name as UTF-8 from offset 10 to the first zero byte within the following 256 bytes, or to offset 266 if none is present. It trims whitespace and rejects empty names or names containing control characters. The packet's source IP supplies the address.
+The parser accepts replies from source port 41794 with a length of 266â€“4096 bytes and prefix `15 00 00 00`. It reads the system name as UTF-8 from offset 10 to the first zero byte within the following 256 bytes, or to offset 266 if none is present. It trims whitespace and rejects empty names or names containing control characters. The packet's source IP supplies the address.
 
 Other reply bytes are not interpreted. The size limits and maximum 1,024 collected addresses are client bounds, not a complete discovery specification.
 
@@ -458,3 +458,19 @@ Home rejects more than three search tokens with HTTP 422; Configure Pro prevents
 ## Room-move validation
 
 On MC4-R / Home 4.11.322, a temporary Entity V2 test instance moved to another room and back without changing its ID or version, including verification on a fresh connection. `setLocation` requires a numeric room ID, unlike the string used by `commissionDevice`. A string supplied to `setLocation` was treated as removal; never substitute that representation. The typed helper restricts moves to loaded childless drivers with confirmed reboot-free lifecycle support. See [room moves](RoomMoves.md).
+
+
+## Managed-child configuration entry
+
+On the observed V2 processor platform, `cp.platformController:commissionManagedDevice` returns a new child ID and commissioning result. Configure Pro subsequently enters the child's configuration wizard through `cp.driverConfiguration:getFirstConfigurationStep` with `isReconfiguring: false`. This can return null because no prompts are required; the call is still part of the observed commissioning sequence. Skipping it left a child offline in controlled tests, while including it initialized the same diagnostic promptly. Polling `isConfigured` alone did not substitute for this step.
+
+The DevTools 1.6.0 helper and its scope are documented under [new managed children](DriverConfiguration.md#initialize-a-newly-commissioned-managed-child). This is an observation of the undocumented configuration interface, not an official Crestron contract. Returned wizard data remains private, mutation requests are never automatically replayed, and callers must separately verify readiness and cleanup.
+
+
+## Remove a journal-owned managed child
+
+For a new leaf child of a reloadable Entity V2 platform, the observed cleanup command is `cp.deviceConfiguration:setLocation` on the **child ID**, with `locationId: null`. This disposes the child assignment; it is distinct from replacing the platform package or unloading the root driver. A managed child can report `supportsUnloadReloadDriver: false` while its parent supports unload/reload: that child flag does not describe this assignment-removal operation.
+
+The DevTools 1.6.0 `ManagedDeviceCommissioning.RemoveCreatedAsync` and `remove-created-child` CLI require matching terminal commissioning receipts, the unchanged child and parent identities, no child descendants and the parent's non-reboot capability. They journal one removal intent, observe disappearance and verify other devices' identities, assignments, versions and loading/readiness state. They do not restore physical equipment or certify unrelated devices' functionality. The caller must verify test-state restoration before cleanup and retain the same processor identity and shared lease discipline throughout its workflow.
+
+The library and actual CLI round trip passed on the CP4-R development processor. A previous cleanup attempt is never replayed, even after an uncertain response; its private receipt must be reconciled. These observations describe the undocumented interface, not an official vendor guarantee or completed submission validation.

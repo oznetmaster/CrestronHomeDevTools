@@ -68,7 +68,7 @@ Keep the DOCX, PDF, `help-receipt.json`, `package-paths.json` and `packaged-help
 | `SubmissionHelpContent` | Driver's public content JSON; supplied by the driver project |
 | `SubmissionDeveloperToken` | Approved developer filename component |
 | `SubmissionDependencyNotices` | Optional reviewed merge inventory supplied by the driver. See [dependency notices](DependencyNotices.md). |
-| `SubmissionSupportEmail` / `SubmissionSupportWebsite` | Approved public contact; supply one or both. Website support requires source newer than 1.5.0. |
+| `SubmissionSupportEmail` / `SubmissionSupportWebsite` | Approved public contact; supply one or both. Website support requires the 1.6.0 source tools or later. |
 
 Paths are build-local settings, not values to commit to a driver repository. Use explicit arguments, environment-backed properties or a privately excluded local targets file. `BuildForTests=true` and design-time builds skip the integration. A submission build must not automatically deploy before its package checks complete.
 
@@ -84,8 +84,8 @@ The help must preserve the consuming driver's actual license and third-party not
 
 See the [submission plan](../CrestronSubmission.md) for the remaining help, evidence, signing and delivery work.
 
-### Archive path correction after 1.5.0
+### Archive path correction in 1.6.0
 
-The source checkout now includes `normalize_package.py` in the opt-in packaging hook. It corrects the raw backslash names emitted by ManifestUtil before the final candidate hash and any hardware tests. This correction is newer than the 1.5.0 tag: use a reviewed source revision containing the script and targets together. Do not run it on an already published or tested candidate; changed archive bytes require a new candidate and new evidence. Each build must own its output directory exclusively.
+The source checkout now includes `normalize_package.py` in the opt-in packaging hook. It corrects the raw backslash names emitted by ManifestUtil before the final candidate hash and any hardware tests. Use the 1.6.0 tag or a later reviewed source revision containing the script and targets together. Do not run it on an already published or tested candidate; changed archive bytes require a new candidate and new evidence. Each build must own its output directory exclusively.
 
 Archive normalization was checked on a private copy of an actual package: payload bytes were preserved, separator defects were corrected and original release bytes were unchanged. That structural correction does not fix missing submission metadata or help. Offline MSBuild integration also checks normalization order and rejects collisions before successful packaged-help evidence is emitted.

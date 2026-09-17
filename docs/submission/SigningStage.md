@@ -1,6 +1,6 @@
 # Private signing stage
 
-The source tool `tools/submission/prepare_signed_review.py` connects a completed [unsigned signing-copy review](ReviewStage.md) to the [image signer](FormSigning.md). It revalidates the retained evidence at signing time and prepares the exact package and signed form in a separate delivery folder. It never uploads or sends them. This source addition is not included in the 1.5.0 tag or NuGet package.
+The source tool `tools/submission/prepare_signed_review.py` connects a completed [unsigned signing-copy review](ReviewStage.md) to the [image signer](FormSigning.md). It revalidates the retained evidence at signing time and prepares the exact package and signed form in a separate delivery folder. It never uploads or sends them. Use the 1.6.0 tagged source or later; this Python tool is not embedded in the NuGet package or console ZIP.
 
 Use it only after the final driver Release candidate and all applicable evidence have passed review. Ordinary driver/library releases remain independent of portal submission. A completed signing stage means that authorized files were prepared, not that a driver was submitted or certified.
 

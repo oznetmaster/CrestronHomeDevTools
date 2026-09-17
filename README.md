@@ -16,6 +16,7 @@ Reviewed V1 removal can preserve other instances sharing the same driver code ac
 - [Get started](#get-started)
 - [Library example](#library-example)
 - [Driver configuration](docs/DriverConfiguration.md)
+- [Managed-child validation lifecycle](docs/ManagedChildValidation.md)
 - [Moving drivers between rooms](docs/RoomMoves.md)
 - [Associating Android tiles with installed drivers](docs/DriverUiBinding.md)
 - [Deployment and tests](#deployment-and-tests)
@@ -47,13 +48,13 @@ The two target values must match; credentials and verified SSH trust still come 
 
 ## Get started
 
-Version 1.5.0 adds offline package/evidence checks and the library APIs for guarded UI name binding and delivery journaling. The console includes [private evidence bundle creation and verification](docs/submission/EvidenceBundle.md).
+Version 1.6.0 adds [managed-child setup, validation and cleanup](docs/ManagedChildValidation.md), resumable endurance collection and further offline submission preparation. It retains the package/evidence checks, guarded UI name binding and delivery journals introduced in 1.5.0. The console includes [private evidence bundle creation and verification](docs/submission/EvidenceBundle.md).
 
 Separate source tools provide [help generation with opt-in package build hooks](docs/submission/HelpBuild.md), [Android evidence auditing](docs/submission/AndroidEvidence.md), [unsigned self-test form generation](docs/submission/FormGeneration.md), and an [optional private CI review stage](docs/submission/ReviewStage.md). These Python scripts require a pinned source checkout and its pinned dependencies; they are not embedded in the NuGet package or console ZIP. Use the matching tag for released source tools. These tools do not send a submission or establish self-test completion. See the [submission plan and validation limits](docs/CrestronSubmission.md).
 
-**Source additions after 1.5.0:** [image signing](docs/submission/FormSigning.md), the optional review-to-signing handoff, the [private signing stage](docs/submission/SigningStage.md) and [final delivery preparation](docs/submission/DeliveryPreparation.md) require a pinned, reviewed source commit containing those tools. They are not in the 1.5.0 tag. Their synthetic integration checks pass; a real approved signature, final driver candidate and supported delivery remain pending.
+**Source tools included in the 1.6.0 tag:** [image signing](docs/submission/FormSigning.md), the optional review-to-signing handoff, the [private signing stage](docs/submission/SigningStage.md) and [final delivery preparation](docs/submission/DeliveryPreparation.md) require a pinned, reviewed source commit containing those tools. Use the 1.6.0 tag or a later matching release; they are not embedded in the NuGet package or console ZIP. Their synthetic integration checks pass; a real approved signature, final driver candidate and supported delivery remain pending.
 
-Install the library with `dotnet add package CrestronHomeDevTools --version 1.5.0`. Download the self-contained Windows x64 console from [GitHub Releases](https://github.com/oznetmaster/CrestronHomeDevTools/releases/latest), extract the complete ZIP, and run `CrestronHomeDevTools.Console.exe`. Its first run opens processor/profile setup; `--help` lists commands.
+Install the library with `dotnet add package CrestronHomeDevTools --version 1.6.0`. Download the self-contained Windows x64 console from [GitHub Releases](https://github.com/oznetmaster/CrestronHomeDevTools/releases/latest), extract the complete ZIP, and run `CrestronHomeDevTools.Console.exe`. Its first run opens processor/profile setup; `--help` lists commands.
 
 To build from source with the .NET 10 SDK:
 
@@ -123,7 +124,7 @@ dotnet pack CrestronHomeDevTools/CrestronHomeDevTools.csproj -c Release -o artif
 dotnet publish CrestronHomeDevTools.Console/CrestronHomeDevTools.Console.csproj -c Release -o artifacts/console
 ```
 
-The offline suite currently contains **162 tests** and needs no processor or credentials. Push/PR CI builds, runs the offline tests and packs the library. The separate release workflow validates the versioned library and self-contained Windows console, retains their checksums, then publishes NuGet and GitHub assets.
+The offline suite needs no processor or credentials. CI compares executed tests with discovery, so new cases do not require maintaining a fixed test-count gate. Push/PR CI builds, runs the offline tests and packs the library. The separate release workflow validates the versioned library and self-contained Windows console, retains their checksums, then publishes NuGet and GitHub assets.
 
 ## Privacy and compatibility
 

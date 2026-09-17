@@ -10,7 +10,7 @@ Each driver profile supplies its portal status, developer/company name, filename
 
 ## Offline package preflight
 
-DevTools 1.5.0 introduced `SubmissionPackage.Inspect` and `submission-check`. The source version now also accepts website-only support; the example below requires that updated build:
+DevTools 1.5.0 introduced `SubmissionPackage.Inspect` and `submission-check`. DevTools 1.6.0 also accepts website-only support; the example below requires that version or later:
 
 ```text
 submission-check --package ExampleDeveloper_Platform_Example_IP.pkg --driver DRIVER_GUID --version 1.0.000.0000 --kind new --developer-name-token ExampleDeveloper --support-website https://example.org/driver-support
@@ -18,7 +18,7 @@ submission-check --package ExampleDeveloper_Platform_Example_IP.pkg --driver DRI
 
 For an update to a driver already on the portal, use `--kind update`. That exempts only the developer filename component. All matching filename, manifest and help checks still apply. A GitHub release of a driver does not by itself make it an existing portal driver.
 
-The command emits a JSON report and exits 0 when structural checks pass, 1 when defects are found, or 2 for invalid arguments. No processor profile is required. It checks exact root package/DLL/DAT/help naming, expected GUID/version, generated developer/dependency metadata, the configured public support email and/or website, DLL reference, PDF header, duplicate/unsafe archive paths and certain known private test-input filenames. It hashes the inspected bytes while holding the file open.
+The command emits a JSON report and exits 0 when structural checks pass, 1 when defects are found, or 2 for invalid arguments. No processor profile is required. It checks exact root package/DLL/DAT/help naming, expected GUID/version, generated developer/dependency metadata, the configured public support email and/or website, DLL reference, PDF header, duplicate/unsafe archive paths and certain known private test-input filenames. It hashes the inspected bytes while holding the file open. Every packaged PDF must also have a nonempty filename before its extension; an unnamed supporting document is rejected even when the main help PDF is correctly named.
 
 Crestron requires support contact information; the checker's configured contact must match the package. It accepts a reviewed HTTP/HTTPS support website, email, or both. A website URL check does not prove that its support route is usable. The archive separator convention is this tool's consistency check, not a demonstrated Crestron rejection.
 
@@ -96,7 +96,7 @@ The source [Android evidence audit](submission/AndroidEvidence.md) checks retain
 
 ## Hardware and failure handling
 
-The source [endurance collector and scheduled CLI](submission/EnduranceCollection.md) retain candidate-bound functional samples across invocations and stop on gaps, changed environments and interrupted probes. The persistent reservation and CLI have passed real processor infrastructure checks using explicitly synthetic functional observations. The driver-specific functional producer, scheduler deployment/alerts, OS restart validation and final candidate run remain incomplete. This source work is not part of the published 1.5.0 release.
+The DevTools 1.6.0 [endurance collector and scheduled CLI](submission/EnduranceCollection.md) retain candidate-bound functional samples across invocations and stop on gaps, changed environments and interrupted probes. The persistent reservation and CLI have passed real processor infrastructure checks using explicitly synthetic functional observations. The driver-specific functional producer, scheduler deployment/alerts, OS restart validation and final candidate run remain incomplete. Use DevTools 1.6.0 or later for this collection infrastructure.
 
 - Reserve the processor for the full test/install/configure/reboot/remove sequence. All participating tools must use the existing shared lease. Reserve the Android session separately and acquire resources in one documented order.
 - Verify the selected processor through the saved connection and visible home identity before navigation or controls. Avoid choosing a physical action through ambiguous labels or stale coordinates.

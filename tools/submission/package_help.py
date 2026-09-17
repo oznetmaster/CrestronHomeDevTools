@@ -140,6 +140,8 @@ def verify(receipt, manifest, content, assembly, package):
             raise ValueError("Package contains excessive or duplicate entries")
         if any("\\" in n or ":" in n or n.startswith("/") or any(p in (".", "..") for p in n.split("/")) for n in names):
             raise ValueError("Package contains unsafe archive paths")
+        if any(n.lower().endswith(".pdf") and not n.rsplit("/", 1)[-1][:-4].strip() for n in names):
+            raise ValueError("Package contains an unnamed PDF supporting document")
         for suffix in (".dll", ".dat", ".pdf"):
             if assembly + suffix not in names:
                 raise ValueError("Package requires matching root DLL, DAT and PDF names")

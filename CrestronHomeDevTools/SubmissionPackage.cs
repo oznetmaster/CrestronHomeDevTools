@@ -95,6 +95,10 @@ public static class SubmissionPackage
 				Path.GetFileName (entry.FullName).Equals ("wiserkeys.params", StringComparison.OrdinalIgnoreCase)))
 				Issue ("private-test-input", "The package contains a known private test-input filename. Remove test inputs before submission.");
 
+			if (zip.Entries.Any (entry => entry.FullName.EndsWith (".pdf", StringComparison.OrdinalIgnoreCase) &&
+				string.IsNullOrWhiteSpace (Path.GetFileNameWithoutExtension (entry.FullName.Replace ('\\', '/')))))
+				Issue ("unnamed-document", "Every packaged PDF, including supporting documents, must have a nonempty filename before its extension.");
+
 			foreach (var extension in new[] { ".dll", ".dat", ".pdf" })
 				{
 				var expectedName = basename + extension;

@@ -51,7 +51,9 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 		Console.WriteLine (JsonSerializer.Serialize (new
 			{
 			SharedProcessorLease = 1,
-			VerifiedPackageImport = true
+			VerifiedPackageImport = true,
+			ManagedChildCommissioning = 1,
+			ManagedChildCleanup = 1
 			}));
 		return 0;
 		}
@@ -116,6 +118,12 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
               activate --driver ID --name NAME --room ID [--device ID]
                                        Install if absent, upgrade if older, or verify loaded.
                                        Waits for update readiness; refuses ambiguous targets.
+              commission-child --input FILE --journal DIRECTORY
+                                       Commission one managed child and enter its configuration.
+                                       Record private receipts; exit 3 if configuration is required.
+              remove-created-child --journal DIRECTORY
+                                       Remove only the child recorded in the commissioning journal.
+                                       Verify other devices are preserved; restore test state first.
               configure-driver --device ID --model NAME --version VERSION --input FILE
                                        Apply private initial settings or ordered wizard steps.
                                        Verify configured state; preserve existing configuration.
@@ -187,6 +195,8 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 				"activate" => ["driver", "name", "room", "device"],
 				"remove" => ["device", "model", "version"],
 				"configure-driver" => ["device", "model", "version", "input"],
+				"commission-child" => ["input", "journal"],
+				"remove-created-child" => ["journal"],
 				"eligibility" => ["driver"],
 				"plan-update" => ["driver", "output"],
 				"update" => ["plan"],
@@ -219,6 +229,8 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 			if (!int.TryParse (Required ("device"), out deviceId) || deviceId <= 0)
 				throw new ArgumentException ("Device ID must be a positive integer.");
 			}
+		ManagedDeviceRequest? managedRequest = command == "commission-child" ? ManagedDeviceCommissioning.ReadRequest (Required ("input")) : null;
+		string? managedJournal = command is "commission-child" or "remove-created-child" ? Required ("journal") : null;
 		DriverConfiguration.Inputs? configurationInputs = null;
 		DriverInstanceReady? configurationTarget = null;
 		if (command == "configure-driver")
@@ -318,7 +330,7 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 			WebSocketPort = settings.WebSocketPort,
 			CertificateSha256 = Setting ("CRESTRON_HOME_CERT_SHA256", settings.CertificateSha256)
 			};
-		if (command is "move" or "reboot" or "activate" or "remove" or "deploy" or "refresh" or "reload" or "update" or "configure-driver")
+		if (command is "move" or "reboot" or "activate" or "remove" or "deploy" or "refresh" or "reload" or "update" or "configure-driver" or "commission-child" or "remove-created-child")
 			{
 			var leaseFingerprint = Setting ("CRESTRON_HOME_SSH_FINGERPRINT", settings.SshFingerprint)
 				?? throw new ArgumentException ("Processor mutations require a verified SSH fingerprint for the shared lease. Run configure first.");
@@ -375,6 +387,16 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 			{
 			case "driver-configuration":
 				result = await DriverConfigurationInspection.GetAsync (client, deviceId, cancellation.Token);
+				break;
+			case "remove-created-child":
+				Console.Error.WriteLine ("Removing only the managed child recorded by this journal; checking preservation of other devices.");
+				mutationSubmitted = true;
+				result = await ManagedDeviceCommissioning.RemoveCreatedAsync (client, managedJournal!, timeout, cancellation.Token);
+				break;
+			case "commission-child":
+				Console.Error.WriteLine ("Commissioning the selected managed child; recording its identity and configuration result in the private journal.");
+				mutationSubmitted = true;
+				result = await ManagedDeviceCommissioning.CommissionAsync (client, managedRequest!, managedJournal!, timeout, cancellation.Token);
 				break;
 			case "configure-driver":
 				Console.Error.WriteLine ("Applying private initial configuration to the matching driver; waiting for configured state.");
@@ -480,6 +502,7 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 			}
 		mutationStopped = true;
 		Console.WriteLine (JsonSerializer.Serialize (result, jsonOptions));
+		if (result is ManagedDeviceResult { State: "ConfigurationRequired" }) return 3;
 		return result is OperationResult operation && !operation.Succeeded ? operation.Status == "Failed" ? 1 : 3 : 0;
 		}
 	catch (OperationCanceledException) when (cancellation.IsCancellationRequested)

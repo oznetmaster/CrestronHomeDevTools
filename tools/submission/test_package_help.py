@@ -103,6 +103,17 @@ class PackageHelpTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'unsafe archive paths'):
             self.verify()
 
+    def test_unnamed_supporting_pdf_is_rejected_even_with_valid_main_help(self):
+        self.prepare()
+        self.stage()
+        for name in (".pdf", "support/.PDF", "support/ .pdf"):
+            with self.subTest(name=name):
+                self.make_package()
+                with ZipFile(self.package, "a") as archive:
+                    archive.writestr(name, b"%PDF-1.7")
+                with self.assertRaisesRegex(ValueError, "unnamed PDF"):
+                    self.verify()
+
     def test_missing_declared_screenshot_never_produces_a_receipt(self):
         self.fixture.content["uiPages"] = ["home"]
         self.save()

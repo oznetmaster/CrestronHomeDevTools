@@ -29,6 +29,8 @@ public sealed class SubmissionPackageTests
 		}
 
 	[TestCase ("missingPdf", "matching-pdf")]
+	[TestCase ("unnamedPdf", "matching-pdf")]
+	[TestCase ("unnamedPdf", "unnamed-document")]
 	[TestCase ("pdfWrongCase", "matching-pdf")]
 	[TestCase ("pdfInSubfolder", "matching-pdf")]
 	[TestCase ("invalidPdf", "help-pdf-header")]
@@ -46,6 +48,23 @@ public sealed class SubmissionPackageTests
 		var report = SubmissionPackage.Inspect (stream, Basename + ".pkg", Requirements);
 		Assert.That (report.Issues.Select (issue => issue.Code), Does.Contain (code));
 		Assert.That (report.PackageChecksPassed, Is.False);
+		}
+
+	[TestCase (".pdf")]
+	[TestCase ("support/.PDF")]
+	[TestCase ("support/ .pdf")]
+	public void NamelessSupportingPdfIsRejectedEvenWhenMainHelpIsValid (string documentName)
+		{
+		using var stream = Package ();
+		using (var zip = new ZipArchive (stream, ZipArchiveMode.Update, true))
+			{
+			using var writer = new StreamWriter (zip.CreateEntry (documentName).Open ());
+			writer.Write ("%PDF-1.7");
+			}
+		stream.Position = 0;
+		var report = SubmissionPackage.Inspect (stream, Basename + ".pkg", Requirements);
+		Assert.That (report.PackageChecksPassed, Is.False);
+		Assert.That (report.Issues.Select (issue => issue.Code), Does.Contain ("unnamed-document"));
 		}
 
 	[Test]
@@ -167,7 +186,7 @@ public sealed class SubmissionPackageTests
 			Add (Basename + ".dat", JsonSerializer.Serialize (metadata));
 			Add (Basename + ".dll", "Never loaded or executed");
 			if (defect != "missingPdf")
-				Add (defect == "pdfWrongCase" ? Basename.ToUpperInvariant () + ".pdf" : defect == "pdfInSubfolder" ? "docs/" + Basename + ".pdf" : Basename + ".pdf",
+				Add (defect == "unnamedPdf" ? ".pdf" : defect == "pdfWrongCase" ? Basename.ToUpperInvariant () + ".pdf" : defect == "pdfInSubfolder" ? "docs/" + Basename + ".pdf" : Basename + ".pdf",
 					defect == "invalidPdf" ? "not a PDF" : "%PDF-1.7\nMinimal header fixture; full document validation is a separate gate.");
 			if (defect == "duplicatePdf")
 				Add (Basename + ".pdf", "%PDF-1.7");

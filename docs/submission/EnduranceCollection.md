@@ -1,6 +1,6 @@
 # Resumable endurance collection
 
-`SubmissionEndurance`, `SubmissionEnduranceMonitor`, `SubmissionEnduranceProcessProbe` and the endurance CLI commands are new source code and are not included in the published 1.5.0 package. Their journals, collection, reservation orchestration and child-process protocol have regression tests. Reservation acquisition, blocking of a competing owner, collection across separate worker processes, and verified release have also passed on a real processor. That infrastructure check used synthetic functional outcomes and was not a driver endurance test. The real driver-function producer, scheduler deployment, operating-system restart validation and 24-hour candidate run remain to be completed.
+`SubmissionEndurance`, `SubmissionEnduranceMonitor`, `SubmissionEnduranceProcessProbe` and the endurance CLI commands require DevTools 1.6.0 or later. Their journals, collection, reservation orchestration and child-process protocol have regression tests. Reservation acquisition, blocking of a competing owner, collection across separate worker processes, and verified release have also passed on a real processor. That infrastructure check used synthetic functional outcomes and was not a driver endurance test. The real driver-function producer, scheduler deployment, operating-system restart validation and 24-hour candidate run remain to be completed.
 
 ## What the collector does
 

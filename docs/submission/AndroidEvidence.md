@@ -2,7 +2,7 @@
 
 The source tool `tools/submission/audit_android.py` checks retained output from the NUnit Android workflow against independent release and producer pins. It is an offline step between the hardware run and requirement-by-requirement evidence preparation. It does not connect to the processor or emulator, operate devices, fill the form or send a submission.
 
-Use the matching DevTools source checkout and the Python dependencies in `tools/submission/requirements.txt`. This script is not included in the 1.5.0 NuGet package or console ZIP.
+Use the matching DevTools source checkout and the Python dependencies in `tools/submission/requirements.txt`. This script is provided in the 1.6.0 tagged source checkout, not embedded in the NuGet package or console ZIP.
 
 ## Inputs from trusted CI
 

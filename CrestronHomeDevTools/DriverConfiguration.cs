@@ -79,6 +79,38 @@ public static class DriverConfiguration
 			}
 		}
 
+	/// <summary>
+	/// Starts configuration once for a newly commissioned managed child, including children with no prompts.
+	/// A null result means no configuration step, not confirmed readiness. Observe online/ready separately.
+	/// </summary>
+	/// <remarks>
+	/// Call only for a new child recorded by the caller's commissioning receipt, while holding the processor lease.
+	/// Persist the intent before calling and do not automatically repeat an uncertain request. A returned step can
+	/// contain private configuration and must remain private. No configuration values are applied by this method.
+	/// </remarks>
+	public static async Task<JsonElement?> BeginManagedDeviceAsync (ConfigurationClient client, DriverInstanceReady child,
+		int parentDeviceId, CancellationToken cancellationToken = default)
+		{
+		ArgumentNullException.ThrowIfNull (client);
+		ArgumentNullException.ThrowIfNull (child);
+		if (parentDeviceId <= 0 || child.DeviceId <= 0 || child.DeviceId == parentDeviceId
+			 || child.Action != "Installed" || string.IsNullOrWhiteSpace (child.Model) || !Version.TryParse (child.Version, out _))
+			throw new ArgumentException ("A newly commissioned child and its positive parent ID are required.");
+		var device = await client.GetDeviceAsync (child.DeviceId, cancellationToken).ConfigureAwait (false);
+		const string command = "cp.driverConfiguration:getFirstConfigurationStep";
+		if (device == null || device.Id != child.DeviceId || device.ParentDeviceId != parentDeviceId || device.Model != child.Model
+			 || !device.PropertyValues.TryGetValue ("cp.driverInformation:version", out var version)
+			 || version.ValueKind != JsonValueKind.String || !DriverVersions.Equal (version.GetString (), child.Version)
+			 || !device.Commands.Contains (command))
+			throw new InvalidOperationException ("The new managed child's identity or configuration capability changed.");
+		// isConfigured can become true before Home exposes the child's initial state. It must not skip this
+		// commissioning step; Configure Pro enters the child wizard even when there are no prompts.
+		return await client.ExecuteDeviceCommandAsync (child.DeviceId, command, new
+			{
+			isReconfiguring = false
+			}, cancellationToken).ConfigureAwait (false);
+		}
+
 	private static Dictionary<string, string> ReadValues (JsonElement element)
 		{
 		var values = new Dictionary<string, string> (StringComparer.Ordinal);
