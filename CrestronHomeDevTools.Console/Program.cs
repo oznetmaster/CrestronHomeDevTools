@@ -90,6 +90,19 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
               plan-update --driver ID --output plan.json
                                        Save update versions and affected device IDs for review.
 
+            Optional submission endurance monitoring:
+              endurance-start --worker FILE --run DIR
+                                       Verify a trusted producer and reserve the processor once.
+              endurance-tick --worker FILE --run DIR
+                                       Resume a due read-only probe; release on known pass/failure.
+              endurance-status --worker FILE --run DIR
+                                       Inspect retained progress offline, without running a probe.
+              endurance-finish --worker FILE --run DIR
+                                       Release after a known terminal result; never guess ownership.
+              endurance-export --worker FILE --run DIR
+                                       Revalidate and export a passed endurance observation offline.
+              Schedule tick only after explicit start. Interrupted runs require inspection.
+
             Change processor configuration:
               deploy --package FILE    Upload a .pkg by SFTP, import it and verify its version.
                                        Does not replace any installed driver instance.
@@ -170,6 +183,7 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 				"submission-evidence-check" => ["candidate", "candidate-sha256", "package", "policy", "template", "observations", "evidence"],
 				"submission-bundle-create" => ["output", "candidate", "candidate-sha256", "package", "policy", "template", "observations", "evidence"],
 				"submission-bundle-check" => ["bundle", "bundle-sha256", "candidate-sha256", "scratch"],
+				"endurance-start" or "endurance-tick" or "endurance-status" or "endurance-finish" or "endurance-export" => ["worker", "run"],
 				"activate" => ["driver", "name", "room", "device"],
 				"remove" => ["device", "model", "version"],
 				"configure-driver" => ["device", "model", "version", "input"],
@@ -215,6 +229,9 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 				throw new ArgumentException ("Expected driver version is invalid.");
 			}
 		var jsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true, WriteIndented = true };
+		var endurance = command.StartsWith ("endurance-", StringComparison.Ordinal) ? EnduranceCommands.Read (Required ("worker")) : null;
+		if (command is "endurance-status" or "endurance-export")
+			return EnduranceCommands.Offline (command, Required ("run"), endurance!);
 		if (command == "submission-bundle-create")
 			{
 			var report = SubmissionBundle.Create (Required ("output"), Required ("candidate"), Required ("candidate-sha256"),
@@ -289,6 +306,11 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 		var host = IPAddress.TryParse (selector, out _) ? selector : (await ProcessorDiscovery.ResolveAsync (selector, cancellation.Token)).Address;
 		var user = Setting ("CRESTRON_HOME_USER", settings.UserName) ?? throw new ArgumentException ("Provide a processor user in settings or CRESTRON_HOME_USER.");
 		var password = Setting ("CRESTRON_HOME_PASSWORD", settings.Password) ?? throw new ArgumentException ("Provide a processor password in settings or CRESTRON_HOME_PASSWORD.");
+		if (endurance != null)
+			return await EnduranceCommands.RunAsync (command, Required ("run"), endurance,
+				new (host, Setting ("CRESTRON_HOME_SSH_FINGERPRINT", settings.SshFingerprint)
+					?? throw new ArgumentException ("Endurance monitoring requires a pinned SSH fingerprint.")),
+				new NetworkCredential (user, password), cancellation.Token);
 		var connectionOptions = new ProcessorConnectionOptions
 			{
 			Host = host,
@@ -472,6 +494,11 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 		}
 	catch (ArgumentException exception) { Console.Error.WriteLine (exception.Message); return 2; }
 	catch (ProcessorBusyException exception) { Console.Error.WriteLine (exception.Message); return 3; }
+	catch (Exception exception) when (exception is IOException or InvalidDataException && args[0].StartsWith ("endurance-", StringComparison.Ordinal))
+		{
+		Console.Error.WriteLine ("Endurance file or reservation state could not be confirmed. Inspect endurance-status and the private journal; do not restart the run.");
+		return 3;
+		}
 	catch (JsonException) { Console.Error.WriteLine ("Invalid JSON settings, plan or processor response."); return 2; }
 	catch (ProcessorApiException exception) { Console.Error.WriteLine (exception.Message); return 1; }
 	catch (InvalidOperationException exception) { Console.Error.WriteLine (exception.Message); return 1; }

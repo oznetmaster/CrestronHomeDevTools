@@ -7,5 +7,10 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.9.0" />
     <ProjectReference Include="../CrestronHomeDevTools/CrestronHomeDevTools.csproj" />
     <ProjectReference Include="../CrestronHomeDevTools.Console/CrestronHomeDevTools.Console.csproj" />
+    <ProjectReference Include="../CrestronHomeDevTools.Tests.Probe/CrestronHomeDevTools.Tests.Probe.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
+  <Target Name="CopyEnduranceTestProbe" AfterTargets="Build">
+    <ItemGroup><TestProbe Include="../CrestronHomeDevTools.Tests.Probe/bin/$(Configuration)/$(TargetFramework)/**/*" /></ItemGroup>
+    <Copy SourceFiles="@(TestProbe)" DestinationFiles="@(TestProbe->'$(OutDir)test-probe/%(RecursiveDir)%(Filename)%(Extension)')" />
+  </Target>
 </Project>

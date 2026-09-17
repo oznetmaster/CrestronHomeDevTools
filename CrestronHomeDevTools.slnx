@@ -2,5 +2,6 @@
 <Solution>
   <Project Path="CrestronHomeDevTools/CrestronHomeDevTools.csproj" />
   <Project Path="CrestronHomeDevTools.Tests/CrestronHomeDevTools.Tests.csproj" />
+  <Project Path="CrestronHomeDevTools.Tests.Probe/CrestronHomeDevTools.Tests.Probe.csproj" />
   <Project Path="CrestronHomeDevTools.Console/CrestronHomeDevTools.Console.csproj" />
 </Solution>
