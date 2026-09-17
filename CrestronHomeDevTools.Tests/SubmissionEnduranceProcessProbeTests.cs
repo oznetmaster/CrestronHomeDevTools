@@ -38,7 +38,21 @@ public sealed class SubmissionEnduranceProcessProbeTests
 			TimeSpan.FromSeconds (1), TimeSpan.FromSeconds (10));
 		}
 	[TearDown]
-	public void TearDown () { if (Directory.Exists (_root)) Directory.Delete (_root, true); }
+	public async Task TearDown ()
+		{
+		if (File.Exists (_program.SettingsFile + ".pid")) AssertStopped ();
+		// Process termination is asserted separately. Windows may briefly retain the
+		// executable mapping after exit; retry only deletion of this test's own bundle.
+		var elapsed = Stopwatch.StartNew ();
+		while (Directory.Exists (_root))
+			{
+			try { Directory.Delete (_root, true); }
+			catch (Exception error) when ((error is IOException or UnauthorizedAccessException) && elapsed.Elapsed < TimeSpan.FromSeconds (5))
+				{
+				await Task.Delay (100);
+				}
+			}
+		}
 
 	[Test]
 	public async Task RealChildProcessReturnsBoundObservationWithoutShellOrVisibleWindow ()
