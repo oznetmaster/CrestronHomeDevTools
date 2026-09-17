@@ -264,6 +264,26 @@ These fields can be absent or null; DevTools refuses to infer support from missi
 
 Do not hard-code the positive processor device ID for reboot. DevTools discovers the unique device advertising `cp.processorOperations:beginReboot`, obtains explicit caller confirmation, rechecks its identity/capability and sends the command once. A missing or ambiguous target stops the operation.
 
+### Extension property writes and completion
+
+An extension UI property can use the SDK's `extension:setPropertyValue` bridge. The verified scalar-property form sends the property name and its value as strings:
+
+```json
+{
+  "CommandName": "extension:setPropertyValue",
+  "Parameters": {
+    "property": "exampleSetpoint",
+    "value": "5.0"
+  }
+}
+```
+
+Send this through `POST /cws/api/v2/Devices/{deviceId}/Command`, or `ConfigurationClient.ExecuteDeviceCommandAsync`. The property name above is illustrative: select a supported property on the intended installed instance and follow its type, range and setter definition. Format numeric strings with invariant culture. The SDK's `ExtensionSetPropertyValueExecutor` maps the property to its setter and converts the string value. This validation covered scalar numeric properties with no object ID; it does not establish writes to every property or object collection.
+
+Do not interpret an HTTP success with `Result: null` as confirmation that the device command succeeded. During validation, rejected direct setter calls and a rejected generic extension command call returned that envelope while the processor log reported execution errors. The property-write bridge produced the expected state changes. Advertised command names alone therefore do not establish that every command is directly callable through this endpoint or interchangeable with an extension property write.
+
+Read back the intended property's state under a bounded observation deadline, verify relevant identity and unrelated-state invariants, and retain command intent separately from the observation. Use the applicable operation result/event when one is defined; arbitrary device commands are not all covered by the lifecycle event tracker below. An uncertain write is never automatically repeated. The caller owns any required restoration, and successful restoration does not turn a failed command test into a pass.
+
 ## Asynchronous operation events
 
 Events arrive as JSON text messages on the authenticated WebSocket. Read continuously and reassemble fragmented WebSocket messages before JSON parsing. DevTools imposes an 8 MiB event-message bound. HTTP request completion and event arrival can race: cache completion by operation ID even if it arrives before the HTTP command response.
