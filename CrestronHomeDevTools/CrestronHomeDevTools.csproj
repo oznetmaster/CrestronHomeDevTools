@@ -14,7 +14,7 @@
     <None Include="../LICENSE" Pack="true" PackagePath="/" />
     <None Include="../CHANGELOG.md" Pack="true" PackagePath="/" />
     <None Include="../RELEASE-NOTES.md;../THIRD-PARTY-NOTICES.md" Pack="true" PackagePath="/" />
-    <None Include="../docs/**/*" Pack="true" PackagePath="docs/%(RecursiveDir)" />
+    <None Include="../docs/**/*" Pack="true" PackagePath="docs/%(RecursiveDir)%(Filename)%(Extension)" />
     <PackageReference Include="SSH.NET" Version="2026.0.0" />
     <InternalsVisibleTo Include="CrestronHomeDevTools.Tests" />
   </ItemGroup>

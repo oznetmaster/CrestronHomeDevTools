@@ -29,6 +29,10 @@ try {
             foreach ($required in @('README.md','LICENSE','CHANGELOG.md','RELEASE-NOTES.md','THIRD-PARTY-NOTICES.md','docs/ProtocolReference.md','docs/DriverConfiguration.md','docs/RoomMoves.md','docs/ManagedChildValidation.md','docs/submission/EnduranceCollection.md','docs/submission/FormSigning.md','docs/submission/SigningStage.md','docs/submission/DeliveryPreparation.md')) {
                 if (-not ($zip.Entries | Where-Object FullName -EQ $required)) { throw "Missing $required in $($file.Name)." }
             }
+            foreach ($document in Get-ChildItem (Join-Path $root 'docs') -File -Recurse) {
+                $relative = [IO.Path]::GetRelativePath($root, $document.FullName).Replace('\', '/')
+                if (@($zip.Entries | Where-Object FullName -CEQ $relative).Count -ne 1) { throw "Missing or duplicated document $relative in $($file.Name)." }
+            }
             if ($file.Extension -eq '.nupkg') {
                 $entry = $zip.Entries | Where-Object FullName -Like '*.nuspec' | Select-Object -First 1
                 $reader = [IO.StreamReader]::new($entry.Open())
