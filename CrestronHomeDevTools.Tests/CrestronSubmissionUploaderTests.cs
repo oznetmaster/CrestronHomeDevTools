@@ -23,10 +23,11 @@ public sealed class CrestronSubmissionUploaderTests
 	private static string Hash (byte[] bytes) => Convert.ToHexString (SHA256.HashData (bytes)).ToLowerInvariant ();
 	private CrestronSubmissionUploader Create (Handler handler, TimeSpan? timeout = null) => new (new NetworkCredential ("synthetic", "not-a-real-password"), Hash ("form"u8.ToArray ()), Hash ("terms"u8.ToArray ()), _root, timeout ?? TimeSpan.FromSeconds (5), handler);
 
-	[Test]
-	public async Task UploadConfirmsDownloadedBytesAndRetainsPrivateEvidence ()
+	[TestCase ("valid")]
+	[TestCase ("duplicate-existing")]
+	public async Task UploadConfirmsDownloadedBytesAndRetainsPrivateEvidence (string mode)
 		{
-		var handler = new Handler (); using var uploader = Create (handler);
+		var handler = new Handler { Mode = mode }; using var uploader = Create (handler);
 		var result = await uploader.UploadAsync (new MemoryStream (Package), Filename);
 		Assert.That (result.DownloadUrl, Is.EqualTo (Origin + "download.php?file=synthetic"));
 		Assert.That (handler.Posts, Is.EqualTo (1));
@@ -66,6 +67,31 @@ public sealed class CrestronSubmissionUploaderTests
 		using var failure = JsonDocument.Parse (File.ReadAllBytes (Path.Combine (directory, "failed.json")));
 		Assert.That (failure.RootElement.GetProperty ("PostAttempted").GetBoolean (), Is.EqualTo (posts != 0));
 		Assert.That (error!.Message, Does.Not.Contain ("synthetic-private-provider-error"));
+		}
+
+	[Test]
+	public async Task RetainedResponseVerificationDoesNotRepeatPostOrEraseFailure ()
+		{
+		var handler = new Handler { Mode = "wrong-bytes" }; using var uploader = Create (handler);
+		Assert.ThrowsAsync<InvalidDataException> (() => uploader.UploadAsync (new MemoryStream (Package), Filename));
+		string original = Directory.GetDirectories (_root).Single ();
+		byte[] failed = File.ReadAllBytes (Path.Combine (original, "failed.json"));
+		handler.Mode = "valid";
+		var receipt = await uploader.VerifyRetainedUploadAsync (new MemoryStream (Package), Filename, Path.GetFileName (original));
+		Assert.That (receipt.DownloadUrl, Is.EqualTo (Origin + "download.php?file=synthetic"));
+		Assert.That (handler.Posts, Is.EqualTo (1));
+		Assert.That (File.ReadAllBytes (Path.Combine (original, "failed.json")), Is.EqualTo (failed));
+		Assert.That (Directory.GetDirectories (_root, "verify-*").Length, Is.EqualTo (1));
+		}
+
+	[Test]
+	public void RetainedResponseCannotVerifyDifferentPackageBytes ()
+		{
+		var handler = new Handler { Mode = "wrong-bytes" }; using var uploader = Create (handler);
+		Assert.ThrowsAsync<InvalidDataException> (() => uploader.UploadAsync (new MemoryStream (Package), Filename));
+		string original = Directory.GetDirectories (_root).Single (); int requests = handler.Paths.Count;
+		Assert.ThrowsAsync<InvalidDataException> (() => uploader.VerifyRetainedUploadAsync (new MemoryStream ("different"u8.ToArray ()), Filename, Path.GetFileName (original)));
+		Assert.That (handler.Paths.Count, Is.EqualTo (requests));
 		}
 
 	[Test]
@@ -125,6 +151,7 @@ public sealed class CrestronSubmissionUploaderTests
 					}
 				if (Mode == "lost-response") throw new HttpRequestException ("synthetic-private-provider-error");
 				string url = (Mode == "external-link" ? "https://outside.example.test/" : Origin) + "download.php?file=synthetic";
+				if (Mode == "duplicate-existing") return Response ("That file has already been uploaded. Filename: " + Filename + " Download Link: <a href=\"" + url + "\">download</a>");
 				string text = "Your file, " + (Mode == "wrong-filename" ? "different.pkg" : Filename) + " was uploaded!";
 				string page = text + "<a href=\"" + url + "\">download</a><a href=\"" + Origin + "download.php?file=" + (Mode == "different-delete-id" ? "other" : "synthetic") + "&amp;del=synthetic\">delete</a>";
 				if (Mode == "duplicate-link") page += "<a href=\"" + url + "\">duplicate</a>";

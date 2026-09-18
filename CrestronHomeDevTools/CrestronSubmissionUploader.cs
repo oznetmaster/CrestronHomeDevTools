@@ -71,40 +71,79 @@ public sealed class CrestronSubmissionUploader : IDisposable
 			Write (attempt, "post-intent.json", new { PackageSha256 = packageHash, TermsSha256 = _termsHash, StartedUtc = DateTimeOffset.UtcNow });
 			postAttempted = true;
 			byte[] response = await Fetch (new Uri (Origin + "upload.php"), multipart, attempt, "upload", HtmlLimit, deadline.Token).ConfigureAwait (false);
-			string uploaded = Encoding.UTF8.GetString (response);
-			string text = WebUtility.HtmlDecode (Regex.Replace (uploaded, "<[^>]*>", " ", RegexOptions.CultureInvariant, TimeSpan.FromSeconds (1)));
-			if (!text.Contains ("Your file, " + filename + " was uploaded!", StringComparison.Ordinal))
-				throw new InvalidDataException ("No confirmed upload message for this package.");
-			var links = Matches (uploaded, "<a\\b[^>]*\\bhref\\s*=\\s*(?:\"(?<url>[^\"]+)\"|'(?<url>[^']+)')");
-			var downloads = links.Where (link => link.Contains ("download.php", StringComparison.OrdinalIgnoreCase)).ToArray ();
-			if (downloads.Length != 2) throw new InvalidDataException ("Unexpected upload receipt links.");
-			Uri? landing = null, deletion = null;
-			foreach (string link in downloads)
-				{
-				Uri url = ApprovedUri (link, "/download.php");
-				var query = Query (url);
-				if (query.Keys.Order ().SequenceEqual (new[] { "file" })) { if (landing != null) throw new InvalidDataException (); landing = url; }
-				else if (query.Keys.Order ().SequenceEqual (new[] { "del", "file" })) { if (deletion != null) throw new InvalidDataException (); deletion = url; }
-				else throw new InvalidDataException ("Unknown upload receipt query.");
-				}
-			if (landing == null || deletion == null || Query (landing)["file"] != Query (deletion)["file"])
-				throw new InvalidDataException ("Receipt links do not identify one uploaded file.");
-			Write (attempt, "provider-links.json", new { DownloadUrl = landing.AbsoluteUri, DeleteUrl = deletion.AbsoluteUri });
-			byte[] page = await Fetch (landing, null, attempt, "download-page", HtmlLimit, deadline.Token).ConfigureAwait (false);
-			var buttons = Matches (Encoding.UTF8.GetString (page), "<button\\b[^>]*\\bonclick\\s*=\\s*\"\\s*window\\.location\\.href\\s*=\\s*'(?<url>[^']+)'\\s*;?\\s*\"");
-			if (buttons.Length != 1) throw new InvalidDataException ("Expected one observed download button.");
-			Uri archiveUrl = ApprovedUri (buttons[0], "/download2.php");
-			if (!Query (archiveUrl).Keys.Order ().SequenceEqual (new[] { "a", "b" })) throw new InvalidDataException ("Unknown download query.");
-			byte[] downloaded = await Fetch (archiveUrl, null, attempt, "archive", bytes.Length, deadline.Token).ConfigureAwait (false);
-			if (downloaded.Length != bytes.Length || Hash (downloaded) != packageHash) throw new InvalidDataException ("Downloaded package differs from the approved bytes.");
-			Write (attempt, "verified.json", new { PackageSha256 = packageHash, Bytes = bytes.Length, DownloadUrl = landing.AbsoluteUri, VerifiedUtc = DateTimeOffset.UtcNow });
-			return new (landing.AbsoluteUri, JsonSerializer.Serialize (new { Provider = "CrestronUploader", Attempt = attemptId, PackageSha256 = packageHash, DownloadVerified = true }));
+			return await VerifyResponse (bytes, filename, attemptId, attempt, response, deadline.Token).ConfigureAwait (false);
 			}
 		catch
 			{
 			Write (attempt, "failed.json", new { PostAttempted = postAttempted, Outcome = postAttempted ? "RequiresReconciliation" : "NoUploadAttempted", FailedUtc = DateTimeOffset.UtcNow });
 			cancellationToken.ThrowIfCancellationRequested ();
 			throw new InvalidDataException ("Uploader validation failed; inspect its private receipt before any further delivery. No request was automatically replayed.");
+			}
+		}
+
+	private async Task<SubmissionUploadReceipt> VerifyResponse (byte[] bytes, string filename, string attemptId, string attempt, byte[] response, CancellationToken token)
+		{
+		string packageHash = Hash (bytes);
+		string uploaded = Encoding.UTF8.GetString (response);
+		string text = WebUtility.HtmlDecode (Regex.Replace (uploaded, "<[^>]*>", " ", RegexOptions.CultureInvariant, TimeSpan.FromSeconds (1)));
+		text = Regex.Replace (text, @"\s+", " ", RegexOptions.CultureInvariant, TimeSpan.FromSeconds (1));
+		bool existing = text.Contains ("That file has already been uploaded. Filename: " + filename + " Download Link:", StringComparison.Ordinal);
+		if (!existing && !text.Contains ("Your file, " + filename + " was uploaded!", StringComparison.Ordinal))
+			throw new InvalidDataException ("No confirmed upload message for this package.");
+		var links = Matches (uploaded, "<a\\b[^>]*\\bhref\\s*=\\s*(?:\"(?<url>[^\"]+)\"|'(?<url>[^']+)')");
+		var downloads = links.Where (link => link.Contains ("download.php", StringComparison.OrdinalIgnoreCase)).ToArray ();
+		if (downloads.Length != (existing ? 1 : 2)) throw new InvalidDataException ("Unexpected upload receipt links.");
+		Uri? landing = null, deletion = null;
+		foreach (string link in downloads)
+			{
+			Uri url = ApprovedUri (link, "/download.php");
+			var query = Query (url);
+			if (query.Keys.Order ().SequenceEqual (new[] { "file" })) { if (landing != null) throw new InvalidDataException (); landing = url; }
+			else if (query.Keys.Order ().SequenceEqual (new[] { "del", "file" })) { if (deletion != null) throw new InvalidDataException (); deletion = url; }
+			else throw new InvalidDataException ("Unknown upload receipt query.");
+			}
+		if (landing == null || (!existing && deletion == null) || (deletion != null && Query (landing)["file"] != Query (deletion)["file"]))
+			throw new InvalidDataException ("Receipt links do not identify one uploaded file.");
+		Write (attempt, "provider-links.json", new { DownloadUrl = landing.AbsoluteUri, DeleteUrl = deletion?.AbsoluteUri });
+		byte[] page = await Fetch (landing, null, attempt, "download-page", HtmlLimit, token).ConfigureAwait (false);
+		var buttons = Matches (Encoding.UTF8.GetString (page), "<button\\b[^>]*\\bonclick\\s*=\\s*\"\\s*window\\.location\\.href\\s*=\\s*'(?<url>[^']+)'\\s*;?\\s*\"");
+		if (buttons.Length != 1) throw new InvalidDataException ("Expected one observed download button.");
+		Uri archiveUrl = ApprovedUri (buttons[0], "/download2.php");
+		if (!Query (archiveUrl).Keys.Order ().SequenceEqual (new[] { "a", "b" })) throw new InvalidDataException ("Unknown download query.");
+		byte[] downloaded = await Fetch (archiveUrl, null, attempt, "archive", bytes.Length, token).ConfigureAwait (false);
+		if (downloaded.Length != bytes.Length || Hash (downloaded) != packageHash) throw new InvalidDataException ("Downloaded package differs from the approved bytes.");
+		Write (attempt, "verified.json", new { PackageSha256 = packageHash, Bytes = bytes.Length, DownloadUrl = landing.AbsoluteUri, VerifiedUtc = DateTimeOffset.UtcNow });
+		return new (landing.AbsoluteUri, JsonSerializer.Serialize (new { Provider = "CrestronUploader", Attempt = attemptId, PackageSha256 = packageHash, DownloadVerified = true }));
+		}
+
+	/// <summary>Verify a retained response without another POST; pass the resulting evidence to the delivery journal's explicit reconciliation.</summary>
+	public async Task<SubmissionUploadReceipt> VerifyRetainedUploadAsync (Stream package, string filename, string originalAttemptId, CancellationToken cancellationToken = default)
+		{
+		if (originalAttemptId == null || !Regex.IsMatch (originalAttemptId, @"\Aupload-[a-f0-9]{32}\z", RegexOptions.CultureInvariant, TimeSpan.FromSeconds (1)))
+			throw new ArgumentException ("Select one retained upload attempt.");
+		using var deadline = CancellationTokenSource.CreateLinkedTokenSource (cancellationToken); deadline.CancelAfter (_timeout);
+		byte[] bytes = await ReadBounded (package, PackageLimit, deadline.Token).ConfigureAwait (false);
+		// Retained files stay under the protected provider receipt root.
+		async Task<byte[]> ReadPrivate (string name, int limit)
+			{
+			if (!SubmissionEvidence.SafeEvidencePath (_root, originalAttemptId + "/" + name, out var path)) throw new InvalidDataException ("Unsafe retained receipt.");
+			using var file = new FileStream (path, FileMode.Open, FileAccess.Read, FileShare.Read);
+			return await ReadBounded (file, limit, deadline.Token).ConfigureAwait (false);
+			}
+		using var intent = JsonDocument.Parse (await ReadPrivate ("intent.json", 65536).ConfigureAwait (false));
+		using var status = JsonDocument.Parse (await ReadPrivate ("upload-response.json", 65536).ConfigureAwait (false));
+		if (intent.RootElement.GetProperty ("Filename").GetString () != filename || intent.RootElement.GetProperty ("PackageSha256").GetString () != Hash (bytes) ||
+			status.RootElement.GetProperty ("StatusCode").GetInt32 () != 200) throw new InvalidDataException ("Retained response does not match this package.");
+		byte[] response = await ReadPrivate ("upload.bin", HtmlLimit).ConfigureAwait (false);
+		string attemptId = "verify-" + Guid.NewGuid ().ToString ("N"), attempt = Path.Combine (_root, attemptId);
+		Directory.CreateDirectory (attempt);
+		Write (attempt, "intent.json", new { OriginalAttempt = originalAttemptId, ResponseSha256 = Hash (response), PackageSha256 = Hash (bytes), StartedUtc = DateTimeOffset.UtcNow, UploadAttempted = false });
+		try { return await VerifyResponse (bytes, filename, attemptId, attempt, response, deadline.Token).ConfigureAwait (false); }
+		catch
+			{
+			Write (attempt, "failed.json", new { UploadAttempted = false, Outcome = "RequiresReconciliation", FailedUtc = DateTimeOffset.UtcNow });
+			cancellationToken.ThrowIfCancellationRequested ();
+			throw new InvalidDataException ("Retained upload could not be verified. No upload was repeated.");
 			}
 		}
 
