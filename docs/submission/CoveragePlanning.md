@@ -2,13 +2,13 @@
 
 Command examples use the [bundled submission console](ConsoleTools.md); see that guide for source/release availability and setup.
 
-`tools/submission/coverage_plan.py` expands a reviewed source snapshot and coverage blueprint into a draft evidence policy, a complete form mapping and scoped producer tasks. It does not execute tests, generate observations, approve the policy or fill a form. It is source tooling: use the matching tagged DevTools checkout. Python scripts are not embedded in the NuGet package or console ZIP.
+`submission coverage-plan` expands a reviewed source snapshot and coverage blueprint into a draft evidence policy, a complete form mapping and scoped producer tasks. It does not execute tests, generate observations, approve the policy or fill a form. Use the matching bundled console described above; its internal document runtime is included in the complete console archive, separately from the NuGet configuration library.
 
 Keep the concrete blueprint in the driver repository. Enumerate its UI, configuration, response timing, restoration, outage, endurance and multiple-instance checks. A planning artifact with unresolved execution bindings is not passed self-test evidence.
 
 ## Generate a draft
 
-Use the same Python dependencies as [form generation](FormGeneration.md). Supply independently reviewed SHA-256 values for the blueprint and official field inventory. Keep the output private and use a new output directory whose parent already exists:
+No interpreter setup is required. Supply independently reviewed SHA-256 values for the blueprint and official field inventory. Keep the output private and use a new output directory whose parent already exists:
 
 ```text
 CrestronHomeDevTools.Console.exe submission coverage-plan --plan DRIVER/submission/extension-coverage-plan.json --plan-sha256 REVIEWED_BLUEPRINT_SHA256 --inventory docs/submission/extension-inventory.json --inventory-sha256 REVIEWED_INVENTORY_SHA256 --source-root DRIVER --output PRIVATE_NEW_DIRECTORY
