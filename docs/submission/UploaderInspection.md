@@ -34,6 +34,6 @@ A production adapter must:
 
 Review the service's [terms](https://uploader.crestron.com/index.php?page=tos) before an authorized upload. Do not embed the published login or personal delivery credentials in source code or examples.
 
-The supported production adapter, email-provider configuration and a controlled email test remain unfinished. An actual submission email must follow Crestron's published procedure, including the download link and signed self-test PDF. Private evidence archives and signature source images must not be attached.
+The current-source [upload provider](CrestronUploader.md) passes offline failure-path tests and replay of the retained real responses. A live run of that provider, email-provider configuration and a controlled email test remain unfinished. An actual submission email must follow Crestron's published procedure, including the download link and signed self-test PDF. Private evidence archives and signature source images must not be attached.
 
 Provider acceptance or successful retrieval does not establish Crestron review, certification or approval. Ordinary driver and library releases remain independent of this optional submission stage.
