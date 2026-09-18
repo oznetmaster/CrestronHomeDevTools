@@ -21,7 +21,7 @@ Reviewed V1 removal can preserve other instances sharing the same driver code ac
 - [Associating Android tiles with installed drivers](docs/DriverUiBinding.md)
 - [Deployment and tests](#deployment-and-tests)
 - [Automated Crestron submission plan and progress](docs/CrestronSubmission.md)
-- [Submission delivery journal and reconciliation](docs/submission/DeliveryJournal.md) (transport boundary; no built-in uploader or sender)
+- [Submission delivery journal and reconciliation](docs/submission/DeliveryJournal.md) (authorized upload, SMTP delivery and uncertain-outcome handling)
 - [Final submission delivery preparation](docs/submission/DeliveryPreparation.md) (approved signed artifacts to a private plan; no sending)
 - [Documentation](#documentation)
 - [Build and validate](#build-and-validate)
@@ -48,13 +48,13 @@ The two target values must match; credentials and verified SSH trust still come 
 
 ## Get started
 
-Version 1.7.0 adds bounded [processor uptime observations](docs/ProcessorUptime.md) and a public plan-validation entry point for external endurance producers. These APIs support monitoring independently of optional submission. Version 1.6.0 added [managed-child setup, validation and cleanup](docs/ManagedChildValidation.md), resumable endurance collection and further offline submission preparation. It retains the package/evidence checks, guarded UI name binding and delivery journals introduced in 1.5.0. The console includes [private evidence bundle creation and verification](docs/submission/EvidenceBundle.md).
+Version 1.8.0 adds an optional [authorized delivery command](docs/submission/DeliveryCommand.md), upload and SMTP providers, and [Windows endurance scheduling](docs/submission/WindowsEnduranceWorker.md). It also stops promptly when the requested driver version fails to load. These components do not establish a completed submission or endurance period. Version 1.7.0 added bounded [processor uptime observations](docs/ProcessorUptime.md) and a public plan-validation entry point for external endurance producers. These APIs support monitoring independently of optional submission. Version 1.6.0 added [managed-child setup, validation and cleanup](docs/ManagedChildValidation.md), resumable endurance collection and further offline submission preparation. It retains the package/evidence checks, guarded UI name binding and delivery journals introduced in 1.5.0. The console includes [private evidence bundle creation and verification](docs/submission/EvidenceBundle.md).
 
 Separate source tools provide [help generation with opt-in package build hooks](docs/submission/HelpBuild.md), [Android evidence auditing](docs/submission/AndroidEvidence.md), [unsigned self-test form generation](docs/submission/FormGeneration.md), and an [optional private CI review stage](docs/submission/ReviewStage.md). These Python scripts require a pinned source checkout and its pinned dependencies; they are not embedded in the NuGet package or console ZIP. Use the matching tag for released source tools. These tools do not send a submission or establish self-test completion. See the [submission plan and validation limits](docs/CrestronSubmission.md).
 
-**Source tools included in the 1.6.0 tag:** [image signing](docs/submission/FormSigning.md), the optional review-to-signing handoff, the [private signing stage](docs/submission/SigningStage.md) and [final delivery preparation](docs/submission/DeliveryPreparation.md) require a pinned, reviewed source commit containing those tools. Use the 1.6.0 tag or a later matching release; they are not embedded in the NuGet package or console ZIP. Their synthetic integration checks pass; a real approved signature, final driver candidate and supported delivery remain pending.
+**Source tools included in the 1.6.0 tag:** [image signing](docs/submission/FormSigning.md), the optional review-to-signing handoff, the [private signing stage](docs/submission/SigningStage.md) and [final delivery preparation](docs/submission/DeliveryPreparation.md) require a pinned, reviewed source commit containing those tools. Use the 1.6.0 tag or a later matching release; they are not embedded in the NuGet package or console ZIP. Their synthetic integration checks pass. Version 1.8.0 supplies delivery providers and the protected command; complete candidate evidence, an approved signature and end-to-end delivery validation remain separate prerequisites.
 
-Install the library with `dotnet add package CrestronHomeDevTools --version 1.7.0`. Download the self-contained Windows x64 console from [GitHub Releases](https://github.com/oznetmaster/CrestronHomeDevTools/releases/latest), extract the complete ZIP, and run `CrestronHomeDevTools.Console.exe`. Its first run opens processor/profile setup; `--help` lists commands.
+Install the library with `dotnet add package CrestronHomeDevTools --version 1.8.0`. Download the self-contained Windows x64 console from [GitHub Releases](https://github.com/oznetmaster/CrestronHomeDevTools/releases/latest), extract the complete ZIP, and run `CrestronHomeDevTools.Console.exe`. Its first run opens processor/profile setup; `--help` lists commands.
 
 To build from source with the .NET 10 SDK:
 
@@ -108,13 +108,13 @@ See the [end-to-end CI guide](https://github.com/oznetmaster/CrestronHomeNUnit/b
 - [User and CLI guide](docs/UserGuide.md): setup, profiles, commands, exit codes and troubleshooting.
 - [Library API guide](docs/LibraryGuide.md): component responsibilities and examples.
 - [Processor coordination and storage](docs/ProcessorCoordination.md): shared reservations, build deployment, reboot waits and retained package inspection.
-- [Windows endurance worker](docs/submission/WindowsEnduranceWorker.md): optional scheduled observations, private service-account setup, interruption handling and alert requirements; scheduler scripts are currently source additions after 1.7.0.
+- [Windows endurance worker](docs/submission/WindowsEnduranceWorker.md): optional scheduled observations, private service-account setup, interruption handling and alert requirements; scheduler scripts are included in the 1.8.0 console ZIP under `scripts/endurance`.
 - [Remote processor logging](docs/RemoteSystemLogging.md): verified console queries, TCP/UDP/TLS choices and collector validation requirements; no automatic collector is included.
 - [Processor uptime observations](docs/ProcessorUptime.md): bounded, read-only SSH observations for consumer-owned monitoring; requires 1.7.0 or later.
 - [Configuration-management protocol reference](docs/ProtocolReference.md): discovery packets, authentication, request/response formats, commands, events, V1/V2 lifecycle sequences and recovery rules.
 - [Compatibility and validation](docs/Compatibility.md): tested environment, V1/V2 limits and failure semantics.
 - [Release procedure](docs/Releasing.md): versioning, packages, console distribution, documentation and validation.
-- [Changelog](CHANGELOG.md) and [release notes](RELEASE-NOTES.md) for packaged releases; [development history](DEVELOPMENT-HISTORY.md) for subsequent source changes, including the submission uploader, SMTP sender and delivery command.
+- [Changelog](CHANGELOG.md) and [release notes](RELEASE-NOTES.md) for packaged releases; [development history](DEVELOPMENT-HISTORY.md) for the development evidence and limitations behind those releases.
 - [Third-party notices](THIRD-PARTY-NOTICES.md) and [MIT license](LICENSE).
 
 ## Build and validate

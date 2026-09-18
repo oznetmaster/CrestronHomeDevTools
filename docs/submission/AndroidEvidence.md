@@ -2,7 +2,7 @@
 
 The source tool `tools/submission/audit_android.py` checks retained output from the NUnit Android workflow against independent release and producer pins. It is an offline step between the hardware run and requirement-by-requirement evidence preparation. It does not connect to the processor or emulator, operate devices, fill the form or send a submission.
 
-Use the matching DevTools source checkout and the Python dependencies in `tools/submission/requirements.txt`. The complete-producer check described here is a source addition after packaged DevTools 1.7.0; older tagged scripts check only the main assembly. It is not embedded in the NuGet package or console ZIP. Its producer-manifest contract also requires the matching CrestronHomeNUnit workflow source addition after 1.11.0; older workflows do not create these files.
+Use the matching DevTools source checkout and the Python dependencies in `tools/submission/requirements.txt`. The complete-producer check requires the DevTools v1.8.0 source tag or later; older tagged scripts check only the main assembly. It is not embedded in the NuGet package or console ZIP. Its producer-manifest contract also requires CrestronHomeNUnit workflow 1.11.1 or later; older workflows do not create these files.
 
 ## Inputs from trusted CI
 

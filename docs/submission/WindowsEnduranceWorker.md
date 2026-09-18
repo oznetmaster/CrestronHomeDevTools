@@ -1,6 +1,6 @@
 # Windows endurance worker
 
-The scheduler scripts in this source revision work with the published DevTools 1.7.0 Windows console. They are not included in the 1.7.0 release archive. A subsequent console release will include them under `scripts/endurance`. This is optional driver-submission tooling; ordinary CI and library releases do not require an endurance worker.
+The DevTools 1.8.0 Windows console ZIP includes the scheduler scripts under `scripts/endurance`. Use that complete release archive; earlier 1.7.0 archives do not contain the scripts. This is optional driver-submission tooling; ordinary CI and library releases do not require an endurance worker.
 
 Use a separate Windows computer when development-machine restarts should not interrupt monitoring. The self-contained Windows console includes its .NET runtime; Visual Studio, an Android emulator and a separate .NET installation are not required unless the driver's independently reviewed probe needs them. The computer must remain powered, awake and able to reach the processor and any devices the probe reads.
 

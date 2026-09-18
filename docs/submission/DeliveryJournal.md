@@ -1,6 +1,6 @@
 # Delivery intent, receipts and reconciliation
 
-The `SubmissionDelivery` API, introduced in 1.5.0, records the upload/email boundary for a future Crestron delivery adapter. It has no built-in uploader, SMTP client or CLI send command. Tests use synthetic local transports; no driver has been submitted through this code.
+The `SubmissionDelivery` API, introduced in 1.5.0, records the upload/email boundary. Version 1.8.0 adds [upload](CrestronUploader.md) and [SMTP](SmtpDelivery.md) providers and a [protected console command](DeliveryCommand.md). Journal tests use synthetic local transports; no complete signed driver submission has been established through this code.
 
 Crestron's [published submission procedure](https://sdkcon78221.crestron.com/sdk/Crestron_Certified_Drivers_SDK/Content/Topics/Submit-a-Driver/Submit-a-Driver.htm) requires its file-sharing service for the `.pkg`, then an email to `drivers@crestron.com` with subject `Driver Submission Package`, the returned download URL and the signed self-test plan attached. The sending email address receives subsequent correspondence. An email-provider acceptance receipt is not proof that Crestron received, approved or certified the driver.
 
@@ -16,7 +16,7 @@ The journal key identifies package/form bytes and the sender/recipient pair. Cha
 
 ## Authorization immediately before each step
 
-Current source adds `SubmissionDelivery.ExecuteAuthorizedAsync` and `SubmissionDeliveryAuthorization`; they are not in the published 1.7.0 package. This path requires a trusted asynchronous revalidation callback and checks its returned plan digest and approval expiry before each upload or email intent. The existing `ExecuteAsync` API remains available for callers that implement their own equivalent boundary checks.
+Version 1.8.0 adds `SubmissionDelivery.ExecuteAuthorizedAsync` and `SubmissionDeliveryAuthorization`. This path requires a trusted asynchronous revalidation callback and checks its returned plan digest and approval expiry before each upload or email intent. The existing `ExecuteAsync` API remains available for callers that implement their own equivalent boundary checks.
 
 The source [offline revalidation command](DeliveryRevalidation.md) supplies the signed-review and evidence checks for this boundary. The [source process bridge](DeliveryProcessBridge.md) connects it to this callback with tooling pins, process bounds and completed-result verification. Actual protected-worker and provider validation remain pending.
 

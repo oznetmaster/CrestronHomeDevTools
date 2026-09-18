@@ -71,7 +71,7 @@ var loaded = await client.WaitForDriverVersionAsync(
 
 Submission rechecks current eligibility against the reviewed plan. Do not substitute an arbitrary instance ID for a catalogue ID. Some firmware emits an operation ending without explicit success; use the independent Loaded/version confirmation as well as operation status.
 
-In current source after 1.7.0, `WaitForDriverVersionAsync` throws `InvalidOperationException` when the requested version reports `FailedToLoad`. It continues waiting if that failure belongs to an older version. It sends no recovery command. Inspect the load error and reconcile the installed state before deciding whether another update or reload is appropriate.
+In version 1.8.0 and later, `WaitForDriverVersionAsync` throws `InvalidOperationException` when the requested version reports `FailedToLoad`. It continues waiting if that failure belongs to an older version. It sends no recovery command. Inspect the load error and reconcile the installed state before deciding whether another update or reload is appropriate.
 
 ## Reload and remove
 

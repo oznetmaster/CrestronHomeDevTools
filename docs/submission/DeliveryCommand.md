@@ -1,6 +1,6 @@
 # Protected submission delivery command
 
-Current source provides `submission-deliver` in the DevTools console. It is not in the published 1.7.0 package. This optional command uploads the prepared package and emails its verified download link and signed PDF; it is separate from ordinary GitHub and NuGet releases.
+DevTools 1.8.0 adds `submission-deliver` to the console. This optional command uploads the prepared package and emails its verified download link and signed PDF; it is separate from ordinary GitHub and NuGet releases.
 
 ```text
 CrestronHomeDevTools.Console submission-deliver --settings ABSOLUTE_PRIVATE_JSON --settings-sha256 REVIEWED_SHA256 --execute-approved

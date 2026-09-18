@@ -32,7 +32,11 @@ $tree.XmlResolver = $null
 $tree.LoadXml($matches[0].Value)
 if ($tree.SelectNodes("//*[@runstate='NotRunnable']").Count) { throw 'Invalid test discovery.' }
 $expected = @($tree.SelectNodes('//test-case') | ForEach-Object { $_.GetAttribute('fullname') })
-& dotnet test $project -c $Configuration --no-build --logger 'trx;LogFileName=release.trx' --results-directory $results
+# Keep fixture-owned journals and temporary files inside this fresh run rather
+# than NUnit's shared default work directory. Retain every failing run separately.
+$working = Join-Path $results 'working'
+[IO.Directory]::CreateDirectory($working) | Out-Null
+& dotnet test $project -c $Configuration --no-build --logger 'trx;LogFileName=release.trx' --results-directory $results -- "NUnit.WorkDirectory=$working"
 if ($LASTEXITCODE) { throw 'Tests failed.' }
 [xml]$trx = Get-Content (Join-Path $results 'release.trx') -Raw
 $definitions = @{}

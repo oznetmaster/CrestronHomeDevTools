@@ -1,6 +1,6 @@
 # SMTP submission delivery
 
-`SubmissionSmtpMailer` is a current-source API in CrestronHomeDevTools; it is not in the published 1.7.0 package. It sends the approved signed PDF and verified package download link through an explicitly configured SMTP account. Outlook does not need to be installed or running.
+`SubmissionSmtpMailer` is available in CrestronHomeDevTools 1.8.0 and later. It sends the approved signed PDF and verified package download link through an explicitly configured SMTP account. Outlook does not need to be installed or running.
 
 ## Configuration and use
 

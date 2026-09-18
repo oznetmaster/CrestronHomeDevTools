@@ -1,6 +1,10 @@
 # Development history
 
-This records changes published to the source repository separately from packaged releases. The [changelog](CHANGELOG.md) and [release notes](RELEASE-NOTES.md) describe released versions. The latest packaged release is **1.7.0, dated 17 September 2026**; the additions below are available from source and are not included in that NuGet package or console download.
+This records changes published to the source repository separately from packaged releases. The [changelog](CHANGELOG.md) and [release notes](RELEASE-NOTES.md) describe released versions. The entries below record development after 1.7.0 and are incorporated in **1.8.0**. Historical source-only descriptions identify their availability at the time; see the 1.8.0 release notes for packaged binaries, console scripts and tools distributed only in the matching source tag.
+
+## 18 September 2026 - Release package acceptance
+
+Added development history to the NuGet archive and made it a required release document. The offline coverage runner now gives fixtures a fresh working directory inside each retained test run instead of sharing NUnit's default location. Two local runs encountered intermittent Windows access errors during atomic journal replacement; both failed runs were preserved. All journal cases and the complete discovered suite passed in the isolated directory. No retry, assertion bypass or external delivery was added; the original access-error cause is not established by this isolation check.
 
 ## 18 September 2026 - Complete Android producer inventory
 

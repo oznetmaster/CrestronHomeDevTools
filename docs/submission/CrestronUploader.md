@@ -1,6 +1,6 @@
 # Crestron upload provider
 
-Current source includes `CrestronSubmissionUploader`. It is not included in the published DevTools 1.7.0 package. The provider implements the [observed uploader flow](UploaderInspection.md), returning a `SubmissionUploadReceipt` only after the retrieved package matches the uploaded bytes. It does not send email, sign forms or establish Crestron acceptance.
+DevTools 1.8.0 adds `CrestronSubmissionUploader`. The provider implements the [observed uploader flow](UploaderInspection.md), returning a `SubmissionUploadReceipt` only after the retrieved package matches the uploaded bytes. It does not send email, sign forms or establish Crestron acceptance.
 
 ## Configure and connect
 
@@ -48,4 +48,4 @@ A live test of this provider reached the service's already-uploaded response. Th
 
 ## SMTP integration
 
-The current-source [SMTP provider](SmtpDelivery.md) can be combined with this uploader using `CrestronSubmissionTransport` and the authorized delivery journal. Its offline validation does not establish real mailbox provisioning or delivered email.
+The 1.8.0 [SMTP provider](SmtpDelivery.md) can be combined with this uploader using `CrestronSubmissionTransport` and the authorized delivery journal. Its offline validation does not establish real mailbox provisioning or delivered email.

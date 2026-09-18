@@ -1,6 +1,6 @@
 # Guarded delivery process integration
 
-Current source adds `SubmissionDeliveryRevalidation.CheckAsync` and `SubmissionDeliveryRevalidationSettings`. These APIs are not in the published DevTools 1.7.0 package. Build an audited source revision containing them when validating this integration.
+DevTools 1.8.0 adds `SubmissionDeliveryRevalidation.CheckAsync` and `SubmissionDeliveryRevalidationSettings`. Use the matching reviewed source tag for the external Python validator and its pinned dependencies.
 
 The bridge connects the [offline signed-handoff revalidator](DeliveryRevalidation.md) to [guarded dispatch](DeliveryJournal.md#authorization-immediately-before-each-step). It starts no uploader or mail client. The caller supplies its separately reviewed `ISubmissionDeliveryTransport`:
 
@@ -58,4 +58,4 @@ The attempts directory and delivery journal are separate. Do not recursively acc
 
 Synthetic child-process tests cover pins, output limits, cancellation, timeout, malformed/stale/conflicting results, completed-file consistency and interrupted attempts. An integration test runs the actual Python revalidator and .NET evidence validator through this bridge before each of two **simulated** transport steps. It also verifies that a repeated completed dispatch performs no more validation or sending.
 
-These tests use synthetic forms and approvals. The current-source [protected delivery command](DeliveryCommand.md) composes this bridge with the uploader, SMTP provider and durable journal. A real protected worker still needs reviewed settings, account permissions and real signature/approval inputs. These synthetic bridge tests establish no actual delivery or Crestron acceptance. Ordinary driver/library releases remain independent of this optional submission stage.
+These tests use synthetic forms and approvals. The 1.8.0 [protected delivery command](DeliveryCommand.md) composes this bridge with the uploader, SMTP provider and durable journal. A real protected worker still needs reviewed settings, account permissions and real signature/approval inputs. These synthetic bridge tests establish no actual delivery or Crestron acceptance. Ordinary driver/library releases remain independent of this optional submission stage.
