@@ -2,6 +2,10 @@
 
 This records changes published to the source repository separately from packaged releases. The [changelog](CHANGELOG.md) and [release notes](RELEASE-NOTES.md) describe released versions. The latest packaged release is **1.7.0, dated 17 September 2026**; the additions below are available from source and are not included in that NuGet package or console download.
 
+## 18 September 2026 - Remote processor logging guidance
+
+Documented read-only remote-syslog queries verified on a Home CP4-R and its TCP/UDP/SSL syntax. The guide distinguishes the current 4-Series manual's conditional TLS requirement from the Toolbox page's wording. It records collector delivery, diagnostic coverage and restart behavior as unverified, and links optional log retention from the endurance guide. No collector, processor configuration change or new packaged release is included.
+
 ## 18 September 2026 - Report terminal driver loading failures
 
 Version verification now stops with an error when a reviewed instance reports the requested version and `FailedToLoad`, rather than waiting until the update deadline expires. A failure reported for the previous version does not reject an incoming update. This observation does not retry, reload or remove the driver; existing failure reconciliation remains required.

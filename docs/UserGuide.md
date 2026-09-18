@@ -113,7 +113,7 @@ An event saying `Ended` may not establish success. Deployment independently veri
 | Existing staged filename | Inspect the prior import outcome before retrying; do not overwrite blindly. |
 | Update rejected | Recreate/review the plan if versions or affected devices changed. A required reboot is unsupported here. |
 | Removed tile but instance remains | Inspect inventory and live logs; room unassignment alone is not completed removal. |
-| Logs seem old | Saved processor logs can lag; use a live SSH console log stream during diagnosis. DevTools itself does not implement a log-tail command. |
+| Logs seem old | Saved processor logs can lag; use a live SSH console stream during diagnosis or evaluate [remote system logging](RemoteSystemLogging.md). An empty stream does not prove normal operation. DevTools does not implement a log-tail command or collector. |
 
 Return to [README](../README.md), [API guide](LibraryGuide.md) or [compatibility details](Compatibility.md).
 

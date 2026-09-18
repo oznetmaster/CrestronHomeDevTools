@@ -4,6 +4,8 @@ The scheduler scripts in this source revision work with the published DevTools 1
 
 Use a separate Windows computer when development-machine restarts should not interrupt monitoring. The self-contained Windows console includes its .NET runtime; Visual Studio, an Android emulator and a separate .NET installation are not required unless the driver's independently reviewed probe needs them. The computer must remain powered, awake and able to reach the processor and any devices the probe reads.
 
+For supporting diagnostic retention, see [remote processor logging](../RemoteSystemLogging.md). Syslog collection is separate from functional observations and does not replace them; verify delivery and the diagnostic streams covered before using it as evidence.
+
 ## Prepare a reviewed run
 
 First prepare the immutable candidate, trusted read-only probe, complete file pins, approved observation policy and private `SubmissionEnduranceWorkerPlan` described in [endurance collection](EnduranceCollection.md). A scheduled task cannot decide which candidate or policy should be accepted. Keep all acceptance criteria in those pinned inputs, and mutable credentials in a separate protected settings file.
