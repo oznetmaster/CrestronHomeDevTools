@@ -50,6 +50,7 @@ CLI commands do not prompt for missing trust or silently accept a new key. Suppl
 | `discover` | Discover local Home processors without credentials. |
 | `capabilities` | Report automation feature support without connecting (new source). |
 | `stored-packages` | Read retained package manifests, sizes and matching device/catalogue references (new source; no deletion). |
+| `compare-payload --package FILE --package-sha256 SHA256 --driver ID` | Reserve the processor and compare extracted files with a pinned candidate; see [scope and limitations](DriverPayloadInspection.md) (new source). |
 | `configure [--profile NAME]` | Save a selected processor and encrypted credentials. |
 | `drivers [--search TEXT]` | List catalogue packages and catalogue IDs. Narrow the search if results are limited. |
 | `devices` | List installed devices, instance IDs and room IDs. Shows IDs, names, models and room IDs; omits full device properties. |

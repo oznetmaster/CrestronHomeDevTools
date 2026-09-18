@@ -88,6 +88,9 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
               capabilities             Show automation features without connecting.
               drivers [--search text]  List available driver packages and their catalogue IDs.
               stored-packages          Inspect retained packages and matching device references.
+              compare-payload --package FILE --package-sha256 SHA256 --driver ID
+                                       Reserve the processor and compare extracted package files.
+                                       Does not install, update, reload or attest loaded memory.
               devices                  List installed devices, their IDs, names and room IDs.
               locations                List configured rooms and their IDs.
               driver-configuration --device ID
@@ -214,6 +217,7 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 				"move" => ["device", "model", "version", "from-room", "room"],
 				"reboot" => ["confirm-reboot"],
 				"deploy" => ["package"],
+				"compare-payload" => ["package", "package-sha256", "driver"],
 				"submission-check" => ["package", "driver", "version", "kind", "developer-name-token", "support-email", "support-website"],
 				"submission-evidence-check" => ["candidate", "candidate-sha256", "package", "policy", "template", "observations", "evidence"],
 				"submission-bundle-create" => ["output", "candidate", "candidate-sha256", "package", "policy", "template", "observations", "evidence"],
@@ -249,7 +253,19 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 				throw new ArgumentException ("Timeout must be 1 to 3600 seconds.");
 			timeout = TimeSpan.FromSeconds (seconds);
 			}
-		string? driverId = command is "eligibility" or "plan-update" or "activate" ? Required ("driver") : null;
+		string? driverId = command is "eligibility" or "plan-update" or "activate" or "compare-payload" ? Required ("driver") : null;
+		string? payloadPath = null, payloadHash = null;
+		if (command == "compare-payload")
+			{
+			payloadPath = Required ("package");
+			payloadHash = Required ("package-sha256");
+			if (payloadHash.Length != 64 || !payloadHash.All (char.IsAsciiHexDigit))
+				throw new ArgumentException ("Provide the trusted package SHA-256 as 64 hexadecimal characters.");
+			if (timeout > TimeSpan.FromMinutes (10))
+				throw new ArgumentException ("Payload comparison timeout must be at most 600 seconds.");
+			if (!File.Exists (payloadPath))
+				throw new ArgumentException ("The candidate package file does not exist.");
+			}
 		var deviceId = 0;
 		if (command is "move" or "reload" or "reload-scope" or "remove" or "configure-driver" or "driver-configuration")
 			{
@@ -357,10 +373,10 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 			WebSocketPort = settings.WebSocketPort,
 			CertificateSha256 = Setting ("CRESTRON_HOME_CERT_SHA256", settings.CertificateSha256)
 			};
-		if (command is "move" or "reboot" or "activate" or "remove" or "deploy" or "refresh" or "reload" or "update" or "configure-driver" or "commission-child" or "remove-created-child")
+		if (command is "move" or "reboot" or "activate" or "remove" or "deploy" or "refresh" or "reload" or "update" or "configure-driver" or "commission-child" or "remove-created-child" or "compare-payload")
 			{
 			var leaseFingerprint = Setting ("CRESTRON_HOME_SSH_FINGERPRINT", settings.SshFingerprint)
-				?? throw new ArgumentException ("Processor mutations require a verified SSH fingerprint for the shared lease. Run configure first.");
+				?? throw new ArgumentException ("This operation requires a verified SSH fingerprint for the shared lease. Run configure first.");
 			lease = await ProcessorOperationLease.AcquireAsync (host, new NetworkCredential (user, password), leaseFingerprint, Guid.NewGuid ().ToString ("N"), cancellation.Token);
 			var leaseDirectory = Path.Combine (Environment.GetFolderPath (Environment.SpecialFolder.LocalApplicationData), "CrestronHomeDevTools", "Leases");
 			Directory.CreateDirectory (leaseDirectory);
@@ -374,6 +390,15 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 				Command = command
 				}, jsonOptions), cancellation.Token);
 			Console.Error.WriteLine ("Processor lease acquired; private receipt: " + leaseReceiptPath);
+			}
+		if (command == "compare-payload")
+			{
+			// The read-only file comparison needs no configuration-management connection.
+			var match = await DriverPayloadInspection.CompareAsync (host, new NetworkCredential (user, password),
+				Setting ("CRESTRON_HOME_SSH_FINGERPRINT", settings.SshFingerprint)!, payloadPath!, payloadHash!, driverId!, timeout, cancellation.Token);
+			await lease!.VerifyAfterReconnectAsync (host, cancellation.Token);
+			Console.WriteLine (JsonSerializer.Serialize (match, jsonOptions));
+			return 0;
 			}
 		if (command == "reboot")
 			{
@@ -544,6 +569,11 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 		}
 	catch (ArgumentException exception) { Console.Error.WriteLine (exception.Message); return 2; }
 	catch (ProcessorBusyException exception) { Console.Error.WriteLine (exception.Message); return 3; }
+	catch (InvalidDataException exception) when (args[0] == "compare-payload")
+		{
+		Console.Error.WriteLine (exception.Message);
+		return 1;
+		}
 	catch (Exception exception) when (exception is IOException or InvalidDataException && args[0].StartsWith ("endurance-", StringComparison.Ordinal))
 		{
 		Console.Error.WriteLine ("Endurance file or reservation state could not be confirmed. Inspect endurance-status and the private journal; do not restart the run.");

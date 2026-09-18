@@ -1,5 +1,11 @@
 # Development history
 
+## 18 September 2026 - Candidate payload comparison (local source after 1.8.0)
+
+Add `DriverPayloadInspection.CompareAsync` and the `compare-payload` console command to compare a pinned candidate with its extracted processor files. The CLI holds the shared processor reservation; the C# API participates in its caller's existing reservation. Comparisons reject changed, missing, additional, ambiguous, linked and oversized files and retain only identities, sizes and hashes. This is a file observation, not an attestation of running memory or proof of the installed-device association. No install, reload or package update is performed. See [usage and limitations](docs/DriverPayloadInspection.md).
+
+All 31 new payload/console tests passed, both in the full run and in a 55-case isolated run including the existing delivery-journal fixtures. The full 645-case run had three intermittent access-denied failures while replacing delivery journal files; those same fixtures passed unchanged in isolation. Their cause remains unresolved, and the full run is not recorded as passed. The initial sandbox run could not initialize NUnit's default working directory; the subsequent runs used the isolated working-directory harness outside the sandbox. No hardware, upload or email was involved. This local source work has not been released.
+
 ## 18 September 2026 - Bundled submission console (source implementation after 1.8.0)
 
 The Windows console now provides the optional submission preparation commands with an isolated, hash-pinned runtime and matching evidence validator. Driver authors use console commands, JSON profiles and C# fixtures; they do not need to install or maintain Python. The complete archive retains vendor licenses, rejects missing/changed/unlisted runtime files and does not accept a settings-file validator override. Existing source-script invocations remain compatible. MSBuild help packaging accepts `SubmissionConsole`, and the protected workflow templates build the complete console automatically. Ordinary driver/library releases remain independent of submission.
