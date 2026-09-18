@@ -2,6 +2,11 @@
 
 This records changes published to the source repository separately from packaged releases. The [changelog](CHANGELOG.md) and [release notes](RELEASE-NOTES.md) describe released versions. The latest packaged release is **1.7.0, dated 17 September 2026**; the additions below are available from source and are not included in that NuGet package or console download.
 
+## 18 September 2026 - Help rendering from nested build directories
+
+The help renderer now converts documents in a short, isolated system temporary directory before copying the verified PDF to the requested build output. This fixes a Windows submission build failure under deeply nested MSBuild receipt directories. Windows builds use LibreOffice's `soffice.com` console launcher.
+
+Validation: the renderer, package and MSBuild checks passed, including a regression that rejects long paths at the external renderer boundary. A real Release submission candidate then built successfully; its PDF and dependency notices were verified inside the package, and every help page was visually reviewed. This establishes packaging behavior, not completed hardware acceptance or submission.
 ## 18 September 2026 - Submission delivery additions in source
 
 - Added a Crestron uploader provider with private upload receipts and verification of retained uploads without submitting them again. See [uploader transport](docs/submission/CrestronUploader.md).

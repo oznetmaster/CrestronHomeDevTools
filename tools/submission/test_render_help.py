@@ -71,6 +71,25 @@ class HelpRendererTests(unittest.TestCase):
             profiles.append(next(arg for arg in call if arg.startswith("-env:UserInstallation=")))
         self.assertEqual(profiles[0], profiles[1])
 
+    def test_deep_build_output_is_not_passed_to_external_renderer(self):
+        # Real Windows help conversion failed under the deep MSBuild receipt path,
+        # while the same document converted successfully from a short work path.
+        self.output = self.root / ("a" * 60) / ("b" * 60) / ("c" * 60)
+        original_process = self.fake_process
+
+        def bounded_process(arguments, timeout):
+            if "--convert-to" in arguments:
+                if len(arguments[-1]) >= 240:
+                    raise OSError("External renderer cannot load this deep input path")
+            return original_process(arguments, timeout)
+
+        with patch.object(render_help, "run_process", side_effect=bounded_process):
+            report = render_help.render(self.docx, self.digest, sys.executable, self.output)
+        self.assertTrue(report["sourceTextVerified"])
+        self.assertTrue((self.output / "Example.pdf").is_file())
+        conversion = next(call for call in self.calls if "--convert-to" in call)
+        self.assertFalse(Path(conversion[-1]).parent.exists(), "Private scratch must be cleaned")
+
     def test_success_exit_without_new_pdf_is_failure(self):
         self.convert = False
         with self.assertRaisesRegex(ValueError, "did not produce"):

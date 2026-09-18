@@ -31,7 +31,7 @@ python tools/submission/build_help.py --template OFFICIAL.docx --template-sha256
 python tools/submission/render_help.py --docx Driver.review.docx --docx-sha256 BUILD_REPORT_SHA256 --soffice ABSOLUTE_LIBREOFFICE_EXECUTABLE --output-directory pdf-output
 ```
 
-`BUILD_REPORT_SHA256` is the `docxSha256` from the first command's JSON output, retained by the build job. Use a fresh output path/directory. Existing documents are never overwritten. The builder checks the template digest and section layout, preserves unchanged ZIP parts byte-for-byte, and supports prose, bullets, headings and PNG figures. The renderer uses an isolated temporary LibreOffice profile, suppresses desktop windows, bounds execution time, stops its renderer process tree on timeout and rejects missing, encrypted, attachment-bearing or text-incomplete PDFs. Its report records the PDF hash, renderer version and page count. Visual inspection remains necessary; source text extraction alone cannot prove that a page is free of clipping or that an image is correct.
+`BUILD_REPORT_SHA256` is the `docxSha256` from the first command's JSON output, retained by the build job. Use a fresh output path/directory. Existing documents are never overwritten. The builder checks the template digest and section layout, preserves unchanged ZIP parts byte-for-byte, and supports prose, bullets, headings and PNG figures. The renderer uses a short private system-temporary working directory and isolated LibreOffice profile so deep MSBuild output paths are not passed to LibreOffice. It copies only the verified result to the requested destination, suppresses desktop windows, bounds execution time, stops its renderer process tree on timeout and rejects missing, encrypted, attachment-bearing or text-incomplete PDFs. Its report records the PDF hash, renderer version and page count. Visual inspection remains necessary; source text extraction alone cannot prove that a page is free of clipping or that an image is correct.
 
 The content format has `schemaVersion: 1`, `title`, public `author`, a four-component `version`, `pending` review items, declared `uiPages`, and `sections`. Required section keys, in official order, are `driver`, `notes`, `requirements`, `installation`, `experience`, `limitations`, `features`, `environment`, `models`, `contact`, `history`, and `license`. Each section contains a nonempty block array. Text blocks have `kind` (`paragraph`, `bullet`, `heading2`, or `heading3`) and `text`. Text is inserted as text, not interpreted as markup. Document properties use the supplied author/title and remove the template's stale dates and page/word counts.
 
@@ -62,7 +62,7 @@ Keep the DOCX, PDF, `help-receipt.json`, `package-paths.json` and `packaged-help
 | `CrestronSubmission` | `true` to opt in; ordinary builds do not require document tools |
 | `SubmissionToolsDirectory` | Pinned source checkout's `tools/submission` directory |
 | `SubmissionPython` | Absolute Python executable path, with the pinned requirements installed |
-| `SubmissionSoffice` | Absolute LibreOffice executable path |
+| `SubmissionSoffice` | Absolute LibreOffice console executable: `soffice.com` on Windows, `soffice` on Linux |
 | `SubmissionHelpTemplate` | Local copy of the official help DOCX |
 | `SubmissionHelpTemplateSha256` | Reviewed template digest |
 | `SubmissionHelpContent` | Driver's public content JSON; supplied by the driver project |

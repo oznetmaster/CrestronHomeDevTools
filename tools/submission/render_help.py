@@ -72,12 +72,15 @@ def render(docx, expected_digest, soffice, output_directory, timeout=120):
     output = output_directory / (docx.stem + ".pdf")
     if output.exists():
         raise ValueError("PDF output already exists; use a fresh output directory")
-    # Keep source, output and the LibreOffice user profile in one private scratch directory.
-    with tempfile.TemporaryDirectory(prefix="help-render-", dir=output_directory) as scratch:
+    # Deep MSBuild output paths can exceed the external renderer's path limits.
+    # Keep only a short private working copy/profile in the system temporary directory;
+    # verified output is still written to the caller's requested destination.
+    temporary_root = Path(tempfile.gettempdir()).resolve()
+    with tempfile.TemporaryDirectory(prefix="ch-help-", dir=temporary_root) as scratch:
         work = Path(scratch).resolve()
-        if not work.is_relative_to(output_directory):
-            raise ValueError("Renderer scratch directory escaped its output directory")
-        candidate = work / docx.name
+        if not work.is_relative_to(temporary_root):
+            raise ValueError("Renderer scratch directory escaped its temporary root")
+        candidate = work / "help.docx"
         candidate.write_bytes(source)
         profile = (work / "profile").as_uri()
         common = [str(soffice), "-env:UserInstallation=" + profile, "--headless", "--nologo", "--norestore"]
@@ -88,7 +91,7 @@ def render(docx, expected_digest, soffice, output_directory, timeout=120):
         if not version_text.startswith("LibreOffice ") or len(version_text) > 256:
             raise ValueError("Unexpected renderer version response")
         result = run_process(common + ["--convert-to", "pdf:writer_pdf_Export", "--outdir", str(work), str(candidate)], timeout)
-        converted = work / (docx.stem + ".pdf")
+        converted = work / "help.pdf"
         if result.returncode != 0 or not converted.is_file():
             raise ValueError("LibreOffice did not produce the expected help PDF")
         pages = verify_pdf(source, converted)
