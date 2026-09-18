@@ -2,7 +2,7 @@
 
 Command examples use the [bundled submission console](ConsoleTools.md); see that guide for source/release availability and setup.
 
-`tools/submission/prepare_delivery.py` connects the [private signing stage](SigningStage.md) to the [delivery journal](DeliveryJournal.md). It prepares a `SubmissionDeliveryPlan` after final signed-page review and separate delivery approval. It never uploads a package or sends mail. This source addition is not included in the 1.5.0 tag or NuGet package.
+`tools/submission/prepare_delivery.py` connects the [private signing stage](SigningStage.md) to the [delivery journal](DeliveryJournal.md). It prepares a `SubmissionDeliveryPlan` after final signed-page review and separate delivery approval. It never uploads a package or sends mail. Version 1.9.0 includes this preparation command in the complete console archive.
 
 Use this optional stage only for a driver being submitted to the portal. Ordinary releases, libraries and processor test packages do not need it.
 
@@ -48,7 +48,7 @@ Retain the original completed signing-copy review, signed review and approval pr
 CrestronHomeDevTools.Console.exe submission prepare-delivery --settings PRIVATE_DELIVERY_SETTINGS --signed-review-sha256 TRUSTED_SIGNED_REVIEW_SHA256 --authorization-sha256 TRUSTED_FINAL_AUTHORIZATION_SHA256
 ```
 
-Use a pinned source checkout and the dependencies described in [ReviewStage.md](ReviewStage.md). The command checks both completion markers, the signing report and review chain, exact file hashes, final approval and expiry. It freezes the package, signed PDF and retained evidence, runs the .NET bundle validator again, checks the production Release source and checks expiry again after validation. It does not regenerate or resign the PDF.
+Use the complete console and private settings described in [ReviewStage.md](ReviewStage.md). The command checks both completion markers, the signing report and review chain, exact file hashes, final approval and expiry. It freezes the package, signed PDF and retained evidence, runs the .NET bundle validator again, checks the production Release source and checks expiry again after validation. It does not regenerate or resign the PDF.
 
 The private output contains:
 
@@ -70,7 +70,7 @@ Preparation records `DeliveryPlanPrepared`, `deliveryAuthorized: true`, `deliver
 
 The source [delivery revalidation command](DeliveryRevalidation.md) repeats the complete offline chain against the original approval and evidence and verifies the actual prepared send files. It is not in the published 1.7.0 package; guarded callback invocation and real transport integration remain separate work.
 
-Before dispatch, the trusted transport job must revalidate the completed handoff, original approval and current expiry, current evidence/policy validity, and intended sender account. Run preparation immediately before dispatch; retaining a plan does not permit sending indefinitely. The published `SubmissionDelivery.ExecuteAsync` primitive does not enforce approval expiry or evaluate evidence. Current source adds [guarded dispatch](DeliveryJournal.md#authorization-immediately-before-each-step), which requires trusted revalidation before both upload and email and enforces the returned approval expiry and plan identity. Its callback still has to perform the complete handoff, evidence and approval checks; merely returning a matching digest is insufficient. The guarded API is not in the published 1.7.0 package. All attempts must use the same durable journal, including new preparations of the same files; never bypass an uncertain upload or send with a fresh directory.
+Before dispatch, the trusted transport job must revalidate the completed handoff, original approval and current expiry, current evidence/policy validity, and intended sender account. Run preparation immediately before dispatch; retaining a plan does not permit sending indefinitely. The published `SubmissionDelivery.ExecuteAsync` primitive does not enforce approval expiry or evaluate evidence. Version 1.8.0 adds [guarded dispatch](DeliveryJournal.md#authorization-immediately-before-each-step), which requires trusted revalidation before both upload and email and enforces the returned approval expiry and plan identity. Its callback still has to perform the complete handoff, evidence and approval checks; merely returning a matching digest is insufficient. Earlier APIs do not supply this guarded boundary. All attempts must use the same durable journal, including new preparations of the same files; never bypass an uncertain upload or send with a fresh directory.
 
 The transport must follow the journal's no-replay/reconciliation rules, upload only the package, and attach only the signed PDF to the documented email containing the returned download URL. A supported uploader, configured mail provider, controlled-recipient validation and an authorized real submission remain pending. A provider receipt is not Crestron approval or certification.
 

@@ -24,7 +24,7 @@ The private settings file has exactly these fields:
 }
 ```
 
-The output parent must already exist with private access rules. Select a new output directory for each authorized preparation; an existing directory is never replaced. Install the source checkout's pinned Python dependencies and .NET 10 as described in [ReviewStage.md](ReviewStage.md).
+The output parent must already exist with private access rules. Select a new output directory for each authorized preparation; an existing directory is never replaced. Use the complete console archive described in [Console tools](ConsoleTools.md); no separate interpreter installation is required.
 
 ```text
 CrestronHomeDevTools.Console.exe submission prepare-signed-review --settings PRIVATE_SIGNING_SETTINGS --review-sha256 TRUSTED_REVIEW_RECEIPT_SHA256 --authorization-sha256 TRUSTED_SIGNING_AUTHORIZATION_SHA256

@@ -1,6 +1,6 @@
 # Compare a package with processor files
 
-This source feature is not included in the v1.8.0 binaries. It supports checking an unchanged candidate before later tests without deploying another version.
+Available in version 1.9.0. It supports checking an unchanged candidate before later tests without deploying another version.
 
 Using a saved private processor profile:
 

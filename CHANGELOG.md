@@ -17,8 +17,6 @@ The library and console are packaged binaries. Python help, evidence, review and
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
-**Source changes after 1.7.0:** the uploader, SMTP delivery, guarded delivery command and Windows monitoring worker are recorded in [development history](DEVELOPMENT-HISTORY.md), including updates on 18 September 2026. They have been pushed to the repository but are not yet included in a packaged release. The entries below describe released versions.
-
 ## 1.7.0 - 2026-09-17
 
 Add read-only processor uptime observations and plan validation for independently supplied monitoring producers. These APIs are useful for ordinary development monitoring as well as optional driver submission.

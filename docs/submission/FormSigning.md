@@ -4,7 +4,7 @@ Command examples use the [bundled submission console](ConsoleTools.md); see that
 
 The source tool `tools/submission/sign_self_test_form.py` applies a private PNG or JPEG signature and a date to the two reviewed official text fields. It preserves the printed pages, companion matrix and checkbox values. This is an image signature, not a certificate-backed PDF signature, authentication of the test producer, permission to send email, or evidence of Crestron acceptance.
 
-This feature requires the matching DevTools source checkout and the dependencies in `tools/submission/requirements.txt`. It has been tested with synthetic forms/signatures, including the actual offline evidence validator. A real developer signature and final candidate signing remain separate validation steps.
+Use the matching complete DevTools 1.9.0 or later console archive; the document runtime is included. It has been tested with synthetic forms/signatures, including the actual offline evidence validator. A real developer signature and final candidate signing remain separate validation steps.
 
 ## Prepare and review the exact signing copy
 

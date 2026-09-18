@@ -1,6 +1,6 @@
 # Submission preparation through the console
 
-**Availability:** these commands are implemented and tested in this source revision. They are not included in the previously published 1.8.0 console. Use a console built from this revision until a release containing them is published.
+**Availability:** the complete Windows console archive includes these commands and their document runtime starting in version 1.9.0. Earlier console downloads do not contain them.
 
 Driver authors use the DevTools console and their own C# test fixtures. There is no requirement to install Python, edit Python scripts, manage a virtual environment or run a package installer. Submission is optional and applies only to drivers; ordinary development and client/library releases do not require it.
 

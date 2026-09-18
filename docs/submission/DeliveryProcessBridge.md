@@ -1,6 +1,6 @@
 # Guarded delivery process integration
 
-DevTools 1.8.0 adds `SubmissionDeliveryRevalidation.CheckAsync` and `SubmissionDeliveryRevalidationSettings`. Use the matching reviewed source tag for the external Python validator and its pinned dependencies.
+DevTools 1.8.0 adds `SubmissionDeliveryRevalidation.CheckAsync` and `SubmissionDeliveryRevalidationSettings`. This advanced integration retains explicit executable and runtime-manifest settings. The standalone `submission revalidate-delivery` command is bundled starting in 1.9.0; automatic packaged-service provisioning for this bridge remains separate work. Do not assume a standalone command check validates the protected delivery service.
 
 The bridge connects the [offline signed-handoff revalidator](DeliveryRevalidation.md) to [guarded dispatch](DeliveryJournal.md#authorization-immediately-before-each-step). It starts no uploader or mail client. The caller supplies its separately reviewed `ISubmissionDeliveryTransport`:
 
