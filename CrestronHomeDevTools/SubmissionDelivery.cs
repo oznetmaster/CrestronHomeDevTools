@@ -14,6 +14,8 @@ public sealed record SubmissionDeliveryPlan (string CandidateSha256, string Revi
 	string PackageSha256, string SignedFormSha256, string PackageFileName, string SignedFormFileName, string Sender, string Recipient);
 public sealed record SubmissionUploadReceipt (string DownloadUrl, string ProviderReceipt);
 public sealed record SubmissionMailReceipt (string ProviderReceipt);
+/// <summary>Returned only after the trusted workflow revalidates the exact plan and its current approval.</summary>
+public sealed record SubmissionDeliveryAuthorization (string PlanSha256, DateTimeOffset ExpiresUtc);
 public sealed record SubmissionDeliveryReconciliation (SubmissionDeliveryStep Step, bool Performed, string Evidence,
 	DateTimeOffset RecordedUtc);
 public sealed record SubmissionDeliveryReceipt (int SchemaVersion, string PlanSha256, SubmissionDeliveryState State,
@@ -42,9 +44,38 @@ public static class SubmissionDelivery
 		}
 
 	/// <summary>Uses one deterministic journal per plan. Unknown outcomes stop until independently reconciled.</summary>
-	public static async Task<SubmissionDeliveryReceipt> ExecuteAsync (string privateJournalDirectory,
+	public static Task<SubmissionDeliveryReceipt> ExecuteAsync (string privateJournalDirectory,
 		SubmissionDeliveryPlan plan, string packagePath, string signedFormPath, ISubmissionDeliveryTransport transport,
-		CancellationToken cancellationToken = default)
+		CancellationToken cancellationToken = default) =>
+		ExecuteCoreAsync (privateJournalDirectory, plan, packagePath, signedFormPath, transport, null, cancellationToken);
+
+	/// <summary>
+	/// Revalidate evidence and approval before each external step. The callback must be trusted and independently
+	/// verify the pinned authorization; a matching digest alone does not authenticate an approver.
+	/// Refusal leaves the last known state intact. An already submitted receipt requires no new authorization or delivery.
+	/// </summary>
+	public static Task<SubmissionDeliveryReceipt> ExecuteAuthorizedAsync (string privateJournalDirectory,
+		SubmissionDeliveryPlan plan, string packagePath, string signedFormPath, ISubmissionDeliveryTransport transport,
+		Func<SubmissionDeliveryStep, CancellationToken, Task<SubmissionDeliveryAuthorization>> revalidate,
+		TimeProvider? timeProvider = null, CancellationToken cancellationToken = default)
+		{
+		ArgumentNullException.ThrowIfNull (revalidate);
+		string digest = PlanDigest (plan);
+		var clock = timeProvider ?? TimeProvider.System;
+		async Task Check (SubmissionDeliveryStep step, CancellationToken token)
+			{
+			token.ThrowIfCancellationRequested ();
+			var approval = await revalidate (step, token).ConfigureAwait (false);
+			token.ThrowIfCancellationRequested ();
+			if (approval == null || approval.PlanSha256 != digest || approval.ExpiresUtc <= clock.GetUtcNow ())
+				throw new InvalidOperationException ("Delivery requires current authorization for the exact plan before each external step.");
+			}
+		return ExecuteCoreAsync (privateJournalDirectory, plan, packagePath, signedFormPath, transport, Check, cancellationToken);
+		}
+
+	private static async Task<SubmissionDeliveryReceipt> ExecuteCoreAsync (string privateJournalDirectory,
+		SubmissionDeliveryPlan plan, string packagePath, string signedFormPath, ISubmissionDeliveryTransport transport,
+		Func<SubmissionDeliveryStep, CancellationToken, Task>? authorize, CancellationToken cancellationToken)
 		{
 		ArgumentNullException.ThrowIfNull (transport);
 		var digest = PlanDigest (plan);
@@ -61,6 +92,7 @@ public static class SubmissionDelivery
 		journal.Write (receipt);
 		if (receipt.State == SubmissionDeliveryState.Prepared)
 			{
+			if (authorize != null) await authorize (SubmissionDeliveryStep.Upload, cancellationToken).ConfigureAwait (false);
 			cancellationToken.ThrowIfCancellationRequested ();
 			receipt = receipt with { State = SubmissionDeliveryState.UploadPending, PendingStep = SubmissionDeliveryStep.Upload, UpdatedUtc = DateTimeOffset.UtcNow };
 			journal.Write (receipt); // Flush intent before any external side effect.
@@ -78,6 +110,7 @@ public static class SubmissionDelivery
 				}
 			}
 		RequireUpload (receipt.Upload);
+		if (authorize != null) await authorize (SubmissionDeliveryStep.Send, cancellationToken).ConfigureAwait (false);
 		cancellationToken.ThrowIfCancellationRequested ();
 		receipt = receipt with { State = SubmissionDeliveryState.SendPending, PendingStep = SubmissionDeliveryStep.Send, UpdatedUtc = DateTimeOffset.UtcNow };
 		journal.Write (receipt);

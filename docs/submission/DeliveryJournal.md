@@ -14,6 +14,20 @@ Keep the plan and journal in an existing private durable directory outside sourc
 
 The journal key identifies package/form bytes and the sender/recipient pair. Changing an authorization, review pin or filename for the same delivery does not create an independent attempt: the retained plan digest will conflict and stop execution. A different signed PDF is a different delivery identity; the higher-level release policy must still decide whether a revised submission is authorized.
 
+## Authorization immediately before each step
+
+Current source adds `SubmissionDelivery.ExecuteAuthorizedAsync` and `SubmissionDeliveryAuthorization`; they are not in the published 1.7.0 package. This path requires a trusted asynchronous revalidation callback and checks its returned plan digest and approval expiry before each upload or email intent. The existing `ExecuteAsync` API remains available for callers that implement their own equivalent boundary checks.
+
+The callback receives the pending `SubmissionDeliveryStep` and cancellation token. It must revalidate the completed signed-review handoff, independently approved authorization hash, exact artifacts, current evidence/policy validity, intended sender and recipient, and current authorization status. Return `SubmissionDeliveryAuthorization` with `SubmissionDelivery.PlanDigest(plan)` and the expiry **from that verified approval**. Never extend expiry by computing a new duration from the current time. A callback that simply returns the expected digest is not an approval system.
+
+Both the initial upload and subsequent email require this check, including email resumed from an existing `Uploaded` receipt. This matters when upload takes long enough for approval to expire, or evidence becomes unavailable between the two steps. Expired, wrong-plan or missing authorization is refused. Cancellation is checked after the callback as well, even if that callback ignored cancellation.
+
+Refusal occurs before the next external intent: before upload the journal remains `Prepared`; after a confirmed upload it remains `Uploaded`, with the actual upload receipt preserved and no email sent. A later successful revalidation of the **same still-authorized plan** resumes only the outstanding step. Changed approval hashes remain a plan conflict under the existing duplicate-prevention rule; this API does not silently renew approval or discard an old journal.
+
+An uncertain upload/send still requires independent reconciliation. Passing a fresh callback cannot bypass it. Returning an already `Submitted` receipt does not request new approval, read the original files or repeat delivery. This is a historical provider receipt, not a new submission or Crestron acceptance.
+
+These checks run within the existing exclusive delivery-journal lock and immediately precede intent recording. The callback must not recursively access that journal. This API does not provide distributed authorization, prevent arbitrary noncooperating workers from sending, or establish the exact time a remote provider accepts a request. Final CI still needs the protected revalidation implementation and supported upload/mail adapters.
+
 ## State transitions
 
 | State | Meaning and next action |
