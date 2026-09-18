@@ -129,9 +129,16 @@ public sealed class SubmissionSmtpMailer
 			Write (attempt, "accepted.json", new { PlanSha256 = digest, MessageId = messageId, Response = response, AcceptedUtc = DateTimeOffset.UtcNow });
 			return new (JsonSerializer.Serialize (new { Provider = "SMTP", Attempt = attemptId, MessageId = messageId, PlanSha256 = digest, Accepted = true }));
 			}
-		catch
+		catch (Exception error)
 			{
-			Write (attempt, "failed.json", new { SendAttempted = sendAttempted, Outcome = sendAttempted ? "RequiresReconciliation" : "NotSent", FailedUtc = DateTimeOffset.UtcNow });
+			// Keep actionable server rejection details private, without exposing credentials in returned errors.
+			var rejection = error is SmtpCommandException smtp ? new
+				{
+				StatusCode = (int)smtp.StatusCode,
+				ErrorCode = smtp.ErrorCode.ToString (),
+				Reply = smtp.Message.Replace (_credential.Password, "[redacted]", StringComparison.Ordinal)
+				} : null;
+			Write (attempt, "failed.json", new { SendAttempted = sendAttempted, Outcome = sendAttempted ? "RequiresReconciliation" : "NotSent", Rejection = rejection, FailedUtc = DateTimeOffset.UtcNow });
 			cancellationToken.ThrowIfCancellationRequested ();
 			throw new InvalidDataException ("SMTP submission did not complete. Inspect the private attempt; do not automatically resend.");
 			}

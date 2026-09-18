@@ -5,6 +5,8 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text.Json;
 
+using MailKit.Net.Smtp;
+
 using MimeKit;
 
 using NUnit.Framework;
@@ -71,6 +73,22 @@ public sealed class SubmissionSmtpMailerTests
 		using var failure = JsonDocument.Parse (File.ReadAllText (Path.Combine (Directory.GetDirectories (_root).Single (), "failed.json")));
 		Assert.That (failure.RootElement.GetProperty ("SendAttempted").GetBoolean (), Is.EqualTo (attempted));
 		Assert.That (failure.RootElement.GetProperty ("Outcome").GetString (), Is.EqualTo (attempted ? "RequiresReconciliation" : "NotSent"));
+		}
+
+	[Test]
+	public void ServerRejectionRetainsPrivateStatusAndRedactsThePassword ()
+		{
+		var session = new Session { Failure = "rejected" };
+		var error = Assert.ThrowsAsync<InvalidDataException> (() => Create (session).SendAsync (_plan, Upload, new MemoryStream (Form), MessageId));
+		Assert.That (session.Sends, Is.EqualTo (1));
+		Assert.That (error!.Message, Does.Not.Contain ("Policy refused"));
+		string saved = File.ReadAllText (Path.Combine (Directory.GetDirectories (_root).Single (), "failed.json"));
+		Assert.That (saved, Does.Not.Contain ("synthetic-password"));
+		using var failure = JsonDocument.Parse (saved);
+		var rejection = failure.RootElement.GetProperty ("Rejection");
+		Assert.That (rejection.GetProperty ("StatusCode").GetInt32 (), Is.EqualTo (553));
+		Assert.That (rejection.GetProperty ("ErrorCode").GetString (), Is.EqualTo ("SenderNotAccepted"));
+		Assert.That (rejection.GetProperty ("Reply").GetString (), Does.Contain ("[redacted]"));
 		}
 
 	[TestCase ("form")]
@@ -149,6 +167,10 @@ public sealed class SubmissionSmtpMailerTests
 		public async Task<string> SendAsync (MimeMessage message, CancellationToken token)
 			{
 			Sends++;
+			if (Failure == "rejected")
+				{
+				throw new SmtpCommandException (SmtpErrorCode.SenderNotAccepted, SmtpStatusCode.MailboxNameNotAllowed, "Policy refused synthetic-password");
+				}
 			if (Failure == "send")
 				{
 				throw new IOException ("synthetic-password");

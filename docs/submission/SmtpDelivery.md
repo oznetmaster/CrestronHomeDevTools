@@ -31,6 +31,8 @@ MailKit's successful send completion establishes SMTP server acceptance. The fre
 
 There are no automatic send retries. An error after send intent may mean that the server accepted the message but its acknowledgement was lost. The private attempt records `RequiresReconciliation`; the outer journal retains `OutcomeUnknown` and prevents automatic replay. A connection/authentication failure before send intent records `NotSent` locally, but the journal still requires explicit reconciliation before retrying an uncertain external step.
 
+A protocol rejection retains the SMTP status, failure category and server explanation in the private failure record, with the configured password redacted. The caller still receives a generic error. A successful login does not establish permission to send from another address or domain; some servers enforce that policy when accepting the recipient.
+
 Preserve original attempts. Inspect the provider's acceptance receipt, delivery logs, recipient evidence or support response before explicitly reconciling the journal. SMTP generally does not save a copy into an IMAP Sent folder, so absence from Outlook's Sent folder is not proof of non-delivery. This implementation does not automatically append a Sent copy, query provider delivery logs, detect bounces or guarantee exactly-once delivery. A deterministic Message-ID is useful for correlation, not a universal duplicate-suppression mechanism.
 
 ## Validation status
