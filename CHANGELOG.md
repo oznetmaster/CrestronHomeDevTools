@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.9.0 - 2026-09-18
+
+The Windows console now includes the optional submission preparation tools and their isolated document runtime. Driver authors use console commands, configuration and C# fixtures without installing or maintaining Python. Ordinary driver, library and client releases remain independent of submission.
+
+- Add `submission` commands for help, coverage planning, Android evidence auditing, forms, review, authorized signing and delivery preparation. The complete console archive verifies its pinned runtime and uses its own matching evidence validator. DOCX-to-PDF rendering still requires the documented renderer and fonts.
+- Add `DriverPayloadInspection.CompareAsync` and `compare-payload` to compare a trusted candidate package with its exact extracted catalogue/version files. The console holds the shared processor reservation. Comparison does not deploy, reload or attest running process memory; callers must separately verify the selected installed instance.
+- Carry complete Android evidence audits through review, signing and delivery preparation/revalidation. Selected-case runs preserve discovered, selected and excluded inventories and require an independent selection pin; they do not imply full-suite or official-plan completion.
+- Handle transient Windows access/sharing/lock refusals during atomic journal replacement with bounded retries of that file operation only. Provider requests and whole delivery operations are never replayed automatically. Authorization expiry and cancellation are checked again after intent persistence and before provider entry.
+- Keep library package and console assembly versions consistent when building a specified release.
+
+Validation includes the complete offline .NET regression suite, document-tool tests and eight acceptance checks against the standalone console. Isolated NuGet consumers verified implementation bytes and the corresponding adapter/CLI preflight paths without source-project dependency overrides. Synthetic journal checks cover permanent refusal, expiry during intent persistence and repeated complete lifecycles without duplicate provider calls. These checks send no real submission and do not establish protected-service acceptance, a complete signed driver submission or certification.
+
+Extract the entire console ZIP; do not copy only the executable or combine releases. Start with [console setup](docs/submission/ConsoleTools.md), [payload comparison](docs/DriverPayloadInspection.md), [delivery journal behavior](docs/submission/DeliveryJournal.md) and the [submission roadmap](docs/CrestronSubmission.md). Final delivery still requires complete candidate evidence, reviewed signed forms, provisioned accounts and exact approval. The NuGet configuration library does not contain the document runtime.
+
+Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
+
 ## 1.8.0 - 2026-09-18
 
 This release adds optional submission delivery and Windows scheduling for endurance observations. Ordinary driver, client and library releases remain independent of Crestron submission.
