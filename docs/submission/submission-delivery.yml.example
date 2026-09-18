@@ -1,0 +1,82 @@
+# Copyright (c) 2026 Neil Colvin.
+# Licensed under the MIT License. See LICENSE in the repository root.
+# Optional FINAL stage in a private, trusted orchestrator after candidate validation,
+# endurance, form review/signing and delivery preparation. Never run untrusted PR code here.
+name: Deliver approved Crestron submission
+on:
+  workflow_call:
+    inputs:
+      enabled:
+        type: boolean
+        required: true
+    secrets:
+      submission_credentials_json:
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: crestron-submission-delivery
+  cancel-in-progress: false
+jobs:
+  deliver:
+    if: ${{ inputs.enabled && (github.event_name == 'workflow_dispatch' || github.event_name == 'release') }}
+    environment: crestron-submission-delivery
+    runs-on: [self-hosted, Windows, crestron-submission-delivery]
+    timeout-minutes: 50
+    steps:
+      # These environment variables must be approved independently of the producing worker.
+      # The installation manifest is private: {root, entrypoint, files:[{path, sha256}]}.
+      # Store it outside the installed tooling directory; pin ALL runtime/dependency files.
+      - name: Verify protected tooling and deliver the reviewed plan
+        shell: pwsh
+        env:
+          DISPATCH_MANIFEST: ${{ vars.CRESTRON_SUBMISSION_DISPATCH_MANIFEST }}
+          DISPATCH_MANIFEST_SHA256: ${{ vars.CRESTRON_SUBMISSION_DISPATCH_MANIFEST_SHA256 }}
+          DELIVERY_SETTINGS: ${{ vars.CRESTRON_SUBMISSION_DISPATCH_SETTINGS }}
+          DELIVERY_SETTINGS_SHA256: ${{ vars.CRESTRON_SUBMISSION_DISPATCH_SETTINGS_SHA256 }}
+          PRIVATE_DELIVERY_CREDENTIALS: ${{ secrets.submission_credentials_json }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not [IO.Path]::IsPathFullyQualified($env:DISPATCH_MANIFEST) -or $env:DISPATCH_MANIFEST_SHA256 -cnotmatch '^[a-f0-9]{64}$') { throw 'Configure a reviewed installation manifest.' }
+          if ((Get-FileHash -LiteralPath $env:DISPATCH_MANIFEST -Algorithm SHA256).Hash.ToLowerInvariant() -cne $env:DISPATCH_MANIFEST_SHA256) { throw 'Tooling manifest changed.' }
+          $manifest = Get-Content -LiteralPath $env:DISPATCH_MANIFEST -Raw | ConvertFrom-Json
+          if (-not [IO.Path]::IsPathFullyQualified($manifest.root) -or -not (Test-Path -LiteralPath $manifest.root -PathType Container)) { throw 'Tooling installation is missing.' }
+          $root = [IO.Path]::GetFullPath($manifest.root).TrimEnd('\') + '\'
+          if ((Get-Item -LiteralPath $root).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Redirected tooling is unsupported.' }
+          $entries = @(Get-ChildItem -LiteralPath $root -Recurse -Force)
+          if ($entries | Where-Object { $_.Attributes -band [IO.FileAttributes]::ReparsePoint }) { throw 'Redirected tooling is unsupported.' }
+          $files = @($entries | Where-Object { -not $_.PSIsContainer })
+          if ($files.Count -ne @($manifest.files).Count -or $files.Count -eq 0) { throw 'Tooling inventory changed.' }
+          $seen = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+          foreach ($pin in $manifest.files) {
+            if ([IO.Path]::IsPathRooted($pin.path) -or $pin.path -match '(^|[/\\])\.\.([/\\]|$)' -or $pin.sha256 -cnotmatch '^[a-f0-9]{64}$') { throw 'Invalid tooling pin.' }
+            $path = [IO.Path]::GetFullPath((Join-Path $root $pin.path))
+            if (-not $path.StartsWith($root,[StringComparison]::OrdinalIgnoreCase) -or -not $seen.Add($path) -or (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() -cne $pin.sha256) { throw 'Tooling contents changed.' }
+          }
+          $exe = [IO.Path]::GetFullPath((Join-Path $root $manifest.entrypoint))
+          if (-not $seen.Contains($exe) -or [IO.Path]::GetExtension($exe) -cne '.exe') { throw 'Pin the console executable.' }
+          if (-not [IO.Path]::IsPathFullyQualified($env:DELIVERY_SETTINGS) -or $env:DELIVERY_SETTINGS_SHA256 -cnotmatch '^[a-f0-9]{64}$') { throw 'Configure the independently reviewed delivery settings.' }
+          $credentials = $env:PRIVATE_DELIVERY_CREDENTIALS
+          Remove-Item Env:\PRIVATE_DELIVERY_CREDENTIALS
+          if ([string]::IsNullOrWhiteSpace($credentials)) { throw 'Private delivery credentials are unavailable.' }
+          $start = [Diagnostics.ProcessStartInfo]::new($exe)
+          $start.UseShellExecute = $false
+          $start.CreateNoWindow = $true
+          $start.RedirectStandardInput = $true
+          $start.RedirectStandardOutput = $true
+          $start.RedirectStandardError = $true
+          $start.Environment.Remove('PRIVATE_DELIVERY_CREDENTIALS') | Out-Null
+          foreach ($arg in @('submission-deliver','--settings',$env:DELIVERY_SETTINGS,'--settings-sha256',$env:DELIVERY_SETTINGS_SHA256,'--execute-approved')) { $start.ArgumentList.Add($arg) }
+          $process = [Diagnostics.Process]::Start($start)
+          try {
+            $out = $process.StandardOutput.ReadToEndAsync()
+            $err = $process.StandardError.ReadToEndAsync()
+            $process.StandardInput.Write($credentials)
+            $process.StandardInput.Close()
+            $credentials = $null
+            $process.WaitForExit()
+            if ($process.ExitCode -ne 0) { throw 'Delivery stopped; inspect private receipts. Do not retry automatically.' }
+            $result = $out.Result | ConvertFrom-Json
+            if ($result.SchemaVersion -ne 1 -or $result.State -ne 'Submitted' -or $result.Submitted -ne $true) { throw 'No confirmed submission state.' }
+            'Submission providers confirmed acceptance. This is not Crestron certification.' >> $env:GITHUB_STEP_SUMMARY
+          } finally { $credentials = $null; $process.Dispose() }

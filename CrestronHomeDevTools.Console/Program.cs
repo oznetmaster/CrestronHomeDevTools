@@ -46,6 +46,19 @@ static async Task<int> RunSafelyAsync (string[] args, bool interactive = false)
 
 static async Task<int> RunAsync (string[] args, bool interactive = false)
 	{
+	if (args.FirstOrDefault () == "submission-deliver")
+		{
+		if (interactive || !Console.IsInputRedirected)
+			{
+			Console.Error.WriteLine ("Submission delivery requires protected noninteractive orchestration and credentials on standard input.");
+			return 2;
+			}
+		using var deadline = new CancellationTokenSource (TimeSpan.FromMinutes (45));
+		ConsoleCancelEventHandler cancel = (_, e) => { e.Cancel = true; deadline.Cancel (); };
+		Console.CancelKeyPress += cancel;
+		try { return await SubmissionDispatchCommand.RunAsync (args[1..], Console.In, Console.Out, Console.Error, deadline.Token); }
+		finally { Console.CancelKeyPress -= cancel; }
+		}
 	if (args is ["capabilities"])
 		{
 		Console.WriteLine (JsonSerializer.Serialize (new
@@ -73,6 +86,11 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
                                        Show current settings; honour driver-defined masking.
               eligibility --driver ID  Show installed devices eligible for that driver update.
               reload-scope --device ID Show devices associated with a proposed driver reload.
+
+            Protected optional submission delivery (uploads and emails):
+              submission-deliver --settings FILE --settings-sha256 SHA256 --execute-approved
+                                       Revalidate approved artifacts before each external step.
+                                       Requires private JSON credentials on redirected standard input.
 
             Save settings or prepare an update (no processor changes):
               submission-check --package FILE --driver GUID --version A.B.C.D

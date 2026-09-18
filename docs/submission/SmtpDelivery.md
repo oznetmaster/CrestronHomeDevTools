@@ -38,3 +38,5 @@ Preserve original attempts. Inspect the provider's acceptance receipt, delivery 
 ## Validation status
 
 Offline tests use a simulated SMTP session with real MIME generation and parsing. They verify exact recipient/attachment/Message-ID, private acceptance records, preserved success on disposal failure, invalid-input rejection, connection failure, lost acknowledgement and timeout without a retry. This does not validate real credentials, a provider's TLS/authentication behavior, inbox delivery or a final Crestron submission. Those controlled live checks remain required before production use.
+
+A separate controlled MailKit mailbox check has verified required STARTTLS, authentication, authorized sender/recipient acceptance, one plaintext self-addressed send and user-confirmed inbox receipt. It used private account settings and no attachment. This is account/transport evidence; it does not exercise the public provider's signed-PDF path or the complete protected CI submission. The [delivery command](DeliveryCommand.md) now connects the source providers to guarded dispatch.
