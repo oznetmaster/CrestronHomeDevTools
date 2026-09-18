@@ -26,21 +26,22 @@ jobs:
     steps:
       # These environment variables must be approved independently of the producing worker.
       # Bundled console settings can be generated with submission-delivery-settings; see DeliverySetup.md.
-      # The installation manifest is private: {root, entrypoint, files:[{path, sha256}]}.
-      # Store it outside the installed tooling directory; pin ALL runtime/dependency files.
+      # Schema-2 settings already inventory ALL files in the complete console distribution.
       - name: Verify protected tooling and deliver the reviewed plan
         shell: pwsh
         env:
-          DISPATCH_MANIFEST: ${{ vars.CRESTRON_SUBMISSION_DISPATCH_MANIFEST }}
-          DISPATCH_MANIFEST_SHA256: ${{ vars.CRESTRON_SUBMISSION_DISPATCH_MANIFEST_SHA256 }}
           DELIVERY_SETTINGS: ${{ vars.CRESTRON_SUBMISSION_DISPATCH_SETTINGS }}
           DELIVERY_SETTINGS_SHA256: ${{ vars.CRESTRON_SUBMISSION_DISPATCH_SETTINGS_SHA256 }}
           PRIVATE_DELIVERY_CREDENTIALS: ${{ secrets.submission_credentials_json }}
         run: |
           $ErrorActionPreference = 'Stop'
-          if (-not [IO.Path]::IsPathFullyQualified($env:DISPATCH_MANIFEST) -or $env:DISPATCH_MANIFEST_SHA256 -cnotmatch '^[a-f0-9]{64}$') { throw 'Configure a reviewed installation manifest.' }
-          if ((Get-FileHash -LiteralPath $env:DISPATCH_MANIFEST -Algorithm SHA256).Hash.ToLowerInvariant() -cne $env:DISPATCH_MANIFEST_SHA256) { throw 'Tooling manifest changed.' }
-          $manifest = Get-Content -LiteralPath $env:DISPATCH_MANIFEST -Raw | ConvertFrom-Json
+          if (-not [IO.Path]::IsPathFullyQualified($env:DELIVERY_SETTINGS) -or $env:DELIVERY_SETTINGS_SHA256 -cnotmatch '^[a-f0-9]{64}$') { throw 'Configure independently reviewed delivery settings.' }
+          if ((Get-Item -LiteralPath $env:DELIVERY_SETTINGS).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Redirected settings are unsupported.' }
+          $settingsBytes = [IO.File]::ReadAllBytes($env:DELIVERY_SETTINGS)
+          if ($settingsBytes.Length -gt 1048576 -or [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($settingsBytes)).ToLowerInvariant() -cne $env:DELIVERY_SETTINGS_SHA256) { throw 'Reviewed settings changed.' }
+          $settings = [Text.Encoding]::UTF8.GetString($settingsBytes) | ConvertFrom-Json
+          if ($settings.schemaVersion -ne 2 -or $null -ne $settings.revalidation -or $null -eq $settings.bundledRevalidation) { throw 'Generate schema-2 settings with submission-delivery-settings.' }
+          $manifest = @{ root = $settings.bundledRevalidation.consoleDirectory; entrypoint = 'CrestronHomeDevTools.Console.exe'; files = @($settings.bundledRevalidation.consoleFiles | ForEach-Object { @{ path = $_.relativePath; sha256 = $_.sha256 } }) }
           if (-not [IO.Path]::IsPathFullyQualified($manifest.root) -or -not (Test-Path -LiteralPath $manifest.root -PathType Container)) { throw 'Tooling installation is missing.' }
           $root = [IO.Path]::GetFullPath($manifest.root).TrimEnd('\') + '\'
           if ((Get-Item -LiteralPath $root).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Redirected tooling is unsupported.' }
@@ -56,7 +57,6 @@ jobs:
           }
           $exe = [IO.Path]::GetFullPath((Join-Path $root $manifest.entrypoint))
           if (-not $seen.Contains($exe) -or [IO.Path]::GetExtension($exe) -cne '.exe') { throw 'Pin the console executable.' }
-          if (-not [IO.Path]::IsPathFullyQualified($env:DELIVERY_SETTINGS) -or $env:DELIVERY_SETTINGS_SHA256 -cnotmatch '^[a-f0-9]{64}$') { throw 'Configure the independently reviewed delivery settings.' }
           $credentials = $env:PRIVATE_DELIVERY_CREDENTIALS
           Remove-Item Env:\PRIVATE_DELIVERY_CREDENTIALS
           if ([string]::IsNullOrWhiteSpace($credentials)) { throw 'Private delivery credentials are unavailable.' }

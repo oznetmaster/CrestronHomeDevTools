@@ -24,7 +24,7 @@ Reviewed V1 removal can preserve other instances sharing the same driver code ac
 - [Automated Crestron submission plan and progress](docs/CrestronSubmission.md)
 - [Submission delivery journal and reconciliation](docs/submission/DeliveryJournal.md) (authorized upload, SMTP delivery and uncertain-outcome handling)
 - [Final submission delivery preparation](docs/submission/DeliveryPreparation.md) (approved signed artifacts to a private plan; no sending)
-- [Bundled delivery settings](docs/submission/DeliverySetup.md) (source after 1.9.0; generate protected settings without runtime paths)
+- [Bundled delivery settings](docs/submission/DeliverySetup.md) (requires 1.10.0; generate protected settings without runtime paths)
 - [Documentation](#documentation)
 - [Build and validate](#build-and-validate)
 - [Privacy and compatibility](#privacy-and-compatibility)

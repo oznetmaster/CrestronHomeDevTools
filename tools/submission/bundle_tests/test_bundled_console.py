@@ -242,6 +242,40 @@ class BundledConsoleTests(unittest.TestCase):
         self.prepare_dispatch(source, f.root / "changed-plan.json", success=False)
         self.assertFalse((f.root / "changed-plan.json").exists())
 
+    def test_workflow_preflight_consumes_generated_settings_and_refuses_changed_pins(self):
+        f, source, path, settings = self.dispatch_fixture()
+        self.prepare_dispatch(source, path)
+        original = path.read_bytes()
+        template = Path(__file__).resolve().parents[3] / "docs/submission/submission-delivery.yml.example"
+        lines = template.read_text().split("        run: |\n", 1)[1].splitlines()
+        script = "\n".join(line[10:] for line in lines)
+        # Execute only the actual template's preflight. No credentials or process-launch code is included.
+        script = script.split("$credentials = $env:PRIVATE_DELIVERY_CREDENTIALS", 1)[0]
+        self.assertNotIn("Process]::Start", script)
+        preflight = self.hostile / "preflight.ps1"
+        preflight.write_text(script + "\nWrite-Output 'PreflightPassed'\n")
+        env = dict(self.env, DELIVERY_SETTINGS=str(path), DELIVERY_SETTINGS_SHA256=sha(original))
+
+        def run():
+            return subprocess.run([os.environ["SUBMISSION_TEST_PWSH"], "-NoProfile", "-NonInteractive", "-File", str(preflight)],
+                                  cwd=self.hostile, env=env, capture_output=True, timeout=60)
+
+        result = run()
+        self.assertEqual(result.returncode, 0, result.stderr.decode(errors="replace"))
+        self.assertIn(b"PreflightPassed", result.stdout)
+        path.write_bytes(original + b" ")
+        self.assertNotEqual(run().returncode, 0)
+        path.write_bytes(original)
+        extra = self.console.parent / "unreviewed-workflow-test.txt"
+        with extra.open("x") as file:
+            file.write("Changed after independent review")
+        try:
+            result = run()
+            self.assertNotEqual(result.returncode, 0)
+            self.assertNotIn(b"PreflightPassed", result.stdout)
+        finally:
+            extra.unlink()
+
 
 if __name__ == "__main__":
     unittest.main()

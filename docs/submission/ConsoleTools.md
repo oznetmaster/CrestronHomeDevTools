@@ -29,7 +29,7 @@ The commands take the same reviewed profiles and private settings described in t
 | Authorized signature and retained review | `submission sign-self-test-form`, `submission prepare-signed-review` | [Signing](SigningStage.md) |
 | Approved delivery preparation | `submission prepare-delivery`, `submission revalidate-delivery` | [Delivery preparation](DeliveryPreparation.md) |
 
-Source after 1.9.0 additionally provides `submission-delivery-settings` to prepare the protected delivery configuration from the installed bundle. See [Delivery setup](DeliverySetup.md) for availability, inputs and independent approval requirements.
+The `submission-delivery-settings` command requires 1.10.0 and prepares the protected delivery configuration from the installed bundle. See [Delivery setup](DeliverySetup.md) for inputs and independent approval requirements.
 
 Append `--help` to any command for its arguments. Preparation does not upload, send email or establish Crestron acceptance. Actual delivery remains a separate protected `submission-deliver` operation with its existing authorization and durable journal requirements.
 
