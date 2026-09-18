@@ -1,21 +1,39 @@
 # Crestron uploader: observed behavior and delivery work
 
-Authenticated read-only inspection on 17 September 2026 confirmed access to the [Crestron file uploader](https://uploader.crestron.com/index.php) using the shared login in the [official submission instructions](https://sdkcon78221.crestron.com/sdk/Crestron_Certified_Drivers_SDK/Content/Topics/Submit-a-Driver/Submit-a-Driver.htm). No file was uploaded, terms accepted or email sent during this inspection. This is an implementation finding, not a released upload adapter or successful submission.
+The [official submission instructions](https://sdkcon78221.crestron.com/sdk/Crestron_Certified_Drivers_SDK/Content/Topics/Submit-a-Driver/Submit-a-Driver.htm) direct developers to the [Crestron file uploader](https://uploader.crestron.com/index.php) and publish its shared login. Read-only inspection on 17 September 2026 was followed by an explicitly authorized transport test on 18 September.
 
-## What was observed
+The test uploaded a 285-byte archive containing only a transport-validation note, then downloaded it and verified identical bytes and SHA-256. It contained no driver, credentials, device settings or signature. No email or certification submission was sent. This validates one observed service flow; it does not establish a released adapter or a stable public API.
 
-The HTTPS page accepted Basic authentication. It has a multipart file form, a terms checkbox and JavaScript that selects an upload endpoint. Its [FAQ](https://uploader.crestron.com/index.php?page=faq) describes receiving a unique download URL after uploading, then sending that URL by email. The service advertises a 2048 MB limit and removes files after 35 days without a download. Keep an independent durable copy of the approved package, evidence and receipts.
+## Verified upload and retrieval flow
 
-The page source identifies a file field named `upfile` and a conditional form target of `upload.php`. No POST was made, so exact submission encoding, success/error response format and download-link validation remain unverified. These observations must not be treated as a supported, stable API contract. Recheck the actual service when implementing an adapter; do not guess a success response from the form alone.
+| Step | Observed behavior |
+| --- | --- |
+| Form and terms | HTTPS Basic authentication succeeded. The displayed form and terms matched the previously reviewed copies before the test accepted the terms. |
+| Upload | One multipart POST to `/upload.php`, with file field `upfile`, returned HTTP 200 and an HTML success message naming the file. |
+| Upload receipt | The response contained a download link and a separate delete link. Both were retained privately. HTTP 200 alone was not treated as sufficient proof. |
+| Download page | The returned `/download.php?file=...` URL served an HTML page, not the archive bytes. Its Download button selected a same-origin HTTPS `/download2.php` URL with `a` and `b` query parameters. |
+| Archive retrieval | Following that observed button target returned HTTP 200, `application/octetstream`, and exactly the original 285 bytes. The SHA-256 matched. |
 
-Review the service's [terms](https://uploader.crestron.com/index.php?page=tos) before an authorized upload. Do not embed the published login or personal delivery credentials in source code, examples, logs or public artifacts.
+The tested multipart request preserved the observed form controls: `from` with its displayed placeholder, both hidden `operation` values (`1` and `2`), and checked `agreecheck`. These are observations of that form, not permission to assume that later service versions accept the same fields. Reinspect changed forms rather than silently inventing replacements.
 
-## How this fits delivery
+The delete link used `/download.php` with `file` and `del` parameters. It was **not invoked**; deletion behavior remains unverified. Error responses, interrupted transfers, large-file handling, link expiry, redirects and replay behavior were not established by this successful small-file test. No automatic POST retry or redirect was used.
 
-The [delivery journal](DeliveryJournal.md) already persists upload/send intent and stops after uncertain outcomes. The [preparation stage](DeliveryPreparation.md) validates the signed review and prepares exact file hashes; it does not transmit them. The journal currently limits each file to 64 MiB, regardless of the uploader's larger advertised limit.
+The [FAQ](https://uploader.crestron.com/index.php?page=faq) advertises a 2048 MB limit and removal after 35 days without a download. Those are provider statements, not limits exercised by this test. Keep an independent durable copy of the approved package, evidence and receipts.
 
-A real adapter must restrict authentication to the intended HTTPS origin, disable redirects that could forward credentials, disable automatic POST retries, submit the verified package bytes once, and retain a confirmed private download receipt. Validate returned URLs against observed service behavior. Where retrieval is supported, compare downloaded bytes with the approved package hash before composing the submission email. Do not claim idempotency or implement a deletion endpoint without evidence that the provider supports it.
+## Adapter requirements and remaining work
 
-A controlled upload is still needed to establish the real response and retrieval behavior. Email-provider configuration and a controlled recipient test are separate prerequisites. The actual submission email must follow Crestron's published procedure, including the download link and signed self-test PDF. Private evidence archives and signature source images must not be attached.
+The [delivery journal](DeliveryJournal.md) persists upload/send intent and stops after uncertain outcomes. The [preparation stage](DeliveryPreparation.md) validates the signed review and prepares exact file hashes. The [process bridge](DeliveryProcessBridge.md) can revalidate that handoff immediately before each external step. These checks do not themselves implement an uploader or mail provider. The journal currently limits each file to 64 MiB.
 
-Interrupted upload or email outcomes require reconciliation using retained provider evidence. Lack of a local response does not establish that nothing was transmitted. Provider acceptance also does not establish Crestron review or approval.
+A production adapter must:
+
+- Restrict authentication and every retrieved link to the approved HTTPS origin; do not forward credentials through redirects.
+- Submit the verified package bytes once, retain the actual response privately, and distinguish the download page from the final archive.
+- Validate the returned links and downloaded package hash before confirming its upload receipt for email delivery.
+- Preserve an uncertain result for reconciliation rather than retrying the POST or creating a new journal.
+- Keep shared login credentials, download/delete tokens and raw provider responses out of public logs and artifacts.
+
+Review the service's [terms](https://uploader.crestron.com/index.php?page=tos) before an authorized upload. Do not embed the published login or personal delivery credentials in source code or examples.
+
+The supported production adapter, email-provider configuration and a controlled email test remain unfinished. An actual submission email must follow Crestron's published procedure, including the download link and signed self-test PDF. Private evidence archives and signature source images must not be attached.
+
+Provider acceptance or successful retrieval does not establish Crestron review, certification or approval. Ordinary driver and library releases remain independent of this optional submission stage.
