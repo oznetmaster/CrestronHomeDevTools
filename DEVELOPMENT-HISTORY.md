@@ -1,5 +1,9 @@
 # Development history
 
+## 18 September 2026 - Local package acceptance after 1.8.0
+
+Release builds now pass the requested version to both the library pack and standalone console publish, keeping assembly and package versions consistent. A fresh standalone console passed all eight bundle acceptance checks. An isolated consumer restored the locally built DevTools dependency through NuGet without a source-project override; the corresponding adapter and CLI passed their offline package checks with implementation-byte verification. These are local validation artifacts, not published releases. Hardware and protected-service acceptance remain separate.
+
 ## 18 September 2026 - Delivery journal resilience (local source after 1.8.0)
 
 An isolated local filesystem probe reproduced four access-denied atomic replacements in 120 small synthetic journal sequences, without using delivery code. Each failed rename later succeeded without permission changes. The responsible reader/filter was not identified; no antivirus or system settings were changed. The earlier failed regression runs remain retained.

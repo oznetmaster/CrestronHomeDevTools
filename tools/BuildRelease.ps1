@@ -9,10 +9,10 @@ try {
     & ./tools/endurance/Test-EnduranceScheduler.ps1 -ResultsDirectory artifacts/scheduler-tests
     & ./tools/Test-DiscoveredCoverageGuards.ps1
     & ./tools/Test-DiscoveredCoverage.ps1 -Configuration Release -ResultsDirectory artifacts/tests
-    dotnet pack CrestronHomeDevTools/CrestronHomeDevTools.csproj -c Release --no-build -o $release
+    dotnet pack CrestronHomeDevTools/CrestronHomeDevTools.csproj -c Release "-p:Version=$Version" -o $release
     if ($LASTEXITCODE -ne 0) { throw 'Library pack failed.' }
     $console = Join-Path $root ('artifacts/console-' + [Guid]::NewGuid().ToString('N'))
-    & ./tools/BuildSubmissionConsole.ps1 -OutputDirectory $console
+    & ./tools/BuildSubmissionConsole.ps1 -OutputDirectory $console -Version $Version
     & ./tools/TestSubmissionConsole.ps1 -ConsoleDirectory $console
     $assets = Get-Content CrestronHomeDevTools.Console/obj/project.assets.json -Raw | ConvertFrom-Json -AsHashtable
     $pack = @($assets.packageFolders.Keys | ForEach-Object { Join-Path $_ 'microsoft.netcore.app.runtime.win-x64/10.0.12' } | Where-Object { Test-Path $_ }) | Select-Object -First 1
