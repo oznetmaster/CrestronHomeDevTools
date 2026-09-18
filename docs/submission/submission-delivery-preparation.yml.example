@@ -31,9 +31,9 @@ jobs:
           repository: oznetmaster/CrestronHomeDevTools
           ref: REPLACE_WITH_AUDITED_FULL_TOOLING_COMMIT
           persist-credentials: false
-      - name: Build the pinned offline validator
+      - name: Build the pinned submission console
         shell: pwsh
-        run: dotnet build CrestronHomeDevTools.Console/CrestronHomeDevTools.Console.csproj -c Release
+        run: ./tools/BuildSubmissionConsole.ps1 -OutputDirectory artifacts/submission-console
       - name: Prepare the approved plan privately without sending
         shell: pwsh
         env:
@@ -41,10 +41,6 @@ jobs:
           DELIVERY_AUTHORIZATION: ${{ inputs.authorization_sha256 }}
         run: |
           if (-not $env:CRESTRON_SUBMISSION_DELIVERY_SETTINGS) { throw 'Private delivery settings are not configured.' }
-          $settings = Get-Content -LiteralPath $env:CRESTRON_SUBMISSION_DELIVERY_SETTINGS -Raw | ConvertFrom-Json
-          $expectedValidator = Join-Path $PWD 'CrestronHomeDevTools.Console/bin/Release/net10.0/CrestronHomeDevTools.Console.dll'
-          if ((Resolve-Path -LiteralPath $settings.validator).Path -ne (Resolve-Path -LiteralPath $expectedValidator).Path) { throw 'Select the validator built from the pinned tooling checkout.' }
-          if ((Resolve-Path -LiteralPath $settings.dotnet).Path -ne (Get-Command dotnet).Source) { throw 'Select the build runtime.' }
-          python tools/submission/prepare_delivery.py --settings "$env:CRESTRON_SUBMISSION_DELIVERY_SETTINGS" --signed-review-sha256 "$env:DELIVERY_REVIEW" --authorization-sha256 "$env:DELIVERY_AUTHORIZATION"
+          & ./artifacts/submission-console/CrestronHomeDevTools.Console.exe submission prepare-delivery --settings "$env:CRESTRON_SUBMISSION_DELIVERY_SETTINGS" --signed-review-sha256 "$env:DELIVERY_REVIEW" --authorization-sha256 "$env:DELIVERY_AUTHORIZATION"
           if ($LASTEXITCODE -ne 0) { throw 'Delivery preparation failed; no upload or email was attempted.' }
           'Delivery plan prepared privately. No upload or email was attempted.' >> $env:GITHUB_STEP_SUMMARY

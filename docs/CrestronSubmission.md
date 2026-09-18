@@ -1,5 +1,7 @@
 # Automated Crestron driver submission
 
+The [submission preparation console](submission/ConsoleTools.md) provides the document and review commands without requiring developers to manage Python. Its availability and remaining environment prerequisites are described there.
+
 This describes the optional submission stage and the state of its shared tooling. Driver-specific rollout plans, public identity, supported models, help content, UI pages and validation results belong in each driver repository. Processor test packages and independent client libraries are not portal submissions.
 
 Submission is an explicit opt-in extension, never a mandatory consequence of using the development tools. A client or library workflow ends after its configured tests and ordinary publication. A driver workflow can also update/test the installed driver and its UI without submitting anything. Only a driver release that explicitly enables submission enters the additional evidence, form, signature and delivery gates below. Those gates must not be imported as prerequisites of general test, build or GitHub/NuGet release jobs.

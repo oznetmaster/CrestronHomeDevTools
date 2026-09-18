@@ -12,8 +12,8 @@ try {
     dotnet pack CrestronHomeDevTools/CrestronHomeDevTools.csproj -c Release --no-build -o $release
     if ($LASTEXITCODE -ne 0) { throw 'Library pack failed.' }
     $console = Join-Path $root ('artifacts/console-' + [Guid]::NewGuid().ToString('N'))
-    dotnet publish CrestronHomeDevTools.Console/CrestronHomeDevTools.Console.csproj -c Release -r win-x64 --self-contained true -o $console -p:RuntimeFrameworkVersion=10.0.12 -p:DebugType=None -p:DebugSymbols=false
-    if ($LASTEXITCODE -ne 0) { throw 'Console publish failed.' }
+    & ./tools/BuildSubmissionConsole.ps1 -OutputDirectory $console
+    & ./tools/TestSubmissionConsole.ps1 -ConsoleDirectory $console
     $assets = Get-Content CrestronHomeDevTools.Console/obj/project.assets.json -Raw | ConvertFrom-Json -AsHashtable
     $pack = @($assets.packageFolders.Keys | ForEach-Object { Join-Path $_ 'microsoft.netcore.app.runtime.win-x64/10.0.12' } | Where-Object { Test-Path $_ }) | Select-Object -First 1
     if (-not $pack) { throw 'Runtime pack not found.' }

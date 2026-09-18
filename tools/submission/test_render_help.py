@@ -2,6 +2,7 @@
 # Licensed under the MIT License. See LICENSE in the repository root.
 
 import hashlib
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -130,7 +131,7 @@ class HelpRendererTests(unittest.TestCase):
         self.assertEqual(list(self.output.iterdir()), [])
 
     def test_process_timeout_stops_its_own_child(self):
-        with self.assertRaises(subprocess.TimeoutExpired):
+        with patch.dict(os.environ, {"PATH": ""}), self.assertRaises(subprocess.TimeoutExpired):
             render_help.run_process([sys.executable, "-c", "import time; time.sleep(30)"], 0.2)
 
 

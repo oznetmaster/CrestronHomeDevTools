@@ -20,6 +20,7 @@ Reviewed V1 removal can preserve other instances sharing the same driver code ac
 - [Moving drivers between rooms](docs/RoomMoves.md)
 - [Associating Android tiles with installed drivers](docs/DriverUiBinding.md)
 - [Deployment and tests](#deployment-and-tests)
+- [Submission preparation console](docs/submission/ConsoleTools.md) (source implementation; no Python setup)
 - [Automated Crestron submission plan and progress](docs/CrestronSubmission.md)
 - [Submission delivery journal and reconciliation](docs/submission/DeliveryJournal.md) (authorized upload, SMTP delivery and uncertain-outcome handling)
 - [Final submission delivery preparation](docs/submission/DeliveryPreparation.md) (approved signed artifacts to a private plan; no sending)

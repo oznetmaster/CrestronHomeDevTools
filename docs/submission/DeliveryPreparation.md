@@ -1,5 +1,7 @@
 # Final delivery preparation
 
+Command examples use the [bundled submission console](ConsoleTools.md); see that guide for source/release availability and setup.
+
 `tools/submission/prepare_delivery.py` connects the [private signing stage](SigningStage.md) to the [delivery journal](DeliveryJournal.md). It prepares a `SubmissionDeliveryPlan` after final signed-page review and separate delivery approval. It never uploads a package or sends mail. This source addition is not included in the 1.5.0 tag or NuGet package.
 
 Use this optional stage only for a driver being submitted to the portal. Ordinary releases, libraries and processor test packages do not need it.
@@ -38,14 +40,12 @@ Retain the original completed signing-copy review, signed review and approval pr
   "signedReviewDirectory": "C:/CI/Private/signed-reviews/approved-attempt",
   "reviewDirectory": "C:/CI/Private/reviews/approved-attempt",
   "authorization": "C:/CI/Private/approvals/delivery.json",
-  "dotnet": "C:/Program Files/dotnet/dotnet.exe",
-  "validator": "C:/CI/Tools/CrestronHomeDevTools.Console.dll",
   "output": "C:/CI/Private/delivery-preparations/unique-attempt"
 }
 ```
 
 ```text
-python tools/submission/prepare_delivery.py --settings PRIVATE_DELIVERY_SETTINGS --signed-review-sha256 TRUSTED_SIGNED_REVIEW_SHA256 --authorization-sha256 TRUSTED_FINAL_AUTHORIZATION_SHA256
+CrestronHomeDevTools.Console.exe submission prepare-delivery --settings PRIVATE_DELIVERY_SETTINGS --signed-review-sha256 TRUSTED_SIGNED_REVIEW_SHA256 --authorization-sha256 TRUSTED_FINAL_AUTHORIZATION_SHA256
 ```
 
 Use a pinned source checkout and the dependencies described in [ReviewStage.md](ReviewStage.md). The command checks both completion markers, the signing report and review chain, exact file hashes, final approval and expiry. It freezes the package, signed PDF and retained evidence, runs the .NET bundle validator again, checks the production Release source and checks expiry again after validation. It does not regenerate or resign the PDF.

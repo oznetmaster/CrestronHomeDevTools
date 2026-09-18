@@ -1,5 +1,13 @@
 # Development history
 
+## 18 September 2026 - Bundled submission console (source implementation after 1.8.0)
+
+The Windows console now provides the optional submission preparation commands with an isolated, hash-pinned runtime and matching evidence validator. Driver authors use console commands, JSON profiles and C# fixtures; they do not need to install or maintain Python. The complete archive retains vendor licenses, rejects missing/changed/unlisted runtime files and does not accept a settings-file validator override. Existing source-script invocations remain compatible. MSBuild help packaging accepts `SubmissionConsole`, and the protected workflow templates build the complete console automatically. Ordinary driver/library releases remain independent of submission.
+
+Local validation passed the complete 614-case .NET suite, all 193 source document-tool tests, the ten MSBuild cases and nine renderer cases after the final integration changes, and eight acceptance cases against the actual self-contained console. Download acceptance exercised empty PATH/conflicting interpreter settings, all command help, real synthetic form/evidence review, authorized synthetic signing, delivery preparation/revalidation without sending, real MSBuild help packaging without an interpreter property, and friendly rejection of an unexpected module. A synthetic-renderer attempt created cache files inside its bundled interpreter and exposed an uncaught integrity exception; that failed run was retained. The fixture now disables bytecode writes and the console handles the integrity exception. The fresh corrected build passed. This is local source validation, not a published release or service-account/hosted workflow validation, and not driver acceptance evidence.
+
+See [submission console setup](docs/submission/ConsoleTools.md). No processor was changed and no real signature, upload or email was used for this work.
+
 ## 18 September 2026 - Explicit Android case inventories (source work after 1.8.0)
 
 The Android evidence auditor now understands selected-phase producer receipts from the matching NUnit workflow source. Selected phases require an independently retained selection hash, complete discovered/selected/excluded inventories, unchanged execution settings and exact successful TRX coverage. Missing pins, changed selection, omitted cases and split duplicate names are rejected. Reports state excluded cases rather than presenting a passing subset as full-project coverage. The private review stage carries the selection pin through each required run.

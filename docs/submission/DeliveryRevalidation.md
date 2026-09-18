@@ -1,5 +1,7 @@
 # Revalidate a prepared delivery before each external step
 
+Command examples use the [bundled submission console](ConsoleTools.md); see that guide for source/release availability and setup.
+
 Current source provides `tools/submission/revalidate_delivery.py`. It is not included in the published DevTools 1.7.0 package. It supplies the offline signed-review and evidence checks needed by the [guarded delivery callback](DeliveryJournal.md#authorization-immediately-before-each-step). It never uploads or sends mail. The source [process bridge](DeliveryProcessBridge.md) supplies the guarded callback invocation; provider adapters and real protected-worker validation remain separate.
 
 Use this only for an explicitly authorized driver submission. Ordinary driver/library releases and test workflows do not need it.
@@ -20,7 +22,7 @@ Retain the completed original [delivery preparation](DeliveryPreparation.md), it
 Use an existing private parent for `output` and a new output directory for every check. The output must be separate from retained review trees and settings. Files inherit that parent's protection. Credentials, signatures, raw evidence and private paths must not enter public workflow artifacts or logs.
 
 ```text
-python tools/submission/revalidate_delivery.py --settings PRIVATE_REVALIDATION_SETTINGS --delivery-review-sha256 APPROVED_DELIVERY_RECEIPT_SHA256 --signed-review-sha256 APPROVED_SIGNED_REVIEW_SHA256 --authorization-sha256 APPROVED_FINAL_AUTHORIZATION_SHA256
+CrestronHomeDevTools.Console.exe submission revalidate-delivery --settings PRIVATE_REVALIDATION_SETTINGS --delivery-review-sha256 APPROVED_DELIVERY_RECEIPT_SHA256 --signed-review-sha256 APPROVED_SIGNED_REVIEW_SHA256 --authorization-sha256 APPROVED_FINAL_AUTHORIZATION_SHA256
 ```
 
 Pin and protect the tooling checkout, its Python dependencies and the actual .NET validator selected by the original preparation settings. The [review-stage prerequisites](ReviewStage.md) apply. Configure these paths from trusted orchestration, not pull-request inputs. The revalidator verifies artifacts and authorization content; it does not authenticate whoever supplies the pins, enforce external access-control policy, or discover an approver's intent from a JSON boolean.

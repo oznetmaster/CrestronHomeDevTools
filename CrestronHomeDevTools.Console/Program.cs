@@ -46,6 +46,14 @@ static async Task<int> RunSafelyAsync (string[] args, bool interactive = false)
 
 static async Task<int> RunAsync (string[] args, bool interactive = false)
 	{
+	if (args.FirstOrDefault () == "submission")
+		{
+		using var deadline = new CancellationTokenSource (TimeSpan.FromMinutes (45));
+		ConsoleCancelEventHandler cancel = (_, e) => { e.Cancel = true; deadline.Cancel (); };
+		Console.CancelKeyPress += cancel;
+		try { return await SubmissionToolsCommand.RunAsync (args[1..], deadline.Token); }
+		finally { Console.CancelKeyPress -= cancel; }
+		}
 	if (args.FirstOrDefault () == "submission-deliver")
 		{
 		if (interactive || !Console.IsInputRedirected)
@@ -88,6 +96,7 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
               reload-scope --device ID Show devices associated with a proposed driver reload.
 
             Protected optional submission delivery (uploads and emails):
+              submission --help        Prepare help, review forms and evidence using bundled tools.
               submission-deliver --settings FILE --settings-sha256 SHA256 --execute-approved
                                        Revalidate approved artifacts before each external step.
                                        Requires private JSON credentials on redirected standard input.

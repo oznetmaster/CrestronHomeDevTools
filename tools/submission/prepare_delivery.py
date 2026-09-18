@@ -16,6 +16,7 @@ from build_help import keys, sha, strict_object
 from package_help import read_json, write_json
 from prepare_signed_review import copy_pinned
 from render_help import run_process
+from validator_runtime import settings_validator
 from self_test_form import pinned_json
 from review_android import retained_files
 
@@ -48,15 +49,16 @@ def require_authorization(approval, receipt, receipt_digest, now):
 def prepare(settings_path, signed_review_digest, authorization_digest):
     _, settings = read_json(settings_path)
     keys(settings, ("schemaVersion", "signedReviewDirectory", "reviewDirectory", "authorization",
-                    "dotnet", "validator", "output"))
+                    "output"), ("dotnet", "validator"))
     if type(settings["schemaVersion"]) is not int or settings["schemaVersion"] != 1:
         raise ValueError("Unsupported delivery-stage settings version")
-    for name in ("signedReviewDirectory", "reviewDirectory", "authorization", "dotnet", "validator", "output"):
+    for name in ("signedReviewDirectory", "reviewDirectory", "authorization", "output"):
         if not isinstance(settings[name], str) or not Path(settings[name]).is_absolute():
             raise ValueError("Delivery-stage settings require absolute private paths")
     for pin in (signed_review_digest, authorization_digest):
         if not isinstance(pin, str) or not re.fullmatch(r"[0-9a-f]{64}", pin):
             raise ValueError("Supply independently approved lowercase SHA-256 pins")
+    validator_args = settings_validator(settings)
     signed, review = Path(settings["signedReviewDirectory"]), Path(settings["reviewDirectory"])
     receipt_bytes, receipt = pinned_json(signed / "signed-review-receipt.json", signed_review_digest)
     if (type(receipt["schemaVersion"]) is not int or receipt["schemaVersion"] != 1 or
@@ -101,7 +103,7 @@ def prepare(settings_path, signed_review_digest, authorization_digest):
                                  (receipt["signedFormFileName"], receipt["signedFormSha256"])):
             copy_pinned(signed / "delivery" / filename, delivery / filename, digest, 64 * 1024 * 1024)
         copy_pinned(review / "evidence.zip", staging / "evidence.zip", receipt["bundleSha256"], 513 * 1024 * 1024)
-        checked = run_process([settings["dotnet"], settings["validator"], "submission-bundle-check",
+        checked = run_process([*validator_args, "submission-bundle-check",
                                "--bundle", str(staging / "evidence.zip"), "--bundle-sha256", receipt["bundleSha256"],
                                "--candidate-sha256", receipt["candidateSha256"], "--scratch", str(staging)], 180)
         if checked.returncode != 0:

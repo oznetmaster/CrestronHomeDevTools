@@ -1,6 +1,10 @@
 <!-- Copyright (c) 2026 Neil Colvin. Licensed under the MIT License. See LICENSE. -->
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
+  <ItemGroup Condition="'$(SubmissionBundleDirectory)' != ''">
+    <EmbeddedResource Include="$(SubmissionBundleDirectory)/manifest.json" LogicalName="SubmissionRuntimeManifest" />
+    <None Include="$(SubmissionBundleDirectory)/**/*" Link="submission-tools/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
   <ItemGroup><ProjectReference Include="../CrestronHomeDevTools/CrestronHomeDevTools.csproj" /></ItemGroup>
   <ItemGroup>
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.9" />
@@ -11,6 +15,7 @@
     <None Include="../README.md;../DEVELOPMENT-HISTORY.md;../CHANGELOG.md;../RELEASE-NOTES.md;../THIRD-PARTY-NOTICES.md;../LICENSE" Link="%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" />
     <None Include="../docs/**/*" Link="docs/%(RecursiveDir)%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" />
     <None Include="../licenses/*" Link="licenses/%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="../tools/submission/CrestronSubmissionHelp.targets" Link="scripts/submission/CrestronSubmissionHelp.targets" CopyToPublishDirectory="PreserveNewest" />
     <None Include="../scripts/*.ps1" Link="scripts/%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" />
     <None Include="../scripts/endurance/*.ps1" Link="scripts/endurance/%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>

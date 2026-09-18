@@ -1,5 +1,7 @@
 # Signing a reviewed self-test form
 
+Command examples use the [bundled submission console](ConsoleTools.md); see that guide for source/release availability and setup.
+
 The source tool `tools/submission/sign_self_test_form.py` applies a private PNG or JPEG signature and a date to the two reviewed official text fields. It preserves the printed pages, companion matrix and checkbox values. This is an image signature, not a certificate-backed PDF signature, authentication of the test producer, permission to send email, or evidence of Crestron acceptance.
 
 This feature requires the matching DevTools source checkout and the dependencies in `tools/submission/requirements.txt`. It has been tested with synthetic forms/signatures, including the actual offline evidence validator. A real developer signature and final candidate signing remain separate validation steps.
@@ -46,7 +48,7 @@ Keep the original signature image, authorization and unsigned/signed forms priva
 ## Apply and verify
 
 ```text
-python tools/submission/sign_self_test_form.py --form Driver-Self-Test.review.pdf --form-report form-report.json --inventory INVENTORY.json --authorization PRIVATE_AUTHORIZATION.json --authorization-sha256 TRUSTED_AUTHORIZATION_SHA256 --signature-image PRIVATE_SIGNATURE.jpg --output Driver-Self-Test.signed.pdf --report signing-report.json
+CrestronHomeDevTools.Console.exe submission sign-self-test-form --form Driver-Self-Test.review.pdf --form-report form-report.json --inventory INVENTORY.json --authorization PRIVATE_AUTHORIZATION.json --authorization-sha256 TRUSTED_AUTHORIZATION_SHA256 --signature-image PRIVATE_SIGNATURE.jpg --output Driver-Self-Test.signed.pdf --report signing-report.json
 ```
 
 The tool rejects changed inputs, incomplete decisions, inconsistent validation receipts, nonblank signing fields, expired/missing approval and existing output paths. It fills canonical field values and their visible appearances, then marks all form fields read-only. The PDF remains interactive; read-only flags are not tamper-proof protection. Retain and verify the resulting signed-form hash in the final delivery bundle.

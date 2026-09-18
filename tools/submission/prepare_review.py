@@ -19,6 +19,7 @@ from package_help import read_json, write_json
 from render_help import run_process
 import self_test_form as forms
 from review_android import audit_runs
+from validator_runtime import settings_validator
 
 
 def prepare(settings_path, candidate_digest, inventory_digest, mapping_digest, source_commit, artifact_kind, *, signing_copy=False,
@@ -35,13 +36,14 @@ def prepare(settings_path, candidate_digest, inventory_digest, mapping_digest, s
         raise ValueError("Supply the full release source commit")
     _, settings = read_json(settings_path)
     keys(settings, ("schemaVersion", "candidate", "inventory", "mapping", "policy", "observations",
-                    "package", "template", "evidence", "dotnet", "validator", "output", "title", "author"), ("androidEvidence",))
+                    "package", "template", "evidence", "output", "title", "author"), ("androidEvidence", "dotnet", "validator"))
     if type(settings["schemaVersion"]) is not int or settings["schemaVersion"] != 1:
         raise ValueError("Unsupported review settings version")
     for key in ("candidate", "inventory", "mapping", "policy", "observations", "package", "template",
-                "evidence", "dotnet", "validator", "output"):
+                "evidence", "output"):
         if not isinstance(settings[key], str) or not Path(settings[key]).is_absolute():
             raise ValueError("Review settings require absolute private paths")
+    validator_args = settings_validator(settings)
     _, candidate = forms.pinned_json(settings["candidate"], candidate_digest)
     if candidate["identity"]["sourceCommit"] != source_commit:
         raise ValueError("Candidate does not identify the selected release commit")
@@ -69,14 +71,14 @@ def prepare(settings_path, candidate_digest, inventory_digest, mapping_digest, s
         rows, identity, validation_json = forms.validate_evidence(
             inventory, inventory_digest, settings["mapping"], mapping_digest,
             settings["candidate"], candidate_digest, settings["policy"], settings["observations"],
-            settings["package"], settings["template"], settings["evidence"], settings["dotnet"], settings["validator"])
+            settings["package"], settings["template"], settings["evidence"], settings.get("dotnet"), settings.get("validator"))
         identity["inventorySha256"] = inventory_digest
         form = completed / "self-test.review.pdf"
         report = forms.write_form(source, inventory, form, settings["title"], settings["author"], rows, identity, False,
                                   signing_copy=signing_copy)
         report["validationReportJson"] = validation_json
         write_json(completed / "form-report.json", report)
-        arguments = [settings["dotnet"], settings["validator"], "submission-bundle-create",
+        arguments = [*validator_args, "submission-bundle-create",
                      "--output", str(completed / "evidence.zip"), "--candidate-sha256", candidate_digest]
         for key in ("candidate", "package", "policy", "template", "observations", "evidence"):
             arguments.extend(("--" + key, settings[key]))

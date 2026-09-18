@@ -1,5 +1,7 @@
 # Audit Android evidence before submission review
 
+Command examples use the [bundled submission console](ConsoleTools.md); see that guide for source/release availability and setup.
+
 The source tool `tools/submission/audit_android.py` checks retained output from the NUnit Android workflow against independent release and producer pins. It is an offline step between the hardware run and requirement-by-requirement evidence preparation. It does not connect to the processor or emulator, operate devices, fill the form or send a submission.
 
 Use the matching DevTools source checkout and the Python dependencies in `tools/submission/requirements.txt`. The complete-producer check requires the DevTools v1.8.0 source tag or later; older tagged scripts check only the main assembly. It is not embedded in the NuGet package or console ZIP. Its producer-manifest contract also requires CrestronHomeNUnit workflow 1.11.1 or later; older workflows do not create these files.
@@ -18,7 +20,7 @@ Do not calculate replacement pins from whatever files a worker returns. A hash s
 Use the private `AndroidUI` results directory from a completed workflow. It contains `context.json`, `completion.json`, `coverage.json`, `discovery.dump`, `producer-manifest.json`, `producer-pin.json`, one `TestResult*.trx`, the `assembly` folder and capture folders. Keep this directory private: its context, screenshots and hierarchy files can identify the household. Private fixture settings and credentials are not arguments to this command. Fixtures must write their results outside `assembly/`; the retained producer directory must not change during execution.
 
 ```text
-python tools/submission/audit_android.py --candidate PRIVATE_CANDIDATE_JSON --candidate-sha256 TRUSTED_CANDIDATE_SHA256 --evidence PRIVATE_ANDROIDUI_DIRECTORY --run-id TRUSTED_RUN_ID --assembly Example.AndroidTests.dll --assembly-sha256 TRUSTED_ASSEMBLY_SHA256 --discovery-sha256 TRUSTED_DISCOVERY_SHA256 --producer-manifest-sha256 TRUSTED_PRODUCER_MANIFEST_SHA256 --output NEW_PRIVATE_AUDIT_JSON
+CrestronHomeDevTools.Console.exe submission audit-android --candidate PRIVATE_CANDIDATE_JSON --candidate-sha256 TRUSTED_CANDIDATE_SHA256 --evidence PRIVATE_ANDROIDUI_DIRECTORY --run-id TRUSTED_RUN_ID --assembly Example.AndroidTests.dll --assembly-sha256 TRUSTED_ASSEMBLY_SHA256 --discovery-sha256 TRUSTED_DISCOVERY_SHA256 --producer-manifest-sha256 TRUSTED_PRODUCER_MANIFEST_SHA256 --output NEW_PRIVATE_AUDIT_JSON
 ```
 
 These uppercase values are placeholders. The output's parent must exist. Existing output files are never overwritten. Exit 0 means the audit passed and the report was written; nonzero means the job must stop. Treat a missing report as incomplete even if a previous attempt passed. Ordinary releases that deliberately omit unavailable hardware can still proceed under their existing policy, but the submission path must remain pending.

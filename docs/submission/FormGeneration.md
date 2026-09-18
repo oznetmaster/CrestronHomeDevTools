@@ -1,25 +1,21 @@
 # Generating the official self-test review form
 
-`tools/submission/self_test_form.py` generates an unsigned, interactive review PDF. It preserves the official form's printed pages, adds a companion matrix, and can populate checkboxes from evidence checked by the existing DevTools offline validator. It does not apply a signature/date, upload, email, authorize delivery or claim Crestron acceptance. These Python tools require the matching DevTools source checkout; they are not embedded in the NuGet package or console ZIP.
+Command examples use the [bundled submission console](ConsoleTools.md); see that guide for source/release availability and setup.
+
+`tools/submission/self_test_form.py` generates an unsigned, interactive review PDF. It preserves the official form's printed pages, adds a companion matrix, and can populate checkboxes from evidence checked by the existing DevTools offline validator. It does not apply a signature/date, upload, email, authorize delivery or claim Crestron acceptance. Use the matching bundled console; the document runtime is not a dependency of the NuGet configuration library.
 
 The [submission plan](../CrestronSubmission.md) remains authoritative for the work still required. A generated form is one build artifact, not a replacement for the complete driver-specific policy, trusted evidence producer, visual review and signing authorization.
 
 ## Inputs and installation
 
-Install the pinned Python dependencies in `tools/submission/requirements.txt` and build the DevTools console in Release. ReportLab adds the companion pages; pypdf preserves and fills the interactive official pages. Neither Word nor a desktop application is needed. The separate document-test workflow builds the console and runs all discovered tests on Windows and Linux; hosted execution of these new changes remains to be verified.
-
-```text
-python -m pip install -r tools/submission/requirements.txt
-dotnet build CrestronHomeDevTools.Console/CrestronHomeDevTools.Console.csproj -c Release
-python tools/submission/run_tests.py
-```
+Use the complete console described in [Console tools](ConsoleTools.md). No Python installation or Word application is needed. The bundled PDF libraries generate the companion pages and preserve the interactive official form. Run `CrestronHomeDevTools.Console.exe submission runtime-check` before preparation.
 
 Download the applicable original form from Crestron's published source. Do not commit the proprietary template or a signed form to this repository. The [Extension inventory](extension-inventory.json) and [Video Server inventory](video-server-inventory.json) contain the inspected template hashes, page/field mappings and known minimum observation durations. Pin the reviewed inventory's own SHA-256 separately in the trusted workflow. A template or field-layout revision requires inspection and an explicit inventory update.
 
 ## Draft without attestations
 
 ```text
-python tools/submission/self_test_form.py draft --template OFFICIAL.pdf --inventory INVENTORY.json --inventory-sha256 PINNED_INVENTORY_SHA256 --output Driver-Self-Test.review.pdf --title "Driver self-test plan" --author "Developer name" --report draft-report.json
+CrestronHomeDevTools.Console.exe submission self-test-form draft --template OFFICIAL.pdf --inventory INVENTORY.json --inventory-sha256 PINNED_INVENTORY_SHA256 --output Driver-Self-Test.review.pdf --title "Driver self-test plan" --author "Developer name" --report draft-report.json
 ```
 
 This produces an unsigned review matrix followed by the original form. Every item is marked not evaluated and all checkboxes remain off. Signature/date fields stay blank. Candidate/evidence arguments are rejected in this mode so an unevaluated draft cannot be mistaken for an evidence-backed result. Use fresh output/report paths; an existing artifact is never overwritten.
@@ -55,7 +51,7 @@ This illustrative subset cannot pass: a real mapping must cover every official i
 Retain the mapping's SHA-256 in the trusted workflow separately from hardware-worker output, then run:
 
 ```text
-python tools/submission/self_test_form.py from-evidence --template OFFICIAL.pdf --inventory INVENTORY.json --inventory-sha256 PINNED_INVENTORY_SHA256 --mapping form-mapping.json --mapping-sha256 APPROVED_MAPPING_SHA256 --candidate candidate.json --candidate-sha256 TRUSTED_CANDIDATE_SHA256 --policy policy.json --observations observations.json --package Driver.pkg --evidence EVIDENCE_DIRECTORY --dotnet ABSOLUTE_DOTNET_EXE --validator ABSOLUTE_DEVTOOLS_CONSOLE_DLL --output Driver-Self-Test.review.pdf --title "Driver self-test plan" --author "Developer name" --report form-report.json
+CrestronHomeDevTools.Console.exe submission self-test-form from-evidence --template OFFICIAL.pdf --inventory INVENTORY.json --inventory-sha256 PINNED_INVENTORY_SHA256 --mapping form-mapping.json --mapping-sha256 APPROVED_MAPPING_SHA256 --candidate candidate.json --candidate-sha256 TRUSTED_CANDIDATE_SHA256 --policy policy.json --observations observations.json --package Driver.pkg --evidence EVIDENCE_DIRECTORY --output Driver-Self-Test.review.pdf --title "Driver self-test plan" --author "Developer name" --report form-report.json
 ```
 
 Use the same package, official template, policy and observation bytes retained by the candidate workflow. The generator invokes `submission-evidence-check` itself; it does not accept a user-supplied `passed: true` report. A failed validator or changed candidate/observation/policy/template identity stops generation. It then checks the complete mapping and any inventory duration floor. The known 24-hour requirement must map to a policy observation requiring at least 24 hours; adding shorter observations together does not satisfy that floor. Continuous functional observation and the remaining outage subconditions still belong in the approved policy and test producer.

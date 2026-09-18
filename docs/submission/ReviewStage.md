@@ -1,6 +1,8 @@
 # Optional private CI review stage
 
-The source `tools/submission/prepare_review.py` connects evidence validation, unsigned form generation and private evidence retention. This is the review preparation portion of the final submission stage. It does not execute missing tests, authenticate the evidence producer, approve a policy, render/sign a form or upload/email a submission. This Python script requires a pinned DevTools source checkout; it is not embedded in the NuGet package or console ZIP. The optional signing-copy handoff described below requires the 1.6.0 tagged source or later; see [source availability](../../README.md#get-started).
+Command examples use the [bundled submission console](ConsoleTools.md); see that guide for source/release availability and setup.
+
+The source `tools/submission/prepare_review.py` connects evidence validation, unsigned form generation and private evidence retention. This is the review preparation portion of the final submission stage. It does not execute missing tests, authenticate the evidence producer, approve a policy, render/sign a form or upload/email a submission. The bundled console supplies this command and its matching validator. The optional signing-copy handoff described below requires the 1.6.0 tagged source or later; see [source availability](../../README.md#get-started).
 
 Use this only after testing an immutable actual-driver Release candidate. Ordinary build/test/publication jobs remain independent. Client/library and processor-test releases must not invoke it. The command rejects those artifact kinds and Debug revision numbers. A GitHub release does not imply portal submission.
 
@@ -21,8 +23,6 @@ Create a private settings file on the worker with exactly these fields (replace 
   "package": "C:/CI/Private/NeilColvin_Platform_Example_IP.pkg",
   "template": "C:/CI/Private/Extension-Test-Plan.pdf",
   "evidence": "C:/CI/Private/evidence",
-  "dotnet": "C:/Program Files/dotnet/dotnet.exe",
-  "validator": "C:/CI/Tools/CrestronHomeDevTools.Console.dll",
   "output": "C:/CI/Private/reviews/unique-release-attempt",
   "title": "Example driver release self-test review",
   "author": "Example Developer"
@@ -32,7 +32,7 @@ Create a private settings file on the worker with exactly these fields (replace 
 The output's parent must already exist with appropriate private access rules. Use a unique attempt directory; an existing output is never overwritten. No credentials are needed for this offline stage. Raw screenshots, household details and observation rationales can be private, so do not upload these outputs as public Actions artifacts or GitHub release assets.
 
 ```text
-python tools/submission/prepare_review.py --settings PRIVATE_SETTINGS_FILE --artifact-kind driver --source-commit FULL_RELEASE_COMMIT --candidate-sha256 TRUSTED_CANDIDATE_SHA256 --inventory-sha256 REVIEWED_INVENTORY_SHA256 --mapping-sha256 REVIEWED_MAPPING_SHA256
+CrestronHomeDevTools.Console.exe submission prepare-review --settings PRIVATE_SETTINGS_FILE --artifact-kind driver --source-commit FULL_RELEASE_COMMIT --candidate-sha256 TRUSTED_CANDIDATE_SHA256 --inventory-sha256 REVIEWED_INVENTORY_SHA256 --mapping-sha256 REVIEWED_MAPPING_SHA256
 ```
 
 The command invokes the real .NET evidence validator before filling any checkbox, then creates a bundle whose copied contents are validated again. Form and bundle must identify the same candidate, observations and package. A mutation that invalidates retained evidence between stages fails the operation. Inventory and mapping copies are retained against their independent pins. The signature/date fields remain blank.
@@ -83,14 +83,12 @@ The review retains `android-pins.json` and `android-audit.json` beside its other
 
 For Android evidence, supply the independent `android_pins_sha256` workflow input and configure `CRESTRON_SUBMISSION_ANDROID_PINS` as the private retained pins-file path on the review worker. This digest comes from the trusted coordinator, not the test worker's results. Omission cannot bypass a policy's Android-method requirements. The modified template and the review/signing/delivery integration require source newer than 1.8.0; pin the reviewed commit that contains them.
 
-[submission-review.yml.example](submission-review.yml.example) is a reusable workflow template for a private orchestration repository and a dedicated Windows worker. Copy it to `.github/workflows/submission-review.yml`, replace the tooling commit placeholder with an audited full commit, and install the documented Python dependencies and .NET 10 on that worker. The private environment variable `CRESTRON_SUBMISSION_REVIEW_SETTINGS` points to its settings file. Set `validator` to the console built by the template in that worker's checkout.
+[submission-review.yml.example](submission-review.yml.example) is a reusable workflow template for a private orchestration repository and a dedicated Windows worker. Copy it to `.github/workflows/submission-review.yml`, replace the tooling commit placeholder with an audited full commit, and install PowerShell 7 and the .NET 10 SDK on that worker. The build script provisions the pinned internal runtime automatically. The private environment variable `CRESTRON_SUBMISSION_REVIEW_SETTINGS` points to its settings file. Omit `dotnet` and `validator`; the prepared console selects its matching validator.
 
 Call it as a separate downstream job with `needs` referencing the successful release/evidence jobs. Set `enabled` only through an explicit driver submission choice. Its optional `prepare_for_signing` boolean defaults to false; selecting it only prepares the unsigned signing copy. The template never changes ordinary release gates and does not upload private outputs. Use a private, trusted orchestration repository; do not call it from pull-request workflows or expose the worker to untrusted source. Current rollout policies still lack complete real Release evidence, so no production submission job has been enabled by adding this template.
 
 On 16 September 2026, a separate manual workflow executed the submission validation and all document-tool integration tests under the installed Windows GitHub runner service (NETWORK SERVICE), using DevTools source commit `889441c8fb2406d70c0958acb42b7a68848d8687`. This includes actual .NET/Python review preparation with clearly labelled synthetic evidence and rejection when evidence changes between form generation and bundle creation. No processor, emulator, real signature or sender was used. The reusable template itself still needs validation with a real reviewed Release candidate; this service check is not driver acceptance evidence.
 
-### Python on a Windows service worker
+### Windows service workers
 
-The ordinary `setup-python` installer failed under this service account. The successful workflow instead used Python's [official NuGet distribution for CI](https://docs.python.org/3.12/using/windows.html#the-nuget-org-packages), extracted into the job's temporary directory. It verified the downloaded package SHA-256, ran `tools/python.exe -m ensurepip --default-pip`, and installed this repository's pinned `tools/submission/requirements.txt` using that same executable. The validated package was `python` 3.12.10, SHA-256 `0eb85c2dfccccf1b17352de4c397f69194035b7d37149eacc16f1147d93de3b8`.
-
-Use an explicitly selected interpreter throughout the job, and review new versions before updating its pin. This portable approach does not require installing Python globally or changing the developer's desktop Python. It is distinct from Python's minimal embedded distribution. Private results and inputs still need appropriate service-account access. See the [full submission plan](../CrestronSubmission.md) for remaining hardware and delivery work.
+The bundled console removes the need to install or select a Python interpreter on the service account. Use the same complete console and private settings as an interactive run. A source-pinned workflow calls `BuildSubmissionConsole.ps1` to provision its runtime automatically. The earlier September16 service rehearsal predates this packaging change; packaged-console service validation and real Release-candidate workflow validation remain separate from local offline acceptance.

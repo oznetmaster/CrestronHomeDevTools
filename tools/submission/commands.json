@@ -1,0 +1,15 @@
+{
+  "audit-android": "audit_android",
+  "build-help": "build_help",
+  "coverage-plan": "coverage_plan",
+  "dependency-notices": "dependency_notices",
+  "normalize-package": "normalize_package",
+  "package-help": "package_help",
+  "prepare-delivery": "prepare_delivery",
+  "prepare-review": "prepare_review",
+  "prepare-signed-review": "prepare_signed_review",
+  "render-help": "render_help",
+  "revalidate-delivery": "revalidate_delivery",
+  "self-test-form": "self_test_form",
+  "sign-self-test-form": "sign_self_test_form"
+}

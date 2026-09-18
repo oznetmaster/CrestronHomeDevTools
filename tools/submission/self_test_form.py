@@ -23,6 +23,7 @@ from reportlab.platypus.doctemplate import LayoutError
 from build_help import keys, sha, strict_object, text
 from package_help import read_json, write_json
 from render_help import run_process
+from validator_runtime import validator_command
 
 
 def pinned_json(path, expected):
@@ -148,16 +149,14 @@ def decisions(inventory, inventory_digest, mapping, policy, observations):
 
 def validate_evidence(inventory, inventory_digest, mapping_path, mapping_digest, candidate_path,
                       candidate_digest, policy_path, observations_path, package_path, template_path,
-                      evidence_directory, dotnet, validator):
+                      evidence_directory, dotnet=None, validator=None):
     candidate_bytes, candidate = pinned_json(candidate_path, candidate_digest)
     mapping_bytes, mapping = pinned_json(mapping_path, mapping_digest)
     policy_bytes, policy = pinned_json(policy_path, candidate["identity"]["policySha256"])
     observation_bytes, observations = read_json(observations_path)
     if mapping["policySha256"] != sha(policy_bytes) or candidate["identity"]["templateSha256"] != inventory["templateSha256"]:
         raise ValueError("Policy or official form identity differs from the candidate")
-    if not Path(dotnet).is_file() or not Path(validator).is_file():
-        raise ValueError("Provide explicit .NET and DevTools console DLL paths")
-    arguments = [str(dotnet), str(validator), "submission-evidence-check", "--candidate", str(candidate_path),
+    arguments = [*validator_command(dotnet, validator), "submission-evidence-check", "--candidate", str(candidate_path),
                  "--candidate-sha256", candidate_digest, "--package", str(package_path), "--policy", str(policy_path),
                  "--template", str(template_path), "--observations", str(observations_path), "--evidence", str(evidence_directory)]
     result = run_process(arguments, 120)
@@ -307,12 +306,12 @@ def main():
         identity = {"inventorySha256": args.inventory_sha256}
         validation_json = None
         evidence_options = (args.mapping, args.mapping_sha256, args.candidate, args.candidate_sha256, args.policy,
-                            args.observations, args.package, args.evidence, args.dotnet, args.validator)
-        if args.mode == "draft" and any(evidence_options):
+                            args.observations, args.package, args.evidence)
+        if args.mode == "draft" and any((*evidence_options, args.dotnet, args.validator)):
             raise ValueError("Use from-evidence mode to evaluate candidate evidence; draft mode never attests tests")
         if args.mode in ("from-evidence", "for-signing"):
             if not all(evidence_options):
-                raise ValueError("Evidence mode requires all pinned candidate, policy, mapping and validator inputs")
+                raise ValueError("Evidence mode requires all pinned candidate, policy and mapping inputs")
             rows, checked, validation_json = validate_evidence(inventory, args.inventory_sha256, args.mapping, args.mapping_sha256,
                 args.candidate, args.candidate_sha256, args.policy, args.observations, args.package, args.template,
                 args.evidence, args.dotnet, args.validator)

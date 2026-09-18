@@ -48,7 +48,7 @@ def revalidate(settings_path, delivery_review_digest, signed_review_digest, auth
     pinned_json(prepared / "validation-report.json", receipt["validationReportSha256"])
     prepare_delivery.require_authorization(approval, signed, signed_review_digest, datetime.now(timezone.utc))
     _, original_settings = read_json(settings["preparationSettings"])
-    keys(original_settings, ("schemaVersion", "signedReviewDirectory", "reviewDirectory", "authorization", "dotnet", "validator", "output"))
+    keys(original_settings, ("schemaVersion", "signedReviewDirectory", "reviewDirectory", "authorization", "output"), ("dotnet", "validator"))
     _, unsigned = pinned_json(Path(original_settings["reviewDirectory"]) / "review-receipt.json", signed["reviewReceiptSha256"])
     prepared_android = retained_files(prepared, unsigned)
     # Reject output layouts that could alter any retained review tree or private settings input.

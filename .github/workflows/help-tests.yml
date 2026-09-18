@@ -29,3 +29,9 @@ jobs:
         run: dotnet build CrestronHomeDevTools.Console/CrestronHomeDevTools.Console.csproj -c Release
       - name: Run all discovered offline document tests
         run: python tools/submission/run_tests.py
+      - name: Build and test the Windows console download
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          ./tools/BuildSubmissionConsole.ps1 -OutputDirectory artifacts/submission-console
+          ./tools/TestSubmissionConsole.ps1 -ConsoleDirectory artifacts/submission-console

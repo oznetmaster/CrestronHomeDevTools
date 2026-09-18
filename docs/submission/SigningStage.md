@@ -1,6 +1,8 @@
 # Private signing stage
 
-The source tool `tools/submission/prepare_signed_review.py` connects a completed [unsigned signing-copy review](ReviewStage.md) to the [image signer](FormSigning.md). It revalidates the retained evidence at signing time and prepares the exact package and signed form in a separate delivery folder. It never uploads or sends them. Use the 1.6.0 tagged source or later; this Python tool is not embedded in the NuGet package or console ZIP.
+Command examples use the [bundled submission console](ConsoleTools.md); see that guide for source/release availability and setup.
+
+The source tool `tools/submission/prepare_signed_review.py` connects a completed [unsigned signing-copy review](ReviewStage.md) to the [image signer](FormSigning.md). It revalidates the retained evidence at signing time and prepares the exact package and signed form in a separate delivery folder. It never uploads or sends them. Use the complete matching console as described in the setup guide above.
 
 Use it only after the final driver Release candidate and all applicable evidence have passed review. Ordinary driver/library releases remain independent of portal submission. A completed signing stage means that authorized files were prepared, not that a driver was submitted or certified.
 
@@ -18,8 +20,6 @@ The private settings file has exactly these fields:
   "reviewDirectory": "C:/CI/Private/reviews/approved-attempt",
   "authorization": "C:/CI/Private/signing/authorization.json",
   "signatureImage": "C:/CI/Private/signing/signature.jpg",
-  "dotnet": "C:/Program Files/dotnet/dotnet.exe",
-  "validator": "C:/CI/Tools/CrestronHomeDevTools.Console.dll",
   "output": "C:/CI/Private/signed-reviews/unique-attempt"
 }
 ```
@@ -27,7 +27,7 @@ The private settings file has exactly these fields:
 The output parent must already exist with private access rules. Select a new output directory for each authorized preparation; an existing directory is never replaced. Install the source checkout's pinned Python dependencies and .NET 10 as described in [ReviewStage.md](ReviewStage.md).
 
 ```text
-python tools/submission/prepare_signed_review.py --settings PRIVATE_SIGNING_SETTINGS --review-sha256 TRUSTED_REVIEW_RECEIPT_SHA256 --authorization-sha256 TRUSTED_SIGNING_AUTHORIZATION_SHA256
+CrestronHomeDevTools.Console.exe submission prepare-signed-review --settings PRIVATE_SIGNING_SETTINGS --review-sha256 TRUSTED_REVIEW_RECEIPT_SHA256 --authorization-sha256 TRUSTED_SIGNING_AUTHORIZATION_SHA256
 ```
 
 ## Checks and outputs

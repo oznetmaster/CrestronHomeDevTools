@@ -72,9 +72,9 @@ else:
 '''.replace("TOOLS", repr(str(self.tools))), encoding="utf-8")
         renderer = self.root / ("renderer.cmd" if os.name == "nt" else "renderer")
         if os.name == "nt":
-            renderer.write_text(f'@"{sys.executable}" "{fake}" %*\n', encoding="utf-8")
+            renderer.write_text(f'@"{sys.executable}" -B "{fake}" %*\n', encoding="utf-8")
         else:
-            renderer.write_text(f'#!/bin/sh\nexec {shlex.quote(sys.executable)} {shlex.quote(str(fake))} "$@"\n', encoding="utf-8")
+            renderer.write_text(f'#!/bin/sh\nexec {shlex.quote(sys.executable)} -B {shlex.quote(str(fake))} "$@"\n', encoding="utf-8")
             renderer.chmod(0o700)
         project = ET.Element("Project")
         props = ET.SubElement(project, "PropertyGroup")
@@ -98,7 +98,7 @@ else:
         ET.SubElement(pack, "MakeDir", Directories="$(TargetDir)patched/IncludeInPkg")
         ET.SubElement(pack, "WriteLinesToFile", File="$(TargetDir)patched/IncludeInPkg/UiDefinition.xml", Lines="ordinary asset")
         ET.SubElement(pack, "CallTarget", Targets="StageSubmissionHelp", Condition="'$(CrestronSubmission)' == 'true'")
-        ET.SubElement(pack, "Exec", Command=f'"{sys.executable}" "{fake}" pack "$(TargetDir)." "$(AssemblyName)"',
+        ET.SubElement(pack, "Exec", Command=f'"{sys.executable}" -B "{fake}" pack "$(TargetDir)." "$(AssemblyName)"',
                       Condition="'$(CrestronSubmission)' == 'true'")
         ET.SubElement(pack, "CallTarget", Targets="VerifySubmissionHelp", Condition="'$(CrestronSubmission)' == 'true'")
         self.project = self.root / "build.proj"

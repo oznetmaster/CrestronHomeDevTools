@@ -48,7 +48,8 @@ def run_process(arguments, timeout):
         except subprocess.TimeoutExpired:
             # Stop only this renderer process tree before removing its private scratch files.
             if os.name == "nt":
-                subprocess.run(["taskkill.exe", "/PID", str(process.pid), "/T", "/F"],
+                taskkill = Path(os.environ["SystemRoot"]) / "System32" / "taskkill.exe"
+                subprocess.run([str(taskkill), "/PID", str(process.pid), "/T", "/F"],
                                capture_output=True, timeout=15, creationflags=flags)
             else:
                 os.killpg(process.pid, signal.SIGKILL)

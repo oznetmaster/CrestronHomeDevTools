@@ -1,5 +1,7 @@
 # Building driver help without a desktop
 
+Command examples use the [bundled submission console](ConsoleTools.md); see that guide for source/release availability and setup.
+
 Crestron requires a help PDF inside each submission package with the same basename and case as the package and driver DLL. Build this PDF before assembling the release candidate; adding it after testing changes the package digest and invalidates candidate-bound evidence.
 
 The [official Resources page](https://sdkcon78221.crestron.com/sdk/Crestron_Certified_Drivers_SDK/Content/Topics/Resources/Resources.htm) links the [driver help template](https://sdkcon78221.crestron.com/downloads/CrestronDriversHelpFileTemplate.docx). The template inspected on 16 September 2026 has SHA-256 `6c01061f86b7d3c52b602997616b5ea3663addd78fa7605992e3c3bfbf449efb`. Download it into the build workspace and verify its digest; do not commit the SDK template into this repository. An upstream revision requires inspection and an explicit pin update.
@@ -24,11 +26,11 @@ The extracted renderer successfully converted all three pages of the unchanged o
 
 ## Source tools
 
-The source-only Python tools are in `tools/submission`; they are not embedded in the console ZIP or NuGet package. Use the matching tagged DevTools checkout. Install their pinned Python dependencies from `tools/submission/requirements.txt`. No Word/COM automation or Crestron SDK assemblies are used. The original official DOCX is supplied locally, not redistributed with these tools.
+Use the [bundled console](ConsoleTools.md); its internal document runtime needs no separate installation. No Word/COM automation or Crestron SDK assemblies are used. The original official DOCX is supplied locally, not redistributed with these tools.
 
 ```text
-python tools/submission/build_help.py --template OFFICIAL.docx --template-sha256 PINNED_SHA256 --content help-content.json --output Driver.review.docx --draft
-python tools/submission/render_help.py --docx Driver.review.docx --docx-sha256 BUILD_REPORT_SHA256 --soffice ABSOLUTE_LIBREOFFICE_EXECUTABLE --output-directory pdf-output
+CrestronHomeDevTools.Console.exe submission build-help --template OFFICIAL.docx --template-sha256 PINNED_SHA256 --content help-content.json --output Driver.review.docx --draft
+CrestronHomeDevTools.Console.exe submission render-help --docx Driver.review.docx --docx-sha256 BUILD_REPORT_SHA256 --soffice ABSOLUTE_LIBREOFFICE_EXECUTABLE --output-directory pdf-output
 ```
 
 `BUILD_REPORT_SHA256` is the `docxSha256` from the first command's JSON output, retained by the build job. Use a fresh output path/directory. Existing documents are never overwritten. The builder checks the template digest and section layout, preserves unchanged ZIP parts byte-for-byte, and supports prose, bullets, headings and PNG figures. The renderer uses a short private system-temporary working directory and isolated LibreOffice profile so deep MSBuild output paths are not passed to LibreOffice. It copies only the verified result to the requested destination, suppresses desktop windows, bounds execution time, stops its renderer process tree on timeout and rejects missing, encrypted, attachment-bearing or text-incomplete PDFs. Its report records the PDF hash, renderer version and page count. Visual inspection remains necessary; source text extraction alone cannot prove that a page is free of clipping or that an image is correct.
@@ -45,7 +47,7 @@ A development review draft was rendered and visually inspected against the pinne
 
 ## Package build integration
 
-`package_help.py` and `CrestronSubmissionHelp.targets` connect help generation to a new-driver submission build. The tools remain source-only, outside the released DevTools package. Check out a reviewed, pinned DevTools source revision alongside the driver and set `SubmissionToolsDirectory` to its `tools/submission` directory. Do not add a modern .NET DevTools dependency to the processor driver's `net472` project.
+`submission package-help` and `CrestronSubmissionHelp.targets` connect help generation to a new-driver submission build. Set `SubmissionConsole` to the complete console executable and import the targets from its `scripts/submission` directory. The source build also retains the older explicit-interpreter route for maintainer compatibility. Do not add a modern .NET DevTools dependency to the processor driver's `net472` project.
 
 The sequence is enforced as follows:
 
@@ -60,8 +62,8 @@ Keep the DOCX, PDF, `help-receipt.json`, `package-paths.json` and `packaged-help
 | Property | Value |
 |---|---|
 | `CrestronSubmission` | `true` to opt in; ordinary builds do not require document tools |
-| `SubmissionToolsDirectory` | Pinned source checkout's `tools/submission` directory |
-| `SubmissionPython` | Absolute Python executable path, with the pinned requirements installed |
+| `SubmissionToolsDirectory` | Complete console download's `scripts/submission` directory |
+| `SubmissionConsole` | Absolute path to `CrestronHomeDevTools.Console.exe`; no interpreter setting required |
 | `SubmissionSoffice` | Absolute LibreOffice console executable: `soffice.com` on Windows, `soffice` on Linux |
 | `SubmissionHelpTemplate` | Local copy of the official help DOCX |
 | `SubmissionHelpTemplateSha256` | Reviewed template digest |

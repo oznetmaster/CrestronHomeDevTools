@@ -1,5 +1,7 @@
 # Reviewed dependency notices in a submission package
 
+Command examples use the [bundled submission console](ConsoleTools.md); see that guide for source/release availability and setup.
+
 The source tool `tools/submission/dependency_notices.py` binds license and notice text to the DLLs actually passed to a driver's merge command. It generates a root `THIRD-PARTY-NOTICES.txt` and checks the same bytes after packaging. It does not discover licensing obligations automatically or replace review of the upstream licenses.
 
 Review the actual driver license and every merged dependency's license and required notices. Match the DLLs byte-for-byte to the restored package assets. Use notice files from those packages where appropriate; a repository-wide notice may cover unrelated components and is not an automatic substitute.
@@ -22,8 +24,8 @@ The build must retain `$(TargetDir)merge_inputs.txt`, containing the exact absol
 ## Standalone use
 
 ```text
-python tools/submission/dependency_notices.py stage --manifest DRIVER/submission/dependency-notices.json --merge-inputs BUILD/merge_inputs.txt --driver-assembly BUILD/Driver.dll --include-directory BUILD/patched/IncludeInPkg --receipt PRIVATE/notices-receipt.json
-python tools/submission/dependency_notices.py verify --manifest DRIVER/submission/dependency-notices.json --merge-inputs BUILD/merge_inputs.txt --driver-assembly BUILD/Driver.dll --receipt PRIVATE/notices-receipt.json --package BUILD/Driver.pkg --report PRIVATE/packaged-notices.json
+CrestronHomeDevTools.Console.exe submission dependency-notices stage --manifest DRIVER/submission/dependency-notices.json --merge-inputs BUILD/merge_inputs.txt --driver-assembly BUILD/Driver.dll --include-directory BUILD/patched/IncludeInPkg --receipt PRIVATE/notices-receipt.json
+CrestronHomeDevTools.Console.exe submission dependency-notices verify --manifest DRIVER/submission/dependency-notices.json --merge-inputs BUILD/merge_inputs.txt --driver-assembly BUILD/Driver.dll --receipt PRIVATE/notices-receipt.json --package BUILD/Driver.pkg --report PRIVATE/packaged-notices.json
 ```
 
 Use absolute build paths and new receipt/report files under an existing private parent. Existing staged notices are not overwritten. Stage/verify exit nonzero on failure. Keep the receipt and verification report with the candidate build artifacts; they record hashes and assembly names, not machine paths. Only the generated notice text belongs in the package.

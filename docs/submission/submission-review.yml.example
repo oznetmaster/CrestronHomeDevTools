@@ -48,9 +48,9 @@ jobs:
           repository: oznetmaster/CrestronHomeDevTools
           ref: REPLACE_WITH_AUDITED_FULL_TOOLING_COMMIT
           persist-credentials: false
-      - name: Build the pinned offline validator
+      - name: Build the pinned submission console
         shell: pwsh
-        run: dotnet build CrestronHomeDevTools.Console/CrestronHomeDevTools.Console.csproj -c Release
+        run: ./tools/BuildSubmissionConsole.ps1 -OutputDirectory artifacts/submission-console
       - name: Prepare private unsigned review
         shell: pwsh
         env:
@@ -63,16 +63,12 @@ jobs:
           REVIEW_ANDROID_PINS: ${{ inputs.android_pins_sha256 }}
         run: |
           if (-not $env:CRESTRON_SUBMISSION_REVIEW_SETTINGS) { throw 'Private review settings are not configured.' }
-          $settings = Get-Content -LiteralPath $env:CRESTRON_SUBMISSION_REVIEW_SETTINGS -Raw | ConvertFrom-Json
-          $expectedValidator = Join-Path $PWD 'CrestronHomeDevTools.Console/bin/Release/net10.0/CrestronHomeDevTools.Console.dll'
-          if ((Resolve-Path -LiteralPath $settings.validator).Path -ne (Resolve-Path -LiteralPath $expectedValidator).Path) { throw 'Private settings must select the validator built from the pinned tooling checkout.' }
-          if ((Resolve-Path -LiteralPath $settings.dotnet).Path -ne (Get-Command dotnet).Source) { throw 'Private settings must select the build runtime.' }
           $reviewOptions = @()
           if ($env:REVIEW_SIGNING_COPY -eq 'true') { $reviewOptions += '--prepare-for-signing' }
           if ($env:REVIEW_ANDROID_PINS) {
             if (-not $env:CRESTRON_SUBMISSION_ANDROID_PINS) { throw 'Independent Android pins are not configured.' }
             $reviewOptions += @('--android-pins', $env:CRESTRON_SUBMISSION_ANDROID_PINS, '--android-pins-sha256', $env:REVIEW_ANDROID_PINS)
           }
-          python tools/submission/prepare_review.py --settings "$env:CRESTRON_SUBMISSION_REVIEW_SETTINGS" --artifact-kind "$env:REVIEW_KIND" --source-commit "$env:REVIEW_SOURCE" --candidate-sha256 "$env:REVIEW_CANDIDATE" --inventory-sha256 "$env:REVIEW_INVENTORY" --mapping-sha256 "$env:REVIEW_MAPPING" @reviewOptions
+          & ./artifacts/submission-console/CrestronHomeDevTools.Console.exe submission prepare-review --settings "$env:CRESTRON_SUBMISSION_REVIEW_SETTINGS" --artifact-kind "$env:REVIEW_KIND" --source-commit "$env:REVIEW_SOURCE" --candidate-sha256 "$env:REVIEW_CANDIDATE" --inventory-sha256 "$env:REVIEW_INVENTORY" --mapping-sha256 "$env:REVIEW_MAPPING" @reviewOptions
           if ($LASTEXITCODE -ne 0) { throw 'Unsigned review preparation failed; no submission was sent.' }
           'Unsigned review prepared privately. Signing and delivery remain pending.' >> $env:GITHUB_STEP_SUMMARY

@@ -18,6 +18,7 @@ from pypdf.errors import PdfReadError
 from build_help import keys, sha, strict_object
 from package_help import read_json, write_json
 from render_help import run_process
+from validator_runtime import settings_validator
 from self_test_form import pinned_json
 import sign_self_test_form as signing
 from review_android import retained_files
@@ -40,12 +41,13 @@ def copy_pinned(source, destination, digest, limit):
 
 def prepare(settings_path, review_digest, authorization_digest):
     _, settings = read_json(settings_path)
-    keys(settings, ("schemaVersion", "reviewDirectory", "authorization", "signatureImage", "dotnet", "validator", "output"))
+    keys(settings, ("schemaVersion", "reviewDirectory", "authorization", "signatureImage", "output"), ("dotnet", "validator"))
     if type(settings["schemaVersion"]) is not int or settings["schemaVersion"] != 1:
         raise ValueError("Unsupported signing-stage settings version")
-    for name in ("reviewDirectory", "authorization", "signatureImage", "dotnet", "validator", "output"):
+    for name in ("reviewDirectory", "authorization", "signatureImage", "output"):
         if not isinstance(settings[name], str) or not Path(settings[name]).is_absolute():
             raise ValueError("Signing-stage settings require absolute private paths")
+    validator_args = settings_validator(settings)
     review = Path(settings["reviewDirectory"])
     receipt_bytes, receipt = pinned_json(review / "review-receipt.json", review_digest)
     if not isinstance(receipt["bundleSha256"], str) or not re.fullmatch(r"[0-9a-fA-F]{64}", receipt["bundleSha256"]):
@@ -79,7 +81,7 @@ def prepare(settings_path, review_digest, authorization_digest):
                 ("evidence.zip", receipt["bundleSha256"].lower(), 513 * 1024 * 1024)):
             copy_pinned(review / name, staging / name, digest, limit)
         _, form_report = read_json(staging / "form-report.json")
-        checked = run_process([settings["dotnet"], settings["validator"], "submission-bundle-check",
+        checked = run_process([*validator_args, "submission-bundle-check",
                                "--bundle", str(staging / "evidence.zip"),
                                "--bundle-sha256", receipt["bundleSha256"].lower(),
                                "--candidate-sha256", receipt["candidateSha256"], "--scratch", str(staging)], 180)
