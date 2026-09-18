@@ -47,6 +47,15 @@ public sealed class SubmissionDeliveryRevalidationTests
 		foreach (var path in Directory.GetDirectories (_attempts))
 			Assert.That (JsonDocument.Parse (File.ReadAllBytes (Path.Combine (path, "finished.json"))).RootElement.GetProperty ("Success").GetBoolean (), Is.True);
 		}
+	[TestCase (true)]
+	[TestCase (false)]
+	public async Task EquivalentAbsoluteToolDirectoryPathsAreAccepted (bool forwardSlashes)
+		{
+		var settings = Settings ();
+		string path = forwardSlashes ? settings.ToolsDirectory.Replace (Path.DirectorySeparatorChar, '/') : settings.ToolsDirectory + Path.DirectorySeparatorChar;
+		var authorization = await SubmissionDeliveryRevalidation.CheckAsync (settings with { ToolsDirectory = path }, _plan, SubmissionDeliveryStep.Upload);
+		Assert.That (authorization.PlanSha256, Is.EqualTo (SubmissionDelivery.PlanDigest (_plan)));
+		}
 	[TestCase ("exit")]
 	[TestCase ("malformed")]
 	[TestCase ("wrong-plan")]

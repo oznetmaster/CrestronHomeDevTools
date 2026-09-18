@@ -126,6 +126,7 @@ public static class SubmissionEvidence
 			return false;
 		try
 			{
+			root = Path.TrimEndingDirectorySeparator (Path.GetFullPath (root));
 			path = Path.GetFullPath (Path.Combine (root, relative.Replace ('/', Path.DirectorySeparatorChar).Replace ('\\', Path.DirectorySeparatorChar)));
 			var prefix = Path.TrimEndingDirectorySeparator (root) + Path.DirectorySeparatorChar;
 			if (!path.StartsWith (prefix, OperatingSystem.IsWindows () ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
@@ -136,7 +137,7 @@ public static class SubmissionEvidence
 				{
 				if ((File.GetAttributes (current) & FileAttributes.ReparsePoint) != 0)
 					return false;
-				if (current == root)
+				if (string.Equals (current, root, OperatingSystem.IsWindows () ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
 					break;
 				current = Path.GetDirectoryName (current)!;
 				if (current == null)
