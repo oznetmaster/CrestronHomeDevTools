@@ -4,7 +4,7 @@ The `SubmissionDelivery` API, introduced in 1.5.0, records the upload/email boun
 
 Crestron's [published submission procedure](https://sdkcon78221.crestron.com/sdk/Crestron_Certified_Drivers_SDK/Content/Topics/Submit-a-Driver/Submit-a-Driver.htm) requires its file-sharing service for the `.pkg`, then an email to `drivers@crestron.com` with subject `Driver Submission Package`, the returned download URL and the signed self-test plan attached. The sending email address receives subsequent correspondence. An email-provider acceptance receipt is not proof that Crestron received, approved or certified the driver.
 
-The source [final delivery preparation stage](DeliveryPreparation.md) produces the plan from a completed signed review, freshly validated evidence and separately pinned final approval. It does not invoke this API or send anything; real transport integration remains pending.
+The source [final delivery preparation stage](DeliveryPreparation.md) produces the plan from a completed signed review, freshly validated evidence and separately pinned final approval. Preparation itself sends nothing; the separate [protected delivery command](DeliveryCommand.md) connects the journal to the providers. Complete signed-driver submission validation remains pending.
 
 ## Required upstream checks
 
@@ -45,6 +45,10 @@ These checks run within the existing exclusive delivery-journal lock and immedia
 
 Intent/receipt writes use a new temporary file, flush to disk and atomic replacement while holding a separate exclusive lock for the whole operation. If recording an error also fails, the original exception is preserved and a prior Pending record still stops replay. This protects cooperating processes from ordinary process interruption; it is not an exactly-once delivery guarantee against loss/corruption of the journal storage or filesystem power-loss behavior. Back up and protect the durable record.
 
+**Local source after 1.8.0:** a Windows access-denied, sharing-violation or lock-violation result from that atomic replacement gets at most four additional attempts, with 25, 50, 100 and 200 ms waits. Only the same local rename is retried; package uploads, emails, revalidation callbacks and whole delivery operations are not repeated. Other storage errors and permanent refusals still fail. The previous journal remains intact until replacement succeeds. A failure after provider entry still requires reconciliation if its receipt cannot be durably recorded.
+
+This source also rechecks cancellation and the verified approval's expiry after intent persistence, immediately before provider entry. If expiry or cancellation is detected there, no request has been sent: the journal returns to the known Prepared/Uploaded state when it can record that fact. If this corrective write also fails, Pending remains and conservatively requires inspection/reconciliation. Approval expiry is never extended to compensate for a filesystem delay.
+
 Cancellation before a side effect is handled at that boundary. For example, cancellation after a confirmed upload leaves Uploaded, allowing a later run to send without uploading again. Cancellation during an external request is ambiguous even if the local task reports cancellation.
 
 ## Transport and reconciliation contract
@@ -59,4 +63,6 @@ Reconciliation appends its decision/reference to the record. This is an audit tr
 
 ## Validation status
 
-Offline tests cover repeated completion, conflicting plans, altered bytes, preserved verified copies, simultaneous attempts, failures at each external boundary, pending-intent recovery, cancellation between stages, corrupt receipts and positive/negative reconciliation. All provider operations in these tests are synthetic. [Authenticated read-only uploader inspection](UploaderInspection.md) is complete. Actual upload/response validation, mail-provider setup, process/worker recovery and an authorized end-to-end signed submission remain pending in the [submission plan](../CrestronSubmission.md).
+Offline tests cover repeated completion, conflicting plans, altered bytes, preserved verified copies, simultaneous attempts, failures at each external boundary, pending-intent recovery, cancellation between stages, corrupt receipts and positive/negative reconciliation. New source checks additionally exercise bounded Windows file refusals, real shared-file contention, approval expiry during persistence, permanent denial before upload and 100 rapid synthetic journal lifecycles without repeated provider calls. All provider operations in these tests are synthetic.
+
+[Authenticated uploader inspection](UploaderInspection.md), an authorized small upload/download rehearsal and a user-confirmed self-addressed plaintext email check have separate retained evidence in the [uploader](CrestronUploader.md) and [SMTP](SmtpDelivery.md) guides. Those checks are not a signed driver submission. Protected-worker recovery, the public provider's actual signed-PDF mail path and the complete authorized handoff remain pending in the [submission plan](../CrestronSubmission.md).

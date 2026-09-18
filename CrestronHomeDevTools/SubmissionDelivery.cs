@@ -62,20 +62,25 @@ public static class SubmissionDelivery
 		ArgumentNullException.ThrowIfNull (revalidate);
 		string digest = PlanDigest (plan);
 		var clock = timeProvider ?? TimeProvider.System;
+		SubmissionDeliveryAuthorization? currentApproval = null;
+		void RequireFreshApproval ()
+			{
+			if (currentApproval == null || currentApproval.PlanSha256 != digest || currentApproval.ExpiresUtc <= clock.GetUtcNow ())
+				throw new InvalidOperationException ("Delivery requires current authorization for the exact plan before each external step.");
+			}
 		async Task Check (SubmissionDeliveryStep step, CancellationToken token)
 			{
 			token.ThrowIfCancellationRequested ();
-			var approval = await revalidate (step, token).ConfigureAwait (false);
+			currentApproval = await revalidate (step, token).ConfigureAwait (false);
 			token.ThrowIfCancellationRequested ();
-			if (approval == null || approval.PlanSha256 != digest || approval.ExpiresUtc <= clock.GetUtcNow ())
-				throw new InvalidOperationException ("Delivery requires current authorization for the exact plan before each external step.");
+			RequireFreshApproval ();
 			}
-		return ExecuteCoreAsync (privateJournalDirectory, plan, packagePath, signedFormPath, transport, Check, cancellationToken);
+		return ExecuteCoreAsync (privateJournalDirectory, plan, packagePath, signedFormPath, transport, Check, cancellationToken, RequireFreshApproval);
 		}
 
 	private static async Task<SubmissionDeliveryReceipt> ExecuteCoreAsync (string privateJournalDirectory,
 		SubmissionDeliveryPlan plan, string packagePath, string signedFormPath, ISubmissionDeliveryTransport transport,
-		Func<SubmissionDeliveryStep, CancellationToken, Task>? authorize, CancellationToken cancellationToken)
+		Func<SubmissionDeliveryStep, CancellationToken, Task>? authorize, CancellationToken cancellationToken, Action? requireFreshApproval = null)
 		{
 		ArgumentNullException.ThrowIfNull (transport);
 		var digest = PlanDigest (plan);
@@ -96,6 +101,7 @@ public static class SubmissionDelivery
 			cancellationToken.ThrowIfCancellationRequested ();
 			receipt = receipt with { State = SubmissionDeliveryState.UploadPending, PendingStep = SubmissionDeliveryStep.Upload, UpdatedUtc = DateTimeOffset.UtcNow };
 			journal.Write (receipt); // Flush intent before any external side effect.
+			RecheckBeforeProvider (journal, receipt, SubmissionDeliveryState.Prepared, requireFreshApproval, cancellationToken);
 			try
 				{
 				var upload = await transport.UploadAsync (package, plan.PackageFileName, cancellationToken).ConfigureAwait (false);
@@ -114,6 +120,7 @@ public static class SubmissionDelivery
 		cancellationToken.ThrowIfCancellationRequested ();
 		receipt = receipt with { State = SubmissionDeliveryState.SendPending, PendingStep = SubmissionDeliveryStep.Send, UpdatedUtc = DateTimeOffset.UtcNow };
 		journal.Write (receipt);
+		RecheckBeforeProvider (journal, receipt, SubmissionDeliveryState.Uploaded, requireFreshApproval, cancellationToken);
 		try
 			{
 			var mail = await transport.SendAsync (plan, receipt.Upload!, form, receipt.MessageId, cancellationToken).ConfigureAwait (false);
@@ -125,6 +132,24 @@ public static class SubmissionDelivery
 		catch
 			{
 			journal.TryMarkUnknown (SubmissionDeliveryStep.Send);
+			throw;
+			}
+		}
+
+	private static void RecheckBeforeProvider (Journal journal, SubmissionDeliveryReceipt receipt,
+		SubmissionDeliveryState previousState, Action? requireFreshApproval, CancellationToken token)
+		{
+		try
+			{
+			token.ThrowIfCancellationRequested ();
+			requireFreshApproval?.Invoke ();
+			}
+		catch
+			{
+			// No provider was entered. Restore the known state if storage is available;
+			// otherwise the already durable Pending record conservatively prevents replay.
+			try { journal.Write (receipt with { State = previousState, PendingStep = null, UpdatedUtc = DateTimeOffset.UtcNow }); }
+			catch { /* Preserve expiry/cancellation; a retained Pending requires reconciliation. */ }
 			throw;
 			}
 		}
@@ -240,7 +265,7 @@ public static class SubmissionDelivery
 					JsonSerializer.Serialize (output, receipt, JsonOptions);
 					output.Flush (flushToDisk: true);
 					}
-				File.Move (temporary, _path, overwrite: true);
+				SubmissionJournalFile.Replace (temporary, _path);
 				}
 			finally { if (File.Exists (temporary)) File.Delete (temporary); }
 			}

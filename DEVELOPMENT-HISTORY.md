@@ -1,5 +1,13 @@
 # Development history
 
+## 18 September 2026 - Delivery journal resilience (local source after 1.8.0)
+
+An isolated local filesystem probe reproduced four access-denied atomic replacements in 120 small synthetic journal sequences, without using delivery code. Each failed rename later succeeded without permission changes. The responsible reader/filter was not identified; no antivirus or system settings were changed. The earlier failed regression runs remain retained.
+
+The journal now retries only a Windows access/sharing/lock refusal from the same flushed temporary-file rename, at most four additional times with a total of 375 ms of scheduled waits. Persistent denial and other storage errors still fail; no provider request, revalidation callback or whole delivery attempt is automatically retried. The prior record remains intact until replacement succeeds. Authorization expiry and cancellation are checked again after intent persistence, before entering the provider; if no request started, a successful corrective write restores the known prior state, while an unwriteable Pending record still requires reconciliation.
+
+All 660 discovered offline .NET tests passed, including a real held-reader atomic replacement, permanent refusal before upload, expiry during either intent write, and 100 rapid synthetic complete lifecycles with exactly one upload and one email callback each. These callbacks perform no external delivery. The prior 645-case run remains failed history, not a retroactive pass. This source is local and unpublished; no processor, real upload, email or signing operation was used. See [delivery journal behavior](docs/submission/DeliveryJournal.md).
+
 ## 18 September 2026 - Candidate payload comparison (local source after 1.8.0)
 
 Add `DriverPayloadInspection.CompareAsync` and the `compare-payload` console command to compare a pinned candidate with its extracted processor files. The CLI holds the shared processor reservation; the C# API participates in its caller's existing reservation. Comparisons reject changed, missing, additional, ambiguous, linked and oversized files and retain only identities, sizes and hashes. This is a file observation, not an attestation of running memory or proof of the installed-device association. No install, reload or package update is performed. See [usage and limitations](docs/DriverPayloadInspection.md).

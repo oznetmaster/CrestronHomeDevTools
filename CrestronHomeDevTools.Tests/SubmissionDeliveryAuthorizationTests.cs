@@ -104,10 +104,50 @@ public sealed class SubmissionDeliveryAuthorizationTests
 		Assert.ThrowsAsync<InvalidOperationException> (() => Execute ((_, _) => throw new AssertionException ("Must not reauthorize an uncertain attempt")));
 		Assert.That ((_transport.Uploads, _transport.Sends), Is.EqualTo ((1, 0)));
 		}
+	[TestCase (SubmissionDeliveryStep.Upload)]
+	[TestCase (SubmissionDeliveryStep.Send)]
+	public async Task ApprovalExpiringDuringIntentPersistenceCannotEnterProvider (SubmissionDeliveryStep step)
+		{
+		_clock.ExpireOnRead = step == SubmissionDeliveryStep.Upload ? 2 : 4;
+		Assert.ThrowsAsync<InvalidOperationException> (() => Execute ((_, _) => Task.FromResult (Approval ())));
+		Assert.That ((_transport.Uploads, _transport.Sends), Is.EqualTo ((step == SubmissionDeliveryStep.Upload ? 0 : 1, 0)));
+		var receipt = SubmissionDelivery.Read (_root, _plan)!;
+		Assert.That (receipt.State, Is.EqualTo (step == SubmissionDeliveryStep.Upload ? SubmissionDeliveryState.Prepared : SubmissionDeliveryState.Uploaded));
+		Assert.That (receipt.PendingStep, Is.Null);
+		// New authorization starts only the work that was never sent.
+		await Execute ((_, _) => Task.FromResult (Approval ()));
+		Assert.That ((_transport.Uploads, _transport.Sends), Is.EqualTo ((1, 1)));
+		}
+
+	[Test]
+	public void PermanentlyBlockedIntentDoesNotCallUpload ()
+		{
+		if (!OperatingSystem.IsWindows ()) Assert.Ignore ("Windows sharing semantics");
+		FileStream? blocker = null;
+		try
+			{
+			var failure = Assert.CatchAsync<Exception> (() => Execute ((_, _) =>
+				{
+				var receipt = Directory.GetFiles (_root, "*.json").Single ();
+				blocker = new FileStream (receipt, FileMode.Open, FileAccess.Read, FileShare.Read);
+				return Task.FromResult (Approval ());
+				}));
+			Assert.That (failure!.HResult, Is.AnyOf (unchecked((int)0x80070005), unchecked((int)0x80070020), unchecked((int)0x80070021)));
+			Assert.That ((_transport.Uploads, _transport.Sends), Is.EqualTo ((0, 0)));
+			}
+		finally { blocker?.Dispose (); }
+		Assert.That (SubmissionDelivery.Read (_root, _plan)!.State, Is.EqualTo (SubmissionDeliveryState.Prepared));
+		}
 	private sealed class Clock : TimeProvider
 		{
 		internal DateTimeOffset Now = new (2026, 9, 18, 0, 0, 0, TimeSpan.Zero);
-		public override DateTimeOffset GetUtcNow () => Now;
+		internal int? ExpireOnRead;
+		private int _reads;
+		public override DateTimeOffset GetUtcNow ()
+			{
+			if (++_reads == ExpireOnRead) Now = Now.AddMinutes (2);
+			return Now;
+			}
 		}
 	private sealed class Transport : ISubmissionDeliveryTransport
 		{
