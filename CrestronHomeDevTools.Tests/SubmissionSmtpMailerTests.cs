@@ -1,0 +1,174 @@
+// Copyright (c) 2026 Neil Colvin.
+// Licensed under the MIT License. See LICENSE in the repository root.
+
+using System.Net;
+using System.Security.Cryptography;
+using System.Text.Json;
+
+using MimeKit;
+
+using NUnit.Framework;
+
+namespace CrestronHomeDevTools.Tests;
+
+[TestFixture]
+public sealed class SubmissionSmtpMailerTests
+	{
+	private string _root = null!;
+	private SubmissionDeliveryPlan _plan = null!;
+	private static readonly byte[] Form = "synthetic form, not a signed document"u8.ToArray ();
+	private static readonly SubmissionUploadReceipt Upload = new ("https://upload.example.test/download?file=private", "confirmed upload");
+	private static string Hash (byte[] bytes) => Convert.ToHexString (SHA256.HashData (bytes)).ToLowerInvariant ();
+	private string MessageId => "<crestron-" + SubmissionDelivery.PlanDigest (_plan) + "@submission.local>";
+	[SetUp]
+	public void SetUp ()
+		{
+		_root = Path.Combine (TestContext.CurrentContext.WorkDirectory, "smtp-" + Guid.NewGuid ().ToString ("N"));
+		Directory.CreateDirectory (_root);
+		_plan = new (new ('a', 64), new ('b', 64), new ('c', 64), new ('d', 64), Hash (Form),
+			"Example_Test_IP.pkg", "self-test.pdf", "sender@example.test", "recipient@example.test");
+		}
+	[TearDown]
+	public void TearDown () => Directory.Delete (_root, recursive: true);
+	private SubmissionSmtpMailer Create (Session session, TimeSpan? timeout = null) => new ("smtp.example.test", 465,
+		_plan.Sender, new NetworkCredential ("synthetic-user", "synthetic-password"), _root, timeout ?? TimeSpan.FromSeconds (5), () => session);
+
+	[TestCase (false, "queued as synthetic-id")]
+	[TestCase (true, "")]
+	public async Task SendsExactFormAndRecipientAndRetainsAcceptanceEvenWhenCloseFails (bool disposeFails, string response)
+		{
+		var session = new Session { DisposeFails = disposeFails, Response = response };
+		var result = await Create (session).SendAsync (_plan, Upload, new MemoryStream (Form), MessageId);
+		Assert.That (session.Sends, Is.EqualTo (1));
+		Assert.That (session.Disposed, Is.True);
+		using var sent = MimeMessage.Load (new MemoryStream (session.SentBytes!));
+		Assert.That (sent.From.Mailboxes.Single ().Address, Is.EqualTo (_plan.Sender));
+		Assert.That (sent.To.Mailboxes.Single ().Address, Is.EqualTo (_plan.Recipient));
+		Assert.That (sent.Cc.Concat (sent.Bcc), Is.Empty);
+		Assert.That (sent.MessageId, Is.EqualTo (MessageId[1..^1]));
+		Assert.That (sent.TextBody, Does.Contain (Upload.DownloadUrl));
+		var attachment = (MimePart)sent.Attachments.Single ();
+		Assert.That (attachment.FileName, Is.EqualTo (_plan.SignedFormFileName));
+		using var content = new MemoryStream ();
+		attachment.Content!.DecodeTo (content);
+		Assert.That (content.ToArray (), Is.EqualTo (Form));
+		string attempt = Directory.GetDirectories (_root).Single ();
+		Assert.That (File.Exists (Path.Combine (attempt, "accepted.json")), Is.True);
+		Assert.That (File.Exists (Path.Combine (attempt, "failed.json")), Is.False);
+		Assert.That (File.ReadAllText (Path.Combine (attempt, "message.eml")), Does.Not.Contain ("synthetic-password"));
+		Assert.That (result.ProviderReceipt, Does.Contain ("\"Accepted\":true"));
+		}
+
+	[TestCase ("connection", false, 0)]
+	[TestCase ("send", true, 1)]
+	[TestCase ("timeout", true, 1)]
+	public void FailuresDoNotResendAndPreserveUncertainOutcome (string mode, bool attempted, int sends)
+		{
+		var session = new Session { Failure = mode, DisposeFails = true };
+		var error = Assert.ThrowsAsync<InvalidDataException> (() => Create (session, TimeSpan.FromSeconds (1)).SendAsync (_plan, Upload, new MemoryStream (Form), MessageId));
+		Assert.That (error!.Message, Does.Not.Contain ("synthetic-password"));
+		Assert.That (session.Sends, Is.EqualTo (sends));
+		using var failure = JsonDocument.Parse (File.ReadAllText (Path.Combine (Directory.GetDirectories (_root).Single (), "failed.json")));
+		Assert.That (failure.RootElement.GetProperty ("SendAttempted").GetBoolean (), Is.EqualTo (attempted));
+		Assert.That (failure.RootElement.GetProperty ("Outcome").GetString (), Is.EqualTo (attempted ? "RequiresReconciliation" : "NotSent"));
+		}
+
+	[TestCase ("form")]
+	[TestCase ("sender")]
+	[TestCase ("message-id")]
+	[TestCase ("link")]
+	public void InvalidApprovedInputsNeverConnect (string mode)
+		{
+		var session = new Session ();
+		var mailer = Create (session);
+		var plan = mode == "sender" ? _plan with { Sender = "other@example.test" } : _plan;
+		var upload = mode == "link" ? Upload with { DownloadUrl = "http://upload.example.test/private" } : Upload;
+		Assert.ThrowsAsync<InvalidDataException> (() => mailer.SendAsync (plan, upload,
+			new MemoryStream (mode == "form" ? "different"u8.ToArray () : Form), mode == "message-id" ? "<different@example.test>" : MessageId));
+		Assert.That (session.Connects, Is.Zero);
+		Assert.That (Directory.GetDirectories (_root), Is.Empty);
+		}
+
+	[Test]
+	public void PlaintextPortIsNotSupported ()
+		{
+		Assert.Throws<ArgumentException> (() => new SubmissionSmtpMailer ("smtp.example.test", 25, _plan.Sender,
+			new NetworkCredential ("test", "test"), _root, TimeSpan.FromSeconds (5)));
+		}
+
+	[Test]
+	public void DeliveryJournalPreservesUploadAndBlocksRetryAfterLostMailAcknowledgement ()
+		{
+		byte[] package = "synthetic package"u8.ToArray ();
+		_plan = _plan with { PackageSha256 = Hash (package) };
+		string packagePath = Path.Combine (_root, _plan.PackageFileName);
+		string formPath = Path.Combine (_root, _plan.SignedFormFileName);
+		File.WriteAllBytes (packagePath, package);
+		File.WriteAllBytes (formPath, Form);
+		var session = new Session { Failure = "send" };
+		var transport = new Transport (Create (session));
+		string journal = Path.Combine (_root, "journal");
+		Directory.CreateDirectory (journal);
+		Assert.ThrowsAsync<InvalidDataException> (() => SubmissionDelivery.ExecuteAsync (journal, _plan, packagePath, formPath, transport));
+		var receipt = SubmissionDelivery.Read (journal, _plan)!;
+		Assert.That (receipt.State, Is.EqualTo (SubmissionDeliveryState.OutcomeUnknown));
+		Assert.That (receipt.Upload, Is.EqualTo (Upload));
+		session.Failure = "";
+		Assert.ThrowsAsync<InvalidOperationException> (() => SubmissionDelivery.ExecuteAsync (journal, _plan, packagePath, formPath, transport));
+		Assert.That (session.Sends, Is.EqualTo (1));
+		Assert.That (transport.Uploads, Is.EqualTo (1));
+		}
+
+	private sealed class Transport (SubmissionSmtpMailer mailer) : ISubmissionDeliveryTransport
+		{
+		public int Uploads;
+		public Task<SubmissionUploadReceipt> UploadAsync (Stream package, string filename, CancellationToken token)
+			{
+			Uploads++;
+			return Task.FromResult (Upload);
+			}
+		public Task<SubmissionMailReceipt> SendAsync (SubmissionDeliveryPlan plan, SubmissionUploadReceipt upload,
+			Stream form, string messageId, CancellationToken token) => mailer.SendAsync (plan, upload, form, messageId, token);
+		}
+
+	private sealed class Session : ISubmissionSmtpSession
+		{
+		public int Connects, Sends;
+		public bool Disposed, DisposeFails;
+		public string Failure = "", Response = "queued as synthetic-id";
+		public byte[]? SentBytes;
+		public Task ConnectAsync (string host, int port, NetworkCredential credential, CancellationToken token)
+			{
+			Connects++;
+			if (Failure == "connection")
+				{
+				throw new IOException ("synthetic-password");
+				}
+			return Task.CompletedTask;
+			}
+		public async Task<string> SendAsync (MimeMessage message, CancellationToken token)
+			{
+			Sends++;
+			if (Failure == "send")
+				{
+				throw new IOException ("synthetic-password");
+				}
+			if (Failure == "timeout")
+				{
+				await Task.Delay (Timeout.Infinite, token);
+				}
+			using var saved = new MemoryStream ();
+			await message.WriteToAsync (saved, token);
+			SentBytes = saved.ToArray ();
+			return Response;
+			}
+		public void Dispose ()
+			{
+			Disposed = true;
+			if (DisposeFails)
+				{
+				throw new IOException ("synthetic cleanup failure");
+				}
+			}
+		}
+	}

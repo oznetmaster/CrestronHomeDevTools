@@ -6,11 +6,14 @@ Original CrestronHomeDevTools code is copyright (c) 2026 Neil Colvin and distrib
 |---|---|---|---|
 | SSH.NET | 2026.0.0 | SFTP deployment, SSH-key validation and confirmed SSH reboot | MIT; [license text](licenses/SSH.NET-LICENSE.txt) |
 | Microsoft System.Security.Cryptography.ProtectedData | 10.0.9 | Console Windows DPAPI profiles | MIT; [license text](licenses/Microsoft-ProtectedData-LICENSE.txt) |
+| MailKit | 4.18.0 | Optional submission SMTP sending | MIT; [license text](licenses/MailKit-LICENSE.txt) |
+| MimeKit | 4.18.0 | Submission MIME composition | MIT; [license text](licenses/MimeKit-LICENSE.txt) |
+| BouncyCastle.Cryptography | 2.7.0 | Transitive MimeKit cryptography dependency | MIT; [license text](licenses/BouncyCastle-LICENSE.txt) |
 | NUnit | 4.6.1 | Offline tests only | MIT |
 | NUnit3TestAdapter | 6.3.0 | Visual Studio/VSTest discovery and execution of offline tests | MIT |
 | Microsoft.NET.Test.Sdk | 18.9.0 | Offline test infrastructure | MIT |
 
-NUnit and test tooling are not dependencies of the configuration runtime library. NuGet manages the library's SSH.NET dependency separately. A published console carries its runtime dependencies; a self-contained console also carries .NET runtime components and must retain their notices. Microsoft packages retain Microsoft Corporation copyright. SSH.NET retains copyright of Renci, Oleg Kapeljushnik, Gert Driesen and contributors.
+NUnit and test tooling are not dependencies of the configuration runtime library. NuGet manages the library's SSH.NET, MailKit and transitive dependencies separately. MailKit and MimeKit retain copyright of the .NET Foundation and contributors; Bouncy Castle retains copyright of Legion of the Bouncy Castle Inc. Transitive Microsoft cryptography packages retain Microsoft's MIT license. A published console carries its runtime dependencies; a self-contained console also carries .NET runtime components and must retain their notices. Microsoft packages retain Microsoft Corporation copyright. SSH.NET retains copyright of Renci, Oleg Kapeljushnik, Gert Driesen and contributors.
 
 Processor discovery was adapted from Neil Colvin's MIT-licensed Crestron Home NUnit project. DevTools has no runtime dependency on that project.
 

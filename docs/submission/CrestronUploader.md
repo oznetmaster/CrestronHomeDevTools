@@ -45,3 +45,7 @@ An error after the provider confirmed upload but before the delivery journal sav
 Offline tests exercise the normal multipart flow, changed form/terms, redirects, HTTP errors, lost responses, invalid/ambiguous links, changed filenames, download mismatch/overflow, timeout and the journal's refusal to replay an uncertain upload. A private offline replay of the actual service responses from the authorized transport test also verified the original package bytes through this provider.
 
 A live test of this provider reached the service's already-uploaded response. The original attempt stopped because that response differed from the earlier new-upload response; the failure remains retained. After adding that observed response variant, read-only verification of the saved response downloaded and verified the exact test bytes without another POST. Fresh-file creation through the provider, broader provider recovery cases and mail integration still need live validation. Production submission also requires current authorization and the final driver evidence/form. Ordinary releases remain independent of this optional submission stage.
+
+## SMTP integration
+
+The current-source [SMTP provider](SmtpDelivery.md) can be combined with this uploader using `CrestronSubmissionTransport` and the authorized delivery journal. Its offline validation does not establish real mailbox provisioning or delivered email.
