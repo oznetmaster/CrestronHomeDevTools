@@ -59,7 +59,7 @@ internal static class SyntheticDeliveryRevalidation
 			Console.Write (JsonSerializer.Serialize (new { State = result.State.ToString (), transport.Uploads, transport.Sends, SyntheticTransport = true }));
 			return 0;
 			}
-		catch { Console.Error.Write ("Synthetic bridge refused delivery; inspect private attempts."); return 1; }
+		catch (Exception error) { Console.Error.Write ("Synthetic bridge refused delivery: " + error.GetType ().Name + ". " + new System.Diagnostics.StackTrace (error, true)); return 1; }
 		}
 	private static readonly JsonSerializerOptions Options = new () { PropertyNameCaseInsensitive = true };
 	private static string Hash (byte[] bytes) => Convert.ToHexString (SHA256.HashData (bytes)).ToLowerInvariant ();
