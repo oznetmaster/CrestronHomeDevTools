@@ -292,6 +292,9 @@ public sealed class ConfigurationClient : IAsyncDisposable
 				string? Property (string name) => device?.PropertyValues.TryGetValue (name, out var value) == true && value.ValueKind == JsonValueKind.String ? value.GetString () : null;
 				states.Add (new (deviceId, Property ("cp.driverInformation:version"), Property ("cp.driverConfiguration:driverLoadingStatus")));
 				}
+			var failed = states.Where (state => DriverVersions.Equal (state.Version, expectedVersion) && state.LoadingStatus == "FailedToLoad").ToArray ();
+			if (failed.Length != 0)
+				throw new InvalidOperationException ($"Driver instance(s) {string.Join (", ", failed.Select (state => state.DeviceId))} reported FailedToLoad for version {expectedVersion}.");
 			if (states.All (state => DriverVersions.Equal (state.Version, expectedVersion) && state.LoadingStatus == "Loaded"))
 				return states;
 			await Task.Delay (500, deadline.Token).ConfigureAwait (false);

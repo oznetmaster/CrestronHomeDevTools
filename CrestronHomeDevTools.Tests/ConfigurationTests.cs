@@ -250,6 +250,34 @@ public sealed class ConfigurationTests
 		}
 
 	[Test]
+	public void RequestedVersionLoadFailureStopsVerificationImmediately ()
+		{
+		var connection = new FakeConnection (VersionState (17, "1.003.0009.0000", "FailedToLoad"));
+		var error = Assert.ThrowsAsync<InvalidOperationException> (async () =>
+			await new ConfigurationClient (connection).WaitForDriverVersionAsync ([17], "1.3.9.0", TimeSpan.FromSeconds (5)));
+		Assert.That (error!.Message, Does.Contain ("17").And.Contain ("FailedToLoad").And.Contain ("1.3.9.0"));
+		Assert.That (connection.Calls, Is.Empty, "Observing a load failure must not issue another command.");
+		}
+
+	[Test]
+	public async Task PreviousVersionLoadFailureDoesNotRejectIncomingVersion ()
+		{
+		var connection = new FakeConnection (VersionState (17, "1.0", "FailedToLoad"), VersionState (17, "1.1", "Loaded"));
+		var states = await new ConfigurationClient (connection).WaitForDriverVersionAsync ([17], "1.1", TimeSpan.FromSeconds (5));
+		Assert.That (states.Single ().LoadingStatus, Is.EqualTo ("Loaded"));
+		}
+
+	private static DeviceInfo VersionState (int id, string version, string loadingStatus) => new ()
+		{
+		Id = id,
+		PropertyValues = new ()
+			{
+			["cp.driverInformation:version"] = JsonSerializer.SerializeToElement (version),
+			["cp.driverConfiguration:driverLoadingStatus"] = JsonSerializer.SerializeToElement (loadingStatus)
+			}
+		};
+
+	[Test]
 	public void MissingDriverStateCannotVerifyAnUpdate ()
 		{
 		var connection = new FakeConnection (new DeviceInfo { Id = 17 });

@@ -2,6 +2,12 @@
 
 This records changes published to the source repository separately from packaged releases. The [changelog](CHANGELOG.md) and [release notes](RELEASE-NOTES.md) describe released versions. The latest packaged release is **1.7.0, dated 17 September 2026**; the additions below are available from source and are not included in that NuGet package or console download.
 
+## 18 September 2026 - Report terminal driver loading failures
+
+Version verification now stops with an error when a reviewed instance reports the requested version and `FailedToLoad`, rather than waiting until the update deadline expires. A failure reported for the previous version does not reject an incoming update. This observation does not retry, reload or remove the driver; existing failure reconciliation remains required.
+
+Validation: all 595 offline DevTools tests passed, including prompt rejection of the requested version's failure and successful transition from an older failed version. This is a source addition after 1.7.0, not a change already included in the published package.
+
 ## 18 September 2026 - Help rendering from nested build directories
 
 The help renderer now converts documents in a short, isolated system temporary directory before copying the verified PDF to the requested build output. This fixes a Windows submission build failure under deeply nested MSBuild receipt directories. Windows builds use LibreOffice's `soffice.com` console launcher.
