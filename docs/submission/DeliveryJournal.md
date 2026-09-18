@@ -18,7 +18,7 @@ The journal key identifies package/form bytes and the sender/recipient pair. Cha
 
 Current source adds `SubmissionDelivery.ExecuteAuthorizedAsync` and `SubmissionDeliveryAuthorization`; they are not in the published 1.7.0 package. This path requires a trusted asynchronous revalidation callback and checks its returned plan digest and approval expiry before each upload or email intent. The existing `ExecuteAsync` API remains available for callers that implement their own equivalent boundary checks.
 
-The source [offline revalidation command](DeliveryRevalidation.md) supplies the signed-review and evidence checks for this boundary. Its protected invocation still needs to be connected by the transport job.
+The source [offline revalidation command](DeliveryRevalidation.md) supplies the signed-review and evidence checks for this boundary. The [source process bridge](DeliveryProcessBridge.md) connects it to this callback with tooling pins, process bounds and completed-result verification. Actual protected-worker and provider validation remain pending.
 
 The callback receives the pending `SubmissionDeliveryStep` and cancellation token. It must revalidate the completed signed-review handoff, independently approved authorization hash, exact artifacts, current evidence/policy validity, intended sender and recipient, and current authorization status. Return `SubmissionDeliveryAuthorization` with `SubmissionDelivery.PlanDigest(plan)` and the expiry **from that verified approval**. Never extend expiry by computing a new duration from the current time. A callback that simply returns the expected digest is not an approval system.
 

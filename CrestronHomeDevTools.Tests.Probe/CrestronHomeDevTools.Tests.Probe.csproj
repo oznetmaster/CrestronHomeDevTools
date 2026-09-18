@@ -1,4 +1,5 @@
 <!-- Copyright (c) 2026 Neil Colvin. Licensed under the MIT License. See LICENSE. -->
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
+  <ItemGroup><ProjectReference Include="../CrestronHomeDevTools/CrestronHomeDevTools.csproj" /></ItemGroup>
 </Project>

@@ -3,6 +3,9 @@
 
 using System.Text.Json.Nodes;
 
+if (args.Contains ("--delivery-review-sha256")) return await SyntheticDeliveryRevalidation.Run (args);
+if (args.Contains ("--real-delivery-bridge")) return await SyntheticDeliveryRevalidation.Bridge ();
+
 // Test-only child process: never connects to a processor or claims real driver acceptance.
 var request = JsonNode.Parse (await Console.In.ReadToEndAsync ())!;
 string settings = request["SettingsFile"]!.GetValue<string> ();

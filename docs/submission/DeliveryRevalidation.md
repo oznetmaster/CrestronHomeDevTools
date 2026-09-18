@@ -1,6 +1,6 @@
 # Revalidate a prepared delivery before each external step
 
-Current source provides `tools/submission/revalidate_delivery.py`. It is not included in the published DevTools 1.7.0 package. It supplies the offline signed-review and evidence checks needed by the [guarded delivery callback](DeliveryJournal.md#authorization-immediately-before-each-step). It never uploads or sends mail, and does not itself implement that callback's process invocation or a provider adapter.
+Current source provides `tools/submission/revalidate_delivery.py`. It is not included in the published DevTools 1.7.0 package. It supplies the offline signed-review and evidence checks needed by the [guarded delivery callback](DeliveryJournal.md#authorization-immediately-before-each-step). It never uploads or sends mail. The source [process bridge](DeliveryProcessBridge.md) supplies the guarded callback invocation; provider adapters and real protected-worker validation remain separate.
 
 Use this only for an explicitly authorized driver submission. Ordinary driver/library releases and test workflows do not need it.
 
@@ -39,7 +39,7 @@ Successful stdout is private JSON with state `DeliveryRevalidated`, the exact `p
 
 The private output preserves a fresh preparation chain, exact delivery copies and `revalidation-receipt.json`. Its `COMPLETE` marker hashes **that revalidation receipt**. It is a different handoff type from the original preparation; do not feed it back as `preparedDirectory`. Original signature images, evidence ZIP and private settings are not copied into the output. Failed or interrupted outputs lack a usable completion marker and must not be overwritten.
 
-To integrate with `SubmissionDelivery.ExecuteAuthorizedAsync`:
+Use the [source process bridge](DeliveryProcessBridge.md) to connect this command to `SubmissionDelivery.ExecuteAuthorizedAsync`. It implements the following checks; custom integrations must preserve them:
 
 1. Hold the existing durable delivery journal and invoke this command from the trusted callback separately before Upload and Send, using a distinct private revalidation output each time. Do not reuse the before-upload result after uploading.
 2. Check successful process exit, completed private output and receipt hash. Parse its `plan` as `SubmissionDeliveryPlan` and require `SubmissionDelivery.PlanDigest(returnedPlan)` to equal the plan being dispatched. A JSON file's SHA-256 is not this API digest.
@@ -48,7 +48,7 @@ To integrate with `SubmissionDelivery.ExecuteAuthorizedAsync`:
 
 The callback must not recursively read or execute the delivery journal while its lock is held. This command only touches its own private review inputs/output and the offline evidence validator. A production callback must capture command output privately and enforce a bounded process deadline; a hung or failed validator is not permission to continue delivery.
 
-The supported upload adapter, mail-provider configuration, full protected callback integration and controlled end-to-end delivery still need implementation/validation. Source revalidation and synthetic tests do not establish those capabilities.
+The source process bridge is integration-tested with this command and synthetic providers. The supported upload adapter, mail-provider configuration, actual protected-worker setup and controlled end-to-end delivery still need implementation/validation. Source revalidation and synthetic tests do not establish those capabilities.
 
 ## Validation
 
