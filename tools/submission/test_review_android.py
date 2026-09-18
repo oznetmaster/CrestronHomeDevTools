@@ -36,6 +36,17 @@ class ReviewAndroidTests(unittest.TestCase):
         pin = first.write(self.path.name, self.pins)
         return audit_runs(self.settings, self.path, pin, first.candidate_hash)
 
+    def test_selected_phase_requires_its_independent_selection_pin(self):
+        fixture = self.fixtures[0]
+        fixture.prepare_selection()
+        self.pins["runs"][0].update(discoverySha256=fixture.discovery_hash,
+                                    selectionSha256=fixture.selection_hash)
+        report = self.run_audit()
+        self.assertEqual(1, report["runs"][0]["excludedTests"])
+        del self.pins["runs"][0]["selectionSha256"]
+        with self.assertRaises(ValueError):
+            self.run_audit()
+
     def test_every_selected_run_is_audited_regardless_of_location_order(self):
         self.settings["androidEvidence"].reverse()
         result = self.run_audit()

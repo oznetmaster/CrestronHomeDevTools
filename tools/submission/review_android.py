@@ -34,7 +34,9 @@ def audit_runs(settings, pins_path, pins_sha256, candidate_sha256):
         roots[location["runId"]] = location["path"]
     runs = {}
     for run in pins["runs"]:
-        keys(run, ("runId", "assembly", "assemblySha256", "discoverySha256", "producerManifestSha256"))
+        keys(run, ("runId", "assembly", "assemblySha256", "discoverySha256", "producerManifestSha256"), ("selectionSha256",))
+        if "selectionSha256" in run:
+            digest(run["selectionSha256"])
         run_id = run["runId"]
         require(isinstance(run_id, str) and re.fullmatch(r"[a-f0-9]{32}", run_id) and run_id not in runs,
                 "Android pins require distinct workflow run IDs")
@@ -44,7 +46,7 @@ def audit_runs(settings, pins_path, pins_sha256, candidate_sha256):
     for run_id, run in sorted(runs.items()):
         reports.append(audit(settings["candidate"], candidate_sha256, roots[run_id], run_id,
                              run["assembly"], run["assemblySha256"], run["discoverySha256"],
-                             run["producerManifestSha256"]))
+                             run["producerManifestSha256"], run.get("selectionSha256")))
     return {"schemaVersion": 1, "pinsSha256": pins_sha256, "runs": reports,
             "producerAuthenticated": False, "officialRequirementsSatisfied": [], "submissionReady": False}
 

@@ -25,6 +25,16 @@ These uppercase values are placeholders. The output's parent must exist. Existin
 
 ## What is checked
 
+### Selected Android phases (source development after 1.8.0)
+
+The matching NUnit source branch can declare exact required test names while retaining complete project discovery. Its selected runs use producer receipt schema 2, `selection.json` and `selection.runsettings`. This source auditor accepts them only with an independently retained selection SHA-256, passed internally as `--selection-sha256` or as `selectionSha256` on the run in the private review pins. Omitting that pin cannot downgrade a selected run to complete-project evidence. These changes are not in the published 1.8.0 tools.
+
+The selection must partition the complete discovery inventory without omissions, invented cases or splitting duplicate names. The actual TRX must execute every selected case successfully. Reports state discovered, executed and excluded counts. A selected-phase result still establishes no official requirement by itself; the reviewed coverage policy must account for all intended phases and exclusions. Old complete-project evidence retains its schema 1 contract.
+
+The commands on this page currently describe source-tool operation. The supported developer workflow must manage this internal runtime and its pinned dependencies automatically through documented public commands. Developers are not expected to understand or maintain Python; that packaged entry point remains unfinished.
+
+### Common checks
+
 - A revision-zero Release candidate and its exact package hash, source commit, driver GUID/version, installed instance and run identity agree with the recorded Android context. A prior Debug run cannot be relabelled as Release evidence.
 - Every retained producer file matches the independently pinned manifest. Added, removed or modified files, ambiguous paths and links are rejected. The coordinator receipt and coverage record must identify those same pins. The inventory is bounded to 4,096 files, 32 MiB per file and 512 MiB total, with a manifest no larger than 1 MiB.
 - The separately pinned fixture and discovery bytes match. Discovery contains one runnable NUnit assembly with a complete nonempty inventory.

@@ -193,8 +193,27 @@ def producer_inventory(evidence, manifest_sha256):
     return len(pins)
 
 
+def selected_inventory(evidence, independent_sha256, context, discovered):
+    data = evidence.read("selection.json")
+    require(sha(data) == digest(independent_sha256), "Android selection differs from its independent pin")
+    value = json.loads(data, object_pairs_hook=strict_object)
+    keys(value, ("SchemaVersion", "RunId", "PackageSha256", "DiscoveredTests", "ExpectedTests", "ExcludedTests", "SettingsSha256"))
+    require(type(value["SchemaVersion"]) is int and value["SchemaVersion"] == 1 and
+            value["RunId"] == context["RunId"] and value["PackageSha256"] == context["PackageSha256"],
+            "Selection belongs to another run or candidate")
+    for field in ("DiscoveredTests", "ExpectedTests", "ExcludedTests"):
+        require(isinstance(value[field], list) and len(value[field]) <= 100000 and
+                all(isinstance(name, str) and name.strip() for name in value[field]), "Invalid selection inventory")
+    expected, excluded = Counter(value["ExpectedTests"]), Counter(value["ExcludedTests"])
+    require(Counter(value["DiscoveredTests"]) == discovered and expected and
+            not (expected.keys() & excluded.keys()) and expected + excluded == discovered,
+            "Selection must partition complete discovered names and preserve every duplicate case")
+    require(sha(evidence.read("selection.runsettings")) == digest(value["SettingsSha256"]), "Selected execution settings changed")
+    return expected, sum(excluded.values())
+
+
 def audit(candidate_path, candidate_sha256, evidence_root, run_id, assembly, assembly_sha256, discovery_sha256,
-          producer_manifest_sha256):
+          producer_manifest_sha256, selection_sha256=None):
     require(isinstance(run_id, str) and re.fullmatch(r"[a-fA-F0-9]{32}", run_id), "Supply the independently retained workflow run ID")
     require(isinstance(assembly, str) and re.fullmatch(r"[A-Za-z0-9_.-]+\.dll", assembly), "Supply a plain fixture assembly filename")
     data = Path(candidate_path).read_bytes()
@@ -224,8 +243,9 @@ def audit(candidate_path, candidate_sha256, evidence_root, run_id, assembly, ass
     require(sha(evidence.read("assembly/" + assembly)) == digest(assembly_sha256), "Retained producer assembly changed")
     producer_files = producer_inventory(evidence, producer_manifest_sha256)
     pin = evidence.json("producer-pin.json")
-    keys(pin, ("SchemaVersion", "RunId", "PackageSha256", "ProducerManifestSha256", "DiscoverySha256"))
-    require(type(pin["SchemaVersion"]) is int and pin["SchemaVersion"] == 1 and
+    keys(pin, ("SchemaVersion", "RunId", "PackageSha256", "ProducerManifestSha256", "DiscoverySha256"),
+         ("SelectionSha256",) if selection_sha256 is not None else ())
+    require(type(pin["SchemaVersion"]) is int and pin["SchemaVersion"] == (2 if selection_sha256 is not None else 1) and
             pin["RunId"] == run_id and pin["PackageSha256"] == context["PackageSha256"] and
             digest(pin["ProducerManifestSha256"]) == digest(producer_manifest_sha256) and
             digest(pin["DiscoverySha256"]) == digest(discovery_sha256),
@@ -233,7 +253,13 @@ def audit(candidate_path, candidate_sha256, evidence_root, run_id, assembly, ass
     discovered = evidence.read("discovery.dump")
     require(sha(discovered) == digest(discovery_sha256), "Discovery differs from the independently retained inventory")
     expected = discovery(discovered, assembly)
+    discovered_count, excluded_count = sum(expected.values()), 0
+    if selection_sha256 is not None:
+        require(digest(pin.get("SelectionSha256")) == digest(selection_sha256), "Coordinator selection differs from the independent pin")
+        expected, excluded_count = selected_inventory(evidence, selection_sha256, context, expected)
     coverage = evidence.json("coverage.json")
+    require(coverage.get("SelectionSha256") is None if selection_sha256 is None else
+            digest(coverage.get("SelectionSha256")) == digest(selection_sha256), "Coverage identifies another selection")
     outcome = coverage.get("Results", {})
     require(isinstance(outcome, dict) and all(type(outcome.get(key)) is int for key in ("Passed", "Failed", "Skipped")) and
             outcome.get("Complete") is True and outcome.get("MeetsGate") is True,
@@ -255,6 +281,8 @@ def audit(candidate_path, candidate_sha256, evidence_root, run_id, assembly, ass
             "officialRequirementsSatisfied": [], "producerAuthenticated": False,
             "candidateSha256": digest(candidate_sha256), "identity": identity, "runId": run_id,
             "producerAssembly": assembly, "producerAssemblySha256": digest(assembly_sha256),
+            "selectionSha256": digest(selection_sha256) if selection_sha256 is not None else None,
+            "discoveredTests": discovered_count, "excludedTests": excluded_count,
             "startedUtc": start.isoformat(), "finishedUtc": end.isoformat(),
             "executedTests": sum(expected.values()), "retainedCaptures": count,
             "files": [{"relativePath": path, "sha256": value} for path, value in sorted(evidence.files.items())]}
@@ -264,10 +292,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for option in ("candidate", "candidate-sha256", "evidence", "run-id", "assembly", "assembly-sha256", "discovery-sha256", "producer-manifest-sha256", "output"):
         parser.add_argument("--" + option, required=True)
+    parser.add_argument("--selection-sha256")
     args = parser.parse_args()
     try:
         report = audit(args.candidate, args.candidate_sha256, args.evidence, args.run_id, args.assembly, args.assembly_sha256,
-                       args.discovery_sha256, args.producer_manifest_sha256)
+                       args.discovery_sha256, args.producer_manifest_sha256, args.selection_sha256)
         write_json(args.output, report)
         print("Android evidence audited; official coverage and submission approval remain separate.")
         return 0

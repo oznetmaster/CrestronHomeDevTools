@@ -80,6 +80,77 @@ class AndroidEvidenceTests(unittest.TestCase):
         return audit(self.root / "candidate.json", self.candidate_hash, self.root, self.run,
                      self.assembly, self.assembly_hash, self.discovery_hash, self.manifest_hash)
 
+    def prepare_selection(self):
+        self.discovery = self.discovery.replace('testcasecount="2"', 'testcasecount="3"').replace(
+            '</test-suite>', '<test-case id="3" fullname="Example.Fixture.Other" runstate="Runnable"/></test-suite>')
+        (self.root / "discovery.dump").write_text(self.discovery, encoding="utf-8")
+        self.discovery_hash = sha(self.discovery.encode())
+        settings = b"<RunSettings><NUnit><Where>test == 'Example.Fixture.Inspect'</Where></NUnit></RunSettings>"
+        (self.root / "selection.runsettings").write_bytes(settings)
+        self.selection = {"SchemaVersion": 1, "RunId": self.run, "PackageSha256": self.identity["packageSha256"],
+                          "DiscoveredTests": ["Example.Fixture.Inspect"] * 2 + ["Example.Fixture.Other"],
+                          "ExpectedTests": ["Example.Fixture.Inspect"] * 2, "ExcludedTests": ["Example.Fixture.Other"],
+                          "SettingsSha256": sha(settings)}
+        self.selection_hash = self.write("selection.json", self.selection)
+        self.pin.update(SchemaVersion=2, DiscoverySha256=self.discovery_hash, SelectionSha256=self.selection_hash)
+        self.write("producer-pin.json", self.pin)
+        self.coverage.update(DiscoverySha256=self.discovery_hash, SelectionSha256=self.selection_hash)
+        self.write("coverage.json", self.coverage)
+
+    def selected_audit(self, selection_hash=None):
+        return audit(self.root / "candidate.json", self.candidate_hash, self.root, self.run,
+                     self.assembly, self.assembly_hash, self.discovery_hash, self.manifest_hash,
+                     self.selection_hash if selection_hash is None else selection_hash)
+
+    def test_selected_run_reports_exclusions_and_preserves_duplicate_names(self):
+        self.prepare_selection()
+        report = self.selected_audit()
+        self.assertEqual(3, report["discoveredTests"])
+        self.assertEqual(2, report["executedTests"])
+        self.assertEqual(1, report["excludedTests"])
+        self.assertEqual(self.selection_hash, report["selectionSha256"])
+        self.assertFalse(report["submissionReady"])
+        self.assertEqual([], report["officialRequirementsSatisfied"])
+
+    def test_selected_run_cannot_use_worker_pin_as_independent_authorization(self):
+        self.prepare_selection()
+        with self.assertRaises(ValueError):
+            self.audit()
+        with self.assertRaises(ValueError):
+            self.selected_audit("0" * 64)
+        self.selection["RunId"] = "0" * 32
+        self.selection_hash = self.write("selection.json", self.selection)
+        self.pin["SelectionSha256"] = self.selection_hash
+        self.write("producer-pin.json", self.pin)
+        with self.assertRaises(ValueError):
+            self.selected_audit()
+
+    def test_selected_inventory_cannot_split_duplicates_or_conceal_extra_cases(self):
+        self.prepare_selection()
+        from audit_android import selected_inventory
+        from collections import Counter
+        discovered = Counter(self.selection["DiscoveredTests"])
+        for selected, excluded in (([], self.selection["DiscoveredTests"]),
+                                   (["Example.Fixture.Inspect"], ["Example.Fixture.Inspect", "Example.Fixture.Other"]),
+                                   (["Example.Fixture.Absent"], ["Example.Fixture.Other"]),
+                                   (["Example.Fixture.Inspect"] * 2, [])):
+            with self.subTest(selected=selected), self.assertRaises(ValueError):
+                self.selection["ExpectedTests"], self.selection["ExcludedTests"] = selected, excluded
+                pin = self.write("selection.json", self.selection)
+                selected_inventory(Evidence(self.root), pin, self.context, discovered)
+
+    def test_selected_settings_and_coverage_must_match_pinned_selection(self):
+        self.prepare_selection()
+        original = (self.root / "selection.runsettings").read_bytes()
+        (self.root / "selection.runsettings").write_bytes(original + b" ")
+        with self.assertRaises(ValueError):
+            self.selected_audit()
+        (self.root / "selection.runsettings").write_bytes(original)
+        self.coverage["SelectionSha256"] = "0" * 64
+        self.write("coverage.json", self.coverage)
+        with self.assertRaises(ValueError):
+            self.selected_audit()
+
     def test_retains_each_input_digest_without_asserting_official_coverage(self):
         report = self.audit()
         self.assertEqual(2, report["executedTests"])

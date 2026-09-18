@@ -1,5 +1,13 @@
 # Development history
 
+## 18 September 2026 - Explicit Android case inventories (source work after 1.8.0)
+
+The Android evidence auditor now understands selected-phase producer receipts from the matching NUnit workflow source. Selected phases require an independently retained selection hash, complete discovered/selected/excluded inventories, unchanged execution settings and exact successful TRX coverage. Missing pins, changed selection, omitted cases and split duplicate names are rejected. Reports state excluded cases rather than presenting a passing subset as full-project coverage. The private review stage carries the selection pin through each required run.
+
+The developer-facing integration must provision and manage the internal runtime automatically. Developers may use C# fixtures and documented commands/configuration without Python knowledge; the current source-script entry points do not yet satisfy that requirement. No new public binary or actual submission is implied by this source entry.
+
+Validation: all 33 focused Android-audit tests and all 193 submission-tool tests passed. The first full run encountered a Windows access error during atomic replacement of a newly built temporary package; the unchanged isolated case and full rerun passed. That failure is retained, its cause is not established, and no automatic retry was added to packaging or external operations. The matching C# workflow passed 281 regressions, including actual adapter selection with duplicate names, quotes, backslashes and an unselected deliberately failing test.
+
 ## 18 September 2026 - Android audit through submission review (source work after 1.8.0)
 
 The review stage can now re-audit every independently pinned Android run before form generation and after bundle validation. Android-method policies require these inputs. Changed, missing or incomplete runs prevent review completion. The review receipt pins both the retained run declaration and audit report; signing, delivery preparation and pre-send revalidation preserve and check these files privately without adding them to outgoing attachments. This does not authenticate the worker or translate a passing test into an official requirement automatically.
