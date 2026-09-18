@@ -2,7 +2,7 @@
 
 The source tool `tools/submission/audit_android.py` checks retained output from the NUnit Android workflow against independent release and producer pins. It is an offline step between the hardware run and requirement-by-requirement evidence preparation. It does not connect to the processor or emulator, operate devices, fill the form or send a submission.
 
-Use the matching DevTools source checkout and the Python dependencies in `tools/submission/requirements.txt`. This script is provided in the 1.6.0 tagged source checkout, not embedded in the NuGet package or console ZIP.
+Use the matching DevTools source checkout and the Python dependencies in `tools/submission/requirements.txt`. The complete-producer check described here is a source addition after packaged DevTools 1.7.0; older tagged scripts check only the main assembly. It is not embedded in the NuGet package or console ZIP. Its producer-manifest contract also requires the matching CrestronHomeNUnit workflow source addition after 1.11.0; older workflows do not create these files.
 
 ## Inputs from trusted CI
 
@@ -11,13 +11,14 @@ The release/coordinator jobs must retain these independently of downloaded test 
 - The candidate declaration SHA-256. The declaration identifies the actual driver's production package, full release commit, reviewed policy and official template.
 - The workflow run ID assigned before execution.
 - The approved fixture assembly filename and SHA-256, and the discovery dump SHA-256 captured before execution. These identify the intended producer and test inventory, including duplicate-name multiplicity.
+- The SHA-256 of `producer-manifest.json`, captured before execution. The manifest lists every file under the retained `assembly/` directory, including dependency assemblies, runtime settings, nested resources and discovery output.
 
-Do not calculate replacement pins from whatever files a worker returns. A hash supplied alongside a substituted file establishes no independent trust. The existing workflow retains an assembly and discovery output, but authenticated retention of their pre-execution pins is still a responsibility of the trusted CI coordinator. This audit does not attest which executable the worker actually ran or authenticate its machine.
+Do not calculate replacement pins from whatever files a worker returns. A hash supplied alongside a substituted file establishes no independent trust. The workflow writes `producer-manifest.json` and `producer-pin.json` after discovery and before test execution. It holds the original hashes in coordinator memory and rejects changed producer files, manifest, discovery or receipt after execution. Authenticated retention of those pre-execution pins outside the worker's control remains the trusted CI coordinator's responsibility. A receipt downloaded with worker results is not, by itself, independent authentication. This audit does not attest which executable the worker actually ran or authenticate its machine.
 
-Use the private `AndroidUI` results directory from a completed workflow. It contains `context.json`, `completion.json`, `coverage.json`, `discovery.dump`, one `TestResult*.trx`, the `assembly` folder and capture folders. Keep this directory private: its context, screenshots and hierarchy files can identify the household. Private fixture settings and credentials are not arguments to this command.
+Use the private `AndroidUI` results directory from a completed workflow. It contains `context.json`, `completion.json`, `coverage.json`, `discovery.dump`, `producer-manifest.json`, `producer-pin.json`, one `TestResult*.trx`, the `assembly` folder and capture folders. Keep this directory private: its context, screenshots and hierarchy files can identify the household. Private fixture settings and credentials are not arguments to this command. Fixtures must write their results outside `assembly/`; the retained producer directory must not change during execution.
 
 ```text
-python tools/submission/audit_android.py --candidate PRIVATE_CANDIDATE_JSON --candidate-sha256 TRUSTED_CANDIDATE_SHA256 --evidence PRIVATE_ANDROIDUI_DIRECTORY --run-id TRUSTED_RUN_ID --assembly Example.AndroidTests.dll --assembly-sha256 TRUSTED_ASSEMBLY_SHA256 --discovery-sha256 TRUSTED_DISCOVERY_SHA256 --output NEW_PRIVATE_AUDIT_JSON
+python tools/submission/audit_android.py --candidate PRIVATE_CANDIDATE_JSON --candidate-sha256 TRUSTED_CANDIDATE_SHA256 --evidence PRIVATE_ANDROIDUI_DIRECTORY --run-id TRUSTED_RUN_ID --assembly Example.AndroidTests.dll --assembly-sha256 TRUSTED_ASSEMBLY_SHA256 --discovery-sha256 TRUSTED_DISCOVERY_SHA256 --producer-manifest-sha256 TRUSTED_PRODUCER_MANIFEST_SHA256 --output NEW_PRIVATE_AUDIT_JSON
 ```
 
 These uppercase values are placeholders. The output's parent must exist. Existing output files are never overwritten. Exit 0 means the audit passed and the report was written; nonzero means the job must stop. Treat a missing report as incomplete even if a previous attempt passed. Ordinary releases that deliberately omit unavailable hardware can still proceed under their existing policy, but the submission path must remain pending.
@@ -25,7 +26,8 @@ These uppercase values are placeholders. The output's parent must exist. Existin
 ## What is checked
 
 - A revision-zero Release candidate and its exact package hash, source commit, driver GUID/version, installed instance and run identity agree with the recorded Android context. A prior Debug run cannot be relabelled as Release evidence.
-- The retained fixture and discovery bytes match the independent pins. Discovery contains one runnable NUnit assembly with a complete nonempty inventory.
+- Every retained producer file matches the independently pinned manifest. Added, removed or modified files, ambiguous paths and links are rejected. The coordinator receipt and coverage record must identify those same pins. The inventory is bounded to 4,096 files, 32 MiB per file and 512 MiB total, with a manifest no larger than 1 MiB.
+- The separately pinned fixture and discovery bytes match. Discovery contains one runnable NUnit assembly with a complete nonempty inventory.
 - The actual TRX executes every discovered case, preserving duplicate-name multiplicity, with unique execution IDs and successful outcomes. A passing total in `coverage.json` cannot conceal skipped, missing, duplicated or failed tests.
 - The completion record confirms restoration for the same package and run.
 - Each retained capture belongs to that same run and candidate, falls within the TRX run interval and has matching screenshot/hierarchy hashes. An interrupted capture folder without its completed observation is rejected.
@@ -41,4 +43,4 @@ For example, reading every displayed choice and cancelling an editor proves only
 
 ## Validation so far
 
-Offline regressions cover Release identity, independent pins, missing restoration, changed captures, incomplete runs, duplicate execution IDs, repeated test names, malformed JSON/XML and escaping paths. Parsing was also exercised on retained Debug workflow and fixture results with matching capture pairs. Debug runs are not accepted as submission evidence. A real Release run through this audit and the final review stage remains required.
+Offline regressions cover Release identity, independent pins, changed dependencies and runtime settings, missing or unlisted files, replacement manifests, nested resource assemblies, missing restoration, changed captures, incomplete runs, duplicate execution IDs, repeated test names, malformed JSON/XML and escaping paths. Parsing was also exercised on retained Debug workflow and fixture results with matching capture pairs. Debug runs are not accepted as submission evidence. A real Release run through this audit and the final review stage remains required. Older results without a manifest pinned before execution must not be upgraded by inventing one afterward; retain their original scope or perform a new candidate run.

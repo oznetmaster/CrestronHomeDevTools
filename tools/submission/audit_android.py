@@ -148,7 +148,53 @@ def captures(evidence, context, start, end):
     return count
 
 
-def audit(candidate_path, candidate_sha256, evidence_root, run_id, assembly, assembly_sha256, discovery_sha256):
+def producer_inventory(evidence, manifest_sha256):
+    """Require an independently pinned, complete inventory, including dependencies and runtime settings."""
+    data = evidence.read("producer-manifest.json")
+    require(len(data) <= 1024 * 1024 and sha(data) == digest(manifest_sha256),
+            "Producer manifest differs from its independent pin")
+    manifest = json.loads(data, object_pairs_hook=strict_object)
+    keys(manifest, ("schemaVersion", "files"))
+    require(type(manifest["schemaVersion"]) is int and manifest["schemaVersion"] == 1 and
+            isinstance(manifest["files"], list) and 0 < len(manifest["files"]) <= 4096,
+            "Invalid producer inventory")
+    pins, folded = {}, set()
+    for entry in manifest["files"]:
+        keys(entry, ("relativePath", "sha256"))
+        path = entry["relativePath"]
+        require(isinstance(path, str) and len(path) <= 1024 and "\\" not in path and ":" not in path and
+                all(part not in ("", ".", "..") and not part.endswith((" ", ".")) for part in path.split("/")),
+                "Invalid producer relative path")
+        require(path.casefold() not in folded, "Duplicate or ambiguous producer path")
+        folded.add(path.casefold())
+        pins[path] = digest(entry["sha256"])
+    root = evidence.root / "assembly"
+    Evidence.check_path(root)
+    require(root.is_dir(), "Missing retained producer directory")
+    actual, pending, visited = set(), [root], 0
+    while pending:
+        folder = pending.pop()
+        for path in folder.iterdir():
+            visited += 1
+            require(visited <= 8192, "Producer directory exceeds its bounded inventory")
+            Evidence.check_path(path)
+            if path.is_dir():
+                pending.append(path)
+            else:
+                require(path.is_file(), "Producer contains a non-regular file")
+                actual.add(path.relative_to(root).as_posix())
+    require(actual == set(pins), "Producer files differ from the complete pinned inventory")
+    total = 0
+    for relative, expected in sorted(pins.items()):
+        data = evidence.read("assembly/" + relative)
+        total += len(data)
+        require(total <= 512 * 1024 * 1024, "Retained producer exceeds its bounded size")
+        require(sha(data) == expected, "Retained producer dependency or settings changed")
+    return len(pins)
+
+
+def audit(candidate_path, candidate_sha256, evidence_root, run_id, assembly, assembly_sha256, discovery_sha256,
+          producer_manifest_sha256):
     require(isinstance(run_id, str) and re.fullmatch(r"[a-fA-F0-9]{32}", run_id), "Supply the independently retained workflow run ID")
     require(isinstance(assembly, str) and re.fullmatch(r"[A-Za-z0-9_.-]+\.dll", assembly), "Supply a plain fixture assembly filename")
     data = Path(candidate_path).read_bytes()
@@ -176,6 +222,14 @@ def audit(candidate_path, candidate_sha256, evidence_root, run_id, assembly, ass
             completion.get("RunId") == run_id and completion.get("PackageSha256") == context["PackageSha256"] and
             completion.get("RestorationConfirmed") is True, "Android restoration is unconfirmed or belongs to another run")
     require(sha(evidence.read("assembly/" + assembly)) == digest(assembly_sha256), "Retained producer assembly changed")
+    producer_files = producer_inventory(evidence, producer_manifest_sha256)
+    pin = evidence.json("producer-pin.json")
+    keys(pin, ("SchemaVersion", "RunId", "PackageSha256", "ProducerManifestSha256", "DiscoverySha256"))
+    require(type(pin["SchemaVersion"]) is int and pin["SchemaVersion"] == 1 and
+            pin["RunId"] == run_id and pin["PackageSha256"] == context["PackageSha256"] and
+            digest(pin["ProducerManifestSha256"]) == digest(producer_manifest_sha256) and
+            digest(pin["DiscoverySha256"]) == digest(discovery_sha256),
+            "Coordinator producer receipt differs from the independent pins")
     discovered = evidence.read("discovery.dump")
     require(sha(discovered) == digest(discovery_sha256), "Discovery differs from the independently retained inventory")
     expected = discovery(discovered, assembly)
@@ -187,6 +241,7 @@ def audit(candidate_path, candidate_sha256, evidence_root, run_id, assembly, ass
     require(coverage.get("RunId") == run_id and coverage.get("PackageSha256") == context["PackageSha256"] and
             coverage.get("ReleaseSourceCommit") == identity["sourceCommit"] and
             digest(coverage.get("DiscoverySha256")) == sha(discovered) and
+            digest(coverage.get("ProducerManifestSha256")) == digest(producer_manifest_sha256) and
             Counter(coverage.get("ExpectedTests", [])) == expected and
             coverage.get("Results") == {"Passed": sum(expected.values()), "Failed": 0, "Skipped": 0, "Complete": True, "MeetsGate": True},
             "Workflow coverage is incomplete or inconsistent")
@@ -195,6 +250,8 @@ def audit(candidate_path, candidate_sha256, evidence_root, run_id, assembly, ass
     start, end = results(evidence.read(paths[0].name), expected, assembly)
     count = captures(evidence, context, start, end)
     return {"schemaVersion": 1, "status": "AndroidEvidenceAudited", "submissionReady": False,
+            "producerInventoryPinned": True, "producerFiles": producer_files,
+            "producerManifestSha256": digest(producer_manifest_sha256),
             "officialRequirementsSatisfied": [], "producerAuthenticated": False,
             "candidateSha256": digest(candidate_sha256), "identity": identity, "runId": run_id,
             "producerAssembly": assembly, "producerAssemblySha256": digest(assembly_sha256),
@@ -205,11 +262,12 @@ def audit(candidate_path, candidate_sha256, evidence_root, run_id, assembly, ass
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    for option in ("candidate", "candidate-sha256", "evidence", "run-id", "assembly", "assembly-sha256", "discovery-sha256", "output"):
+    for option in ("candidate", "candidate-sha256", "evidence", "run-id", "assembly", "assembly-sha256", "discovery-sha256", "producer-manifest-sha256", "output"):
         parser.add_argument("--" + option, required=True)
     args = parser.parse_args()
     try:
-        report = audit(args.candidate, args.candidate_sha256, args.evidence, args.run_id, args.assembly, args.assembly_sha256, args.discovery_sha256)
+        report = audit(args.candidate, args.candidate_sha256, args.evidence, args.run_id, args.assembly, args.assembly_sha256,
+                       args.discovery_sha256, args.producer_manifest_sha256)
         write_json(args.output, report)
         print("Android evidence audited; official coverage and submission approval remain separate.")
         return 0

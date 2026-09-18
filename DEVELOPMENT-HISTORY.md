@@ -2,6 +2,14 @@
 
 This records changes published to the source repository separately from packaged releases. The [changelog](CHANGELOG.md) and [release notes](RELEASE-NOTES.md) describe released versions. The latest packaged release is **1.7.0, dated 17 September 2026**; the additions below are available from source and are not included in that NuGet package or console download.
 
+## 18 September 2026 - Complete Android producer inventory
+
+The offline Android evidence audit now requires an independently pinned manifest of the complete retained test output, including dependencies, runtime settings and nested resources. It rejects added, missing or changed files and mismatched coordinator receipts, instead of checking only the main test assembly. The matching NUnit workflow source records the inventory before execution and rejects changes afterward using its in-memory reference hashes. Older evidence cannot acquire a pre-execution pin retroactively.
+
+This is source development after the packaged 1.7.0 release. See [Android evidence](docs/submission/AndroidEvidence.md) for the matching workflow requirement and additional command argument. The audit still does not authenticate the worker or claim official requirement coverage or submission readiness.
+
+Validation: the complete offline submission-tool suite passed. The actual compiled .NET workflow inventory was also consumed directly by the Python auditor against real test output, including dependencies and satellite resources; altering the retained NUnit dependency was rejected. No processor access, driver upload or email was involved.
+
 ## 18 September 2026 - Remote processor logging guidance
 
 Documented read-only remote-syslog queries verified on a Home CP4-R and its TCP/UDP/SSL syntax. The guide distinguishes the current 4-Series manual's conditional TLS requirement from the Toolbox page's wording. It records collector delivery, diagnostic coverage and restart behavior as unverified, and links optional log retention from the endurance guide. No collector, processor configuration change or new packaged release is included.

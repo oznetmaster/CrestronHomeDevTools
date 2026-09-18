@@ -35,15 +35,25 @@ class AndroidEvidenceTests(unittest.TestCase):
         (self.root / "assembly").mkdir()
         (self.root / "assembly" / self.assembly).write_bytes(b"Synthetic producer, never a hardware acceptance claim")
         self.assembly_hash = sha((self.root / "assembly" / self.assembly).read_bytes())
+        (self.root / "assembly/nunit.framework.dll").write_bytes(b"Synthetic pinned framework dependency")
+        (self.root / "assembly/Example.AndroidTests.deps.json").write_text("{}", encoding="utf-8")
+        self.manifest = {"schemaVersion": 1, "files": [
+            {"relativePath": path.name, "sha256": sha(path.read_bytes())}
+            for path in sorted((self.root / "assembly").iterdir())]}
+        self.manifest_hash = self.write("producer-manifest.json", self.manifest)
         self.discovery = ('<NUnitXml><test-run testcasecount="2" runstate="Runnable">'
                           '<test-suite type="Assembly" name="Example.AndroidTests.dll" runstate="Runnable">'
                           '<test-case id="1" fullname="Example.Fixture.Inspect" runstate="Runnable"/>'
                           '<test-case id="2" fullname="Example.Fixture.Inspect" runstate="Runnable"/>'
                           '</test-suite></test-run></NUnitXml>')
         self.discovery_hash = sha(self.discovery.encode())
+        self.pin = {"SchemaVersion": 1, "RunId": self.run, "PackageSha256": self.identity["packageSha256"],
+                    "ProducerManifestSha256": self.manifest_hash, "DiscoverySha256": self.discovery_hash}
+        self.write("producer-pin.json", self.pin)
         (self.root / "discovery.dump").write_text(self.discovery, encoding="utf-8")
         self.coverage = {"RunId": self.run, "PackageSha256": self.identity["packageSha256"], "ReleaseSourceCommit": self.identity["sourceCommit"],
-                         "DiscoverySha256": self.discovery_hash, "ExpectedTests": ["Example.Fixture.Inspect"] * 2,
+                         "DiscoverySha256": self.discovery_hash, "ProducerManifestSha256": self.manifest_hash,
+                         "ExpectedTests": ["Example.Fixture.Inspect"] * 2,
                          "Results": {"Passed": 2, "Failed": 0, "Skipped": 0, "Complete": True, "MeetsGate": True}}
         self.write("coverage.json", self.coverage)
         self.trx = '''<TestRun xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
@@ -68,7 +78,7 @@ class AndroidEvidenceTests(unittest.TestCase):
 
     def audit(self):
         return audit(self.root / "candidate.json", self.candidate_hash, self.root, self.run,
-                     self.assembly, self.assembly_hash, self.discovery_hash)
+                     self.assembly, self.assembly_hash, self.discovery_hash, self.manifest_hash)
 
     def test_retains_each_input_digest_without_asserting_official_coverage(self):
         report = self.audit()
@@ -77,14 +87,91 @@ class AndroidEvidenceTests(unittest.TestCase):
         self.assertFalse(report["submissionReady"])
         self.assertFalse(report["producerAuthenticated"])
         self.assertEqual([], report["officialRequirementsSatisfied"])
-        self.assertEqual(9, len(report["files"]))
+        self.assertTrue(report["producerInventoryPinned"])
+        self.assertEqual(3, report["producerFiles"])
+        self.assertEqual(self.manifest_hash, report["producerManifestSha256"])
+        self.assertEqual(13, len(report["files"]))
         for item in report["files"]:
             self.assertEqual(sha((self.root / item["relativePath"]).read_bytes()), item["sha256"])
 
     def test_independent_pins_cannot_be_replaced_by_worker_values(self):
-        for field in ("candidate_hash", "assembly_hash", "discovery_hash"):
+        for field in ("candidate_hash", "assembly_hash", "discovery_hash", "manifest_hash"):
             with self.subTest(field=field), patch.object(self, field, "0" * 64), self.assertRaises(ValueError):
                 self.audit()
+
+    def test_modified_sibling_dependency_is_rejected(self):
+        (self.root / "assembly/nunit.framework.dll").write_bytes(b"Changed dependency beside the unchanged test assembly")
+        with self.assertRaises(ValueError):
+            self.audit()
+
+    def test_runtime_settings_and_missing_or_unlisted_files_are_rejected(self):
+        dependency = self.root / "assembly/Example.AndroidTests.deps.json"
+        original = dependency.read_bytes()
+        for operation in ("changed", "missing", "unlisted"):
+            with self.subTest(operation=operation):
+                if operation == "changed":
+                    dependency.write_bytes(b'{"changed":true}')
+                elif operation == "missing":
+                    dependency.unlink()
+                else:
+                    (self.root / "assembly/unlisted.dll").write_bytes(b"Unreviewed dependency")
+                with self.assertRaises(ValueError):
+                    self.audit()
+                dependency.write_bytes(original)
+                (self.root / "assembly/unlisted.dll").unlink(missing_ok=True)
+
+    def test_manifest_cannot_be_replaced_alongside_changed_dependency(self):
+        (self.root / "assembly/nunit.framework.dll").write_bytes(b"Replacement")
+        manifest = copy.deepcopy(self.manifest)
+        next(pin for pin in manifest["files"] if pin["relativePath"] == "nunit.framework.dll")["sha256"] = sha(b"Replacement")
+        self.write("producer-manifest.json", manifest)
+        with self.assertRaisesRegex(ValueError, "independent pin"):
+            self.audit()
+
+    def test_duplicate_ambiguous_and_escaping_manifest_paths_fail_even_with_matching_pin(self):
+        for name in ("../context.json", "C:/outside.dll", "/outside.dll", "folder\\dependency.dll", "folder//dependency.dll",
+                     "folder/./dependency.dll", "nunit.framework.dll.", "nunit.framework.dll ", "nunit.framework.dll", "NUNIT.FRAMEWORK.DLL"):
+            manifest = copy.deepcopy(self.manifest)
+            manifest["files"].append({"relativePath": name, "sha256": "a" * 64})
+            self.manifest_hash = self.write("producer-manifest.json", manifest)
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                self.audit()
+
+    def test_nested_dependencies_are_retained_and_audited(self):
+        folder = self.root / "assembly/fr"
+        folder.mkdir()
+        (folder / "Example.resources.dll").write_bytes(b"Synthetic satellite resource")
+        self.manifest["files"].append({"relativePath": "fr/Example.resources.dll", "sha256": sha(b"Synthetic satellite resource")})
+        self.manifest_hash = self.write("producer-manifest.json", self.manifest)
+        self.pin["ProducerManifestSha256"] = self.manifest_hash
+        self.write("producer-pin.json", self.pin)
+        self.coverage["ProducerManifestSha256"] = self.manifest_hash
+        self.write("coverage.json", self.coverage)
+        report = self.audit()
+        self.assertEqual(4, report["producerFiles"])
+        self.assertIn("assembly/fr/Example.resources.dll", {f["relativePath"] for f in report["files"]})
+
+    def test_coordinator_receipt_must_match_independent_run_and_producer_pins(self):
+        for field, value in (("SchemaVersion", True), ("RunId", "0" * 32), ("PackageSha256", "0" * 64),
+                             ("ProducerManifestSha256", "0" * 64), ("DiscoverySha256", "0" * 64)):
+            pin = {**self.pin, field: value}
+            self.write("producer-pin.json", pin)
+            with self.subTest(field=field), self.assertRaisesRegex(ValueError, "Coordinator producer receipt"):
+                self.audit()
+
+    def test_redirected_producer_subdirectory_is_rejected_before_traversal(self):
+        (self.root / "assembly/redirected").mkdir()
+        original = Path.is_junction
+        with patch.object(Path, "is_junction", lambda path: path.name == "redirected" or original(path)), self.assertRaisesRegex(ValueError, "junction"):
+            self.audit()
+
+    def test_missing_or_empty_producer_manifest_is_rejected(self):
+        (self.root / "producer-manifest.json").unlink()
+        with self.assertRaises(ValueError):
+            self.audit()
+        self.manifest_hash = self.write("producer-manifest.json", {"schemaVersion": 1, "files": []})
+        with self.assertRaises(ValueError):
+            self.audit()
 
     def test_debug_candidate_rejected_even_when_all_records_agree(self):
         self.candidate["packageRequirements"]["driverVersion"] = "1.2.003.0004"
@@ -168,7 +255,8 @@ class AndroidEvidenceTests(unittest.TestCase):
         output = self.root / "audit.json"
         args = ["audit_android.py", "--candidate", str(self.root / "candidate.json"), "--candidate-sha256", self.candidate_hash,
                 "--evidence", str(self.root), "--run-id", self.run, "--assembly", self.assembly,
-                "--assembly-sha256", self.assembly_hash, "--discovery-sha256", self.discovery_hash, "--output", str(output)]
+                "--assembly-sha256", self.assembly_hash, "--discovery-sha256", self.discovery_hash,
+                "--producer-manifest-sha256", self.manifest_hash, "--output", str(output)]
         with patch("sys.argv", args), patch("builtins.print"):
             self.assertEqual(0, audit_android.main())
             original = output.read_bytes()
@@ -185,6 +273,8 @@ class AndroidEvidenceTests(unittest.TestCase):
         changed = self.discovery.replace('runstate="Runnable"', 'runstate="Explicit"', 1)
         (self.root / "discovery.dump").write_text(changed, encoding="utf-8")
         self.discovery_hash = sha(changed.encode())
+        self.pin["DiscoverySha256"] = self.discovery_hash
+        self.write("producer-pin.json", self.pin)
         with self.assertRaisesRegex(ValueError, "non-runnable"):
             self.audit()
 
