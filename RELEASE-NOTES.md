@@ -1,5 +1,7 @@
 # CrestronHomeDevTools 1.7.0
 
+These notes describe the packaged 1.7.0 release. Later additions published to the source repository are listed separately in [development history](DEVELOPMENT-HISTORY.md).
+
 Add read-only processor uptime observations and plan validation for independently supplied monitoring producers. These APIs are useful for ordinary development monitoring as well as optional driver submission.
 
 - `ProcessorUptime.ReadAsync` opens an authenticated, SSH-key-pinned console, waits for the prompt and sends `uptime` once. It bounds execution and response size, handles fragmented replies and interleaved logs, and never automatically retries an uncertain command.
