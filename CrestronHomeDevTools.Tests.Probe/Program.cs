@@ -5,6 +5,8 @@ using System.Text.Json.Nodes;
 
 if (args.Contains ("--delivery-review-sha256")) return await SyntheticDeliveryRevalidation.Run (args);
 if (args.Contains ("--real-delivery-bridge")) return await SyntheticDeliveryRevalidation.Bridge ();
+if (args.Length > 0 && args[0] is "--real-delivery-command" or "--delivery-command-revoke-after-upload")
+	return await SyntheticDeliveryCommand.Run (args[1..], args[0] == "--delivery-command-revoke-after-upload");
 
 // Test-only child process: never connects to a processor or claims real driver acceptance.
 var request = JsonNode.Parse (await Console.In.ReadToEndAsync ())!;

@@ -5,9 +5,10 @@
   <ItemGroup>
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.9" />
     <InternalsVisibleTo Include="CrestronHomeDevTools.Tests" />
+    <InternalsVisibleTo Include="CrestronHomeDevTools.Tests.Probe" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="../README.md;../CHANGELOG.md;../RELEASE-NOTES.md;../THIRD-PARTY-NOTICES.md;../LICENSE" Link="%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="../README.md;../DEVELOPMENT-HISTORY.md;../CHANGELOG.md;../RELEASE-NOTES.md;../THIRD-PARTY-NOTICES.md;../LICENSE" Link="%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" />
     <None Include="../docs/**/*" Link="docs/%(RecursiveDir)%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" />
     <None Include="../licenses/*" Link="licenses/%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" />
     <None Include="../scripts/*.ps1" Link="scripts/%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" />

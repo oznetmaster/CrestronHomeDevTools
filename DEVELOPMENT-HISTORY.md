@@ -9,7 +9,9 @@ This records changes published to the source repository separately from packaged
 - Added fresh delivery-authorization and evidence validation before each upload or email step, including revalidation of completed signing handoffs. Connected the delivery journal to a pinned external validation process, corrected evidence-root normalization, and improved synthetic CI failure diagnostics. See [delivery process bridge](docs/submission/DeliveryProcessBridge.md).
 - Added the `submission-deliver` console command and an optional protected GitHub Actions workflow example. The command requires explicitly approved execution, hash-pinned private settings and credentials through standard input. The example verifies a preinstalled tool bundle and is not enabled automatically. See [delivery command](docs/submission/DeliveryCommand.md).
 
-Validation: the offline .NET and submission-help CI checks passed for these source changes. Provider-specific checks and their limits are documented in the linked guides. A complete signed driver submission, execution of the protected delivery workflow and Crestron acceptance have not been established by these checks.
+Added command-to-revalidator integration coverage using synthetic documents and transport, including authorization changing between upload and email and replay without duplicate delivery. Console archives include this development history so their documentation links remain usable.
+
+Validation: the offline .NET and submission-help CI checks passed for the delivery implementation. Provider-specific checks and their limits are documented in the linked guides. A complete signed driver submission, execution of the protected delivery workflow and Crestron acceptance have not been established by these checks.
 
 Source range: [delivery authorization](https://github.com/oznetmaster/CrestronHomeDevTools/commit/94b0673) through [delivery command](https://github.com/oznetmaster/CrestronHomeDevTools/commit/deeb0de). These are additions after 1.7.0, not changes retroactively included in that release.
 

@@ -2,4 +2,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
   <ItemGroup><ProjectReference Include="../CrestronHomeDevTools/CrestronHomeDevTools.csproj" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="../CrestronHomeDevTools.Console/CrestronHomeDevTools.Console.csproj" /></ItemGroup>
 </Project>
