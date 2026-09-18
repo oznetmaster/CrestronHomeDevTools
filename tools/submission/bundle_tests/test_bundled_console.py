@@ -15,6 +15,7 @@ import test_prepare_signed_review as signed
 import test_prepare_delivery as delivery
 import test_revalidate_delivery as revalidation
 import test_msbuild_help as build
+from build_help import sha
 
 
 class BundledConsoleTests(unittest.TestCase):
@@ -140,6 +141,106 @@ class BundledConsoleTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         reports = list((f.root / "obj").rglob("packaged-help.json"))
         self.assertEqual(len(reports), 1)
+
+    def dispatch_fixture(self):
+        f = self.fixture(delivery.DeliveryStageTests)
+        self.invoke("prepare-delivery", "--settings", f.settings_path,
+                    "--signed-review-sha256", f.pin, "--authorization-sha256", f.authorization_pin)
+        directories = {}
+        for key in ("journalDirectory", "attemptsDirectory", "uploadReceiptDirectory", "mailReceiptDirectory"):
+            path = f.root / key
+            path.mkdir()
+            directories[key] = str(path)
+        settings = {"schemaVersion": 1, "preparedDirectory": str(f.output),
+                    "preparationSettingsPath": str(f.settings_path),
+                    "deliveryReviewSha256": sha((f.output / "delivery-review-receipt.json").read_bytes()),
+                    **directories, "reviewedUploadFormSha256": "a" * 64, "acceptedUploadTermsSha256": "b" * 64,
+                    "smtpHost": "smtp.example.test", "smtpPort": 587, "revalidationTimeoutSeconds": 60,
+                    "uploadTimeoutSeconds": 60, "mailTimeoutSeconds": 60}
+        source = f.root / "dispatch-setup.json"
+        source.write_text(json.dumps(settings))
+        return f, source, f.root / "dispatch.json", settings
+
+    def prepare_dispatch(self, source, destination, success=True):
+        result = subprocess.run([str(self.console), "submission-delivery-settings", "--settings", str(source),
+                                 "--output", str(destination)], cwd=self.hostile, env=self.env, capture_output=True, timeout=90)
+        self.assertNotIn(b"Unhandled exception", result.stderr)
+        self.assertNotIn(str(source).encode(), result.stdout + result.stderr)
+        self.assertEqual(result.returncode, 0 if success else 2, result.stderr.decode())
+        if success:
+            receipt = json.loads(result.stdout)
+            self.assertEqual(receipt["settingsSha256"], sha(destination.read_bytes()))
+            self.assertTrue(receipt["approvalRequired"])
+            self.assertFalse(receipt["deliveryAttempted"])
+            actual = json.loads(destination.read_bytes())
+            self.assertEqual(actual["schemaVersion"], 2)
+            self.assertIsNone(actual["revalidation"])
+            self.assertNotIn("pythonPath", actual["bundledRevalidation"])
+        return result
+
+    def dispatch(self, path, pin, revoke=False):
+        flag = "--delivery-command-revoke-after-upload" if revoke else "--real-delivery-command"
+        result = subprocess.run([os.environ["SUBMISSION_TEST_DOTNET"], os.environ["SUBMISSION_TEST_PROBE"], flag,
+                                 "--settings", str(path), "--settings-sha256", pin, "--execute-approved"],
+                                input=json.dumps({"uploadUserName": "synthetic-uploader", "uploadPassword": "synthetic-upload-secret",
+                                                  "smtpUserName": "synthetic-mailbox", "smtpPassword": "synthetic-mail-secret"}).encode(),
+                                cwd=self.hostile, env=self.env, capture_output=True, timeout=180)
+        output = result.stdout + result.stderr
+        for private in (b"synthetic-upload-secret", b"synthetic-mail-secret", str(path.parent).encode()):
+            self.assertNotIn(private, output)
+        return result.returncode, json.loads(result.stdout)
+
+    def test_generated_dispatch_runs_bundled_revalidation_for_both_steps_and_replay_does_not_send(self):
+        f, source, path, settings = self.dispatch_fixture()
+        self.prepare_dispatch(source, path)
+        pin = sha(path.read_bytes())
+        code, result = self.dispatch(path, pin)
+        self.assertEqual(code, 0, result)
+        self.assertEqual((result["Uploads"], result["Sends"], result["SyntheticTransport"]), (1, 1, True))
+        attempts = list(Path(settings["attemptsDirectory"]).glob("*/finished.json"))
+        self.assertEqual(len(attempts), 2)
+        self.assertTrue(all(json.loads(p.read_bytes())["Success"] for p in attempts))
+        code, result = self.dispatch(path, pin)
+        self.assertEqual(code, 0, result)
+        self.assertEqual((result["Uploads"], result["Sends"]), (0, 0))
+        self.assertEqual(len(list(Path(settings["attemptsDirectory"]).glob("*/finished.json"))), 2)
+
+    def test_bundled_dispatch_revocation_after_upload_preserves_upload_and_blocks_email(self):
+        f, source, path, settings = self.dispatch_fixture()
+        self.prepare_dispatch(source, path)
+        pin = sha(path.read_bytes())
+        code, result = self.dispatch(path, pin, revoke=True)
+        self.assertEqual((code, result["Uploads"], result["Sends"]), (2, 1, 0))
+        receipt = json.loads(next(Path(settings["journalDirectory"]).glob("*.json")).read_bytes())
+        self.assertEqual(receipt["state"], "Uploaded")
+        code, result = self.dispatch(path, pin)
+        self.assertEqual((code, result["Uploads"], result["Sends"]), (2, 0, 0))
+
+    def test_changed_console_inventory_blocks_dispatch_before_any_provider(self):
+        f, source, path, settings = self.dispatch_fixture()
+        self.prepare_dispatch(source, path)
+        extra = self.console.parent / "unexpected-after-review.txt"
+        with extra.open("x") as file:
+            file.write("Changed after independent review")
+        try:
+            code, result = self.dispatch(path, sha(path.read_bytes()))
+            self.assertEqual((code, result["Uploads"], result["Sends"]), (2, 0, 0))
+            self.assertFalse(list(Path(settings["attemptsDirectory"]).glob("*/intent.json")))
+        finally:
+            extra.unlink()
+
+    def test_delivery_settings_refuse_changed_plan_overwrite_and_overlapping_outputs(self):
+        f, source, path, settings = self.dispatch_fixture()
+        self.prepare_dispatch(source, path)
+        saved = path.read_bytes()
+        self.prepare_dispatch(source, path, success=False)
+        self.assertEqual(path.read_bytes(), saved)
+        self.prepare_dispatch(source, self.console.parent / "must-not-create.json", success=False)
+        self.assertFalse((self.console.parent / "must-not-create.json").exists())
+        plan = f.output / "delivery-plan.json"
+        plan.write_bytes(plan.read_bytes() + b" ")
+        self.prepare_dispatch(source, f.root / "changed-plan.json", success=False)
+        self.assertFalse((f.root / "changed-plan.json").exists())
 
 
 if __name__ == "__main__":

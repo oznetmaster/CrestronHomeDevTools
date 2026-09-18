@@ -25,6 +25,7 @@ jobs:
     timeout-minutes: 50
     steps:
       # These environment variables must be approved independently of the producing worker.
+      # Bundled console settings can be generated with submission-delivery-settings; see DeliverySetup.md.
       # The installation manifest is private: {root, entrypoint, files:[{path, sha256}]}.
       # Store it outside the installed tooling directory; pin ALL runtime/dependency files.
       - name: Verify protected tooling and deliver the reviewed plan

@@ -43,10 +43,7 @@ internal static class SubmissionToolsCommand
 		try
 			{
 			var assembly = typeof (SubmissionToolsCommand).Assembly;
-			using var manifest = assembly.GetManifestResourceStream (MANIFEST_RESOURCE)
-				?? throw new InvalidDataException ("Submission tools are not included in this build. Use the complete Windows console download or tools/BuildSubmissionConsole.ps1.");
-			var directory = Path.Combine (AppContext.BaseDirectory, "submission-tools");
-			await VerifyBundleAsync (directory, manifest, cancellationToken);
+			var directory = await VerifyInstalledBundleAsync (cancellationToken);
 			var commands = JsonSerializer.Deserialize<Dictionary<string, string>> (await File.ReadAllTextAsync (Path.Combine (directory, "scripts", "commands.json"), cancellationToken))!;
 			if (args[0] != "runtime-check" && !commands.ContainsKey (args[0]))
 				throw new ArgumentException ("Unknown submission command. Run submission --help.");
@@ -85,6 +82,15 @@ internal static class SubmissionToolsCommand
 			Console.Error.WriteLine (exception is InvalidDataException or ArgumentException ? exception.Message : "Cannot read or start the submission tools. Extract a complete console download into a new folder and check file access.");
 			return 2;
 			}
+		}
+
+	internal static async Task<string> VerifyInstalledBundleAsync (CancellationToken cancellationToken)
+		{
+		using var manifest = typeof (SubmissionToolsCommand).Assembly.GetManifestResourceStream (MANIFEST_RESOURCE)
+			?? throw new InvalidDataException ("Submission tools are not included in this build. Use the complete Windows console download or tools/BuildSubmissionConsole.ps1.");
+		var directory = Path.Combine (AppContext.BaseDirectory, "submission-tools");
+		await VerifyBundleAsync (directory, manifest, cancellationToken);
+		return directory;
 		}
 
 	private static string[] ValidatorCommand (Assembly assembly)

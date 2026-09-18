@@ -20,12 +20,13 @@ internal static class SyntheticDeliveryCommand
 					throw new InvalidDataException ("The test requires synthetic credentials.");
 				if (revokeAfterUpload)
 					{
-					var preparation = JsonNode.Parse (await File.ReadAllTextAsync (settings.Revalidation.PreparationSettingsPath, token))!;
+					string path = settings.Revalidation?.PreparationSettingsPath ?? settings.BundledRevalidation!.PreparationSettingsPath;
+					var preparation = JsonNode.Parse (await File.ReadAllTextAsync (path, token))!;
 					string authorization = preparation["authorization"]!.GetValue<string> ();
 					transport.AfterUpload = () => File.AppendAllText (authorization, "\n");
 					}
 				return await SubmissionDispatchCommand.DispatchAsync (settings, transport,
-					(step, cancellation) => SubmissionDeliveryRevalidation.CheckAsync (settings.Revalidation, settings.Plan, step, cancellation), token);
+					(step, cancellation) => SubmissionDispatchCommand.RevalidateAsync (settings, step, cancellation), token);
 				});
 		Console.Write (JsonSerializer.Serialize (new
 			{

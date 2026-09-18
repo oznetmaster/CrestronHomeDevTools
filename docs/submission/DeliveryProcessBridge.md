@@ -1,6 +1,6 @@
 # Guarded delivery process integration
 
-DevTools 1.8.0 adds `SubmissionDeliveryRevalidation.CheckAsync` and `SubmissionDeliveryRevalidationSettings`. This advanced integration retains explicit executable and runtime-manifest settings. The standalone `submission revalidate-delivery` command is bundled starting in 1.9.0; automatic packaged-service provisioning for this bridge remains separate work. Do not assume a standalone command check validates the protected delivery service.
+DevTools 1.8.0 adds `SubmissionDeliveryRevalidation.CheckAsync` and `SubmissionDeliveryRevalidationSettings`. This advanced integration retains explicit executable and runtime-manifest settings. The standalone `submission revalidate-delivery` command is bundled starting in 1.9.0. Source after 1.9.0 also supports `SubmissionBundledRevalidationSettings` and [console-based delivery setup](DeliverySetup.md), which removes manual runtime configuration. Service credentials, permissions and independent approvals still require protected provisioning. A standalone command check does not validate that service environment.
 
 The bridge connects the [offline signed-handoff revalidator](DeliveryRevalidation.md) to [guarded dispatch](DeliveryJournal.md#authorization-immediately-before-each-step). It starts no uploader or mail client. The caller supplies its separately reviewed `ISubmissionDeliveryTransport`:
 

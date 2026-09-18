@@ -16,6 +16,12 @@ public sealed record SubmissionDeliveryRevalidationSettings (
 	string PreparationSettingsPath, string PreparationSettingsSha256, string PreparedDirectory,
 	string AttemptsDirectory, string DeliveryReviewSha256, TimeSpan Timeout);
 
+/// <summary>Reviewed packaged-console inventory and private handoff paths; no separately installed runtime is required.</summary>
+public sealed record SubmissionBundledRevalidationSettings (
+	string ConsoleDirectory, IReadOnlyList<SubmissionEvidenceFile> ConsoleFiles,
+	string PreparationSettingsPath, string PreparationSettingsSha256, string PreparedDirectory,
+	string AttemptsDirectory, string DeliveryReviewSha256, TimeSpan Timeout);
+
 /// <summary>Runs the pinned offline revalidator; it never calls a delivery transport.</summary>
 public static class SubmissionDeliveryRevalidation
 	{
@@ -28,21 +34,100 @@ public static class SubmissionDeliveryRevalidation
 	private sealed record Result (int SchemaVersion, string State, string DeliveryReviewSha256, string SignedReviewSha256,
 		string AuthorizationSha256, string PlanFileSha256, SubmissionDeliveryPlan Plan, DateTimeOffset ExpiresUtc,
 		DateTimeOffset RevalidatedUtc, bool DeliveryAttempted, bool SubmissionReady, string ValidationReportSha256);
+	private sealed record Inputs (string PreparationSettingsPath, string PreparationSettingsSha256, string PreparedDirectory,
+		string AttemptsDirectory, string DeliveryReviewSha256, TimeSpan Timeout, string[] ImmutablePaths);
+
+	/// <summary>Snapshots a trusted extracted download for subsequent review; this does not approve or send a submission.</summary>
+	public static async Task<SubmissionBundledRevalidationSettings> PrepareBundledSettingsAsync (string consoleDirectory,
+		string preparationSettingsPath, string preparedDirectory, string attemptsDirectory, string deliveryReviewSha256,
+		TimeSpan timeout, CancellationToken cancellationToken = default)
+		{
+		foreach (string path in new[] { consoleDirectory, preparationSettingsPath, preparedDirectory, attemptsDirectory })
+			if (!Path.IsPathFullyQualified (path)) throw new ArgumentException ("Use absolute private handoff and console paths.");
+		if (!ValidHash (deliveryReviewSha256) || timeout < TimeSpan.FromSeconds (1) || timeout > TimeSpan.FromMinutes (10))
+			throw new ArgumentException ("Pin the reviewed delivery and choose a bounded timeout.");
+		if ((File.GetAttributes (preparationSettingsPath) & FileAttributes.ReparsePoint) != 0)
+			throw new InvalidDataException ("Linked preparation settings are unsupported.");
+		using var preparation = new FileStream (preparationSettingsPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+		byte[] bytes = await Read (preparation, Limit, cancellationToken).ConfigureAwait (false);
+		using var document = Parse (bytes);
+		if (document.RootElement.EnumerateObject ().Any (property => property.Name.Equals ("dotnet", StringComparison.OrdinalIgnoreCase) ||
+			property.Name.Equals ("validator", StringComparison.OrdinalIgnoreCase)))
+			throw new InvalidDataException ("Use preparation settings created for the bundled validator without runtime overrides.");
+		var files = new List<SubmissionEvidenceFile> ();
+		foreach (string relative in Pins.Paths (consoleDirectory).Order (StringComparer.Ordinal))
+			{
+			cancellationToken.ThrowIfCancellationRequested ();
+			using var file = new FileStream (Path.Combine (consoleDirectory, relative), FileMode.Open, FileAccess.Read, FileShare.Read);
+			files.Add (new (relative, Convert.ToHexString (await SHA256.HashDataAsync (file, cancellationToken).ConfigureAwait (false)).ToLowerInvariant ()));
+			}
+		foreach (string required in new[] { "CrestronHomeDevTools.Console.exe", "CrestronHomeDevTools.Console.dll", "CrestronHomeDevTools.dll",
+			"submission-tools/manifest.json", "submission-tools/runtime/python.exe", "submission-tools/scripts/bundled_entry.py" })
+			if (!files.Any (file => file.RelativePath == required)) throw new InvalidDataException ("Select the complete extracted console download.");
+		return new (Path.GetFullPath (consoleDirectory), files, Path.GetFullPath (preparationSettingsPath), Hash (bytes),
+			Path.GetFullPath (preparedDirectory), Path.GetFullPath (attemptsDirectory), deliveryReviewSha256, timeout);
+		}
 
 	public static async Task<SubmissionDeliveryAuthorization> CheckAsync (SubmissionDeliveryRevalidationSettings settings,
 		SubmissionDeliveryPlan plan, SubmissionDeliveryStep step, CancellationToken cancellationToken = default)
 		{
 		ArgumentNullException.ThrowIfNull (settings);
+		return await CheckCoreAsync (new (settings.PreparationSettingsPath, settings.PreparationSettingsSha256,
+			settings.PreparedDirectory, settings.AttemptsDirectory, settings.DeliveryReviewSha256, settings.Timeout,
+			[settings.ToolsDirectory, settings.ValidatorDirectory, settings.PythonPath, settings.DotnetPath]), plan, step,
+			(pins, preparation) =>
+				{
+				pins.File (settings.PythonPath, settings.PythonSha256);
+				pins.File (settings.DotnetPath, settings.DotnetSha256);
+				pins.Directory (settings.ToolsDirectory, settings.ToolFiles);
+				pins.Directory (settings.ValidatorDirectory, settings.ValidatorFiles);
+				string validator = preparation.RootElement.GetProperty ("validator").GetString ()!;
+				if (Path.GetFullPath (preparation.RootElement.GetProperty ("dotnet").GetString ()!) != Path.GetFullPath (settings.DotnetPath) ||
+					!Within (validator, settings.ValidatorDirectory) ||
+					!settings.ValidatorFiles.Any (file => Path.GetFullPath (Path.Combine (settings.ValidatorDirectory, file.RelativePath)) == Path.GetFullPath (validator)) ||
+					!settings.ToolFiles.Any (file => file.RelativePath == "revalidate_delivery.py"))
+					throw new InvalidDataException ("Preparation settings do not select the pinned validator and revalidator.");
+				var start = new ProcessStartInfo (settings.PythonPath) { WorkingDirectory = settings.ToolsDirectory };
+				foreach (string argument in new[] { "-B", "-E", "-s", Path.Combine (settings.ToolsDirectory, "revalidate_delivery.py") })
+					start.ArgumentList.Add (argument);
+				return start;
+				}, cancellationToken).ConfigureAwait (false);
+		}
+
+	public static async Task<SubmissionDeliveryAuthorization> CheckAsync (SubmissionBundledRevalidationSettings settings,
+		SubmissionDeliveryPlan plan, SubmissionDeliveryStep step, CancellationToken cancellationToken = default)
+		{
+		ArgumentNullException.ThrowIfNull (settings);
+		return await CheckCoreAsync (new (settings.PreparationSettingsPath, settings.PreparationSettingsSha256,
+			settings.PreparedDirectory, settings.AttemptsDirectory, settings.DeliveryReviewSha256, settings.Timeout,
+			[settings.ConsoleDirectory]), plan, step,
+			(pins, preparation) =>
+				{
+				pins.Directory (settings.ConsoleDirectory, settings.ConsoleFiles);
+				if (preparation.RootElement.EnumerateObject ().Any (property => property.Name.Equals ("dotnet", StringComparison.OrdinalIgnoreCase) ||
+					property.Name.Equals ("validator", StringComparison.OrdinalIgnoreCase)))
+					throw new InvalidDataException ("Bundled delivery preparation must use the packaged validator without runtime overrides.");
+				string executable = Path.Combine (settings.ConsoleDirectory, "CrestronHomeDevTools.Console.exe");
+				if (!settings.ConsoleFiles.Any (file => file.RelativePath == "CrestronHomeDevTools.Console.exe"))
+					throw new InvalidDataException ("The complete console inventory must include its executable.");
+				var start = new ProcessStartInfo (executable) { WorkingDirectory = settings.ConsoleDirectory };
+				start.ArgumentList.Add ("submission"); start.ArgumentList.Add ("revalidate-delivery");
+				return start;
+				}, cancellationToken).ConfigureAwait (false);
+		}
+
+	private static async Task<SubmissionDeliveryAuthorization> CheckCoreAsync (Inputs settings, SubmissionDeliveryPlan plan,
+		SubmissionDeliveryStep step, Func<Pins, JsonDocument, ProcessStartInfo> prepareProcess, CancellationToken cancellationToken)
+		{
 		cancellationToken.ThrowIfCancellationRequested ();
 		string digest = SubmissionDelivery.PlanDigest (plan);
 		if (!Enum.IsDefined (step) || settings.Timeout < TimeSpan.FromSeconds (1) || settings.Timeout > TimeSpan.FromMinutes (10))
 			throw new ArgumentException ("Select a known step and a bounded revalidation timeout.");
-		foreach (string path in new[] { settings.PythonPath, settings.DotnetPath, settings.ToolsDirectory, settings.ValidatorDirectory,
-			settings.PreparationSettingsPath, settings.PreparedDirectory, settings.AttemptsDirectory })
+		foreach (string path in settings.ImmutablePaths.Concat ([settings.PreparationSettingsPath, settings.PreparedDirectory, settings.AttemptsDirectory]))
 			if (!Path.IsPathFullyQualified (path)) throw new ArgumentException ("Revalidation requires absolute reviewed paths.");
 		if (!ValidHash (settings.DeliveryReviewSha256)) throw new ArgumentException ("Pin the approved delivery review.");
 		string attempts = Path.GetFullPath (settings.AttemptsDirectory);
-		foreach (string path in new[] { settings.ToolsDirectory, settings.ValidatorDirectory, settings.PreparedDirectory, settings.PreparationSettingsPath, settings.PythonPath, settings.DotnetPath })
+		foreach (string path in settings.ImmutablePaths.Concat ([settings.PreparedDirectory, settings.PreparationSettingsPath]))
 			if (Within (attempts, path) || Within (path, attempts)) throw new ArgumentException ("Keep attempts separate from immutable inputs.");
 		if ((File.GetAttributes (attempts) & FileAttributes.ReparsePoint) != 0) throw new InvalidDataException ("Linked attempt storage is unsupported.");
 		using var gate = new FileStream (Path.Combine (attempts, "revalidation.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
@@ -56,18 +141,9 @@ public static class SubmissionDeliveryRevalidation
 				throw new InvalidDataException ("An incomplete terminal record requires inspection.");
 			}
 		using var pins = new Pins ();
-		pins.File (settings.PythonPath, settings.PythonSha256);
-		pins.File (settings.DotnetPath, settings.DotnetSha256);
-		pins.Directory (settings.ToolsDirectory, settings.ToolFiles);
-		pins.Directory (settings.ValidatorDirectory, settings.ValidatorFiles);
 		var preparation = pins.File (settings.PreparationSettingsPath, settings.PreparationSettingsSha256);
 		using var preparationJson = Parse (await Read (preparation, Limit, cancellationToken).ConfigureAwait (false));
-		string validator = preparationJson.RootElement.GetProperty ("validator").GetString ()!;
-		if (Path.GetFullPath (preparationJson.RootElement.GetProperty ("dotnet").GetString ()!) != Path.GetFullPath (settings.DotnetPath) ||
-			!Within (validator, settings.ValidatorDirectory) ||
-			!settings.ValidatorFiles.Any (file => Path.GetFullPath (Path.Combine (settings.ValidatorDirectory, file.RelativePath)) == Path.GetFullPath (validator)) ||
-			!settings.ToolFiles.Any (file => file.RelativePath == "revalidate_delivery.py"))
-			throw new InvalidDataException ("Preparation settings do not select the pinned validator and revalidator.");
+		var start = prepareProcess (pins, preparationJson);
 		string attempt = Path.Combine (attempts, step + "-" + Guid.NewGuid ().ToString ("N"));
 		cancellationToken.ThrowIfCancellationRequested ();
 		Directory.CreateDirectory (attempt);
@@ -78,17 +154,15 @@ public static class SubmissionDeliveryRevalidation
 			string request = Path.Combine (attempt, "settings.json"), output = Path.Combine (attempt, "result");
 			Write (request, new { schemaVersion = 1, preparedDirectory = settings.PreparedDirectory,
 				preparationSettings = settings.PreparationSettingsPath, output });
-			using var process = new Process { StartInfo = new ()
-				{
-				FileName = settings.PythonPath, WorkingDirectory = settings.ToolsDirectory, UseShellExecute = false,
-				CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true, RedirectStandardInput = true
-				} };
-			foreach (string argument in new[] { "-B", "-E", "-s", Path.Combine (settings.ToolsDirectory, "revalidate_delivery.py"),
-				"--settings", request, "--delivery-review-sha256", settings.DeliveryReviewSha256,
+			start.UseShellExecute = false; start.CreateNoWindow = true;
+			start.RedirectStandardOutput = true; start.RedirectStandardError = true; start.RedirectStandardInput = true;
+			using var process = new Process { StartInfo = start };
+			foreach (string argument in new[] { "--settings", request, "--delivery-review-sha256", settings.DeliveryReviewSha256,
 				"--signed-review-sha256", plan.ReviewSha256, "--authorization-sha256", plan.AuthorizationSha256 })
 				process.StartInfo.ArgumentList.Add (argument);
 			foreach (string key in process.StartInfo.Environment.Keys.Where (key => key.StartsWith ("PYTHON", StringComparison.OrdinalIgnoreCase) ||
-				key.StartsWith ("CRESTRON_HOME_", StringComparison.OrdinalIgnoreCase) || key.StartsWith ("DOTNET_", StringComparison.OrdinalIgnoreCase)).ToArray ())
+				key.StartsWith ("CRESTRON_HOME_", StringComparison.OrdinalIgnoreCase) || key.StartsWith ("CRESTRON_DEVTOOLS_", StringComparison.OrdinalIgnoreCase) ||
+				key.StartsWith ("DOTNET_", StringComparison.OrdinalIgnoreCase)).ToArray ())
 				process.StartInfo.Environment.Remove (key);
 			using var deadline = CancellationTokenSource.CreateLinkedTokenSource (cancellationToken);
 			deadline.CancelAfter (settings.Timeout);
@@ -207,6 +281,13 @@ public static class SubmissionDeliveryRevalidation
 			{
 			if (files == null || files.Count is 0 or > 4096 || files.Any (file => file == null) ||
 				files.Select (file => file.RelativePath).Distinct (StringComparer.OrdinalIgnoreCase).Count () != files.Count) throw new InvalidDataException ("Invalid complete tool manifest.");
+			if (!new HashSet<string> (Paths (root), StringComparer.Ordinal).SetEquals (files.Select (file => file.RelativePath)))
+				throw new InvalidDataException ("Unpinned or missing tool file.");
+			foreach (var file in files)
+				{ if (!SubmissionEvidence.SafeEvidencePath (root, file.RelativePath, out var path)) throw new InvalidDataException ("Unsafe tool path."); File (path, file.Sha256); }
+			}
+		internal static string[] Paths (string root)
+			{
 			var actual = new HashSet<string> (StringComparer.Ordinal); var pending = new Stack<string> (); pending.Push (root); int entries = 0;
 			while (pending.TryPop (out var directory))
 				{
@@ -218,9 +299,7 @@ public static class SubmissionDeliveryRevalidation
 					if ((attributes & FileAttributes.Directory) != 0) pending.Push (path); else actual.Add (Path.GetRelativePath (root, path).Replace ('\\', '/'));
 					}
 				}
-			if (!actual.SetEquals (files.Select (file => file.RelativePath))) throw new InvalidDataException ("Unpinned or missing tool file.");
-			foreach (var file in files)
-				{ if (!SubmissionEvidence.SafeEvidencePath (root, file.RelativePath, out var path)) throw new InvalidDataException ("Unsafe tool path."); File (path, file.Sha256); }
+			return actual.ToArray ();
 			}
 		public void Dispose () { foreach (var file in _files) file.Dispose (); }
 		}

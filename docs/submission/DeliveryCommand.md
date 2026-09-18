@@ -16,6 +16,8 @@ These are schema examples, not values to commit. The command accepts at most 32,
 
 ## Reviewed settings
 
+For the bundled-console path, generate settings using [Delivery setup](DeliverySetup.md). Its schema-2 output contains `bundledRevalidation` and `revalidation: null`; it selects the packaged console instead of separately configured runtimes. Availability is stated in that guide. The legacy schema-1 fields below remain supported.
+
 The UTF-8 settings file is limited to 1 MiB, must have an absolute path and must match the independently approved lowercase SHA-256. Unknown, duplicate, missing or null required fields are rejected. Use these exact camel-case fields:
 
 | Field | Value |
@@ -38,7 +40,7 @@ No credentials belong in this settings file. Its sender and recipient come from 
 
 ## Execution and recovery
 
-The command composes the [Crestron uploader](CrestronUploader.md), [SMTP provider](SmtpDelivery.md), [durable journal](DeliveryJournal.md) and [fresh revalidation bridge](DeliveryProcessBridge.md). It always calls guarded delivery. The pinned Python/.NET revalidator must approve the exact plan immediately before each pending external step. A command flag or settings hash alone does not authorize delivery.
+The command composes the [Crestron uploader](CrestronUploader.md), [SMTP provider](SmtpDelivery.md), [durable journal](DeliveryJournal.md) and [fresh revalidation bridge](DeliveryProcessBridge.md). It always calls guarded delivery. The pinned revalidator must approve the exact plan immediately before each pending external step. A command flag or settings hash alone does not authorize delivery.
 
 A refused email-stage revalidation preserves a confirmed upload. A confirmed completed journal returns its receipt without another upload or email. An uncertain outcome blocks replay until independently reconciled; this command provides no force, reset or reconciliation switch. Preserve the original journal and provider evidence. Never use a different directory to evade it.
 

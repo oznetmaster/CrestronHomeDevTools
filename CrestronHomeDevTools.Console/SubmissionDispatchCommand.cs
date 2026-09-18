@@ -10,9 +10,10 @@ using CrestronHomeDevTools;
 
 internal sealed record SubmissionDispatchSettings (int SchemaVersion, SubmissionDeliveryPlan Plan,
 	string JournalDirectory, string PackagePath, string SignedFormPath,
-	SubmissionDeliveryRevalidationSettings Revalidation, string UploadReceiptDirectory,
+	SubmissionDeliveryRevalidationSettings? Revalidation, string UploadReceiptDirectory,
 	string ReviewedUploadFormSha256, string AcceptedUploadTermsSha256, int UploadTimeoutSeconds,
-	string MailReceiptDirectory, string SmtpHost, int SmtpPort, int MailTimeoutSeconds);
+	string MailReceiptDirectory, string SmtpHost, int SmtpPort, int MailTimeoutSeconds,
+	SubmissionBundledRevalidationSettings? BundledRevalidation = null);
 
 internal sealed record SubmissionDispatchCredentials (string UploadUserName, string UploadPassword, string SmtpUserName, string SmtpPassword);
 
@@ -81,9 +82,11 @@ internal static class SubmissionDispatchCommand
 
 	private static bool Hash (string value) => value is { Length: 64 } && value.All (c => c is >= '0' and <= '9' or >= 'a' and <= 'f');
 
-	private static void Validate (SubmissionDispatchSettings settings)
+	internal static void Validate (SubmissionDispatchSettings settings)
 		{
-		if (settings.SchemaVersion != 1 || settings.Plan == null || settings.Revalidation == null ||
+		bool legacy = settings.SchemaVersion == 1 && settings.Revalidation != null && settings.BundledRevalidation == null;
+		bool bundled = settings.SchemaVersion == 2 && settings.Revalidation == null && settings.BundledRevalidation != null;
+		if (!(legacy || bundled) || settings.Plan == null ||
 			!Hash (settings.ReviewedUploadFormSha256) || !Hash (settings.AcceptedUploadTermsSha256) ||
 			settings.UploadTimeoutSeconds is < 1 or > 600 || settings.MailTimeoutSeconds is < 1 or > 600 ||
 			settings.SmtpPort is not (465 or 587) || Uri.CheckHostName (settings.SmtpHost) != UriHostNameType.Dns)
@@ -91,7 +94,8 @@ internal static class SubmissionDispatchCommand
 		_ = SubmissionDelivery.PlanDigest (settings.Plan);
 		if (!Path.IsPathFullyQualified (settings.PackagePath) || !Path.IsPathFullyQualified (settings.SignedFormPath))
 			throw new InvalidDataException ("Use absolute prepared artifact paths.");
-		string[] directories = [settings.JournalDirectory, settings.UploadReceiptDirectory, settings.MailReceiptDirectory, settings.Revalidation.AttemptsDirectory];
+		string[] directories = [settings.JournalDirectory, settings.UploadReceiptDirectory, settings.MailReceiptDirectory,
+			settings.Revalidation?.AttemptsDirectory ?? settings.BundledRevalidation!.AttemptsDirectory];
 		foreach (string directory in directories)
 			if (!Path.IsPathFullyQualified (directory) || !Directory.Exists (directory) || (File.GetAttributes (directory) & FileAttributes.ReparsePoint) != 0)
 				throw new InvalidDataException ("Prepare protected local receipt directories before delivery.");
@@ -113,8 +117,13 @@ internal static class SubmissionDispatchCommand
 		var mailer = new SubmissionSmtpMailer (settings.SmtpHost, settings.SmtpPort, settings.Plan.Sender,
 			new NetworkCredential (credentials.SmtpUserName, credentials.SmtpPassword), settings.MailReceiptDirectory, TimeSpan.FromSeconds (settings.MailTimeoutSeconds));
 		return await DispatchAsync (settings, new CrestronSubmissionTransport (uploader, mailer),
-			(step, cancellation) => SubmissionDeliveryRevalidation.CheckAsync (settings.Revalidation, settings.Plan, step, cancellation), token);
+			(step, cancellation) => RevalidateAsync (settings, step, cancellation), token);
 		}
+
+	internal static Task<SubmissionDeliveryAuthorization> RevalidateAsync (SubmissionDispatchSettings settings,
+		SubmissionDeliveryStep step, CancellationToken token) => settings.SchemaVersion == 2
+		? SubmissionDeliveryRevalidation.CheckAsync (settings.BundledRevalidation!, settings.Plan, step, token)
+		: SubmissionDeliveryRevalidation.CheckAsync (settings.Revalidation!, settings.Plan, step, token);
 
 	internal static Task<SubmissionDeliveryReceipt> DispatchAsync (SubmissionDispatchSettings settings, ISubmissionDeliveryTransport transport,
 		Func<SubmissionDeliveryStep, CancellationToken, Task<SubmissionDeliveryAuthorization>> revalidate, CancellationToken token) =>

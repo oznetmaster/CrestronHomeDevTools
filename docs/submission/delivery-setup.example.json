@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "preparedDirectory": "C:\\Private\\Submission\\prepared-delivery",
+  "preparationSettingsPath": "C:\\Private\\Submission\\delivery-preparation.json",
+  "deliveryReviewSha256": "REVIEWED_DELIVERY_REVIEW_RECEIPT_SHA256",
+  "journalDirectory": "C:\\Private\\Submission\\journal",
+  "attemptsDirectory": "C:\\Private\\Submission\\revalidation-attempts",
+  "uploadReceiptDirectory": "C:\\Private\\Submission\\upload-receipts",
+  "reviewedUploadFormSha256": "REVIEWED_UPLOADER_FORM_SHA256",
+  "acceptedUploadTermsSha256": "EXPLICITLY_ACCEPTED_UPLOADER_TERMS_SHA256",
+  "mailReceiptDirectory": "C:\\Private\\Submission\\mail-receipts",
+  "smtpHost": "smtp.example.org",
+  "smtpPort": 587,
+  "revalidationTimeoutSeconds": 300,
+  "uploadTimeoutSeconds": 300,
+  "mailTimeoutSeconds": 300
+}
