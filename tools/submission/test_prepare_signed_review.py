@@ -18,11 +18,12 @@ import test_prepare_review as review_tests
 
 
 class SignedReviewStageTests(unittest.TestCase):
-    def setUp(self):
+    def setUp(self, android=False):
         self.review = f = review_tests.ReviewStageTests()
         f.setUp()
         self.addCleanup(f.doCleanups)
-        self.receipt = f.run_stage(signing_copy=True)
+        options = f.android_run()[1] if android else {}
+        self.receipt = f.run_stage(signing_copy=True, **options)
         self.root = f.root
         self.output = f.root / "signed-review"
         self.review_pin = stage.sha((f.output / "review-receipt.json").read_bytes())

@@ -18,6 +18,7 @@ from pypdf import PdfReader
 import prepare_review as stage
 import sign_self_test_form as signing
 import test_self_test_form as fixtures
+import test_audit_android as android_fixtures
 
 
 class ReviewStageTests(unittest.TestCase):
@@ -48,8 +49,127 @@ class ReviewStageTests(unittest.TestCase):
         f.write_json(self.settings_path, self.settings)
         self.pins = [stage.sha((f.root / (name + ".json")).read_bytes()) for name in ("candidate", "inventory", "mapping")]
 
-    def run_stage(self, kind="driver", commit="a" * 40, *, signing_copy=False):
-        return stage.prepare(self.settings_path, *self.pins, commit, kind, signing_copy=signing_copy)
+    def run_stage(self, kind="driver", commit="a" * 40, *, signing_copy=False, **options):
+        return stage.prepare(self.settings_path, *self.pins, commit, kind, signing_copy=signing_copy, **options)
+
+    def android_run(self):
+        android = android_fixtures.AndroidEvidenceTests()
+        android.setUp()
+        self.addCleanup(android.doCleanups)
+        android.context.update(PackageSha256=self.fixture.identity["packageSha256"],
+                               ReleaseSourceCommit=self.fixture.identity["sourceCommit"],
+                               DriverGuid=self.fixture.driver_id, DriverVersion="1.0.000.0000")
+        android.write("context.json", android.context)
+        android.write("completion.json", {"SchemaVersion": 1, "RunId": android.run,
+                      "PackageSha256": android.context["PackageSha256"], "RestorationConfirmed": True})
+        android.pin["PackageSha256"] = android.context["PackageSha256"]
+        android.write("producer-pin.json", android.pin)
+        android.coverage.update(PackageSha256=android.context["PackageSha256"],
+                                ReleaseSourceCommit=android.context["ReleaseSourceCommit"])
+        android.write("coverage.json", android.coverage)
+        android.capture.update(android.context)
+        android.write("check/observation.json", android.capture)
+        self.settings["androidEvidence"] = [{"runId": android.run, "path": str(android.root)}]
+        self.fixture.write_json(self.settings_path, self.settings)
+        pins = {"schemaVersion": 1, "candidateSha256": self.pins[0], "runs": [{
+            "runId": android.run, "assembly": android.assembly, "assemblySha256": android.assembly_hash,
+            "discoverySha256": android.discovery_hash, "producerManifestSha256": android.manifest_hash}]}
+        pin_path = self.root / "independent-android-pins.json"
+        self.fixture.write_json(pin_path, pins)
+        return android, {"android_pins": str(pin_path), "android_pins_sha256": stage.sha(pin_path.read_bytes())}
+
+    def test_android_review_reaudits_raw_runs_and_retains_pins_without_claiming_authentication(self):
+        android, options = self.android_run()
+        result = self.run_stage(**options)
+        self.assertEqual(result["androidAuditSha256"], stage.sha((self.output / "android-audit.json").read_bytes()))
+        self.assertEqual(result["androidPinsSha256"], stage.sha((self.output / "android-pins.json").read_bytes()))
+        retained = json.loads((self.output / "android-audit.json").read_text())
+        self.assertEqual(retained["runs"][0]["runId"], android.run)
+        self.assertFalse(retained["producerAuthenticated"])
+        self.assertEqual(retained["officialRequirementsSatisfied"], [])
+        self.assertTrue(result["producerAuthenticationRequired"])
+
+    def test_android_selection_cannot_silently_drop_missing_pins_or_runs(self):
+        android, options = self.android_run()
+        for altered in ({}, {"android_pins": options["android_pins"]},
+                        {**options, "android_pins_sha256": "0" * 64}):
+            with self.subTest(options=altered), self.assertRaises(ValueError):
+                self.run_stage(**altered)
+        self.settings["androidEvidence"] = []
+        self.fixture.write_json(self.settings_path, self.settings)
+        with self.assertRaisesRegex(ValueError, "every independently pinned run"):
+            self.run_stage(**options)
+        self.assertFalse(self.output.exists())
+
+    def test_failed_android_preflight_does_not_start_form_validation(self):
+        android, options = self.android_run()
+        (android.root / "assembly/nunit.framework.dll").write_bytes(b"Changed producer")
+        with patch.object(stage.forms, "validate_evidence") as validate:
+            with self.assertRaisesRegex(ValueError, "dependency or settings changed"):
+                self.run_stage(**options)
+            validate.assert_not_called()
+        self.assertFalse(self.output.exists())
+
+    def test_android_policy_cannot_omit_android_preflight(self):
+        self.fixture.policy["requirements"][0]["execution"] = {"method": "android"}
+        self.fixture.write_json(self.fixture.policy_path, self.fixture.policy)
+        candidate_path = Path(self.settings["candidate"])
+        candidate = json.loads(candidate_path.read_text())
+        candidate["identity"]["policySha256"] = stage.sha(self.fixture.policy_path.read_bytes())
+        self.fixture.write_json(candidate_path, candidate)
+        self.pins[0] = stage.sha(candidate_path.read_bytes())
+        with patch.object(stage.forms, "validate_evidence") as validate:
+            with self.assertRaisesRegex(ValueError, "Android policy requirements"):
+                self.run_stage()
+            validate.assert_not_called()
+
+    def test_android_cli_accepts_independent_pins_and_fails_privately_for_changed_capture(self):
+        android, options = self.android_run()
+        arguments = [sys.executable, str(Path(stage.__file__)), "--settings", str(self.settings_path),
+                     "--artifact-kind", "driver", "--source-commit", "a" * 40,
+                     "--candidate-sha256", self.pins[0], "--inventory-sha256", self.pins[1],
+                     "--mapping-sha256", self.pins[2], "--android-pins", options["android_pins"],
+                     "--android-pins-sha256", options["android_pins_sha256"]]
+        completed = subprocess.run(arguments, capture_output=True, timeout=60)
+        self.assertEqual(completed.returncode, 0, completed.stderr.decode())
+        self.assertIn("androidAuditSha256", json.loads(completed.stdout))
+        self.settings["output"] = str(self.root / "changed-review")
+        self.fixture.write_json(self.settings_path, self.settings)
+        (android.root / "check/observation.json").write_text("PRIVATE MALFORMED CAPTURE")
+        rejected = subprocess.run(arguments, capture_output=True, timeout=60)
+        self.assertEqual(rejected.returncode, 1)
+        self.assertNotIn(b"PRIVATE MALFORMED", rejected.stderr)
+        self.assertNotIn(str(android.root).encode(), rejected.stderr)
+        self.assertFalse(Path(self.settings["output"]).exists())
+
+    def test_android_mutation_during_bundle_prevents_completed_review(self):
+        android, options = self.android_run()
+        original = stage.run_process
+
+        def mutate(arguments, timeout):
+            result = original(arguments, timeout)
+            if "submission-bundle-create" in arguments:
+                (android.root / "check/screen.png").write_bytes(b"Changed capture after form")
+            return result
+
+        with patch.object(stage, "run_process", mutate), self.assertRaises(ValueError):
+            self.run_stage(**options)
+        self.assertFalse(self.output.exists())
+        self.assertEqual(list(self.root.glob(".submission-review-*")), [])
+
+    def test_independent_android_pins_are_checked_again_after_bundle(self):
+        _, options = self.android_run()
+        original = stage.run_process
+
+        def mutate(arguments, timeout):
+            result = original(arguments, timeout)
+            if "submission-bundle-create" in arguments:
+                Path(options["android_pins"]).write_text("{}")
+            return result
+
+        with patch.object(stage, "run_process", mutate), self.assertRaisesRegex(ValueError, "pinned digest"):
+            self.run_stage(**options)
+        self.assertFalse(self.output.exists())
 
     def test_real_stage_retains_consistent_unsigned_form_bundle_and_completion(self):
         result = self.run_stage()

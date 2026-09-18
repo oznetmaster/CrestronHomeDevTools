@@ -16,6 +16,7 @@ from package_help import read_json, write_json
 from prepare_signed_review import copy_pinned
 import prepare_delivery
 from self_test_form import pinned_json
+from review_android import retained_files
 
 
 def revalidate(settings_path, delivery_review_digest, signed_review_digest, authorization_digest):
@@ -48,6 +49,8 @@ def revalidate(settings_path, delivery_review_digest, signed_review_digest, auth
     prepare_delivery.require_authorization(approval, signed, signed_review_digest, datetime.now(timezone.utc))
     _, original_settings = read_json(settings["preparationSettings"])
     keys(original_settings, ("schemaVersion", "signedReviewDirectory", "reviewDirectory", "authorization", "dotnet", "validator", "output"))
+    _, unsigned = pinned_json(Path(original_settings["reviewDirectory"]) / "review-receipt.json", signed["reviewReceiptSha256"])
+    prepared_android = retained_files(prepared, unsigned)
     # Reject output layouts that could alter any retained review tree or private settings input.
     resolved = output.resolve()
     for source in (prepared, Path(original_settings["signedReviewDirectory"]), Path(original_settings["reviewDirectory"]),
@@ -62,6 +65,8 @@ def revalidate(settings_path, delivery_review_digest, signed_review_digest, auth
         write_json(staging / "private-settings.json", fresh_settings)
         fresh = prepare_delivery.prepare(staging / "private-settings.json", signed_review_digest, authorization_digest)
         fresh_root = staging / "fresh"
+        if retained_files(fresh_root, unsigned) != prepared_android:
+            raise ValueError("Prepared Android audit differs from the fresh review")
         fresh_plan_bytes, fresh_plan = pinned_json(fresh_root / "delivery-plan.json", fresh["planFileSha256"])
         if fresh_plan_bytes != plan_bytes or fresh_plan != plan or fresh["sourceCommit"] != receipt["sourceCommit"]:
             raise ValueError("Fresh review no longer produces the exact authorized delivery plan")

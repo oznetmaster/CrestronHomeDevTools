@@ -28,6 +28,10 @@ on:
       mapping_sha256:
         type: string
         required: true
+      android_pins_sha256:
+        description: Independent pre-execution Android pins digest; required for Android policies
+        type: string
+        default: ''
 permissions:
   contents: read
 concurrency:
@@ -56,6 +60,7 @@ jobs:
           REVIEW_INVENTORY: ${{ inputs.inventory_sha256 }}
           REVIEW_MAPPING: ${{ inputs.mapping_sha256 }}
           REVIEW_SIGNING_COPY: ${{ inputs.prepare_for_signing }}
+          REVIEW_ANDROID_PINS: ${{ inputs.android_pins_sha256 }}
         run: |
           if (-not $env:CRESTRON_SUBMISSION_REVIEW_SETTINGS) { throw 'Private review settings are not configured.' }
           $settings = Get-Content -LiteralPath $env:CRESTRON_SUBMISSION_REVIEW_SETTINGS -Raw | ConvertFrom-Json
@@ -64,6 +69,10 @@ jobs:
           if ((Resolve-Path -LiteralPath $settings.dotnet).Path -ne (Get-Command dotnet).Source) { throw 'Private settings must select the build runtime.' }
           $reviewOptions = @()
           if ($env:REVIEW_SIGNING_COPY -eq 'true') { $reviewOptions += '--prepare-for-signing' }
+          if ($env:REVIEW_ANDROID_PINS) {
+            if (-not $env:CRESTRON_SUBMISSION_ANDROID_PINS) { throw 'Independent Android pins are not configured.' }
+            $reviewOptions += @('--android-pins', $env:CRESTRON_SUBMISSION_ANDROID_PINS, '--android-pins-sha256', $env:REVIEW_ANDROID_PINS)
+          }
           python tools/submission/prepare_review.py --settings "$env:CRESTRON_SUBMISSION_REVIEW_SETTINGS" --artifact-kind "$env:REVIEW_KIND" --source-commit "$env:REVIEW_SOURCE" --candidate-sha256 "$env:REVIEW_CANDIDATE" --inventory-sha256 "$env:REVIEW_INVENTORY" --mapping-sha256 "$env:REVIEW_MAPPING" @reviewOptions
           if ($LASTEXITCODE -ne 0) { throw 'Unsigned review preparation failed; no submission was sent.' }
           'Unsigned review prepared privately. Signing and delivery remain pending.' >> $env:GITHUB_STEP_SUMMARY

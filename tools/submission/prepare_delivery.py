@@ -17,6 +17,7 @@ from package_help import read_json, write_json
 from prepare_signed_review import copy_pinned
 from render_help import run_process
 from self_test_form import pinned_json
+from review_android import retained_files
 
 
 def require_authorization(approval, receipt, receipt_digest, now):
@@ -73,6 +74,9 @@ def prepare(settings_path, signed_review_digest, authorization_digest):
             any(unsigned[name] != receipt[name] for name in ("candidateSha256", "sourceCommit")) or
             unsigned["bundleSha256"].lower() != receipt["bundleSha256"]):
         raise ValueError("Original review differs from the signed review")
+    android_files = retained_files(review, unsigned)
+    if retained_files(signed, unsigned) != android_files:
+        raise ValueError("Signed Android audit differs from the original review")
     _, report = pinned_json(signed / "signing-report.json", receipt["signingReportSha256"])
     pinned_json(signed / "validation-report.json", receipt["validationReportSha256"])
     if (report["signatureApplied"] is not True or report["unsignedFormSha256"] != unsigned["formSha256"] or
@@ -124,6 +128,8 @@ def prepare(settings_path, signed_review_digest, authorization_digest):
         write_json(completed / "validation-report.json", bundle)
         (completed / "signed-review-receipt.json").write_bytes(receipt_bytes)
         (completed / "delivery-authorization.json").write_bytes(authorization_bytes)
+        for name, data in android_files.items():
+            (completed / name).write_bytes(data)
         result = {"schemaVersion": 1, "state": "DeliveryPlanPrepared", "sourceCommit": receipt["sourceCommit"],
                   "signedReviewSha256": signed_review_digest, "authorizationSha256": authorization_digest,
                   "planFileSha256": sha((completed / "delivery-plan.json").read_bytes()),

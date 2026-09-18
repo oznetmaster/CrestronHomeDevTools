@@ -12,14 +12,17 @@ import tempfile
 
 from pypdf.errors import PdfReadError
 from reportlab.platypus.doctemplate import LayoutError
+from lxml.etree import XMLSyntaxError
 
 from build_help import keys, sha, strict_object
 from package_help import read_json, write_json
 from render_help import run_process
 import self_test_form as forms
+from review_android import audit_runs
 
 
-def prepare(settings_path, candidate_digest, inventory_digest, mapping_digest, source_commit, artifact_kind, *, signing_copy=False):
+def prepare(settings_path, candidate_digest, inventory_digest, mapping_digest, source_commit, artifact_kind, *, signing_copy=False,
+            android_pins=None, android_pins_sha256=None):
     # These pins come from the trusted release job, separately from worker settings.
     if artifact_kind != "driver":
         raise ValueError("Submission review is only available for an explicitly selected driver release")
@@ -32,7 +35,7 @@ def prepare(settings_path, candidate_digest, inventory_digest, mapping_digest, s
         raise ValueError("Supply the full release source commit")
     _, settings = read_json(settings_path)
     keys(settings, ("schemaVersion", "candidate", "inventory", "mapping", "policy", "observations",
-                    "package", "template", "evidence", "dotnet", "validator", "output", "title", "author"))
+                    "package", "template", "evidence", "dotnet", "validator", "output", "title", "author"), ("androidEvidence",))
     if type(settings["schemaVersion"]) is not int or settings["schemaVersion"] != 1:
         raise ValueError("Unsupported review settings version")
     for key in ("candidate", "inventory", "mapping", "policy", "observations", "package", "template",
@@ -52,6 +55,11 @@ def prepare(settings_path, candidate_digest, inventory_digest, mapping_digest, s
     output = Path(settings["output"])
     if output.exists() or not output.parent.is_dir():
         raise ValueError("Use a new review output directory under an existing private parent")
+    android = audit_runs(settings, android_pins, android_pins_sha256, candidate_digest)
+    _, policy = forms.pinned_json(settings["policy"], candidate["identity"]["policySha256"])
+    if android is None and any(isinstance(rule.get("execution"), dict) and rule["execution"].get("method") == "android"
+                               for rule in policy["requirements"]):
+        raise ValueError("Android policy requirements need independently pinned Android evidence")
     # Only our own random staging directory is cleaned after failure. No success
     # output is exposed until both artifacts and their shared identities agree.
     with tempfile.TemporaryDirectory(prefix=".submission-review-", dir=output.parent) as temporary:
@@ -89,6 +97,16 @@ def prepare(settings_path, candidate_digest, inventory_digest, mapping_digest, s
         for key, digest in (("mapping", mapping_digest), ("inventory", inventory_digest)):
             data, _ = forms.pinned_json(settings[key], digest)
             (completed / (key + ".json")).write_bytes(data)
+        # Revalidate after the form/bundle operations, including independent pins.
+        # Do not accept a worker's precomputed audit summary in place of raw data.
+        android_report_sha256 = None
+        if android is not None:
+            if audit_runs(settings, android_pins, android_pins_sha256, candidate_digest) != android:
+                raise ValueError("Android evidence changed during review preparation")
+            write_json(completed / "android-audit.json", android)
+            data, _ = forms.pinned_json(android_pins, android_pins_sha256)
+            (completed / "android-pins.json").write_bytes(data)
+            android_report_sha256 = sha((completed / "android-audit.json").read_bytes())
         receipt = {"schemaVersion": 1, "state": "UnsignedReviewPrepared", "sourceCommit": source_commit,
                    "candidateSha256": candidate_digest, "inventorySha256": inventory_digest,
                    "mappingSha256": mapping_digest, "formSha256": report["formSha256"],
@@ -97,6 +115,9 @@ def prepare(settings_path, candidate_digest, inventory_digest, mapping_digest, s
                    "bundleSha256": bundle["BundleSha256"], "visualReviewRequired": True,
                    "producerAuthenticationRequired": True, "signingAuthorizationRequired": True,
                    "submissionReady": False, "deliveryAttempted": False}
+        if android is not None:
+            receipt["androidAuditSha256"] = android_report_sha256
+            receipt["androidPinsSha256"] = android_pins_sha256
         write_json(completed / "review-receipt.json", receipt)
         # mkdir is exclusive on both Windows and POSIX. Never replace a prior run.
         output.mkdir()
@@ -114,13 +135,16 @@ def main():
         parser.add_argument("--" + name, required=True)
     parser.add_argument("--prepare-for-signing", action="store_true",
                         help="Prepare the evidence-backed unsigned signing copy; does not authorize or apply a signature")
+    parser.add_argument("--android-pins", help="Independent pre-execution Android run pins; requires the matching digest")
+    parser.add_argument("--android-pins-sha256", help="SHA-256 retained by the trusted coordinator")
     args = parser.parse_args()
     try:
         report = prepare(args.settings, args.candidate_sha256, args.inventory_sha256, args.mapping_sha256,
-                         args.source_commit, args.artifact_kind, signing_copy=args.prepare_for_signing)
+                         args.source_commit, args.artifact_kind, signing_copy=args.prepare_for_signing,
+                         android_pins=args.android_pins, android_pins_sha256=args.android_pins_sha256)
         print(json.dumps(report, indent=2))
         return 0
-    except (ValueError, OSError, KeyError, TypeError, PdfReadError, LayoutError, subprocess.SubprocessError):
+    except (ValueError, OSError, KeyError, TypeError, PdfReadError, LayoutError, XMLSyntaxError, subprocess.SubprocessError):
         # Input errors can contain private paths or observation rationales.
         print("Submission review failed. Inspect private inputs; no delivery was attempted.", file=sys.stderr)
         return 1

@@ -1,5 +1,11 @@
 # Development history
 
+## 18 September 2026 - Android audit through submission review (source work after 1.8.0)
+
+The review stage can now re-audit every independently pinned Android run before form generation and after bundle validation. Android-method policies require these inputs. Changed, missing or incomplete runs prevent review completion. The review receipt pins both the retained run declaration and audit report; signing, delivery preparation and pre-send revalidation preserve and check these files privately without adding them to outgoing attachments. This does not authenticate the worker or translate a passing test into an official requirement automatically.
+
+All 188 offline submission-tool tests passed, including real Python/.NET review and signing operations with clearly synthetic forms and approvals and changes between stages. The first full run hit a Windows access error while moving a temporary signing folder; the isolated case and unchanged full rerun passed. The failed run remains retained, and its environmental cause is not established. A real unchanged Release candidate also passed the released Android stage and 1.8.0 standalone auditor, then its retained evidence passed the new review input bridge. That hardware result verifies only its complete read-only suite and cleanup, not the whole submission plan. See [Android evidence](docs/submission/AndroidEvidence.md) and [review setup](docs/submission/ReviewStage.md). No actual signature, upload or email was used for this development work.
+
 This records changes published to the source repository separately from packaged releases. The [changelog](CHANGELOG.md) and [release notes](RELEASE-NOTES.md) describe released versions. The entries below record development after 1.7.0 and are incorporated in **1.8.0**. Historical source-only descriptions identify their availability at the time; see the 1.8.0 release notes for packaged binaries, console scripts and tools distributed only in the matching source tag.
 
 ## 18 September 2026 - Release package acceptance

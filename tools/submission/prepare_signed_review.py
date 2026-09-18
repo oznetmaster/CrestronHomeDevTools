@@ -20,6 +20,7 @@ from package_help import read_json, write_json
 from render_help import run_process
 from self_test_form import pinned_json
 import sign_self_test_form as signing
+from review_android import retained_files
 
 
 def copy_pinned(source, destination, digest, limit):
@@ -65,6 +66,7 @@ def prepare(settings_path, review_digest, authorization_digest):
     output = Path(settings["output"])
     if output.exists() or not output.parent.is_dir():
         raise ValueError("Use a new signed-review output under an existing private parent")
+    android_files = retained_files(review, receipt)
     with tempfile.TemporaryDirectory(prefix=".submission-signing-", dir=output.parent) as temporary:
         staging = Path(temporary)
         # Freeze pinned bytes before validation/signing. Raw evidence and signing
@@ -121,6 +123,8 @@ def prepare(settings_path, review_digest, authorization_digest):
         write_json(completed / "signing-report.json", signed)
         write_json(completed / "validation-report.json", bundle)
         (completed / "review-receipt.json").write_bytes(receipt_bytes)
+        for name, data in android_files.items():
+            (completed / name).write_bytes(data)
         result = {"schemaVersion": 1, "state": "SignedReviewPrepared", "sourceCommit": receipt["sourceCommit"],
                   "reviewReceiptSha256": review_digest, "authorizationSha256": authorization_digest,
                   "candidateSha256": receipt["candidateSha256"], "bundleSha256": receipt["bundleSha256"].lower(),

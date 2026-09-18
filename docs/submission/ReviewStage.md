@@ -4,7 +4,7 @@ The source `tools/submission/prepare_review.py` connects evidence validation, un
 
 Use this only after testing an immutable actual-driver Release candidate. Ordinary build/test/publication jobs remain independent. Client/library and processor-test releases must not invoke it. The command rejects those artifact kinds and Debug revision numbers. A GitHub release does not imply portal submission.
 
-The source [Android evidence audit](AndroidEvidence.md) can check the Android workflow's retained run before scoped observations are prepared. It is a separate prerequisite check; `prepare_review.py` does not currently invoke it or authenticate a producer. An audit receipt alone cannot fill missing official requirements.
+The source [Android evidence audit](AndroidEvidence.md) checks the Android workflow's retained run before scoped observations are prepared. The source addition described below connects it to this review stage; it is not included in the 1.8.0 tag. The stage re-audits raw results before form generation and again before completing the review. It does not authenticate a producer, and an audit receipt alone cannot fill missing official requirements.
 
 The trusted release job supplies four independent pins: candidate declaration SHA-256, reviewed official inventory SHA-256, reviewed form mapping SHA-256 and full source commit. Do not calculate replacement pins from untrusted hardware-worker output. The candidate declaration already pins the package, policy and official template. The caller is responsible for establishing the driver identity, complete applicable policy and trusted evidence provenance.
 
@@ -44,6 +44,44 @@ Success produces `self-test.review.pdf`, form/bundle reports, `evidence.zip`, th
 The receipt deliberately says `UnsignedReviewPrepared`, `submissionReady: false` and `deliveryAttempted: false`. Visual inspection of every rendered page, policy approval, producer authentication, signature authorization and supported delivery remain required. A successful review job is not a successful submission.
 
 ## GitHub integration template
+
+### Include Android evidence in the review
+
+When the policy contains an `execution.method` of `android`, review preparation requires Android evidence and independent pins. Other producers that use Android, including combined UI/device checks, must opt into the same audit. Non-Android policies can still use the original invocation. This checks every run named by the trusted coordinator; deciding that those runs cover every applicable assertion remains a separate producer-binding review.
+
+Add this optional field to the private settings:
+
+```json
+"androidEvidence": [
+  { "runId": "0123456789abcdef0123456789abcdef", "path": "C:/CI/Private/run/AndroidUI" }
+]
+```
+
+Separately retain a pins document outside the test worker's control. Its values must come from the trusted coordinator's pre-execution records, not fresh hashes of returned results:
+
+```json
+{
+  "schemaVersion": 1,
+  "candidateSha256": "TRUSTED_CANDIDATE_SHA256",
+  "runs": [
+    {
+      "runId": "0123456789abcdef0123456789abcdef",
+      "assembly": "Example.AndroidTests.dll",
+      "assemblySha256": "PRE_EXECUTION_ASSEMBLY_SHA256",
+      "discoverySha256": "PRE_EXECUTION_DISCOVERY_SHA256",
+      "producerManifestSha256": "PRE_EXECUTION_MANIFEST_SHA256"
+    }
+  ]
+}
+```
+
+Supply `--android-pins PRIVATE_PINS_JSON --android-pins-sha256 TRUSTED_PINS_SHA256` in addition to the original review arguments. All hashes shown above are placeholders. The private paths locate evidence only; they cannot change the trusted run inventory. Missing/extra/duplicate runs, failed audits or evidence changes during review preparation prevent completion. Existing passing audit reports are not accepted as a substitute for raw results.
+
+The review retains `android-pins.json` and `android-audit.json` beside its other private outputs and records both hashes in `review-receipt.json`. Signing, delivery preparation and pre-send revalidation check and preserve those exact reports privately. Neither report enters the outbound delivery folder. Raw Android output must be retained separately; the existing evidence ZIP still contains the files explicitly referenced by the scoped observations. The new reports do not create observation mappings or fill additional form checkboxes. Producer authentication, reviewed policy completeness and final authorization remain required.
+
+### Configure the private job
+
+For Android evidence, supply the independent `android_pins_sha256` workflow input and configure `CRESTRON_SUBMISSION_ANDROID_PINS` as the private retained pins-file path on the review worker. This digest comes from the trusted coordinator, not the test worker's results. Omission cannot bypass a policy's Android-method requirements. The modified template and the review/signing/delivery integration require source newer than 1.8.0; pin the reviewed commit that contains them.
 
 [submission-review.yml.example](submission-review.yml.example) is a reusable workflow template for a private orchestration repository and a dedicated Windows worker. Copy it to `.github/workflows/submission-review.yml`, replace the tooling commit placeholder with an audited full commit, and install the documented Python dependencies and .NET 10 on that worker. The private environment variable `CRESTRON_SUBMISSION_REVIEW_SETTINGS` points to its settings file. Set `validator` to the console built by the template in that worker's checkout.
 

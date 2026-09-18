@@ -15,9 +15,9 @@ import test_prepare_signed_review as signing_tests
 
 
 class DeliveryStageTests(unittest.TestCase):
-    def setUp(self):
+    def setUp(self, android=False):
         self.signed = f = signing_tests.SignedReviewStageTests()
-        f.setUp()
+        f.setUp(android=android)
         self.addCleanup(f.doCleanups)
         self.receipt = f.run_stage()
         self.root = f.root
