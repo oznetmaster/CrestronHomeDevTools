@@ -1,6 +1,6 @@
 # Delivery of a reviewed request with declared gaps
 
-**Source availability:** these C# APIs are additions after 1.12.0 and are not yet released. The standard console preparation, signature and final-delivery commands still accept only their existing complete signed review. The API described here supplies the delivery boundary for the new mode; the complete preparation-to-delivery integration remains pending.
+**Source availability:** these C# APIs are additions after 1.12.0 and are not yet released. The existing signature and final-delivery preparation commands still require their complete signed-review chain. The new [unsigned request preparation command](ReviewRequest.md) handles declared form/signature omissions. The API described here supplies the delivery boundary for the new mode; the complete preparation-to-delivery integration remains pending.
 
 `SubmissionReviewDeliveryPlan` identifies the exact candidate, review, authorization, package and PDF attachment. It also records the verification mode, verification status, declaration digest, public gap summary, document omissions and attachment kind. These are separate facts:
 
@@ -34,4 +34,4 @@ The implementation shares the existing [delivery journal](DeliveryJournal.md). I
 
 Offline tests exercise all three attachment kinds, preservation of gap status, exact MIME content, expired or changed approval, altered attachments, lost provider acknowledgements, reconciliation, completed-run idempotency and conflicts with the legacy journal. An integrated journal-plus-mailer rehearsal uses a synthetic uploader and in-memory SMTP session; it sends no email and uploads nothing.
 
-Still required before the public end-to-end declared-gap workflow is available: outbound form/disclosure preparation, all required-document omissions, gap-aware signature authorization, console/CI preparation and revalidation integration, and a packaged consumer rehearsal. Existing complete-only commands deliberately reject the new review state until those stages are implemented. No real driver submission is established by these tests.
+The source [unsigned request preparation command](ReviewRequest.md) now produces a revalidated outbound unsigned form or disclosure-only report with a pinned document disposition. Still required before the public end-to-end declared-gap workflow is available: remaining required-document omissions, gap-aware signature authorization, final authorization and per-step revalidation integration, and the complete preparation-to-delivery rehearsal. Existing complete-only delivery commands deliberately reject the new review state until those stages are implemented. No real driver submission is established by these tests.

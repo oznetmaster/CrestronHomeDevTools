@@ -230,7 +230,7 @@ def validate_evidence(inventory, inventory_digest, mapping_path, mapping_digest,
     return rows, identity, result.stdout.decode("utf-8")
 
 
-def companion(title, author, rows, identity, draft, signing_copy=False, declared_gaps=False):
+def companion(title, author, rows, identity, draft, signing_copy=False, declared_gaps=False, request=None):
     buffer = io.BytesIO()
     body = ParagraphStyle("body", fontName="Helvetica", fontSize=9, leading=12, spaceAfter=8)
     small = ParagraphStyle("small", parent=body, fontSize=8, leading=10, spaceAfter=0)
@@ -249,6 +249,21 @@ def companion(title, author, rows, identity, draft, signing_copy=False, declared
         story.insert(3, paragraph(("This request contains the omissions or verification limits listed below. " if has_gaps else
                                   "No verification gaps were found against the full reviewed policy. ") +
                                  "Complete means complete against our interpretation of Crestron's published requirements, not a Crestron decision. Nothing in this report implies or predicts acceptance, publication or certification."))
+    if request is not None:
+        includes_form = request["attachmentKind"] == "UnsignedSelfTest"
+        story = [paragraph(title, heading), paragraph("REQUEST FOR REVIEW WITH DECLARED GAPS", heading),
+                 paragraph("Prepared for " + author + ". This request does not meet all requirements as we interpret Crestron's published submission requirements."),
+                 paragraph("The original official self-test form follows. Signature and date fields remain blank; no signature is supplied." if includes_form else
+                           "DISCLOSURE REPORT ONLY. The required official self-test form and signature are not supplied."),
+                 paragraph("Only Crestron can decide acceptance, publication or certification. None is implied or predicted by this request."),
+                 paragraph("Document and signature omissions", heading)]
+        labels = {"officialSelfTestForm": "Official self-test form", "signature": "Signature"}
+        for omission in request["omissions"]:
+            story.append(paragraph(labels[omission["id"]] + ": " + omission["reason"]))
+        story.extend([paragraph("Verification results", heading),
+                      paragraph("The full reviewed interpretation of the requirements is retained below. Failed, partial, inconclusive and unperformed work remains identified. " +
+                                ("Only fully supported applicable items are checked in the unsigned form." if includes_form else
+                                 "These are supporting results only; no official form checkboxes are supplied."))])
     for key, value in identity.items():
         story.append(paragraph(key + ": " + value, small))
     story.append(Spacer(1, 12))
@@ -256,6 +271,9 @@ def companion(title, author, rows, identity, draft, signing_copy=False, declared
     for row in rows:
         status = {"Passed": "Passed - checkbox checked", "NotApplicable": "Includes non-applicability - unchecked",
                   "NotTested": "Not evaluated - unchecked", "GapDeclared": "Declared gaps - unchecked"}[row["state"]]
+        if request is not None and request["attachmentKind"] == "DisclosureOnly":
+            status = {"Passed": "Verified supporting evidence", "NotApplicable": "Includes non-applicability",
+                      "GapDeclared": "Declared verification gaps"}[row["state"]] + " - official form omitted"
         detail = status + ("\n" + ", ".join(row["observationIds"]) if row["observationIds"] and not declared_gaps else "")
         if row["rationale"]:
             detail += "\n" + row["rationale"]

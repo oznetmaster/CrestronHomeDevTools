@@ -16,6 +16,7 @@ import test_prepare_review as review
 import test_prepare_signed_review as signed
 import test_prepare_delivery as delivery
 import test_revalidate_delivery as revalidation
+import test_prepare_review_request as request
 import test_msbuild_help as build
 from build_help import sha
 
@@ -82,6 +83,48 @@ class BundledConsoleTests(unittest.TestCase):
         self.assertFalse(receipt["submissionReady"])
         self.assertTrue((f.output / "self-test.review.pdf").is_file())
         self.assertTrue((f.output / "evidence.zip").is_file())
+
+    def test_declared_gap_review_to_unsigned_request_uses_only_bundled_tools(self):
+        f = self.fixture(request.ReviewRequestTests)
+        review_fixture = f.base.base
+        review_output = f.root / "bundled-review"
+        review_fixture.settings["output"] = str(review_output)
+        f.base.f.write_json(review_fixture.settings_path, review_fixture.settings)
+        self.portable_settings(review_fixture)
+        output, _ = self.invoke("prepare-review", "--settings", review_fixture.settings_path,
+            "--candidate-sha256", review_fixture.pins[0], "--inventory-sha256", review_fixture.pins[1],
+            "--mapping-sha256", review_fixture.pins[2], "--source-commit", "a" * 40, "--artifact-kind", "driver",
+            "--review-mode", "declared-gaps", "--declarations", f.base.declarations, "--declarations-sha256", f.base.digest)
+        review_receipt = json.loads(output)
+        f.review_pin = sha((review_output / "review-receipt.json").read_bytes())
+        f.settings["reviewDirectory"] = str(review_output)
+        f.disposition.update(reviewReceiptSha256=f.review_pin, declarationsSha256=review_receipt["declarationsSha256"])
+        f.save()
+        self.portable_settings(f)
+        original_receipt = (review_output / "review-receipt.json").read_bytes()
+        changed = {**review_receipt, "schemaVersion": 2}
+        (review_output / "review-receipt.json").write_text(json.dumps(changed), encoding="utf-8")
+        invalid_pin = sha((review_output / "review-receipt.json").read_bytes())
+        (review_output / "COMPLETE").write_text(invalid_pin, encoding="ascii")
+        f.disposition["reviewReceiptSha256"] = invalid_pin
+        f.save()
+        self.portable_settings(f)
+        self.invoke("prepare-review-request", "--settings", f.settings_path,
+                    "--review-sha256", invalid_pin, "--disposition-sha256", f.disposition_pin, success=False)
+        self.assertFalse(f.output.exists())
+        (review_output / "review-receipt.json").write_bytes(original_receipt)
+        (review_output / "COMPLETE").write_text(f.review_pin, encoding="ascii")
+        f.disposition["reviewReceiptSha256"] = f.review_pin
+        f.save()
+        self.portable_settings(f)
+        output, _ = self.invoke("prepare-review-request", "--settings", f.settings_path,
+                               "--review-sha256", f.review_pin, "--disposition-sha256", f.disposition_pin)
+        receipt = json.loads(output)
+        self.assertEqual(receipt["state"], "UnsignedRequestWithDeclaredGapsPrepared")
+        self.assertEqual(receipt["attachmentKind"], "UnsignedSelfTest")
+        self.assertFalse(receipt["deliveryAttempted"])
+        self.assertFalse(receipt["signatureApplied"])
+        self.assertTrue((f.output / "delivery" / receipt["attachmentFileName"]).is_file())
 
     def test_synthetic_signing_uses_bundled_validator(self):
         f = self.fixture(signed.SignedReviewStageTests)
@@ -236,7 +279,7 @@ class BundledConsoleTests(unittest.TestCase):
                 "CRESTRON_SUBMISSION_ANDROID_PINS": str(options["android_pins"]),
                 "REVIEW_KIND": "driver", "REVIEW_SOURCE": "a" * 40,
                 "REVIEW_CANDIDATE": fixture.pins[0], "REVIEW_INVENTORY": fixture.pins[1],
-                "REVIEW_MAPPING": fixture.pins[2], "REVIEW_SIGNING_COPY": "true",
+                "REVIEW_MAPPING": fixture.pins[2], "REVIEW_SIGNING_COPY": "true", "REVIEW_MODE": "complete",
                 "REVIEW_ANDROID_PINS": options["android_pins_sha256"]}, "review-receipt.json",
                 {"REVIEW_KIND": "library"})
 

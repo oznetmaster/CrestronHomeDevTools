@@ -7,6 +7,7 @@
   "package-help": "package_help",
   "prepare-delivery": "prepare_delivery",
   "prepare-review": "prepare_review",
+  "prepare-review-request": "prepare_review_request",
   "prepare-signed-review": "prepare_signed_review",
   "render-help": "render_help",
   "revalidate-delivery": "revalidate_delivery",

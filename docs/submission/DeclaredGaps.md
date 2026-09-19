@@ -89,7 +89,9 @@ The reusable private CI template accepts `review_mode` and `declarations_sha256`
 
 ## Remaining integration
 
-Missing required documents or signatures need explicit disclosure; no signature may imply work that was not done. These document omissions are not yet accepted by the current file assessment/package validation path.
+The source [unsigned request preparation command](ReviewRequest.md) now creates a separate outbound copy for an explicitly omitted signature or official form, from a revalidated retained review. It requires its own pinned document disposition and another visual review. It does not authorize delivery.
+
+Missing required documents or signatures need explicit disclosure; no signature may imply work that was not done. The unsigned request stage handles form/signature omissions. Other required documents, including package help, still use the existing file assessment/package validation rules and cannot yet be omitted.
 
 The new source [review delivery API](ReviewDelivery.md) binds mode, gap declarations, document omissions, attachment disposition and actual generated correspondence to approval. Its separate receipt preserves verification status alongside provider delivery state. Signed forms, unsigned forms and disclosure-only attachments have distinct wording. It shares the existing journal and SMTP provider; offline tests include a synthetic journal-plus-mailer rehearsal without external transmission.
 
