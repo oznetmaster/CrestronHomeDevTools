@@ -19,7 +19,7 @@ public enum SubmissionEnduranceHealthState { Collecting, Completed, AttentionReq
 
 /// <summary>Operational monitoring only. Completed is not independently validated submission evidence.</summary>
 public sealed record SubmissionEnduranceHealthReport (SubmissionEnduranceHealthState State,
-	IReadOnlyList<string> Reasons, DateTimeOffset EvaluatedUtc, DateTimeOffset? LastSampleUtc)
+	IReadOnlyList<string> Reasons, DateTimeOffset EvaluatedUtc, DateTimeOffset? LastSampleUtc, string PlanSha256 = "")
 	{
 	public bool RequiresAttention => State == SubmissionEnduranceHealthState.AttentionRequired;
 	}
@@ -104,6 +104,6 @@ public static class SubmissionEnduranceHealth
 			}
 		return new (reasons.Count != 0 ? SubmissionEnduranceHealthState.AttentionRequired :
 			completed ? SubmissionEnduranceHealthState.Completed : SubmissionEnduranceHealthState.Collecting,
-			reasons.Distinct (StringComparer.Ordinal).ToArray (), now, lastSample);
+			reasons.Distinct (StringComparer.Ordinal).ToArray (), now, lastSample, SubmissionEndurance.PlanDigest (plan));
 		}
 	}

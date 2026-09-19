@@ -46,6 +46,18 @@ static async Task<int> RunSafelyAsync (string[] args, bool interactive = false)
 
 static async Task<int> RunAsync (string[] args, bool interactive = false)
 	{
+	if (args.FirstOrDefault () == "endurance-notify")
+		{
+		if (args.Length == 2 && args[1] == "--help")
+			return await EnduranceNotificationCommand.RunAsync (args[1..], Console.In, Console.Out, Console.Error, CancellationToken.None);
+		if (interactive || !Console.IsInputRedirected)
+			{
+			Console.Error.WriteLine ("Endurance notification requires noninteractive execution and SMTP credentials on standard input.");
+			return 2;
+			}
+		using var deadline = new CancellationTokenSource (TimeSpan.FromSeconds (45));
+		return await EnduranceNotificationCommand.RunAsync (args[1..], Console.In, Console.Out, Console.Error, deadline.Token);
+		}
 	if (args.FirstOrDefault () == "submission-map-evidence")
 		return SubmissionEvidenceMappingCommand.Run (args[1..], Console.Out, Console.Error);
 	if (args.FirstOrDefault () == "submission")
@@ -151,6 +163,8 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
                 [--max-status-age-seconds 300] [--clock-tolerance-seconds 2]
                                        Assess a passive observer snapshot without collector locks.
                                        Exit 3 means attention required; sends no notification.
+              endurance-notify --help
+                                       Send authorized operational alerts with duplicate suppression.
               Schedule tick only after explicit start. Interrupted runs require inspection.
 
             Change processor configuration:

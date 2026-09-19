@@ -163,7 +163,7 @@ public sealed class SubmissionSmtpMailer
 		file.Flush (flushToDisk: true);
 		}
 
-	private sealed class MailKitSession : ISubmissionSmtpSession
+	internal sealed class MailKitSession : ISubmissionSmtpSession
 		{
 		private readonly SmtpClient _client = new ();
 		public async Task ConnectAsync (string host, int port, NetworkCredential credential, CancellationToken token)

@@ -1,5 +1,9 @@
 # Development history
 
+## 19 September 2026 - Passive endurance observation and notification source
+
+Source after 1.11.0 adds passive health assessment without opening the active collector journal, a bounded Task Scheduler snapshot reader, and optional operational SMTP notifications. Notifications retain duplicate suppression across restarts, bind to the worker plan and authorized destination, and stop for inspection after failed or uncertain delivery. Credentials arrive through the calling process rather than command-line arguments. This source work does not replace a running collector or constitute a driver submission. See [health assessment](docs/submission/WindowsEnduranceWorker.md#passive-health-assessment-source-development) and [notification setup](docs/submission/EnduranceNotifications.md) for validation boundaries and remaining deployment checks.
+
 ## 19 September 2026 - Original collector policy and worker compatibility (local source after 1.10.0)
 
 The reviewed evidence importer also accepts the original worker as an independently pinned mapping input when the collection policy describes behavioral scope separately from the executable requirement. It validates the original identity and producer manifest identity, uses the worker's unchanged execution rules and retains both original documents. It does not infer arbitrary policy semantics or execute a producer.

@@ -112,6 +112,8 @@ Exit 0 reports `Collecting` or `Completed`; exit 3 reports attention or an unrea
 
 The C# equivalent is `SubmissionEnduranceHealth.Evaluate`. Integrators provide a `SubmissionEnduranceHealthSnapshot` from their own trusted observer. A remote connection failure can be represented with `WorkerReachable = false`; never reuse a previous reachable result after a failed connection. On a one-PC setup, an external heartbeat receiver is needed to detect loss of that PC. A second PC is optional. Notification routing and delivery verification remain the monitoring integration's responsibility.
 
+Current source also provides an optional [SMTP notification API and CLI](EnduranceNotifications.md) with persistent duplicate suppression and explicit handling of uncertain delivery. It needs an authorized destination and independent observer; installing it alone does not establish delivered alerts.
+
 ## Retain a completed run
 
 DevTools 1.11.0 and later include `scripts/endurance/Export-EnduranceScheduledRun.ps1` in the complete console archive. It can consume an existing pinned scheduler configuration without changing the scheduled script, task, CLI or worker plan. Supply the original tick script explicitly if its bytes differ from the script beside the exporter. Do not replace pinned files during collection.
