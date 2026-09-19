@@ -64,6 +64,29 @@ public sealed class DriverPayloadInspectionTests
 		Assert.ThrowsAsync<InvalidDataException> (() => DriverPayloadInspection.ReadPackageAsync (package, new string ('0', 64), default));
 		}
 
+	[TestCase ("chdriver.example.platform.ip.developer.1.002.0003.0000")]
+	[TestCase ("chdriver.example.platform.ip.developer.1.2.3.0")]
+	public async Task ConfigurationCatalogueIdResolvesToUnversionedStorageKey (string catalogueId)
+		{
+		var source = new Source ();
+		var result = await DriverPayloadInspection.CompareCoreAsync (await Prepared (), catalogueId, source, default);
+		Assert.That (result.CatalogueId, Is.EqualTo (catalogueId));
+		Assert.That (result.Directory, Is.EqualTo (ROOT));
+		Assert.That (source.Opened, Is.EquivalentTo (Payload.Keys.Select (path => ROOT + "/" + path)));
+		}
+
+	[TestCase ("chdriver.example.platform.ip.developer.1.002.0004.0000")]
+	[TestCase ("chdriver.example.platform.ip.developer.1.2.3")]
+	[TestCase ("chdriver.1.002.0003.0000")]
+	[TestCase ("chdriver..1.002.0003.0000")]
+	public async Task IncorrectOrIncompleteCatalogueVersionIsRejected (string catalogueId)
+		{
+		var expected = await Prepared ();
+		var source = new Source ();
+		Assert.ThrowsAsync<InvalidDataException> (() => DriverPayloadInspection.CompareCoreAsync (expected, catalogueId, source, default));
+		Assert.That (source.Opened, Is.Empty);
+		}
+
 	[TestCase ("../outside.txt")]
 	[TestCase ("/outside.txt")]
 	[TestCase ("folder/../outside.txt")]

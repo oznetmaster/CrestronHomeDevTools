@@ -99,7 +99,7 @@ public static class DriverPayloadInspection
 	internal static async Task<DriverPayloadMatch> CompareCoreAsync (PackagePayload package, string catalogueId, IFileSource source, CancellationToken token)
 		{
 		ValidateCatalogueId (catalogueId);
-		var catalogue = PAYLOAD_ROOT + "/" + catalogueId;
+		var catalogue = PAYLOAD_ROOT + "/" + StorageKey (catalogueId, package.Identity.Version);
 		var root = catalogue + "/" + package.Identity.Version;
 		await RequireDirectoryAsync (source, PAYLOAD_ROOT, catalogue, token).ConfigureAwait (false);
 		await RequireDirectoryAsync (source, catalogue, root, token).ConfigureAwait (false);
@@ -150,6 +150,21 @@ public static class DriverPayloadInspection
 		if (string.IsNullOrWhiteSpace (catalogueId) || catalogueId.Length > 256 || catalogueId is "." or ".." ||
 			catalogueId.Any (c => char.IsControl (c) || c is '/' or '\\' or ':'))
 			throw new ArgumentException ("Provide the exact catalogue ID as one ordinary directory name.");
+		}
+
+	private static string StorageKey (string catalogueId, string packageVersion)
+		{
+		// Configuration catalogue IDs include a namespace and version. Extracted
+		// files use the unversioned driver key, then a separate version directory.
+		// Retain support for callers which already supply that storage key.
+		const string prefix = "chdriver.";
+		if (!catalogueId.StartsWith (prefix, StringComparison.Ordinal)) return catalogueId;
+		var parts = catalogueId[prefix.Length..].Split ('.');
+		if (parts.Length <= 4 || parts.Any (string.IsNullOrEmpty) ||
+			!Version.TryParse (string.Join ('.', parts[^4..]), out var selectedVersion) ||
+			!Version.TryParse (packageVersion, out var expectedVersion) || selectedVersion != expectedVersion)
+			throw new InvalidDataException ("The selected catalogue ID must identify the candidate's four-part version.");
+		return string.Join ('.', parts[..^4]);
 		}
 
 	private static bool SafeRelative (string path) => path.Length is > 0 and <= 512 && !path.Any (c => char.IsControl (c) || c is '\\' or ':') &&

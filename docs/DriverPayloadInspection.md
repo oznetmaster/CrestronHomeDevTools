@@ -5,14 +5,16 @@ Available in version 1.9.0. It supports checking an unchanged candidate before l
 Using a saved private processor profile:
 
 ```powershell
-CrestronHomeDevTools.Console.exe compare-payload --profile development --package "C:\Candidates\Example.pkg" --package-sha256 YOUR_TRUSTED_PACKAGE_SHA256 --driver manufacturer.model.control.developer
+CrestronHomeDevTools.Console.exe compare-payload --profile development --package "C:\Candidates\Example.pkg" --package-sha256 YOUR_TRUSTED_PACKAGE_SHA256 --driver chdriver.manufacturer.model.control.developer.1.002.0003.0000
 ```
 
 Use the exact catalogue ID reported by `drivers`. Obtain the expected SHA-256 from the independently retained build or release receipt. A hash computed from an untrusted replacement file does not establish that it is the intended candidate.
 
 The command acquires the same processor reservation used by the deployment and test tools. It refuses a busy processor, including one reserved for endurance monitoring. It uses the saved SSH host-key pin and an SFTP connection; it does not open a configuration-management session, install, reload, update, or delete driver files. Temporary reservation files are its only processor writes.
 
-The local package remains open against replacement while its identity, file inventory and file contents are checked. Its four-part version selects `/user/Data/UsedThirdPartyDrivers/<catalogue ID>/<version>`. The comparison requires all candidate files to exist with exactly matching names, sizes and SHA-256 digests, and refuses extra files, symbolic links, unsafe paths and ambiguous names. Empty directories are not compared. File counts and expanded sizes are bounded. Default comparison timeout is 120 seconds; `--timeout` permits up to 600 seconds. Reservation acquisition and final cleanup have their own bounded waits.
+The local package remains open against replacement while its identity, file inventory and file contents are checked. From version 1.13.1, the checker resolves a full `chdriver.<driver key>.<four-part version>` catalogue ID to `/user/Data/UsedThirdPartyDrivers/<driver key>/<package version>` and rejects a catalogue version that differs from the candidate. Existing callers supplying the unversioned storage key remain supported. Earlier releases incorrectly treated the full catalogue ID as a folder name.
+
+The comparison requires all candidate files to exist with exactly matching names, sizes and SHA-256 digests, and refuses extra files, symbolic links, unsafe paths and ambiguous names. Empty directories are not compared. File counts and expanded sizes are bounded. Default comparison timeout is 120 seconds; `--timeout` permits up to 600 seconds. Reservation acquisition and final cleanup have their own bounded waits.
 
 Standard output is a JSON receipt containing package identity, candidate hash, catalogue ID, inspected directory, per-file lengths and hashes, and observation time. It contains no file contents or credentials. Preserve it privately: file paths and catalogue identifiers may still describe the installation. Exit zero means comparison and reservation release completed. Always check the exit code before treating emitted JSON as success; a final reservation-release error returns a nonzero code. A mismatch returns 1, invalid arguments 2, a busy processor or unconfirmed cleanup 3, and cancellation 130.
 
