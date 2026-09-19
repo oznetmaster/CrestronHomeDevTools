@@ -153,13 +153,96 @@ public sealed class SubmissionEvidenceMappingTests
 	[Test]
 	public void OriginalEnduranceExportIsReadWithoutRewritingItsBytes ()
 		{
+		UseEnduranceExport ();
+		var bytes = File.ReadAllBytes (Path.Combine (_root, "source-observations.json"));
+		Assert.That (Map ().MappingChecksPassed, Is.True);
+		Assert.That (File.ReadAllBytes (Path.Combine (_root, "source-observations.json")), Is.EqualTo (bytes));
+		}
+
+	private void UseEnduranceExport ()
+		{
 		var bytes = JsonSerializer.SerializeToUtf8Bytes (_document.Observations[0], new JsonSerializerOptions
 			{ Converters = { new JsonStringEnumConverter (allowIntegerValues: false) } });
 		File.WriteAllBytes (Path.Combine (_root, "source-observations.json"), bytes);
 		_plan = _plan with { SourceFormat = "endurance-export", SourceObservationsSha256 = Convert.ToHexStringLower (SHA256.HashData (bytes)) };
 		Pin ();
-		Assert.That (Map ().MappingChecksPassed, Is.True);
-		Assert.That (File.ReadAllBytes (Path.Combine (_root, "source-observations.json")), Is.EqualTo (bytes));
+		}
+
+	private SubmissionEnduranceWorkerPlan UseSeparateCollectionPolicy ()
+		{
+		var policyHash = Write ("source-policy.json", new { schemaVersion = 1, purpose = "SYNTHETIC periodic feedback", maximumSampleGapSeconds = 60 });
+		_plan = _plan with { SourceIdentity = _plan.SourceIdentity with { PolicySha256 = policyHash } };
+		_document = _document with { Observations = [_document.Observations[0] with { Identity = _plan.SourceIdentity }] };
+		var probe = new SubmissionEnduranceProbeProgram (_root, "synthetic.exe", [new ("synthetic.exe", new ('a', 64))]);
+		var worker = new SubmissionEnduranceWorkerPlan (new (_plan.SourceIdentity,
+			new ("probe", TimeSpan.FromMinutes (1), false, new ("gateway", "endurance", SubmissionEvidenceOutcome.Passed, null, false, 60)),
+			"synthetic-processor", "synthetic-installation", "synthetic-reservation", SubmissionEnduranceProcessProbe.GetProducerId (probe),
+			TimeSpan.FromSeconds (10), TimeSpan.FromSeconds (5)), new ("processor.invalid", "synthetic-ssh-identity"), probe);
+		SaveWorker (worker);
+		UseEnduranceExport ();
+		return worker;
+		}
+
+	private void SaveWorker (SubmissionEnduranceWorkerPlan worker)
+		{
+		var bytes = JsonSerializer.SerializeToUtf8Bytes (worker, new JsonSerializerOptions { Converters = { new JsonStringEnumConverter () } });
+		File.WriteAllBytes (Path.Combine (_root, "worker.json"), bytes);
+		_plan = _plan with { SourceWorker = new ("worker.json", Convert.ToHexStringLower (SHA256.HashData (bytes))) };
+		Pin ();
+		}
+
+	[Test]
+	public void SeparateReviewedPolicyAndOriginalWorkerAreBothRetained ()
+		{
+		UseSeparateCollectionPolicy ();
+		var report = Map ();
+		Assert.That (report.MappingChecksPassed, Is.True);
+		Assert.That (report.Observations!.Observations[0].Files.Select (file => file.RelativePath),
+			Is.SupersetOf (new[] { "source-policy.json", "worker.json", "source-observations.json" }));
+		Assert.That (File.Exists (Path.Combine (_root, "synthetic.exe")), Is.False, "Producer must never be executed or installed by mapping.");
+		}
+
+	[TestCase ("package")]
+	[TestCase ("policy")]
+	[TestCase ("producer")]
+	public void WorkerMustMatchReviewedSourceAndProducer (string field)
+		{
+		var worker = UseSeparateCollectionPolicy ();
+		worker = field switch
+			{
+				"package" => worker with { Plan = worker.Plan with { Identity = worker.Plan.Identity with { PackageSha256 = new ('f', 64) } } },
+				"policy" => worker with { Plan = worker.Plan with { Identity = worker.Plan.Identity with { PolicySha256 = new ('f', 64) } } },
+				_ => worker with { Plan = worker.Plan with { ProducerId = "different-producer" } }
+			};
+		SaveWorker (worker);
+		Assert.Throws<ArgumentException> (() => Map ());
+		}
+
+	[Test]
+	public void ChangedWorkerDigestIsRejected ()
+		{
+		UseSeparateCollectionPolicy ();
+		File.AppendAllText (Path.Combine (_root, "worker.json"), " ");
+		Assert.Throws<InvalidDataException> (() => Map ());
+		}
+
+	[Test]
+	public void WorkerRequirementStillHasToBeSatisfied ()
+		{
+		var worker = UseSeparateCollectionPolicy ();
+		SaveWorker (worker with { Plan = worker.Plan with { Requirement = worker.Plan.Requirement with { MinimumDuration = TimeSpan.FromHours (24) } } });
+		var report = Map ();
+		Assert.That (report.Observations, Is.Null);
+		Assert.That (report.Source.Issues.Select (issue => issue.Code), Does.Contain ("insufficient-duration"));
+		}
+
+	[Test]
+	public void WorkerSourceRequiresExplicitEnduranceFormat ()
+		{
+		UseSeparateCollectionPolicy ();
+		_plan = _plan with { SourceFormat = "document" };
+		Pin ();
+		Assert.Throws<ArgumentException> (() => Map ());
 		}
 
 	[Test]

@@ -46,6 +46,17 @@ Uppercase values are placeholders, not accepted digests. Retain the mapping's SH
 
 For the original output of `endurance-export`, add `"sourceFormat": "endurance-export"` to the mapping. That command emits one PascalCase observation, rather than a camelCase observations document. The importer reads those exact pinned bytes without rewriting or wrapping the retained file. Omit this field (or use `"document"`) for the normal versioned observations document. Keep the original approved policy alongside it; the worker's plan is not itself a policy document.
 
+If the collector's original policy is a behavioral collection document rather than the generic `requirements` schema, also include its original reviewed worker file:
+
+```json
+"sourceWorker": {
+  "relativePath": "original-worker.json",
+  "sha256": "REVIEWED_ORIGINAL_WORKER_SHA256"
+}
+```
+
+The importer then reads the executable requirement from that worker, verifies its candidate/policy identity and producer inventory identity, and retains both the original policy and worker. It never creates a replacement policy and pretends its digest is the original. Before approving the mapping, review that the worker's executable duration, cadence and scope implement the collection policy; the importer cannot infer the meaning of arbitrary policy prose. This mode is only available with `endurance-export`. It validates the pinned inventory identity without executing the producer or contacting its processor. Authentication, the original bundle verification and successful reservation cleanup must already be established by the trusted export/handoff workflow.
+
 ## Run the public command
 
 Arrange the original documents and referenced files inside one private evidence tree. Preserve all relative paths referenced by the original observations, including response, restoration and sample references. If two runs use the same relative filename for different content, reconcile their evidence layout upstream; this command does not rewrite source records or merge conflicting trees.

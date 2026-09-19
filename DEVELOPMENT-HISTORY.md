@@ -1,5 +1,11 @@
 # Development history
 
+## 19 September 2026 - Original collector policy and worker compatibility (local source after 1.10.0)
+
+The reviewed evidence importer also accepts the original worker as an independently pinned mapping input when the collection policy describes behavioral scope separately from the executable requirement. It validates the original identity and producer manifest identity, uses the worker's unchanged execution rules and retains both original documents. It does not infer arbitrary policy semantics or execute a producer.
+
+All 36 mapping tests passed, including seven additional worker-policy cases. The actual frozen monitor policy and worker parsed successfully in an offline refusal check with unrelated synthetic evidence; no derived observations were produced. The consuming driver's cadence/mapping preparation remains distinct from final evidence or whole-policy approval. This local source addition leaves active monitoring unchanged.
+
 ## 19 September 2026 - Reviewed evidence handoff (local source after 1.10.0)
 
 Add `SubmissionEvidenceMapping.MapFiles` and `submission-map-evidence` for reviewed one-to-one imports from a narrower producer policy into a full submission policy. Original records and policy remain retained with their exact hashes; outcomes, timestamps, response, restoration and functional samples are preserved. The command rejects changed candidate identities, unsupported scope/method mappings, failed source runs and missing destination measurements. Missing full-policy requirements remain explicit. Source authentication and behavioral-equivalence review are still required; importing evidence is not submission approval.

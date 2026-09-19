@@ -2,6 +2,7 @@
 // Licensed under the MIT License. See LICENSE in the repository root.
 
 using System.Security.Cryptography;
+using System.Text.Json;
 
 namespace CrestronHomeDevTools;
 
@@ -9,7 +10,8 @@ public sealed record SubmissionRequirementMapping (
 	string SourceRequirementId, string DestinationRequirementId, string SourceTarget, string DestinationTarget, string Rationale);
 public sealed record SubmissionEvidenceMappingPlan (
 	int SchemaVersion, SubmissionEvidenceIdentity SourceIdentity, SubmissionEvidenceIdentity DestinationIdentity,
-	string SourceObservationsSha256, IReadOnlyList<SubmissionRequirementMapping> Requirements, string SourceFormat = "document");
+	string SourceObservationsSha256, IReadOnlyList<SubmissionRequirementMapping> Requirements, string SourceFormat = "document",
+	SubmissionEvidenceFile? SourceWorker = null);
 public sealed record SubmissionEvidenceMappingReport (
 	string MappingSha256, SubmissionEvidenceDocument? Observations, SubmissionEvidenceReport Source,
 	SubmissionEvidenceReport? Destination, IReadOnlyList<string> UnmappedRequirementIds)
@@ -52,7 +54,8 @@ public static class SubmissionEvidenceMapping
 				}
 			var mapping = Read (mappingPath, expectedMappingSha256);
 			var plan = SubmissionValidation.Read<SubmissionEvidenceMappingPlan> (mapping.Bytes);
-			if (plan.SchemaVersion != 1 || plan.SourceFormat is not ("document" or "endurance-export") || plan.Requirements.Count == 0 || plan.Requirements.Any (row => row == null ||
+			if (plan.SchemaVersion != 1 || plan.SourceFormat is not ("document" or "endurance-export") ||
+				(plan.SourceWorker != null && plan.SourceFormat != "endurance-export") || plan.Requirements.Count == 0 || plan.Requirements.Any (row => row == null ||
 				string.IsNullOrWhiteSpace (row.SourceRequirementId) || string.IsNullOrWhiteSpace (row.DestinationRequirementId) ||
 				string.IsNullOrWhiteSpace (row.SourceTarget) || string.IsNullOrWhiteSpace (row.DestinationTarget) || string.IsNullOrWhiteSpace (row.Rationale)) ||
 				plan.Requirements.Select (row => row.SourceRequirementId).Distinct (StringComparer.Ordinal).Count () != plan.Requirements.Count ||
@@ -67,7 +70,29 @@ public static class SubmissionEvidenceMapping
 			var sourcePolicy = Read (sourcePolicyPath, sourceIdentity.PolicySha256);
 			var sourceObservations = Read (sourceObservationsPath, plan.SourceObservationsSha256);
 			var destinationPolicy = Read (destinationPolicyPath, destinationIdentity.PolicySha256);
-			var source = SubmissionValidation.Read<SubmissionEvidencePolicy> (sourcePolicy.Bytes);
+			SubmissionEvidenceFile? workerFile = null;
+			SubmissionEvidencePolicy source;
+			if (plan.SourceWorker is { } workerReference)
+				{
+				// Some reviewed collector policies describe behavioral scope; the original worker binds executable rules.
+				// Preserve both documents, rather than inventing a replacement policy with the old digest.
+				if (SubmissionValidation.Read<JsonElement> (sourcePolicy.Bytes).ValueKind != JsonValueKind.Object)
+					throw new ArgumentException ("The reviewed collection policy must be a JSON object.");
+				var retainedWorker = Read (workerReference.RelativePath, workerReference.Sha256);
+				var worker = SubmissionValidation.Read<SubmissionEnduranceWorkerPlan> (retainedWorker.Bytes, pascalCase: true);
+				SubmissionEndurance.ValidatePlan (worker.Plan);
+				var identity = worker.Plan.Identity;
+				if (!identity.PackageSha256.Equals (sourceIdentity.PackageSha256, StringComparison.OrdinalIgnoreCase) ||
+					!identity.SourceCommit.Equals (sourceIdentity.SourceCommit, StringComparison.OrdinalIgnoreCase) ||
+					!identity.PolicySha256.Equals (sourceIdentity.PolicySha256, StringComparison.OrdinalIgnoreCase) ||
+					!identity.TemplateSha256.Equals (sourceIdentity.TemplateSha256, StringComparison.OrdinalIgnoreCase) ||
+					SubmissionEnduranceProcessProbe.GetProducerId (worker.Probe) != worker.Plan.ProducerId)
+					throw new ArgumentException ("The retained worker must bind the original evidence identity and exact producer inventory.");
+				source = new (1, [worker.Plan.Requirement]);
+				workerFile = retainedWorker.File;
+				}
+			else
+				source = SubmissionValidation.Read<SubmissionEvidencePolicy> (sourcePolicy.Bytes);
 			var document = plan.SourceFormat == "endurance-export"
 				? new SubmissionEvidenceDocument (1, [SubmissionValidation.Read<SubmissionObservation> (sourceObservations.Bytes, pascalCase: true)])
 				: SubmissionValidation.Read<SubmissionEvidenceDocument> (sourceObservations.Bytes);
@@ -92,7 +117,10 @@ public static class SubmissionEvidenceMapping
 					to.Execution.Target != row.DestinationTarget || from.Execution.Method != to.Execution.Method)
 					throw new ArgumentException ("Mapping requires existing scoped requirements, exact reviewed targets and the same observation method.");
 				var original = document.Observations.Single (item => item.RequirementId == row.SourceRequirementId);
-				var files = original.Files.Concat ([mapping.File, sourcePolicy.File, sourceObservations.File, destinationPolicy.File]).ToArray ();
+				var provenance = new List<SubmissionEvidenceFile> { mapping.File, sourcePolicy.File, sourceObservations.File, destinationPolicy.File };
+				if (workerFile != null)
+					provenance.Add (workerFile);
+				var files = original.Files.Concat (provenance).ToArray ();
 				if (files.GroupBy (file => file.RelativePath, StringComparer.OrdinalIgnoreCase).Any (group =>
 					group.Select (file => file.Sha256.ToLowerInvariant ()).Distinct ().Count () != 1))
 					throw new ArgumentException ("Evidence paths have conflicting digests.");
