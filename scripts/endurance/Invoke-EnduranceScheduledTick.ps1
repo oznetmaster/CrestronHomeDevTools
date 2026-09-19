@@ -54,6 +54,19 @@ function Invoke-Collector([string]$Command, [string]$Label) {
 		return @{ ExitCode=$process.ExitCode; Text=$text }
 	} finally { $process.Dispose() }
 }
+function Read-CollectorStatus($Reply) {
+	# Exit 3 can mean either a valid uncertain state or a failure with no JSON.
+	# Preserve stdout/stderr in the attempt and never dereference an unvalidated response.
+	if ($Reply.ExitCode -notin @(0, 1, 3) -or [string]::IsNullOrWhiteSpace($Reply.Text) -or
+		-not $Reply.Text.TrimStart().StartsWith('{', [StringComparison]::Ordinal)) { return $null }
+	try { $value = $Reply.Text | ConvertFrom-Json -ErrorAction Stop } catch { return $null }
+	if ($null -eq $value -or $value -isnot [System.Management.Automation.PSCustomObject] -or
+		$null -eq $value.PSObject.Properties['ReservationState'] -or $value.ReservationState -isnot [string] -or
+		$null -eq $value.PSObject.Properties['Checkpoint']) { return $null }
+	if ($null -ne $value.Checkpoint -and ($value.Checkpoint -isnot [System.Management.Automation.PSCustomObject] -or
+		$null -eq $value.Checkpoint.PSObject.Properties['State'] -or $value.Checkpoint.State -isnot [string])) { return $null }
+	return $value
+}
 function Complete-Attempt([string]$State, [string]$Reason, [int]$Code, $Observed) {
 	$result = @{ SchemaVersion=1; ObservedUtc=[DateTimeOffset]::UtcNow.ToString('O'); State=$State; Reason=$Reason; ExitCode=$Code; Collector=$Observed }
 	# Persist the failure latch before updating other status files, which might themselves be unavailable.
@@ -99,8 +112,8 @@ try {
 		@($items | Where-Object { -not $_.PSIsContainer }).Count -ne $seen.Count -or
 		-not $seen.ContainsKey([IO.Path]::GetFullPath((Join-Path $cliRoot $config.CliExecutable)))) { throw 'CLI bundle does not match its manifest.' }
 	$before = Invoke-Collector 'endurance-status' 'before'
-	if ($before.ExitCode -notin @(0, 1, 3)) { throw 'Collector status failed.' }
-	$status = $before.Text | ConvertFrom-Json
+	$status = Read-CollectorStatus $before
+	if ($null -eq $status) { exit (Complete-Attempt 'AttentionRequired' 'collector-status-unavailable-before-tick' 3 $null) }
 	$phase = if ($null -eq $status.Checkpoint) { 'NotStarted' } else { [string]$status.Checkpoint.State }
 	if ($status.ReservationState -eq 'Released' -and $phase -in @('Passed', 'Failed')) {
 		$code = if ($phase -eq 'Passed') { 0 } else { 1 }
@@ -111,8 +124,8 @@ try {
 	}
 	$tick = Invoke-Collector 'endurance-tick' 'tick'
 	$after = Invoke-Collector 'endurance-status' 'after'
-	if ($after.ExitCode -notin @(0, 1, 3)) { throw 'Collector status failed after tick.' }
-	$status = $after.Text | ConvertFrom-Json
+	$status = Read-CollectorStatus $after
+	if ($null -eq $status) { exit (Complete-Attempt 'AttentionRequired' 'collector-status-unavailable-after-tick' 3 $null) }
 	$phase = if ($null -eq $status.Checkpoint) { 'NotStarted' } else { [string]$status.Checkpoint.State }
 	if ($tick.ExitCode -eq 0 -and $after.ExitCode -eq 0 -and $status.ReservationState -eq 'Held' -and $phase -eq 'Collecting') {
 		exit (Complete-Attempt 'Collecting' 'tick-completed' 0 $status)

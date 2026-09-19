@@ -21,6 +21,24 @@ if (tick)
 	Console.WriteLine ("{}");
 	return scenario == "failure" ? 1 : 0;
 	}
+bool invalidStatus = scenario.StartsWith ("before-", StringComparison.Ordinal) ||
+	scenario.StartsWith ("after-", StringComparison.Ordinal) && alreadyTicked;
+if (invalidStatus)
+	{
+	string response = scenario[(scenario.IndexOf ('-') + 1)..];
+	switch (response)
+		{
+		case "empty": return 0;
+		case "unavailable": Console.Error.WriteLine ("Synthetic file/reservation status unavailable."); return 3;
+		case "null": Console.WriteLine ("null"); return 0;
+		case "missing": Console.WriteLine ("{}"); return 0;
+		case "array": Console.WriteLine ("[]"); return 0;
+		case "array-single": Console.WriteLine ("[{\"ReservationState\":\"Held\",\"Checkpoint\":{\"State\":\"Collecting\"}}]"); return 0;
+		case "scalar": Console.WriteLine ("42"); return 0;
+		case "malformed": Console.WriteLine ("not JSON"); return 0;
+		case "checkpoint": Console.WriteLine ("{\"ReservationState\":\"Held\",\"Checkpoint\":{}}"); return 0;
+		}
+	}
 if (scenario == "malformed") { Console.WriteLine ("not JSON"); return 0; }
 string ownership = scenario switch
 	{

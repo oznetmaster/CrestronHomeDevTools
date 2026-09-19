@@ -74,6 +74,27 @@ foreach ($scenario in @('collecting','first','passing','failure','complete','fai
 	}
 	$passed.Add($scenario)
 }
+foreach ($phase in @('before', 'after')) {
+	foreach ($response in @('empty', 'unavailable', 'null', 'missing', 'array', 'array-single', 'scalar', 'malformed', 'checkpoint')) {
+		$scenario = $phase + '-' + $response
+		$case = Prepare $scenario $scenario
+		Assert ((Run-Tick $case) -eq 3) "$scenario did not stop for unavailable status."
+		$state = Get-Content -LiteralPath (Join-Path $case 'state/status.json') -Raw | ConvertFrom-Json
+		Assert ($state.State -eq 'AttentionRequired' -and $state.Reason -eq ('collector-status-unavailable-' + $phase + '-tick')) "$scenario lost its status failure reason."
+		$attempts = @(Get-ChildItem -LiteralPath (Join-Path $case 'state/attempts') -Directory)
+		Assert ($attempts.Count -eq 1) "$scenario created unexpected attempts."
+		Assert (-not (Test-Path -LiteralPath (Join-Path $attempts[0].FullName 'error.json'))) "$scenario produced a secondary wrapper exception."
+		$label = if ($phase -eq 'before') { 'before' } else { 'after' }
+		Assert (Test-Path -LiteralPath (Join-Path $attempts[0].FullName ($label + '.stdout.json'))) "$scenario lost its original stdout."
+		Assert (Test-Path -LiteralPath (Join-Path $attempts[0].FullName ($label + '.stderr.txt'))) "$scenario lost its original stderr."
+		$calls = [IO.File]::ReadAllLines((Join-Path $case 'run/calls.txt'))
+		$expectedCalls = if ($phase -eq 'before') { 'endurance-status' } else { 'endurance-status,endurance-tick,endurance-status' }
+		Assert (($calls -join ',') -ceq $expectedCalls) "$scenario replayed or added a collector command."
+		Assert ((Run-Tick $case) -eq 3) "$scenario did not remain latched."
+		Assert (([IO.File]::ReadAllLines((Join-Path $case 'run/calls.txt')) -join ',') -ceq $expectedCalls) "$scenario reran commands after the failure."
+		$passed.Add($scenario)
+	}
+}
 $case = Prepare 'changed-worker' 'collecting'
 Add-Content -LiteralPath (Join-Path $case 'worker.json') -Value ' '
 Assert ((Run-Tick $case) -eq 3) 'Changed worker was accepted.'
