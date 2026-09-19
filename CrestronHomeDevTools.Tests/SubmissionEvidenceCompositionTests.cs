@@ -56,6 +56,18 @@ public sealed class SubmissionEvidenceCompositionTests
 	private string[] Arguments (string output) => ["--evidence", _root, "--plan", "plan.json", "--plan-sha256", _pin, "--policy", "policy.json", "--output", output];
 
 	[Test]
+	public void ConsoleRejectsChangedPlanWithoutUnhandledException ()
+		{
+		File.AppendAllText (Path.Combine (_root, "plan.json"), " ");
+		using var output = new StringWriter ();
+		using var error = new StringWriter ();
+		Assert.That (SubmissionEvidenceCompositionCommand.Run (Arguments (Path.Combine (_root, "review")), output, error), Is.EqualTo (2));
+		Assert.That (output.ToString (), Is.Empty);
+		Assert.That (error.ToString (), Does.Contain ("differs from its reviewed digest"));
+		Assert.That (Directory.Exists (Path.Combine (_root, "review")), Is.False);
+		}
+
+	[Test]
 	public void CompleteCompositionPreservesMeasurementsAndRetainsSourceDocuments ()
 		{
 		var before = File.ReadAllBytes (Path.Combine (_root, "first.json"));

@@ -1,5 +1,9 @@
 # Optional private CI review stage
 
+A complete review means complete against our interpretation of Crestron's requirements, as captured in the developer's declared verification plan and the tool's checks. It is not a Crestron decision. No validation result, completed form or successful delivery implies Crestron acceptance, publication or certification.
+
+The source [declared-gaps assessment](DeclaredGaps.md) records explained omissions against the full policy without changing failed outcomes. Its form/signing/delivery integration remains pending; the complete-only review command below is unchanged.
+
 Command examples use the [bundled submission console](ConsoleTools.md); see that guide for source/release availability and setup.
 
 The source `tools/submission/prepare_review.py` connects evidence validation, unsigned form generation and private evidence retention. This is the review preparation portion of the final submission stage. It does not execute missing tests, authenticate the evidence producer, approve a policy, render/sign a form or upload/email a submission. The bundled console supplies this command and its matching validator. The optional signing-copy handoff described below requires the 1.6.0 tagged source or later; see [source availability](../../README.md#get-started).

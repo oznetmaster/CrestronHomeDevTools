@@ -4,6 +4,8 @@ The [submission preparation console](submission/ConsoleTools.md) provides the do
 
 This describes the optional submission stage and the state of its shared tooling. Driver-specific rollout plans, public identity, supported models, help content, UI pages and validation results belong in each driver repository. Processor test packages and independent client libraries are not portal submissions.
 
+Throughout this workflow, **complete** means complete against our interpretation of Crestron's requirements, as captured in the developer's declared verification plan and these tools' checks. It is our assessment, not Crestron's. Passing every check, signing a form or successfully delivering a submission does not imply or predict Crestron acceptance, publication or certification. Only Crestron can make those decisions. Keep developer verification status, delivery status and any actual Crestron decision separate, including when a developer submits with disclosed gaps.
+
 The baseline is one development PC and one compatible processor. See [development configurations](submission/DevelopmentConfigurations.md) for local execution, optional CI, endurance on the development PC and layouts with additional hardware. A second computer or processor is not a tooling prerequisite; the chosen layout and each applicable submission requirement still need validation.
 
 For the optional final CI stages, [workflow setup](submission/WorkflowSetup.md) supplies a single dispatcher and four coordinated public templates for your own protected repository. The templates remain disabled until configured; they do not supply missing candidate evidence or authorization.

@@ -60,7 +60,7 @@ internal static class SubmissionEvidenceCompositionCommand
 				}));
 			return report.CompositionChecksPassed ? 0 : 1;
 			}
-		catch (Exception exception) when (exception is ArgumentException or IOException or UnauthorizedAccessException or JsonException)
+		catch (Exception exception) when (exception is ArgumentException or InvalidDataException or IOException or UnauthorizedAccessException or JsonException)
 			{
 			error.WriteLine (exception is ArgumentException or InvalidDataException ? exception.Message : "Cannot read or retain evidence composition inputs/results.");
 			return 2;

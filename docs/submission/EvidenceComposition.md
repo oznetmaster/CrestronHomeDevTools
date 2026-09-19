@@ -1,5 +1,7 @@
 # Combine observations for final review
 
+Completeness refers to our interpretation of Crestron's requirements, as captured in the developer's declared verification plan and these tools' checks. Neither complete nor incomplete evidence, nor successful delivery, implies Crestron acceptance, publication or certification. Only Crestron can determine those outcomes.
+
 **Source implementation, not included in the released 1.12.0 packages.** The C# API is `SubmissionEvidenceComposition.CombineFiles`; the console command is `submission-combine-evidence`. Both run offline. They do not need Python commands, processor credentials or an Android connection.
 
 Different phases can produce separate observation documents: configuration acceptance, controls, recovery and the completed endurance handoff. Composition collects those already scoped observations into the single document consumed by [review preparation](ReviewStage.md). It does not interpret NUnit test names or screenshots, generate missing assertions, combine partial assertions into a pass, change a candidate identity or authenticate a producer.

@@ -79,6 +79,8 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 		return SubmissionEvidenceMappingCommand.Run (args[1..], Console.Out, Console.Error);
 	if (args.FirstOrDefault () == "submission-combine-evidence")
 		return SubmissionEvidenceCompositionCommand.Run (args[1..], Console.Out, Console.Error);
+	if (args.FirstOrDefault () == "submission-assess-review")
+		return SubmissionReviewAssessmentCommand.Run (args[1..], Console.Out, Console.Error);
 	if (args.FirstOrDefault () == "submission")
 		{
 		using var deadline = new CancellationTokenSource (TimeSpan.FromMinutes (45));
@@ -158,6 +160,8 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
               submission-map-evidence --help
               submission-combine-evidence --help
                                        Import reviewed evidence mappings, preserving original records.
+              submission-assess-review --help
+                                       Assess complete-policy evidence and explicitly declared gaps.
               submission-bundle-create --output FILE --candidate FILE --candidate-sha256 SHA256
                 --package FILE --policy FILE --template FILE --observations FILE --evidence DIR
                                        Archive and validate referenced evidence in private storage.
