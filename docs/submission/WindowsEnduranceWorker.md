@@ -114,6 +114,8 @@ The C# equivalent is `SubmissionEnduranceHealth.Evaluate`. Integrators provide a
 
 Current source also provides an optional [SMTP notification API and CLI](EnduranceNotifications.md) with persistent duplicate suppression and explicit handling of uncertain delivery. It needs an authorized destination and independent observer; installing it alone does not establish delivered alerts.
 
+For a built-in local or remote Windows observation path, use `endurance-observe` as described in that guide. Its snapshot reader is embedded in the library; no separate private observation program or transferred script is needed. Remote Windows SSH setup and trusted credentials remain explicit prerequisites.
+
 ## Retain a completed run
 
 DevTools 1.11.0 and later include `scripts/endurance/Export-EnduranceScheduledRun.ps1` in the complete console archive. It can consume an existing pinned scheduler configuration without changing the scheduled script, task, CLI or worker plan. Supply the original tick script explicitly if its bytes differ from the script beside the exporter. Do not replace pinned files during collection.

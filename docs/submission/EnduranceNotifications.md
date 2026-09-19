@@ -22,6 +22,38 @@ Authorize the sender and recipient before enabling sending. Keep settings, crede
 
 ## CLI
 
+### Obtain a fresh observation
+
+The current source `endurance-observe` command includes its Windows snapshot reader, so developers do not write or transfer a PowerShell script. Give it the existing trusted worker plan and a private observer configuration:
+
+```json
+{
+  "task": {
+    "taskName": "Crestron-Endurance-CandidateA",
+    "stateDirectory": "C:\\ProgramData\\PrivateMonitoring\\CandidateA\\scheduler-state",
+    "taskPath": "\\"
+  },
+  "remote": {
+    "host": "monitor-pc.example.test",
+    "port": 22,
+    "hostKeyAlgorithm": "ssh-ed25519",
+    "hostKeyFingerprint": "INDEPENDENTLY_VERIFIED_WINDOWS_SSH_FINGERPRINT"
+  }
+}
+```
+
+Omit `remote` to read the local Windows PC. For another Windows PC, enable its SSH server deliberately, authorize an account to read the intended task and scheduler files, and verify its host key before configuring the observer. Credentials are that Windows account's credentials, not processor credentials. The command never trusts an unknown key automatically and never installs SSH, changes the firewall or provisions account access.
+
+```text
+CrestronHomeDevTools.Console.exe endurance-observe --worker PRIVATE_WORKER.json --observer PRIVATE_OBSERVER.json
+```
+
+For remote observation, the protected calling process supplies `{ "userName": "WINDOWS_LOGIN", "password": "WINDOWS_PASSWORD" }` on standard input and closes it. Local observation does not need that input. The result is the same health-report JSON consumed by the notification command. The remote reader runs from the installed library over pinned SSH; it does not upload a script, acquire a collector lock or contact a processor. Each query is bounded and is not automatically retried, apart from the snapshot reader's bounded inconsistent task-state reads.
+
+A failed connection, authentication, query or malformed response produces an `observer-query-failed` attention report where possible. It does not fall back to a previous healthy snapshot. Invalid local inputs and explicit cancellation can return a nonzero exit without a report; the supervising job must also surface those errors. Exit 3 with a valid attention report is deliberately eligible for notification, not a reason to skip the notification step. Do not join the two commands with a success-only conditional. Retain the fresh stdout privately, inspect its schema and pass that report to the notification command even when observation returned 3. Never pass stderr as a health report.
+
+### Notify the approved destination
+
 ```text
 CrestronHomeDevTools.Console.exe endurance-notify --settings PRIVATE_SETTINGS.json --health FRESH_HEALTH.json --journal PRIVATE_EXISTING_DIRECTORY --send true
 ```
@@ -43,6 +75,16 @@ SubmissionEnduranceNotificationResult result = await notifier.NotifyAsync(health
 
 Supply a freshly evaluated report from `SubmissionEnduranceHealth.Evaluate`, obtained through a trusted observer. Settings and credentials are ordinary C# objects; no Python is involved. Polling, authenticated remote observation, Windows startup and secret-store access remain the integrating application's responsibility. See [Windows endurance workers](WindowsEnduranceWorker.md) for passive snapshots. On a single-PC setup, an external receiver must detect that PC's loss of power; a task on the same PC cannot do so.
 
+The built-in Windows observer can provide that report directly:
+
+```csharp
+var healthReport = await SubmissionEnduranceWindowsObserver.AssessAsync(
+    worker.Plan, windowsTask, remoteWindowsEndpoint, windowsCredential, cancellationToken);
+var delivery = await notifier.NotifyAsync(healthReport, cancellationToken);
+```
+
+Use a null endpoint/credential for local Windows observation. `ReadLocalAsync` and `ReadRemoteAsync` are also available when the caller needs the underlying snapshot. A query failure in `AssessAsync` becomes a fresh, run-bound attention report; argument errors and explicit caller cancellation remain errors. The same configured C# integration can service multiple separately bound runs without a fixed computer count. Scheduling, startup, access provisioning and secret retrieval still require deployment configuration.
+
 After independently checking an unresolved delivery using its retained message ID, an operator can call:
 
 ```csharp
@@ -54,3 +96,5 @@ Use `false` only when the review establishes the message was not accepted and an
 ## Validation boundary
 
 Offline tests cover incident suppression across process restarts, completion suppression, configured recipients, absence of attachments/secrets, connection and send failures, lost acceptance writes, locking, stale/wrong-run reports and explicit reconciliation. The CLI also runs as a real quiet process without a processor profile or SMTP connection. These tests use simulated senders. Real provider acceptance, inbox delivery and scheduled independent-observer operation remain deployment checks; no real alert delivery is claimed by this source documentation.
+
+The Windows observer also has offline tests for its bundled reader, command encoding and literal task parameters, malformed responses, cancellation and failed-query handling. Its source CLI has completed a read-only observation of an existing scheduled collector on a separate Windows PC using a verified ED25519 SSH key. This establishes that observation path, not scheduled alert delivery or a Windows restart test.

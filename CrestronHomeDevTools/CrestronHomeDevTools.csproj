@@ -9,6 +9,7 @@
     <PackageTags>Crestron;CrestronHome;configuration;drivers</PackageTags>
   </PropertyGroup>
   <ItemGroup>
+    <EmbeddedResource Include="../scripts/endurance/Get-EnduranceHealthSnapshot.ps1" LogicalName="CrestronHomeDevTools.EnduranceHealthSnapshot.ps1" />
     <None Include="../README.md" Pack="true" PackagePath="/" />
     <None Include="../licenses/*.txt" Pack="true" PackagePath="licenses/" />
     <None Include="../LICENSE" Pack="true" PackagePath="/" />

@@ -46,6 +46,11 @@ static async Task<int> RunSafelyAsync (string[] args, bool interactive = false)
 
 static async Task<int> RunAsync (string[] args, bool interactive = false)
 	{
+	if (args.FirstOrDefault () == "endurance-observe")
+		{
+		using var deadline = new CancellationTokenSource (TimeSpan.FromSeconds (45));
+		return await EnduranceObservationCommand.RunAsync (args[1..], Console.In, Console.Out, Console.Error, deadline.Token);
+		}
 	if (args.FirstOrDefault () == "endurance-notify")
 		{
 		if (args.Length == 2 && args[1] == "--help")
@@ -165,6 +170,8 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
                                        Exit 3 means attention required; sends no notification.
               endurance-notify --help
                                        Send authorized operational alerts with duplicate suppression.
+              endurance-observe --help
+                                       Read and assess local or remote Windows monitoring state.
               Schedule tick only after explicit start. Interrupted runs require inspection.
 
             Change processor configuration:

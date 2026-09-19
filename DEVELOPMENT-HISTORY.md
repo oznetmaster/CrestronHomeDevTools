@@ -2,6 +2,8 @@
 
 ## 19 September 2026 - Passive endurance observation and notification source
 
+The Windows observer now includes the snapshot reader in the library and exposes local/pinned-SSH APIs plus `endurance-observe`. A fresh remote Windows observation succeeded through the source CLI without uploading scripts or acquiring collector locks. Failed queries become run-bound attention rather than reusing an old healthy response. This closes the private observation-helper dependency; scheduling, secrets provisioning and real notification delivery remain deployment work.
+
 Source after 1.11.0 adds passive health assessment without opening the active collector journal, a bounded Task Scheduler snapshot reader, and optional operational SMTP notifications. Notifications retain duplicate suppression across restarts, bind to the worker plan and authorized destination, and stop for inspection after failed or uncertain delivery. Credentials arrive through the calling process rather than command-line arguments. This source work does not replace a running collector or constitute a driver submission. See [health assessment](docs/submission/WindowsEnduranceWorker.md#passive-health-assessment-source-development) and [notification setup](docs/submission/EnduranceNotifications.md) for validation boundaries and remaining deployment checks.
 
 ## 19 September 2026 - Original collector policy and worker compatibility (local source after 1.10.0)

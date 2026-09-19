@@ -149,6 +149,34 @@ public sealed class SubmissionEnduranceProcessProbeTests
 		try { using var process = Process.GetProcessById (pid); Assert.That (process.HasExited, Is.True); }
 		catch (ArgumentException) { }
 		}
+	[TestCase (false)]
+	[TestCase (true)]
+	public async Task ObserverCommandSupportsLocalAndRemoteWindowsWithoutProcessorCredentials (bool remote)
+		{
+		string worker = Path.Combine (_root, "worker.json"), observer = Path.Combine (_root, "observer.json");
+		File.WriteAllText (worker, JsonSerializer.Serialize (new SubmissionEnduranceWorkerPlan (_plan, new ("processor.invalid", "pin"), _program)));
+		File.WriteAllText (observer, JsonSerializer.Serialize (new EnduranceObservationCommand.Settings (new ("Candidate", "C:\\Private\\state"),
+			remote ? new ("windows.example.test", 22, "ssh-ed25519", "approved-pin") : null)));
+		var output = new StringWriter ();
+		var error = new StringWriter ();
+		int calls = 0;
+		int exit = await EnduranceObservationCommand.RunAsync (["--worker", worker, "--observer", observer],
+			new StringReader (remote ? "{\"userName\":\"windows-user\",\"password\":\"PRIVATE-SECRET\"}" : ""), output, error, CancellationToken.None,
+			(plan, settings, credential, _) =>
+				{
+				calls++;
+				Assert.That (plan, Is.EqualTo (_plan));
+				Assert.That (settings.Task.TaskName, Is.EqualTo ("Candidate"));
+				Assert.That (credential?.Password, Is.EqualTo (remote ? "PRIVATE-SECRET" : null));
+				return Task.FromResult (new SubmissionEnduranceHealthReport (SubmissionEnduranceHealthState.AttentionRequired,
+					["observer-query-failed"], DateTimeOffset.UtcNow, null, SubmissionEndurance.PlanDigest (_plan)));
+				});
+		Assert.That (calls, Is.EqualTo (1));
+		Assert.That (exit, Is.EqualTo (3));
+		Assert.That (output.ToString (), Does.Contain ("observer-query-failed").And.Not.Contain ("PRIVATE-SECRET"));
+		Assert.That (error.ToString (), Is.Empty);
+		Assert.That (File.Exists (_program.SettingsFile + ".pid"), Is.False);
+		}
 	[TestCase ("healthy", 0)]
 	[TestCase ("stale", 3)]
 	[TestCase ("offline", 3)]
