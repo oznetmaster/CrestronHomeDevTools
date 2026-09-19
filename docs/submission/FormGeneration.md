@@ -2,7 +2,7 @@
 
 Command examples use the [bundled submission console](ConsoleTools.md); see that guide for source/release availability and setup.
 
-`tools/submission/self_test_form.py` generates an unsigned, interactive review PDF. It preserves the official form's printed pages, adds a companion matrix, and can populate checkboxes from evidence checked by the existing DevTools offline validator. It does not apply a signature/date, upload, email, authorize delivery or claim Crestron acceptance. Use the matching bundled console; the document runtime is not a dependency of the NuGet configuration library.
+The `submission self-test-form` command generates an unsigned, interactive review PDF. It preserves the official form's printed pages, adds a companion matrix, and can populate checkboxes from evidence checked by the existing DevTools offline validator. It does not apply a signature/date, upload, email, authorize delivery or claim Crestron acceptance. Use the matching bundled console; the document runtime is not a dependency of the NuGet configuration library.
 
 The [submission plan](../CrestronSubmission.md) remains authoritative for the work still required. A generated form is one build artifact, not a replacement for the complete driver-specific policy, trusted evidence producer, visual review and signing authorization.
 
@@ -26,7 +26,7 @@ The sample driver draft was generated with the actual pinned Extension form. All
 
 First prepare the candidate, approved policy and retained observations described in [EvidenceCli.md](EvidenceCli.md). Add a separately reviewed form mapping:
 
-The source [coverage blueprint generator](CoveragePlanning.md) can prepare the draft policy and complete mapping from explicit driver-specific scopes. It leaves every producer unbound and generates no observations; complete review and execution remain necessary before using those files here.
+The bundled [coverage blueprint generator](CoveragePlanning.md) can prepare the draft policy and complete mapping from explicit driver-specific scopes. It leaves every producer unbound and generates no observations; complete review and execution remain necessary before using those files here.
 
 ```json
 {

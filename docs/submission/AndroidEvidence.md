@@ -2,7 +2,7 @@
 
 Command examples use the [bundled submission console](ConsoleTools.md); see that guide for source/release availability and setup.
 
-The source tool `tools/submission/audit_android.py` checks retained output from the NUnit Android workflow against independent release and producer pins. It is an offline step between the hardware run and requirement-by-requirement evidence preparation. It does not connect to the processor or emulator, operate devices, fill the form or send a submission.
+The `submission audit-android` command checks retained output from the NUnit Android workflow against independent release and producer pins. It is an offline step between the hardware run and requirement-by-requirement evidence preparation. It does not connect to the processor or emulator, operate devices, fill the form or send a submission.
 
 Use `submission audit-android` from the complete DevTools 1.9.0 or later console archive; its runtime and validator are included. The complete-producer check first appeared in the v1.8.0 source tools. Its producer-manifest contract requires CrestronHomeNUnit workflow 1.11.1 or later; older workflows do not create these files. Selected-case inventories require the corresponding 1.12.0 or later workflow and independently retained selection pins.
 
@@ -27,13 +27,13 @@ These uppercase values are placeholders. The output's parent must exist. Existin
 
 ## What is checked
 
-### Selected Android phases (source development after 1.8.0)
+### Selected Android phases
 
-The matching NUnit source branch can declare exact required test names while retaining complete project discovery. Its selected runs use producer receipt schema 2, `selection.json` and `selection.runsettings`. This source auditor accepts them only with an independently retained selection SHA-256, passed internally as `--selection-sha256` or as `selectionSha256` on the run in the private review pins. Omitting that pin cannot downgrade a selected run to complete-project evidence. These changes are not in the published 1.8.0 tools.
+CrestronHomeNUnit 1.12.0 or later can declare exact required test names while retaining complete project discovery. Its selected runs use producer receipt schema 2, `selection.json` and `selection.runsettings`. The bundled DevTools 1.10.0 auditor accepts them only with an independently retained selection SHA-256, passed as `--selection-sha256` or as `selectionSha256` on the run in the private review pins. Omitting that pin cannot downgrade a selected run to complete-project evidence.
 
 The selection must partition the complete discovery inventory without omissions, invented cases or splitting duplicate names. The actual TRX must execute every selected case successfully. Reports state discovered, executed and excluded counts. A selected-phase result still establishes no official requirement by itself; the reviewed coverage policy must account for all intended phases and exclusions. Old complete-project evidence retains its schema 1 contract.
 
-The commands on this page currently describe source-tool operation. The supported developer workflow must manage this internal runtime and its pinned dependencies automatically through documented public commands. Developers are not expected to understand or maintain Python; that packaged entry point remains unfinished.
+The complete console archive supplies the internal runtime and pinned dependencies. Developers use the commands on this page without installing or maintaining Python; see [Console tools](ConsoleTools.md) for setup.
 
 ### Common checks
 

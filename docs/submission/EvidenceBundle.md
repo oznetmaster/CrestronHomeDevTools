@@ -11,7 +11,7 @@ First produce the [candidate declaration, approved policy and observations](Evid
 Use an existing private output directory with access restricted to the intended build/signing accounts. Keep it outside the source checkout. The commands create randomly named temporary children there and remove them after a completed or handled failed operation. They do not configure filesystem permissions for you.
 
 ```powershell
-dotnet CrestronHomeDevTools.Console.dll submission-bundle-create `
+.\CrestronHomeDevTools.Console.exe submission-bundle-create `
   --output C:/CI/Private/Submission/candidate-evidence.zip `
   --candidate C:/CI/Private/Submission/candidate.json `
   --candidate-sha256 TRUSTED_CANDIDATE_SHA256 `
@@ -23,7 +23,7 @@ dotnet CrestronHomeDevTools.Console.dll submission-bundle-create `
 if ($LASTEXITCODE -ne 0) { throw 'Submission bundle creation failed.' }
 ```
 
-The example paths and digest placeholder must be replaced with private configuration and a trusted pin. Build the console from source before using these commands. The command does not build, deploy or test the driver; it validates the supplied evidence and package structure.
+The example paths and digest placeholder must be replaced with private configuration and a trusted pin. Use the complete released Windows console archive described in [Console tools](ConsoleTools.md); building from source is optional. Run these PowerShell examples from the extracted console directory. The command does not build, deploy or test the driver; it validates the supplied evidence and package structure.
 
 Creation copies the four input documents, the package under its original filename, and only files referenced by observations. It never recursively copies the evidence directory. It rejects escaping paths and links within that tree. Sharing one evidence file across observations stores one copy, but each observation still undergoes policy, identity and digest validation.
 
@@ -49,7 +49,7 @@ On success, stdout is a JSON `SubmissionBundleReport`: `BundleSha256`, `FileCoun
 At each later boundary, use both the candidate pin from trusted release CI and the bundle pin recorded by the trusted bundling job:
 
 ```powershell
-dotnet CrestronHomeDevTools.Console.dll submission-bundle-check `
+.\CrestronHomeDevTools.Console.exe submission-bundle-check `
   --bundle C:/CI/Private/Submission/candidate-evidence.zip `
   --bundle-sha256 TRUSTED_BUNDLE_SHA256 `
   --candidate-sha256 TRUSTED_CANDIDATE_SHA256 `
@@ -67,4 +67,4 @@ Exit 0 means all structural checks passed. Exit 1 means validation or file-opera
 
 The check detects changes relative to independently retained digests. Filesystem owners can still replace a stored ZIP; it is not physically immutable storage. The workflow must protect its pins and storage and revalidate the exact snapshot consumed by signing/delivery, without extracting or modifying a separate unchecked copy afterward.
 
-The current APIs do not authenticate a producer, approve a requirement policy, map every official form subcondition, verify a real Release installation, render/sign the completed form or send a submission. A fabricated observation with internally consistent digests can pass structural validation. Trusted execution, approved policy completeness and real measured evidence remain mandatory. A passing bundle must not be presented as Crestron certification or used to waive missing UI/device tests. See the [full submission plan](../CrestronSubmission.md).
+These two bundle commands do not authenticate a producer, approve a requirement policy, map every official form subcondition, verify a real Release installation, render/sign the completed form or send a submission. A fabricated observation with internally consistent digests can pass structural validation. Trusted execution, approved policy completeness and real measured evidence remain mandatory. A passing bundle must not be presented as Crestron certification or used to waive missing UI/device tests. See the [full submission plan](../CrestronSubmission.md).
