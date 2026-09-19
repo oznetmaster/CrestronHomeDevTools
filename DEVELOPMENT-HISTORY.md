@@ -1,5 +1,9 @@
 # Development history
 
+## 19 September 2026 - Combined passive observation and notification command
+
+Source after 1.11.0 adds `endurance-watch`, a single bounded invocation that observes local or pinned remote Windows monitoring and hands its fresh report to the existing notifier. Attention reports reach notification even though they represent monitoring failure; accepted email does not hide that failure. The command preserves separate health/delivery results and the notification journal across invocations. Credentials remain separated on standard input. Synthetic handoff tests cover query failure, duplicate suppression, uncertain delivery, invalid inputs, cancellation and loss of journal access. Scheduling, private credential provisioning and actual delivery remain deployment validation; no collector or driver submission operation is performed.
+
 ## 19 September 2026 - Passive endurance observation and notification source
 
 The Windows observer now includes the snapshot reader in the library and exposes local/pinned-SSH APIs plus `endurance-observe`. A fresh remote Windows observation succeeded through the source CLI without uploading scripts or acquiring collector locks. Failed queries become run-bound attention rather than reusing an old healthy response. This closes the private observation-helper dependency; scheduling, secrets provisioning and real notification delivery remain deployment work.

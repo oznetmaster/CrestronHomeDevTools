@@ -22,6 +22,31 @@ Authorize the sender and recipient before enabling sending. Keep settings, crede
 
 ## CLI
 
+### Combined observation and notification
+
+For unattended callers, `endurance-watch` performs one fresh observation and passes its result directly to the notifier. It avoids a success-only command chain accidentally dropping an attention report:
+
+```text
+CrestronHomeDevTools.Console.exe endurance-watch --worker PRIVATE_WORKER.json --observer PRIVATE_OBSERVER.json --notifications PRIVATE_SETTINGS.json --journal PRIVATE_EXISTING_DIRECTORY --send true
+```
+
+Use the same worker, observer and notification settings described below. The protected calling process supplies credentials on standard input and closes it:
+
+```json
+{
+  "windows": { "userName": "WINDOWS_LOGIN", "password": "WINDOWS_PASSWORD" },
+  "smtp": { "userName": "SMTP_LOGIN", "password": "SMTP_PASSWORD" }
+}
+```
+
+Omit `windows` for local observation. Windows credentials are used only for the pinned remote reader; SMTP credentials are used only by the notifier. Do not put actual values in arguments, examples, logs or source control. The destination still needs explicit authorization before enabling `--send true`.
+
+The output contains separate `Health` and `Notification` results. Exit 0 means healthy/completed observation with a quiet or SMTP-accepted notification. Exit 2 means invalid configuration or credentials. Exit 3 means monitoring attention or notification requiring inspection; an accepted attention email does **not** turn unhealthy monitoring into exit 0. If notification fails after observation, the output retains the fresh health report with a failure code. An observation failure never falls back to an old healthy report.
+
+Schedule repeated invocations through the operator's supervised job, retaining output privately and using the same protected journal each time, including after a PC restart. Each invocation observes afresh; the notifier suppresses duplicate incidents and refuses to resend an uncertain attempt. Do not delete its journal or create another to force delivery. Surface nonzero exits independently of email. The command has a 90-second outer bound, performs no collector or processor commands, and does not install a task, provision credentials or alter a running endurance period. Use one authoritative observer per subscription. Local Task Scheduler startup and a remote observer's own availability still need the deployment checks below.
+
+This combined command is also source after 1.11.0. Its handoff tests use synthetic observations and SMTP sessions, including query failures, duplicate invocations, uncertain delivery and inaccessible journals. They do not establish scheduled operation or real inbox delivery.
+
 ### Obtain a fresh observation
 
 The current source `endurance-observe` command includes its Windows snapshot reader, so developers do not write or transfer a PowerShell script. Give it the existing trusted worker plan and a private observer configuration:

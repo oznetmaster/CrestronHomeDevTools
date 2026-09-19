@@ -46,6 +46,18 @@ static async Task<int> RunSafelyAsync (string[] args, bool interactive = false)
 
 static async Task<int> RunAsync (string[] args, bool interactive = false)
 	{
+	if (args.FirstOrDefault () == "endurance-watch")
+		{
+		if (args.Length == 2 && args[1] == "--help")
+			return await EnduranceWatchCommand.RunAsync (args[1..], Console.In, Console.Out, Console.Error, CancellationToken.None);
+		if (interactive || !Console.IsInputRedirected)
+			{
+			Console.Error.WriteLine ("Endurance watch requires noninteractive execution and credentials on standard input.");
+			return 2;
+			}
+		using var deadline = new CancellationTokenSource (TimeSpan.FromSeconds (90));
+		return await EnduranceWatchCommand.RunAsync (args[1..], Console.In, Console.Out, Console.Error, deadline.Token);
+		}
 	if (args.FirstOrDefault () == "endurance-observe")
 		{
 		using var deadline = new CancellationTokenSource (TimeSpan.FromSeconds (45));
@@ -172,6 +184,8 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
                                        Send authorized operational alerts with duplicate suppression.
               endurance-observe --help
                                        Read and assess local or remote Windows monitoring state.
+              endurance-watch --help
+                                       Observe once and notify, preserving failures and send history.
               Schedule tick only after explicit start. Interrupted runs require inspection.
 
             Change processor configuration:
