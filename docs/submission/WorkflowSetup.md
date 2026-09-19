@@ -73,3 +73,9 @@ The Windows console acceptance suite executes the actual review, signing and del
 Validate wrong-branch/disabled requests, missing settings, stale pins, incorrect candidate identity, missing evidence and missing authorization without touching external providers. Confirm that private artifacts stay on the protected worker and that a second stage cannot overlap the first. Test the intended worker identity and environment protections, including recovery after interruption. Any uploader or email rehearsal needs explicit authorization for its recipient and artifacts.
 
 Only after real candidate tests, endurance, form review, signature authorization and protected handoff are complete should this become the final stage of a driver release workflow. Libraries, clients and processor test packages do not enter submission.
+
+## Windows worker separation validation
+
+On 19 September 2026, a separate Windows GitHub runner service using LocalService passed harmless file-access checks alongside an ordinary source-test runner using NetworkService on the same PC. The submission account could read protected input files, could not modify the input/approval/tooling directories, and could write its output/log directories. The ordinary account was denied reading the probe and writing to the checked submission directories. The submission service was configured for delayed automatic startup.
+
+This validates that particular account and folder separation; it does not isolate the worker from administrators, SYSTEM or other processes using the same service identity. It does not establish restart recovery or GitHub environment approval enforcement. No actual signing material or provider credentials were provisioned by these checks. The synthetic template-chain rehearsal also passed under the ordinary service account; real protected signing and delivery remain separate validation work.
