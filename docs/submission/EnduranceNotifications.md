@@ -1,6 +1,6 @@
-# Endurance notifications (source development)
+# Endurance notifications
 
-This optional API and CLI are in current source after 1.11.0, not that released archive. They send operational email alerts; they do not submit a driver or contact the processor. The health assessment, notification sender and independent observer are separate components. Configure and test the entire observation-to-inbox path before relying on unattended monitoring.
+These optional APIs and CLI commands require DevTools 1.12.0 or later. They send operational email alerts; they do not submit a driver or contact the processor. The health assessment, notification sender and independent observer are separate components. Configure and test the entire observation-to-inbox path before relying on unattended monitoring.
 
 ## Private configuration
 
@@ -45,11 +45,11 @@ The output contains separate `Health` and `Notification` results. Exit 0 means h
 
 Schedule repeated invocations through the operator's supervised job, retaining output privately and using the same protected journal each time, including after a PC restart. Each invocation observes afresh; the notifier suppresses duplicate incidents and refuses to resend an uncertain attempt. Do not delete its journal or create another to force delivery. Surface nonzero exits independently of email. The command has a 90-second outer bound, performs no collector or processor commands, and does not install a task, provision credentials or alter a running endurance period. Use one authoritative observer per subscription. Local Task Scheduler startup and a remote observer's own availability still need the deployment checks below.
 
-This combined command is also source after 1.11.0. Its handoff tests use synthetic observations and SMTP sessions, including query failures, duplicate invocations, uncertain delivery and inaccessible journals. They do not establish scheduled operation or real inbox delivery.
+The combined command is included in 1.12.0. Its handoff tests use synthetic observations and SMTP sessions, including query failures, duplicate invocations, uncertain delivery and inaccessible journals. They do not establish scheduled operation or real inbox delivery.
 
 ### Obtain a fresh observation
 
-The current source `endurance-observe` command includes its Windows snapshot reader, so developers do not write or transfer a PowerShell script. Give it the existing trusted worker plan and a private observer configuration:
+The `endurance-observe` command includes its Windows snapshot reader, so developers do not write or transfer a PowerShell script. Give it the existing trusted worker plan and a private observer configuration:
 
 ```json
 {
@@ -120,6 +120,6 @@ Use `false` only when the review establishes the message was not accepted and an
 
 ## Validation boundary
 
-Offline tests cover incident suppression across process restarts, completion suppression, configured recipients, absence of attachments/secrets, connection and send failures, lost acceptance writes, locking, stale/wrong-run reports and explicit reconciliation. The CLI also runs as a real quiet process without a processor profile or SMTP connection. These tests use simulated senders. Real provider acceptance, inbox delivery and scheduled independent-observer operation remain deployment checks; no real alert delivery is claimed by this source documentation.
+Offline tests cover incident suppression across process restarts, completion suppression, configured recipients, absence of attachments/secrets, connection and send failures, lost acceptance writes, locking, stale/wrong-run reports and explicit reconciliation. The CLI also runs as a real quiet process without a processor profile or SMTP connection. These tests use simulated senders. Real provider acceptance, inbox delivery and scheduled independent-observer operation remain deployment checks; no real alert delivery is claimed here.
 
 The Windows observer also has offline tests for its bundled reader, command encoding and literal task parameters, malformed responses, cancellation and failed-query handling. Its source CLI has completed a read-only observation of an existing scheduled collector on a separate Windows PC using a verified ED25519 SSH key. This establishes that observation path, not scheduled alert delivery or a Windows restart test.

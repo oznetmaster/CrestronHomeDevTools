@@ -22,8 +22,8 @@ Reviewed V1 removal can preserve other instances sharing the same driver code ac
 - [Deployment and tests](#deployment-and-tests)
 - [Submission preparation console](docs/submission/ConsoleTools.md) (no Python setup)
 - [Reviewed evidence mapping](docs/submission/EvidenceMapping.md) (C# API and CLI, requires 1.11.0)
-- [Passive endurance health assessment](docs/submission/WindowsEnduranceWorker.md#passive-health-assessment-source-development) (source development; no notification delivery)
-- [Optional endurance notifications](docs/submission/EnduranceNotifications.md) (source development; authorized SMTP destination required)
+- [Passive endurance health assessment](docs/submission/WindowsEnduranceWorker.md#passive-health-assessment) (requires 1.12.0; no notification delivery)
+- [Optional endurance notifications](docs/submission/EnduranceNotifications.md) (requires 1.12.0; authorized SMTP destination required)
 - [Automated Crestron submission plan and progress](docs/CrestronSubmission.md)
 - [Development configurations](docs/submission/DevelopmentConfigurations.md) (one PC and one processor, optional additional hardware)
 - [Submission workflow setup](docs/submission/WorkflowSetup.md) (dispatcher and protected stages for your own repository)
@@ -65,7 +65,9 @@ Version 1.9.0 also adds [read-only candidate payload comparison](docs/DriverPayl
 
 Version 1.11.0 adds [reviewed evidence mapping](docs/submission/EvidenceMapping.md) and [completed endurance snapshots](docs/submission/WindowsEnduranceWorker.md). These preserve original evidence and explicitly report uncovered requirements; they do not turn a partial test run into submission approval. Existing running collectors can remain pinned to their original version.
 
-Install the library with `dotnet add package CrestronHomeDevTools --version 1.11.0`. Download the self-contained Windows x64 console from [GitHub Releases](https://github.com/oznetmaster/CrestronHomeDevTools/releases/latest), extract the complete ZIP, and run `CrestronHomeDevTools.Console.exe`. Its first run opens processor/profile setup; `--help` lists commands.
+Version 1.12.0 adds passive local/remote observation and authorized operational email notifications through C# APIs and the console. See [endurance monitoring](docs/submission/EnduranceNotifications.md) for configuration, supervision and validation limits.
+
+Install the library with `dotnet add package CrestronHomeDevTools --version 1.12.0`. Download the self-contained Windows x64 console from [GitHub Releases](https://github.com/oznetmaster/CrestronHomeDevTools/releases/latest), extract the complete ZIP, and run `CrestronHomeDevTools.Console.exe`. Its first run opens processor/profile setup; `--help` lists commands.
 
 To build from source with the .NET 10 SDK:
 

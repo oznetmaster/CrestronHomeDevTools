@@ -90,9 +90,9 @@ The wrapper waits for its collector child to exit. If the parent is killed, its 
 
 `attention.json` is a durable **local alert signal**, not an email or delivered notification. Configure an independent monitoring service to alert on this file, nonzero task results, a stopped/disabled task, missing results or stale collecting observations. That service should also notice when the monitoring computer is offline. A worker cannot reliably report its own loss of power. Test actual notification delivery to an approved destination before relying on unattended endurance monitoring.
 
-### Passive health assessment (source development)
+### Passive health assessment
 
-The current source includes `Get-EnduranceHealthSnapshot.ps1` and `endurance-health`; these are not in the 1.11.0 release. They provide an operational health assessment for an independent observer. They do not send notifications, schedule the observer, restart a task, change a reservation, or establish submission evidence.
+DevTools 1.12.0 and later include `Get-EnduranceHealthSnapshot.ps1` and `endurance-health`. They provide an operational health assessment for an independent observer. They do not send notifications, schedule the observer, restart a task, change a reservation, or establish submission evidence. Use the separate [observation and notification commands](EnduranceNotifications.md) when operational alerts are needed.
 
 Run the snapshot script on the monitoring PC through your authenticated monitoring connection:
 
