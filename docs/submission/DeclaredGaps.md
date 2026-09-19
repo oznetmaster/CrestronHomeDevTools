@@ -1,6 +1,6 @@
 # Review with declared gaps
 
-**Source availability:** the assessment APIs and command described here are source additions after 1.12.0. They are not in the released 1.12.0 packages. Form, signing and delivery integration for requests with gaps is still being implemented. The existing complete-only review and delivery commands have not been relaxed.
+**Source availability:** the assessment APIs, command and standalone unsigned form mode described here are source additions after 1.12.0. They are not in the released 1.12.0 packages. Evidence-bundle, review-stage, signing and delivery integration for requests with gaps is still being implemented. The existing complete-only review and delivery commands have not been relaxed.
 
 Complete means complete against **our interpretation of Crestron's published submission requirements**, captured in the full reviewed verification plan. It does not mean finishing an arbitrarily reduced checklist. No result from this workflow implies or predicts acceptance, publication or certification. Crestron makes those decisions.
 
@@ -61,9 +61,17 @@ Each row retains its original `observedOutcome`: Failed, Partial, Inconclusive a
 
 Corrupt evidence, mixed candidate identities, unknown scopes/outcomes, duplicate observations and invalid timestamps cannot be waived. Correct the review packet while retaining the original failure for diagnosis; do not relabel bad evidence as a pass. Declaration changes invalidate their independent digest. Later signing or sending must bind the exact reviewed packet, mode, gaps and correspondence, not merely this assessment result.
 
+## Generate an unsigned form with declared gaps
+
+The source `submission self-test-form declared-gaps` mode uses the same actual candidate validation and independently reviewed pins. Supply the standard [evidence-backed form inputs](FormGeneration.md), plus `--declarations FILE --declarations-sha256 REVIEWED_SHA256`. The mode runs the .NET review assessment itself; it does not trust a supplied assessment report.
+
+It reconciles every policy scope with the complete official-item mapping. An item with any declared gap remains unchecked. The companion groups the original outcomes and each developer explanation by official item; internal scope IDs and raw measurements remain in private records. Failed, partial, inconclusive, untested and missing observations are distinct. A claimed pass whose measurements or duration are insufficient is described as incomplete verification, not a passed portion. Verified non-applicability remains separately explained and unchecked.
+
+The output remains an **unsigned review, not a delivery packet**. The report retains `reviewMode`, `verificationStatus`, the declaration digest and original validation JSON. Signature/date fields stay blank and the printed official form is unchanged. This mode cannot yet produce a signing copy. It does not add missing required documents or bypass the package validator. Render and inspect every page before progressing to a later review stage.
+
 ## Remaining integration
 
-The subsequent form stage must group scopes by official item, check only fully supported applicable items, and include a readable explanation of incomplete items. Missing required documents or signatures need explicit disclosure; no signature may imply work that was not done. These document omissions are not yet accepted by the current file assessment/package validation path.
+The evidence-bundle and review stages must retain and revalidate the exact declarations, original results and generated form together. Missing required documents or signatures need explicit disclosure; no signature may imply work that was not done. These document omissions are not yet accepted by the current file assessment/package validation path.
 
 The signing and delivery stages still need gap-bound authorization and correspondence, retained receipts and synthetic end-to-end acceptance. Until that integration is available, this command is an assessment component, not an end-to-end incomplete-submission command. It does not bypass reservations or resolve uncertain previous send outcomes.
 

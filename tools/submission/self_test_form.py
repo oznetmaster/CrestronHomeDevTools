@@ -111,16 +111,36 @@ def inspect_form(reader, inventory, expected_values=None, page_offset=0, signing
         raise ValueError("A canonical field has no page widget")
 
 
-def decisions(inventory, inventory_digest, mapping, policy, observations):
+def decisions(inventory, inventory_digest, mapping, policy, observations, assessment=None):
     keys(mapping, ("schemaVersion", "inventorySha256", "policySha256", "requirements"))
     if type(mapping["schemaVersion"]) is not int or mapping["schemaVersion"] != 1 or mapping["inventorySha256"] != inventory_digest:
         raise ValueError("Form mapping does not match the pinned inventory")
     declared = indexed(inventory["requirements"], "id")
     mapped = indexed(mapping["requirements"], "id")
     rules = indexed(policy["requirements"], "id")
-    results = indexed(observations["observations"], "requirementId")
-    if declared.keys() != mapped.keys() or rules.keys() != results.keys():
+    results = indexed(observations["observations"], "requirementId") if observations["observations"] else {}
+    if declared.keys() != mapped.keys() or (rules.keys() != results.keys() if assessment is None else not results.keys() <= rules.keys()):
         raise ValueError("Form mapping or observations do not cover every required item")
+    assessed = None
+    if assessment is not None:
+        if (assessment["mode"] != "DeclaredGaps" or assessment["readyForReview"] is not True or
+                assessment["verificationStatus"] not in ("GapsDeclared", "CompleteAgainstInterpretedRequirements") or assessment["blockingIssues"]):
+            raise ValueError("Declared-gap assessment is not eligible for review")
+        assessed = indexed(assessment["requirements"], "requirementId")
+        if assessed.keys() != rules.keys():
+            raise ValueError("Assessment does not cover the complete interpreted policy")
+        for identifier, row in assessed.items():
+            if row["observedOutcome"] != results.get(identifier, {}).get("outcome"):
+                raise ValueError("Assessment outcome differs from original observation")
+            if row["status"] == "GapDeclared":
+                text(row["declaredReason"])
+                if not row["issues"]:
+                    raise ValueError("Declared gap has no supporting validation issue")
+            elif row["status"] != "VerifiedAgainstPlan" or row["issues"] or row["observedOutcome"] not in ("Passed", "NotApplicable"):
+                raise ValueError("Unverified or invalid scope cannot populate the review form")
+        has_gaps = any(row["status"] == "GapDeclared" for row in assessed.values())
+        if has_gaps != (assessment["verificationStatus"] == "GapsDeclared"):
+            raise ValueError("Assessment summary differs from its scoped results")
     covered, rows = set(), []
     for identifier, requirement in declared.items():
         item = mapped[identifier]
@@ -131,17 +151,29 @@ def decisions(inventory, inventory_digest, mapping, policy, observations):
         covered.update(ids)
         if max(duration_seconds(rules[i]["minimumDuration"]) for i in ids) < requirement["minimumObservationSeconds"]:
             raise ValueError("Mapped policy does not enforce the official observation duration")
-        statuses = [results[i]["outcome"] for i in ids]
-        if any(s not in ("Passed", "NotApplicable") for s in statuses):
+        statuses = [results.get(i, {}).get("outcome") for i in ids]
+        if assessed is None and any(s not in ("Passed", "NotApplicable") for s in statuses):
             raise ValueError("Incomplete or failing evidence cannot populate a completed review form")
-        excluded = [i for i in ids if results[i]["outcome"] == "NotApplicable"]
+        excluded = [i for i in ids if results.get(i, {}).get("outcome") == "NotApplicable"]
         for i in excluded:
             if rules[i]["allowNotApplicable"] is not True:
                 raise ValueError("Policy does not permit non-applicability")
             text(results[i]["rationale"])
+        gaps = [i for i in ids if assessed is not None and assessed[i]["status"] == "GapDeclared"]
+        rationale = "\n".join(("Non-applicable: " if assessed is not None else i + ": ") + results[i]["rationale"] for i in excluded)
+        if assessed is not None:
+            # Outbound companion groups by official item, not internal scope IDs or raw private measurements.
+            verified = sum(assessed[i]["status"] == "VerifiedAgainstPlan" and results[i]["outcome"] == "Passed" for i in ids)
+            descriptions = {None: "No observation", "Passed": "Claimed pass with incomplete verification",
+                            "Failed": "Failed", "Partial": "Partial", "Inconclusive": "Inconclusive",
+                            "NotTested": "Not tested", "NotApplicable": "Non-applicability not fully supported"}
+            verified_excluded = sum(assessed[i]["status"] == "VerifiedAgainstPlan" for i in excluded)
+            details = [f"Verified passing portions: {verified}. Verified non-applicable portions: {verified_excluded}. Declared gaps: {len(gaps)}."]
+            details.extend(descriptions[assessed[i]["observedOutcome"]] + ": " + assessed[i]["declaredReason"] for i in gaps)
+            rationale = "\n".join(filter(None, [*details, rationale]))
         rows.append({"id": identifier, "label": requirement["label"], "field": requirement["field"],
-                     "state": "NotApplicable" if excluded else "Passed", "observationIds": ids,
-                     "rationale": "\n".join(i + ": " + results[i]["rationale"] for i in excluded)})
+                     "state": "GapDeclared" if gaps else "NotApplicable" if excluded else "Passed", "observationIds": ids,
+                     "rationale": rationale})
     if covered != rules.keys():
         raise ValueError("Form mapping leaves policy requirements unused")
     return rows
@@ -149,20 +181,44 @@ def decisions(inventory, inventory_digest, mapping, policy, observations):
 
 def validate_evidence(inventory, inventory_digest, mapping_path, mapping_digest, candidate_path,
                       candidate_digest, policy_path, observations_path, package_path, template_path,
-                      evidence_directory, dotnet=None, validator=None):
+                      evidence_directory, dotnet=None, validator=None, *, declarations_path=None, declarations_digest=None):
     candidate_bytes, candidate = pinned_json(candidate_path, candidate_digest)
     mapping_bytes, mapping = pinned_json(mapping_path, mapping_digest)
     policy_bytes, policy = pinned_json(policy_path, candidate["identity"]["policySha256"])
     observation_bytes, observations = read_json(observations_path)
     if mapping["policySha256"] != sha(policy_bytes) or candidate["identity"]["templateSha256"] != inventory["templateSha256"]:
         raise ValueError("Policy or official form identity differs from the candidate")
-    arguments = [*validator_command(dotnet, validator), "submission-evidence-check", "--candidate", str(candidate_path),
+    if bool(declarations_path) != bool(declarations_digest):
+        raise ValueError("Declared-gap review requires both declarations and their independently reviewed digest")
+    declared_gaps = declarations_path is not None
+    if declared_gaps:
+        declaration_bytes, _ = pinned_json(declarations_path, declarations_digest)
+    arguments = [*validator_command(dotnet, validator), "submission-assess-review" if declared_gaps else "submission-evidence-check", "--candidate", str(candidate_path),
                  "--candidate-sha256", candidate_digest, "--package", str(package_path), "--policy", str(policy_path),
                  "--template", str(template_path), "--observations", str(observations_path), "--evidence", str(evidence_directory)]
+    if declared_gaps:
+        arguments.extend(("--mode", "declared-gaps", "--declarations", str(declarations_path), "--declarations-sha256", declarations_digest))
     result = run_process(arguments, 120)
     if result.returncode != 0:
         raise ValueError("DevTools evidence validation failed; no completed form was generated")
     report = json.loads(result.stdout, object_pairs_hook=strict_object)
+    assessment = None
+    if declared_gaps:
+        if (report["readyForReview"] is not True or report["declarationsSha256"] != sha(declaration_bytes) or
+                report["validation"]["issues"] or report["validation"]["package"]["packageChecksPassed"] is not True):
+            raise ValueError("Candidate-bound review assessment failed")
+        assessment = report["assessment"]
+        checked = report["validation"]
+        if (checked["candidateSha256"] != sha(candidate_bytes) or checked["observationsSha256"] != sha(observation_bytes) or
+                checked["package"]["sha256"] != candidate["identity"]["packageSha256"]):
+            raise ValueError("Review assessment does not match these candidate and observation bytes")
+        rows = decisions(inventory, inventory_digest, mapping, policy, observations, assessment)
+        identity = {"candidateSha256": sha(candidate_bytes), "mappingSha256": sha(mapping_bytes),
+                    "policySha256": sha(policy_bytes), "observationsSha256": sha(observation_bytes),
+                    "packageSha256": checked["package"]["sha256"], "validationReportSha256": sha(result.stdout),
+                    "reviewMode": "DeclaredGaps", "declarationsSha256": sha(declaration_bytes),
+                    "verificationStatus": assessment["verificationStatus"]}
+        return rows, identity, result.stdout.decode("utf-8")
     if (report["ValidationChecksPassed"] is not True or report["CandidateSha256"] != sha(candidate_bytes) or
             report["ObservationsSha256"] != sha(observation_bytes) or
             report["Package"]["Sha256"] != candidate["identity"]["packageSha256"]):
@@ -174,7 +230,7 @@ def validate_evidence(inventory, inventory_digest, mapping_path, mapping_digest,
     return rows, identity, result.stdout.decode("utf-8")
 
 
-def companion(title, author, rows, identity, draft, signing_copy=False):
+def companion(title, author, rows, identity, draft, signing_copy=False, declared_gaps=False):
     buffer = io.BytesIO()
     body = ParagraphStyle("body", fontName="Helvetica", fontSize=9, leading=12, spaceAfter=8)
     small = ParagraphStyle("small", parent=body, fontSize=8, leading=10, spaceAfter=0)
@@ -187,18 +243,24 @@ def companion(title, author, rows, identity, draft, signing_copy=False):
              paragraph("No requirements have been attested. Every checkbox remains blank." if draft else
                        "Checkboxes are checked only when every mapped observation passed validation for the identified candidate. This does not authenticate the evidence producer or establish Crestron approval."),
              paragraph("Non-applicable items remain unchecked and are explained in the matrix. Confirm their representation with Crestron before signing. Review every page, mapping and applicable subcondition before authorizing a signature.")]
+    if declared_gaps:
+        has_gaps = any(row["state"] == "GapDeclared" for row in rows)
+        story.insert(2, paragraph("REVIEW WITH DECLARED GAPS" if has_gaps else "DECLARED-GAPS MODE - NO VERIFICATION GAPS", heading))
+        story.insert(3, paragraph(("This request contains the omissions or verification limits listed below. " if has_gaps else
+                                  "No verification gaps were found against the full reviewed policy. ") +
+                                 "Complete means complete against our interpretation of Crestron's published requirements, not a Crestron decision. Nothing in this report implies or predicts acceptance, publication or certification."))
     for key, value in identity.items():
         story.append(paragraph(key + ": " + value, small))
     story.append(Spacer(1, 12))
     data = [[paragraph("Official item", small), paragraph("Result / evidence mapping", small)]]
     for row in rows:
         status = {"Passed": "Passed - checkbox checked", "NotApplicable": "Includes non-applicability - unchecked",
-                  "NotTested": "Not evaluated - unchecked"}[row["state"]]
-        detail = status + ("\n" + ", ".join(row["observationIds"]) if row["observationIds"] else "")
+                  "NotTested": "Not evaluated - unchecked", "GapDeclared": "Declared gaps - unchecked"}[row["state"]]
+        detail = status + ("\n" + ", ".join(row["observationIds"]) if row["observationIds"] and not declared_gaps else "")
         if row["rationale"]:
             detail += "\n" + row["rationale"]
         data.append([paragraph(row["id"] + "\n" + row["label"], small), paragraph(detail, small)])
-    table = Table(data, colWidths=[215, 289], repeatRows=1, hAlign="LEFT")
+    table = Table(data, colWidths=[215, 289], repeatRows=1, hAlign="LEFT", splitInRow=1)
     table.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e8eef4")),
                                ("VALIGN", (0, 0), (-1, -1), "TOP"), ("GRID", (0, 0), (-1, -1), .3, colors.HexColor("#b9c5d1")),
                                ("LEFTPADDING", (0, 0), (-1, -1), 7), ("RIGHTPADDING", (0, 0), (-1, -1), 7),
@@ -237,7 +299,7 @@ def vector_check_appearances(writer, inventory):
             states[NameObject(fields[widget["/T"]]["checkedAppearance"][0])] = writer._add_object(appearance)
 
 
-def write_form(source_bytes, inventory, output, title, author, rows, identity, draft, signing_copy=False):
+def write_form(source_bytes, inventory, output, title, author, rows, identity, draft, signing_copy=False, declared_gaps=False):
     output = Path(output)
     if not output.name.endswith(".review.pdf") or output.exists():
         raise ValueError("Use a new .review.pdf output; signing is a separate authorized stage")
@@ -245,16 +307,18 @@ def write_form(source_bytes, inventory, output, title, author, rows, identity, d
     text(author)
     if signing_copy and draft:
         raise ValueError("A blank draft cannot be prepared for signing")
+    if declared_gaps and (draft or signing_copy or identity.get("reviewMode") != "DeclaredGaps"):
+        raise ValueError("Declared-gap review requires its bound assessment and cannot yet be prepared for signing")
     declared = indexed(inventory["requirements"], "id")
     resolved = indexed(rows, "id")
-    allowed = {"NotTested"} if draft else {"Passed", "NotApplicable"}
+    allowed = {"NotTested"} if draft else {"Passed", "NotApplicable", "GapDeclared"} if declared_gaps else {"Passed", "NotApplicable"}
     if declared.keys() != resolved.keys() or any(row["state"] not in allowed for row in rows):
         raise ValueError("Form decisions are incomplete or incompatible with the selected mode")
     source = PdfReader(io.BytesIO(source_bytes), strict=True)
     inspect_form(source, inventory)
     values = {r["field"]: NameObject(r["checkedAppearance"][0] if resolved[r["id"]]["state"] == "Passed" else "/Off")
               for r in inventory["requirements"]}
-    cover = companion(title, author, rows, identity, draft, signing_copy)
+    cover = companion(title, author, rows, identity, draft, signing_copy, declared_gaps)
     writer = PdfWriter()
     writer.clone_document_from_reader(source)
     vector_check_appearances(writer, inventory)
@@ -275,21 +339,28 @@ def write_form(source_bytes, inventory, output, title, author, rows, identity, d
     output.parent.mkdir(parents=True, exist_ok=True)
     with output.open("xb") as destination:
         destination.write(data.getvalue())
-    return {"schemaVersion": 1, "formSha256": sha(data.getvalue()), "templateSha256": sha(source_bytes),
+    report = {"schemaVersion": 1, "formSha256": sha(data.getvalue()), "templateSha256": sha(source_bytes),
             "identity": identity, "pages": len(result.pages), "companionPages": len(cover.pages),
             "checkedRequirements": [row["id"] for row in rows if row["state"] == "Passed"],
             "notApplicableRequirements": [row["id"] for row in rows if row["state"] == "NotApplicable"],
             "signatureBlank": True, "dateBlank": True, "visualReviewRequired": True,
             "signingAuthorizationRequired": True, "submissionReady": False, "signingCopy": signing_copy}
+    if declared_gaps:
+        report.update(reviewMode="DeclaredGaps", verificationStatus=identity["verificationStatus"],
+                      declaredGapRequirements=[row["id"] for row in rows if row["state"] == "GapDeclared"],
+                      declarationsSha256=identity["declarationsSha256"])
+    return report
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("draft", "from-evidence", "for-signing"))
+    parser.add_argument("mode", choices=("draft", "from-evidence", "for-signing", "declared-gaps"))
     for field in ("template", "inventory", "inventory-sha256", "output", "title", "author", "report"):
         parser.add_argument("--" + field, required=True)
     for field in ("mapping", "mapping-sha256", "candidate", "candidate-sha256", "policy", "observations", "package", "evidence", "dotnet", "validator"):
         parser.add_argument("--" + field)
+    parser.add_argument("--declarations")
+    parser.add_argument("--declarations-sha256")
     args = parser.parse_args()
     try:
         _, inventory = pinned_json(args.inventory, args.inventory_sha256)
@@ -309,14 +380,18 @@ def main():
                             args.observations, args.package, args.evidence)
         if args.mode == "draft" and any((*evidence_options, args.dotnet, args.validator)):
             raise ValueError("Use from-evidence mode to evaluate candidate evidence; draft mode never attests tests")
-        if args.mode in ("from-evidence", "for-signing"):
+        if args.mode != "declared-gaps" and (args.declarations or args.declarations_sha256):
+            raise ValueError("Gap declarations require explicit declared-gaps mode")
+        if args.mode == "declared-gaps" and not (args.declarations and args.declarations_sha256):
+            raise ValueError("Declared-gap review requires pinned gap declarations")
+        if args.mode in ("from-evidence", "for-signing", "declared-gaps"):
             if not all(evidence_options):
                 raise ValueError("Evidence mode requires all pinned candidate, policy and mapping inputs")
             rows, checked, validation_json = validate_evidence(inventory, args.inventory_sha256, args.mapping, args.mapping_sha256,
                 args.candidate, args.candidate_sha256, args.policy, args.observations, args.package, args.template,
-                args.evidence, args.dotnet, args.validator)
+                args.evidence, args.dotnet, args.validator, declarations_path=args.declarations, declarations_digest=args.declarations_sha256)
             identity.update(checked)
-        report = write_form(source, inventory, args.output, args.title, args.author, rows, identity, args.mode == "draft", args.mode == "for-signing")
+        report = write_form(source, inventory, args.output, args.title, args.author, rows, identity, args.mode == "draft", args.mode == "for-signing", args.mode == "declared-gaps")
         report["validationReportJson"] = validation_json
         write_json(args.report, report)
         print(json.dumps(report, indent=2))

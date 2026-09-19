@@ -6,6 +6,8 @@ The `submission self-test-form` command generates an unsigned, interactive revie
 
 The [submission plan](../CrestronSubmission.md) remains authoritative for the work still required. A generated form is one build artifact, not a replacement for the complete driver-specific policy, trusted evidence producer, visual review and signing authorization.
 
+Source after 1.12.0 also supports the [declared-gaps unsigned form mode](DeclaredGaps.md). It preserves incomplete official items as unchecked, with grouped explanations; it is not yet integrated into signing or delivery. The released 1.12.0 console does not include that mode.
+
 ## Inputs and installation
 
 Use the complete console described in [Console tools](ConsoleTools.md). No Python installation or Word application is needed. The bundled PDF libraries generate the companion pages and preserve the interactive official form. Run `CrestronHomeDevTools.Console.exe submission runtime-check` before preparation.

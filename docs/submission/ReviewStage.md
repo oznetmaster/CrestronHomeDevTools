@@ -2,7 +2,7 @@
 
 A complete review means complete against our interpretation of Crestron's requirements, as captured in the developer's declared verification plan and the tool's checks. It is not a Crestron decision. No validation result, completed form or successful delivery implies Crestron acceptance, publication or certification.
 
-The source [declared-gaps assessment](DeclaredGaps.md) records explained omissions against the full policy without changing failed outcomes. Its form/signing/delivery integration remains pending; the complete-only review command below is unchanged.
+The source [declared-gaps assessment and standalone unsigned form mode](DeclaredGaps.md) record explained omissions against the full policy without changing failed outcomes. Evidence-bundle, review-stage, signing and delivery integration remains pending; the complete-only review command below is unchanged.
 
 Command examples use the [bundled submission console](ConsoleTools.md); see that guide for source/release availability and setup.
 
