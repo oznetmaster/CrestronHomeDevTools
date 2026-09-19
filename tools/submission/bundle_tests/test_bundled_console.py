@@ -5,9 +5,11 @@
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 from xml.etree import ElementTree as ET
 
 import test_prepare_review as review
@@ -142,10 +144,11 @@ class BundledConsoleTests(unittest.TestCase):
         reports = list((f.root / "obj").rglob("packaged-help.json"))
         self.assertEqual(len(reports), 1)
 
-    def dispatch_fixture(self):
-        f = self.fixture(delivery.DeliveryStageTests)
-        self.invoke("prepare-delivery", "--settings", f.settings_path,
-                    "--signed-review-sha256", f.pin, "--authorization-sha256", f.authorization_pin)
+    def dispatch_fixture(self, prepared=None):
+        f = prepared if prepared is not None else self.fixture(delivery.DeliveryStageTests)
+        if prepared is None:
+            self.invoke("prepare-delivery", "--settings", f.settings_path,
+                        "--signed-review-sha256", f.pin, "--authorization-sha256", f.authorization_pin)
         directories = {}
         for key in ("journalDirectory", "attemptsDirectory", "uploadReceiptDirectory", "mailReceiptDirectory"):
             path = f.root / key
@@ -189,6 +192,86 @@ class BundledConsoleTests(unittest.TestCase):
         for private in (b"synthetic-upload-secret", b"synthetic-mail-secret", str(path.parent).encode()):
             self.assertNotIn(private, output)
         return result.returncode, json.loads(result.stdout)
+
+    def test_actual_preparation_templates_chain_into_synthetic_delivery(self):
+        # Match the runner's relative installation layout, without modifying the download.
+        installation = self.hostile / "artifacts" / "submission-console"
+        shutil.copytree(self.console.parent, installation)
+        template_root = Path(__file__).resolve().parents[3] / "docs/submission"
+        completed = []
+
+        def stage(name, fixture, values, receipt_name, rejected_values=None):
+            self.portable_settings(fixture)
+            template = template_root / ("submission-" + name + ".yml.example")
+            pieces = template.read_text().split("        run: |\n")
+            self.assertEqual(len(pieces), 2, "Review the extraction if the template adds another multiline step")
+            lines = pieces[1].splitlines()
+            self.assertTrue(all(not line.strip() or line.startswith("          ") for line in lines))
+            script = self.hostile / (name + ".ps1")
+            script.write_text("\n".join(line[10:] for line in lines) + "\n")
+            env = dict(self.env, **values, GITHUB_STEP_SUMMARY=str(self.hostile / "job-summary.md"))
+
+            def invoke(overrides):
+                return subprocess.run([os.environ["SUBMISSION_TEST_PWSH"], "-NoProfile", "-NonInteractive",
+                                       "-File", str(script)], cwd=self.hostile, env=dict(env, **overrides),
+                                      capture_output=True, timeout=180)
+
+            if rejected_values is not None:
+                rejected = invoke(rejected_values)
+                self.assertNotEqual(rejected.returncode, 0)
+                self.assertFalse(fixture.output.exists(), "Rejected stage must not prepare an output")
+            result = invoke({})
+            self.assertEqual(result.returncode, 0, result.stderr.decode(errors="replace"))
+            receipt_path = fixture.output / receipt_name
+            self.assertEqual((fixture.output / "COMPLETE").read_text().strip(), sha(receipt_path.read_bytes()))
+            receipt = json.loads(receipt_path.read_bytes())
+            self.assertFalse(receipt["deliveryAttempted"])
+            completed.append(name)
+            return receipt
+
+        def review_stage(fixture, *, signing_copy=False, **options):
+            self.assertTrue(signing_copy)
+            return stage("review", fixture, {
+                "CRESTRON_SUBMISSION_REVIEW_SETTINGS": str(fixture.settings_path),
+                "CRESTRON_SUBMISSION_ANDROID_PINS": str(options["android_pins"]),
+                "REVIEW_KIND": "driver", "REVIEW_SOURCE": "a" * 40,
+                "REVIEW_CANDIDATE": fixture.pins[0], "REVIEW_INVENTORY": fixture.pins[1],
+                "REVIEW_MAPPING": fixture.pins[2], "REVIEW_SIGNING_COPY": "true",
+                "REVIEW_ANDROID_PINS": options["android_pins_sha256"]}, "review-receipt.json",
+                {"REVIEW_KIND": "library"})
+
+        def signing_stage(fixture):
+            return stage("signing", fixture, {
+                "CRESTRON_SUBMISSION_SIGNING_SETTINGS": str(fixture.settings_path),
+                "SIGNING_REVIEW": fixture.review_pin, "SIGNING_AUTHORIZATION": fixture.approval_pin},
+                "signed-review-receipt.json", {"SIGNING_AUTHORIZATION": "0" * 64})
+
+        fixture = delivery.DeliveryStageTests()
+        self.addCleanup(fixture.doCleanups)
+        # Replace only test-fixture setup helpers with the actual PowerShell template steps.
+        # Evidence, validator, packaged console and artifact handoffs remain real; inputs are synthetic.
+        with patch.object(review.ReviewStageTests, "run_stage", review_stage), \
+             patch.object(signed.SignedReviewStageTests, "run_stage", signing_stage):
+            fixture.setUp(android=True)
+        receipt = stage("delivery-preparation", fixture, {
+            "CRESTRON_SUBMISSION_DELIVERY_SETTINGS": str(fixture.settings_path),
+            "DELIVERY_REVIEW": fixture.pin, "DELIVERY_AUTHORIZATION": fixture.authorization_pin},
+            "delivery-review-receipt.json", {"DELIVERY_REVIEW": "0" * 64})
+        self.assertEqual(completed, ["review", "signing", "delivery-preparation"])
+        self.assertEqual(receipt["state"], "DeliveryPlanPrepared")
+        for name in ("android-pins.json", "android-audit.json"):
+            original = (fixture.signed.review.output / name).read_bytes()
+            self.assertEqual(original, (fixture.output / name).read_bytes())
+            self.assertFalse((fixture.output / "delivery" / name).exists())
+        self.assertEqual(len(list((fixture.output / "delivery").iterdir())), 2)
+        _, source, path, _ = self.dispatch_fixture(prepared=fixture)
+        self.prepare_dispatch(source, path)
+        code, result = self.dispatch(path, sha(path.read_bytes()))
+        self.assertEqual(code, 0, result)
+        self.assertEqual((result["Uploads"], result["Sends"], result["SyntheticTransport"]), (1, 1, True))
+        code, replay = self.dispatch(path, sha(path.read_bytes()))
+        self.assertEqual(code, 0, replay)
+        self.assertEqual((replay["Uploads"], replay["Sends"]), (0, 0))
 
     def test_generated_dispatch_runs_bundled_revalidation_for_both_steps_and_replay_does_not_send(self):
         f, source, path, settings = self.dispatch_fixture()

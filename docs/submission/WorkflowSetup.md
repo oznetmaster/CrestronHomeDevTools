@@ -68,6 +68,8 @@ Never automatically retry upload or email after an uncertain outcome. Inspect th
 
 ## Rehearse before real delivery
 
+The Windows console acceptance suite executes the actual review, signing and delivery-preparation template scripts in sequence against the packaged console, with synthetic evidence, Android audit inputs and a synthetic signature. It checks rejection of library submissions and stale authorization/review pins, preservation of private Android evidence, and the resulting delivery plan through fake upload/email transports. Replaying the completed synthetic delivery sends nothing. This is a local command-handoff test: it does not validate GitHub environment protections, the deployed worker account, real evidence or external delivery. The separate template tests check dispatcher routing and input contracts.
+
 Validate wrong-branch/disabled requests, missing settings, stale pins, incorrect candidate identity, missing evidence and missing authorization without touching external providers. Confirm that private artifacts stay on the protected worker and that a second stage cannot overlap the first. Test the intended worker identity and environment protections, including recovery after interruption. Any uploader or email rehearsal needs explicit authorization for its recipient and artifacts.
 
 Only after real candidate tests, endurance, form review, signature authorization and protected handoff are complete should this become the final stage of a driver release workflow. Libraries, clients and processor test packages do not enter submission.
