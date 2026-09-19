@@ -93,11 +93,12 @@ public static class SubmissionValidation
 		return bytes;
 		}
 
-	private static T Read<T> (byte[] bytes)
+	internal static T Read<T> (byte[] bytes, bool pascalCase = false)
 		{
 		using var document = JsonDocument.Parse (bytes);
 		RejectDuplicateProperties (document.RootElement);
-		return JsonSerializer.Deserialize<T> (bytes, JsonOptions) ?? throw new JsonException ("A submission document must not be null.");
+		var options = pascalCase ? new JsonSerializerOptions (JsonOptions) { PropertyNamingPolicy = null } : JsonOptions;
+		return JsonSerializer.Deserialize<T> (bytes, options) ?? throw new JsonException ("A submission document must not be null.");
 		}
 
 	private static void RejectDuplicateProperties (JsonElement element)

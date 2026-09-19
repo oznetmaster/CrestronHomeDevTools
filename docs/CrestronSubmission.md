@@ -72,6 +72,9 @@ Each item is complete only after its stated validation. The list is updated as w
 
 ## Evidence rules
 
+Source after 1.10.0 adds the [reviewed evidence mapping API and CLI](submission/EvidenceMapping.md) for carrying equivalent observations from a narrower producer policy into the submission policy without rewriting original records. It validates only the explicitly mapped subset; remaining coverage and trusted producer review stay mandatory.
+
+
 Use stable requirement and test IDs, not a fixed number of passing tests. Pin the official form/template revision and retain the mapping from each requirement to all required tests and observations. A multi-part checkbox needs every applicable part. A passing observation on one subpage or one instance cannot satisfy all controls, all subpages or multiple instances.
 
 The [Extension field inventory](submission/extension-inventory.json) and [Video Server field inventory](submission/video-server-inventory.json) record stable requirement IDs, official field names, page positions and source template digests. These are inventories, not approved executable policies. PDF annotation storage order differs from visual order in the Video Server form; mappings were checked in page/vertical order. Every requirement is initially unmapped and no checkbox is treated as passed.

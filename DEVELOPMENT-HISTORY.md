@@ -1,5 +1,11 @@
 # Development history
 
+## 19 September 2026 - Reviewed evidence handoff (local source after 1.10.0)
+
+Add `SubmissionEvidenceMapping.MapFiles` and `submission-map-evidence` for reviewed one-to-one imports from a narrower producer policy into a full submission policy. Original records and policy remain retained with their exact hashes; outcomes, timestamps, response, restoration and functional samples are preserved. The command rejects changed candidate identities, unsupported scope/method mappings, failed source runs and missing destination measurements. Missing full-policy requirements remain explicit. Source authentication and behavioral-equivalence review are still required; importing evidence is not submission approval.
+
+The original PascalCase `endurance-export` format is accepted directly without rewriting the retained file. Validation passed 29 new mapping checks within 135 evidence/execution/validation regressions, plus an actual released 1.7.0 synthetic collector export consumed by the new CLI. All retained references rehashed correctly, and the untested final-function requirement stayed uncovered. No hardware, active monitoring, real submission observations, upload or email was changed. See [evidence mapping](docs/submission/EvidenceMapping.md). This work is local and unpublished.
+
 ## 18 September 2026 - Local package acceptance after 1.8.0
 
 Release builds now pass the requested version to both the library pack and standalone console publish, keeping assembly and package versions consistent. A fresh standalone console passed all eight bundle acceptance checks. An isolated consumer restored the locally built DevTools dependency through NuGet without a source-project override; the corresponding adapter and CLI passed their offline package checks with implementation-byte verification. These are local validation artifacts, not published releases. Hardware and protected-service acceptance remain separate.
