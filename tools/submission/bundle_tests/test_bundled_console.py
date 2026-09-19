@@ -379,7 +379,7 @@ class BundledConsoleTests(unittest.TestCase):
         script = script.split("$credentials = $env:PRIVATE_DELIVERY_CREDENTIALS", 1)[0]
         self.assertNotIn("Process]::Start", script)
         preflight = self.hostile / "preflight.ps1"
-        preflight.write_text(script + "\nWrite-Output 'PreflightPassed'\n")
+        preflight.write_text(script + "\nWrite-Output \"PreflightPassed $deliveryCommand\"\n")
         env = dict(self.env, DELIVERY_SETTINGS=str(path), DELIVERY_SETTINGS_SHA256=sha(original))
 
         def run():
@@ -401,6 +401,21 @@ class BundledConsoleTests(unittest.TestCase):
             self.assertNotIn(b"PreflightPassed", result.stdout)
         finally:
             extra.unlink()
+
+        # The same actual workflow preflight selects the new command only from independently pinned gap settings.
+        original_settings = json.loads(original)
+        review_settings = {"schemaVersion": 1, "plan": {"reviewMode": "DeclaredGaps"},
+                           "tooling": {"consoleDirectory": original_settings["bundledRevalidation"]["consoleDirectory"],
+                                       "consoleFiles": original_settings["bundledRevalidation"]["consoleFiles"]}}
+        path.write_text(json.dumps(review_settings))
+        env["DELIVERY_SETTINGS_SHA256"] = sha(path.read_bytes())
+        result = run()
+        self.assertEqual(result.returncode, 0, result.stderr.decode(errors="replace"))
+        self.assertIn(b"PreflightPassed submission-review-request-deliver", result.stdout)
+        review_settings["plan"]["reviewMode"] = "Complete"
+        path.write_text(json.dumps(review_settings))
+        env["DELIVERY_SETTINGS_SHA256"] = sha(path.read_bytes())
+        self.assertNotEqual(run().returncode, 0)
 
 
 if __name__ == "__main__":

@@ -10,6 +10,7 @@ import unittest
 
 from build_help import sha
 import test_prepare_delivery as preparation_tests
+import test_prepare_review_request as request_tests
 
 
 class DeliveryProcessBridgeTests(unittest.TestCase):
@@ -87,3 +88,45 @@ class DeliveryProcessBridgeTests(unittest.TestCase):
         self.assertEqual(receipt["state"], "Prepared")
         self.assertIsNone(receipt["upload"])
         self.assertFalse(any(path.is_dir() for path in self.attempts.iterdir()))
+
+
+class ReviewRequestDeliveryBridgeTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        DeliveryProcessBridgeTests.setUpClass.__func__(cls)
+
+    def exercise(self, kind, change):
+        fixture = request_tests.ReviewRequestTests()
+        fixture.setUp()
+        try:
+            fixture.disposition["attachmentKind"] = kind
+            if kind == "DisclosureOnly":
+                fixture.disposition["omissions"].append({"id": "officialSelfTestForm", "reason": "Synthetic form omission."})
+            fixture.save()
+            prepared = fixture.run_stage()
+            run = subprocess.run([self.dotnet, str(self.harness), "--review-request-delivery", str(fixture.output),
+                                  str(fixture.root / "synthetic-delivery"), change], capture_output=True, timeout=120)
+            expected = 0 if change == "none" else 2
+            self.assertEqual(run.returncode, expected, run.stderr.decode(errors="replace"))
+            result = json.loads(run.stdout)
+            self.assertTrue(result["syntheticTransport"])
+            self.assertEqual(result["Uploads"], 1)
+            self.assertEqual(result["Sends"], 1 if change == "none" else 0)
+            self.assertEqual(result["state"], "Submitted" if change == "none" else "Uploaded")
+            if change == "none":
+                self.assertEqual(result["verification"], "GapsDeclared")
+            self.assertFalse(prepared["signatureApplied"])
+        finally:
+            fixture.doCleanups()
+
+    def test_real_unsigned_preparation_through_approval_and_simulated_delivery(self):
+        self.exercise("UnsignedSelfTest", "none")
+
+    def test_real_disclosure_only_preparation_through_approval_and_simulated_delivery(self):
+        self.exercise("DisclosureOnly", "none")
+
+    def test_approval_revoked_after_upload_prevents_email(self):
+        self.exercise("UnsignedSelfTest", "approval")
+
+    def test_evidence_changed_after_upload_prevents_email(self):
+        self.exercise("UnsignedSelfTest", "evidence")

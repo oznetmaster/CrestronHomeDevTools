@@ -1,7 +1,8 @@
 # Copyright (c) 2026 Neil Colvin.
 # Licensed under the MIT License. See LICENSE in the repository root.
 # Optional FINAL stage in a private, trusted orchestrator after candidate validation,
-# endurance, form review/signing and delivery preparation. Never run untrusted PR code here.
+# endurance, form review/signing and delivery preparation, or an explicitly approved
+# request with disclosed gaps. Never run untrusted PR code here.
 name: Deliver approved Crestron submission
 on:
   workflow_call:
@@ -41,8 +42,14 @@ jobs:
           $settingsBytes = [IO.File]::ReadAllBytes($env:DELIVERY_SETTINGS)
           if ($settingsBytes.Length -gt 1048576 -or [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($settingsBytes)).ToLowerInvariant() -cne $env:DELIVERY_SETTINGS_SHA256) { throw 'Reviewed settings changed.' }
           $settings = [Text.Encoding]::UTF8.GetString($settingsBytes) | ConvertFrom-Json
-          if ($settings.schemaVersion -ne 2 -or $null -ne $settings.revalidation -or $null -eq $settings.bundledRevalidation) { throw 'Generate schema-2 settings with submission-delivery-settings.' }
-          $manifest = @{ root = $settings.bundledRevalidation.consoleDirectory; entrypoint = 'CrestronHomeDevTools.Console.exe'; files = @($settings.bundledRevalidation.consoleFiles | ForEach-Object { @{ path = $_.relativePath; sha256 = $_.sha256 } }) }
+          if ($settings.schemaVersion -eq 2 -and $null -eq $settings.revalidation -and $null -ne $settings.bundledRevalidation) {
+            $deliveryCommand = 'submission-deliver'
+            $tooling = $settings.bundledRevalidation
+          } elseif ($settings.schemaVersion -eq 1 -and $settings.plan.reviewMode -ceq 'DeclaredGaps' -and $null -ne $settings.tooling -and $null -eq $settings.revalidation -and $null -eq $settings.bundledRevalidation) {
+            $deliveryCommand = 'submission-review-request-deliver'
+            $tooling = $settings.tooling
+          } else { throw 'Use independently approved complete-delivery or unsigned-request settings; see ReviewApproval.md.' }
+          $manifest = @{ root = $tooling.consoleDirectory; entrypoint = 'CrestronHomeDevTools.Console.exe'; files = @($tooling.consoleFiles | ForEach-Object { @{ path = $_.relativePath; sha256 = $_.sha256 } }) }
           if (-not [IO.Path]::IsPathFullyQualified($manifest.root) -or -not (Test-Path -LiteralPath $manifest.root -PathType Container)) { throw 'Tooling installation is missing.' }
           $root = [IO.Path]::GetFullPath($manifest.root).TrimEnd('\') + '\'
           if ((Get-Item -LiteralPath $root).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Redirected tooling is unsupported.' }
@@ -68,7 +75,7 @@ jobs:
           $start.RedirectStandardOutput = $true
           $start.RedirectStandardError = $true
           $start.Environment.Remove('PRIVATE_DELIVERY_CREDENTIALS') | Out-Null
-          foreach ($arg in @('submission-deliver','--settings',$env:DELIVERY_SETTINGS,'--settings-sha256',$env:DELIVERY_SETTINGS_SHA256,'--execute-approved')) { $start.ArgumentList.Add($arg) }
+          foreach ($arg in @($deliveryCommand,'--settings',$env:DELIVERY_SETTINGS,'--settings-sha256',$env:DELIVERY_SETTINGS_SHA256,'--execute-approved')) { $start.ArgumentList.Add($arg) }
           $process = [Diagnostics.Process]::Start($start)
           try {
             $out = $process.StandardOutput.ReadToEndAsync()
@@ -80,5 +87,5 @@ jobs:
             if ($process.ExitCode -ne 0) { throw 'Delivery stopped; inspect private receipts. Do not retry automatically.' }
             $result = $out.Result | ConvertFrom-Json
             if ($result.SchemaVersion -ne 1 -or $result.State -ne 'Submitted' -or $result.Submitted -ne $true) { throw 'No confirmed submission state.' }
-            'Submission providers confirmed acceptance. This is not Crestron certification.' >> $env:GITHUB_STEP_SUMMARY
+            'The upload and email providers confirmed their operations. This does not establish inbox delivery or Crestron acceptance, publication or certification.' >> $env:GITHUB_STEP_SUMMARY
           } finally { $credentials = $null; $process.Dispose() }

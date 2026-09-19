@@ -83,6 +83,8 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 		return SubmissionReviewAssessmentCommand.Run (args[1..], Console.Out, Console.Error);
 	if (args.FirstOrDefault () is "submission-review-bundle-create" or "submission-review-bundle-check")
 		return SubmissionReviewBundleCommand.Run (args[0] == "submission-review-bundle-create", args[1..], Console.Out, Console.Error);
+	if (args.FirstOrDefault () is "submission-review-approval-preview" or "submission-review-approval-check")
+		return SubmissionReviewApprovalCommand.Run (args[0] == "submission-review-approval-check", args[1..], Console.Out, Console.Error);
 	if (args.FirstOrDefault () == "submission")
 		{
 		using var deadline = new CancellationTokenSource (TimeSpan.FromMinutes (45));
@@ -99,7 +101,7 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 		try { return await SubmissionDispatchPreparationCommand.RunAsync (args[1..], Console.Out, Console.Error, deadline.Token); }
 		finally { Console.CancelKeyPress -= cancel; }
 		}
-	if (args.FirstOrDefault () == "submission-deliver")
+	if (args.FirstOrDefault () is "submission-deliver" or "submission-review-request-deliver")
 		{
 		if (interactive || !Console.IsInputRedirected)
 			{
@@ -109,7 +111,12 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 		using var deadline = new CancellationTokenSource (TimeSpan.FromMinutes (45));
 		ConsoleCancelEventHandler cancel = (_, e) => { e.Cancel = true; deadline.Cancel (); };
 		Console.CancelKeyPress += cancel;
-		try { return await SubmissionDispatchCommand.RunAsync (args[1..], Console.In, Console.Out, Console.Error, deadline.Token); }
+		try
+			{
+			return args[0] == "submission-review-request-deliver"
+				? await SubmissionReviewRequestDispatchCommand.RunAsync (args[1..], Console.In, Console.Out, Console.Error, deadline.Token)
+				: await SubmissionDispatchCommand.RunAsync (args[1..], Console.In, Console.Out, Console.Error, deadline.Token);
+			}
 		finally { Console.CancelKeyPress -= cancel; }
 		}
 	if (args is ["capabilities"])
@@ -167,6 +174,11 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
               submission-review-bundle-create --help
               submission-review-bundle-check --help
                                        Retain and check private review evidence with pinned declarations.
+              submission-review-approval-preview --help
+              submission-review-approval-check --help
+                                       Preview exact correspondence or check independent packet approval.
+              submission-review-request-deliver --settings FILE --settings-sha256 SHA256 --execute-approved
+                Deliver an independently approved unsigned request; private credentials arrive on standard input.
               submission-bundle-create --output FILE --candidate FILE --candidate-sha256 SHA256
                 --package FILE --policy FILE --template FILE --observations FILE --evidence DIR
                                        Archive and validate referenced evidence in private storage.

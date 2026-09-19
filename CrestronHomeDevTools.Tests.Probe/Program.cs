@@ -3,6 +3,8 @@
 
 using System.Text.Json.Nodes;
 
+if (args is ["--review-request-delivery", var requestDirectory, var workDirectory, var change])
+	return await SyntheticReviewRequestDelivery.Run (requestDirectory, workDirectory, change);
 if (args.Contains ("--delivery-review-sha256")) return await SyntheticDeliveryRevalidation.Run (args);
 if (args.Contains ("--real-delivery-bridge")) return await SyntheticDeliveryRevalidation.Bridge ();
 if (args.Length > 0 && args[0] is "--real-delivery-command" or "--delivery-command-revoke-after-upload")

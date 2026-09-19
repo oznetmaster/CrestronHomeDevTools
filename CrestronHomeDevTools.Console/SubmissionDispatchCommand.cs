@@ -26,12 +26,18 @@ internal static class SubmissionDispatchCommand
 			UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
 			AllowDuplicateProperties = false,
 			RespectNullableAnnotations = true,
-			RespectRequiredConstructorParameters = true
+			RespectRequiredConstructorParameters = true,
+			Converters = { new JsonStringEnumConverter (allowIntegerValues: false) }
 			};
 
 	internal static async Task<int> RunAsync (string[] args, TextReader input, TextWriter output, TextWriter error,
 		CancellationToken token = default,
 		Func<SubmissionDispatchSettings, SubmissionDispatchCredentials, CancellationToken, Task<SubmissionDeliveryReceipt>>? execute = null)
+		=> await RunProtectedAsync (args, input, output, error, Validate, execute ?? ExecuteAsync, token);
+
+	internal static async Task<int> RunProtectedAsync<TSettings> (string[] args, TextReader input, TextWriter output, TextWriter error,
+		Action<TSettings> validate, Func<TSettings, SubmissionDispatchCredentials, CancellationToken, Task<SubmissionDeliveryReceipt>> execute,
+		CancellationToken token) where TSettings : class
 		{
 		try
 			{
@@ -47,8 +53,8 @@ internal static class SubmissionDispatchCommand
 			await settingsFile.ReadExactlyAsync (bytes, token);
 			if (Convert.ToHexString (SHA256.HashData (bytes)).ToLowerInvariant () != expected)
 				throw new InvalidDataException ("Settings differ from their trusted pin.");
-			var settings = JsonSerializer.Deserialize<SubmissionDispatchSettings> (bytes, Options) ?? throw new InvalidDataException ("Missing settings.");
-			Validate (settings);
+			var settings = JsonSerializer.Deserialize<TSettings> (bytes, Options) ?? throw new InvalidDataException ("Missing settings.");
+			validate (settings);
 			using var inputDeadline = CancellationTokenSource.CreateLinkedTokenSource (token);
 			inputDeadline.CancelAfter (TimeSpan.FromSeconds (30));
 			char[] buffer = new char[32769]; int count = 0;
@@ -66,7 +72,7 @@ internal static class SubmissionDispatchCommand
 				if (string.IsNullOrWhiteSpace (credentials.UploadUserName) || string.IsNullOrEmpty (credentials.UploadPassword) ||
 					string.IsNullOrWhiteSpace (credentials.SmtpUserName) || string.IsNullOrEmpty (credentials.SmtpPassword))
 					throw new InvalidDataException ("Incomplete private credentials.");
-				var receipt = await (execute ?? ExecuteAsync) (settings, credentials, token);
+				var receipt = await execute (settings, credentials, token);
 				await output.WriteLineAsync (JsonSerializer.Serialize (new { SchemaVersion = 1, State = receipt.State.ToString (), Submitted = receipt.State == SubmissionDeliveryState.Submitted }));
 				return receipt.State == SubmissionDeliveryState.Submitted ? 0 : 2;
 				}
