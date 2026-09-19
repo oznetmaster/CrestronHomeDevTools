@@ -76,7 +76,29 @@ The wrapper waits for its collector child to exit. If the parent is killed, its 
 
 `attention.json` is a durable **local alert signal**, not an email or delivered notification. Configure an independent monitoring service to alert on this file, nonzero task results, a stopped/disabled task, missing results or stale collecting observations. That service should also notice when the monitoring computer is offline. A worker cannot reliably report its own loss of power. Test actual notification delivery to an approved destination before relying on unattended endurance monitoring.
 
+## Retain a completed run
+
+The current source adds `scripts/endurance/Export-EnduranceScheduledRun.ps1`; it is not yet in a released archive. It can consume an existing pinned scheduler configuration without changing the scheduled script, task, CLI or worker plan. Supply the original tick script explicitly if its bytes differ from the script beside the exporter. Do not replace pinned files during collection.
+
+```powershell
+& 'C:\Tools\Export-EnduranceScheduledRun.ps1' `
+    -Configuration 'C:\Private\Endurance\candidate-a\schedule.json' `
+    -ConfigurationSha256 'INDEPENDENTLY_RETAINED_SCHEDULE_SHA256' `
+    -TickScript 'C:\Private\Endurance\candidate-a\scripts\Invoke-EnduranceScheduledTick.ps1' `
+    -OutputDirectory 'C:\Private\Evidence\candidate-a-completed'
+```
+
+Use a new destination under an existing private parent with suitable access permissions. The script does not set ACLs. It acquires the existing scheduler lock, checks the configuration, original tick script, worker and complete CLI inventory, then invokes only offline `endurance-status` and `endurance-export`. It requires a passed collection and confirmed reservation release. Lock contention returns 4 without launching the CLI; other refusals return 3. It never starts, resumes or finishes a collection, contacts a processor, or disables/deletes a task.
+
+The snapshot retains the worker/configuration, original tick script, run files and scheduler history, including previously reconciled incidents. Lock files are excluded from source copying. It does not copy the external connection or probe settings files, probe binaries or CLI bundle. The copied worker still records its original paths and identities; keep the matching tool/probe inventories separately. Raw probe evidence and diagnostic output can still contain sensitive information, so keep the whole snapshot private.
+
+Before writing `complete.json`, the script independently reads and exports the copied journal through the pinned CLI, requires an identical exported observation, checks unchanged source inputs/evidence, and inventories the retained files. A failure keeps partial files and private diagnostics, with no completed receipt. Inspect a failed or interrupted invocation before retrying; do not overwrite its directory or terminate it while its child process is running. Protect the completed receipt and its digest separately when transferring the snapshot. Hashes establish content identity, not producer authentication.
+
+This is a completed **collection snapshot**, not a validated full submission bundle. It preserves the original collection policy and scope. Final functional tests, any reviewed derivation into the full submission policy, the official form, signing and submission approval remain separate. Retire the exact scheduled task separately after reviewing the terminal result and successful retention.
+
 ## Validation and remaining deployment checks
+
+The snapshot script has 16 Windows PowerShell 5.1 synthetic scenarios covering successful retention, incomplete/failed/unreleased collections, malformed replies, export failures, changed source/copy evidence, different exports, altered pins, extra CLI files, attention records, lock contention and an unsafe nested destination. The passing case also checks preserved incident history, the file inventory and refusal to overwrite an existing snapshot. A separate two-second synthetic journal passed export and copied-journal revalidation with the released 1.7.0 CLI. That fixture fabricated monitor ownership and used synthetic function samples; it did not acquire a real reservation, contact hardware or establish candidate endurance acceptance.
 
 The current source wrapper has synthetic Windows PowerShell 5.1 checks covering normal collection, completion, failure, incomplete/unknown ownership, malformed output, inherited connection overrides, changed files, overlapping invocations and process-tree termination. Additional cases exercise empty, unavailable, null and structurally invalid status responses before and after a tick. These now retain a specific before/after status failure reason and the original output without a secondary property-access exception, and remain latched without replay. This response-handling change is not yet in a released archive; do not replace pinned tooling during an active run. These tests do not contact a processor or count toward an endurance requirement.
 

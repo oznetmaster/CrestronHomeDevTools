@@ -7,6 +7,7 @@ try {
     $release = Join-Path $root 'artifacts/release'
     if (Test-Path $release) { throw 'Use fresh release staging.' }
     & ./tools/endurance/Test-EnduranceScheduler.ps1 -ResultsDirectory artifacts/scheduler-tests
+    & ./tools/endurance/Test-EnduranceSnapshot.ps1 -ResultsDirectory artifacts/endurance-snapshot-tests
     & ./tools/Test-DiscoveredCoverageGuards.ps1
     & ./tools/Test-DiscoveredCoverage.ps1 -Configuration Release -ResultsDirectory artifacts/tests
     dotnet pack CrestronHomeDevTools/CrestronHomeDevTools.csproj -c Release "-p:Version=$Version" -o $release
@@ -35,7 +36,7 @@ try {
                 if (@($zip.Entries | Where-Object FullName -CEQ $relative).Count -ne 1) { throw "Missing or duplicated document $relative in $($file.Name)." }
             }
             if ($file.Extension -eq '.zip') {
-                foreach ($name in @('Invoke-EnduranceScheduledTick.ps1','New-EnduranceScheduleConfiguration.ps1','Register-EnduranceScheduledTask.ps1')) {
+                foreach ($name in @('Invoke-EnduranceScheduledTick.ps1','New-EnduranceScheduleConfiguration.ps1','Register-EnduranceScheduledTask.ps1','Export-EnduranceScheduledRun.ps1')) {
                     if (@($zip.Entries | Where-Object FullName -CEQ ('scripts/endurance/' + $name)).Count -ne 1) { throw "Missing scheduled-worker script $name." }
                 }
             }
