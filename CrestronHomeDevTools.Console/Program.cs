@@ -77,6 +77,8 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 		}
 	if (args.FirstOrDefault () == "submission-map-evidence")
 		return SubmissionEvidenceMappingCommand.Run (args[1..], Console.Out, Console.Error);
+	if (args.FirstOrDefault () == "submission-combine-evidence")
+		return SubmissionEvidenceCompositionCommand.Run (args[1..], Console.Out, Console.Error);
 	if (args.FirstOrDefault () == "submission")
 		{
 		using var deadline = new CancellationTokenSource (TimeSpan.FromMinutes (45));
@@ -154,6 +156,7 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
                 --package FILE --policy FILE --template FILE --observations FILE --evidence DIR
                                        Check candidate, policy, form and retained evidence offline.
               submission-map-evidence --help
+              submission-combine-evidence --help
                                        Import reviewed evidence mappings, preserving original records.
               submission-bundle-create --output FILE --candidate FILE --candidate-sha256 SHA256
                 --package FILE --policy FILE --template FILE --observations FILE --evidence DIR

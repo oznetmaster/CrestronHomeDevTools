@@ -8,6 +8,8 @@ Use this only after testing an immutable actual-driver Release candidate. Ordina
 
 The source [Android evidence audit](AndroidEvidence.md) checks the Android workflow's retained run before scoped observations are prepared. Version 1.9.0 connects it to this review stage. The stage re-audits raw results before form generation and again before completing the review. It does not authenticate a producer, and an audit receipt alone cannot fill missing official requirements.
 
+When different phases supply separate scoped observation documents, the [source evidence composition API and CLI](EvidenceComposition.md) can assemble them with the full policy checked and failures preserved. This source addition is not in the released 1.12.0 packages. It does not create observations from raw test output or replace trusted producer review.
+
 The trusted release job supplies four independent pins: candidate declaration SHA-256, reviewed official inventory SHA-256, reviewed form mapping SHA-256 and full source commit. Do not calculate replacement pins from untrusted hardware-worker output. The candidate declaration already pins the package, policy and official template. The caller is responsible for establishing the driver identity, complete applicable policy and trusted evidence provenance.
 
 Create a private settings file on the worker with exactly these fields (replace the example paths):
