@@ -47,6 +47,31 @@ Normal household use continues while a CI reservation exists: the lease does not
 
 A dedicated processor is convenient for disruptive tests, but it is optional. A shared installation may require more deliberate scheduling and may be unable to complete particular submission tests without a planned interruption.
 
+## A test processor connected to a device in real use
+
+Processor usage and physical-device usage are independent dimensions of a test profile. A dedicated development processor can connect to a hub that still controls the occupied home or office. Reserving that processor does not make the physical device a laboratory fixture or prevent its schedules, occupants or other controllers from changing it.
+
+| Processor use | Physical-device use | Consequence |
+| --- | --- | --- |
+| Dedicated to testing | Dedicated to testing | CI can use the reviewed test equipment within its declared operating limits. |
+| Dedicated to testing | Serving the home or office | Device-control tests still affect real users. Bound the affected devices and settings, coordinate disruptive actions and check restoration against intervening changes. |
+| Serving the home or office | Dedicated to testing | Processor lifecycle operations may interrupt unrelated real services even though the test device is isolated. |
+| Serving the home or office | Serving the home or office | Apply both sets of restrictions. A CI reservation does not suspend normal operation. |
+
+Record both dimensions in the reviewed environment/test plan, together with the permitted target devices, operations and maintenance windows. This profile does not require a second physical device. Read-only endurance should observe normal operation without overriding schedules or occupants. Control tests should change only the approved target and fields, verify current state before acting, and retain what they actually changed.
+
+Classify the smallest independently controlled target, including individual outlets, hub children, sensors and channels. A parent device can contain both dedicated test children and children in normal use. Dedicated test targets do not inherit household-use restrictions merely because other targets on the same processor or parent are operational. Identify them by stable device/child identity rather than an address or label alone.
+
+Apply operational restrictions according to the action's actual scope. Switching one dedicated test outlet can be unrestricted while another outlet on the strip remains operational. Resetting, powering off, unpairing or reconfiguring their shared parent may affect all children, so review that broader action against the operational children as well. A child-level test designation does not authorize disrupting the shared parent. Reading an operational sensor is also different from resetting the hub that carries its readings.
+
+An optional naming convention can make that classification easier. For example, a developer may designate devices whose names contain `Demo` as dedicated test equipment. The developer chooses the pattern and matching rules; it is not a universal convention and existing devices need not be renamed. A hub or strip designated as test equipment supplies that classification to all its children by default, making them available for testing without renaming each child. Explicit device/child classifications take precedence over a name rule or inherited designation, so an explicitly operational child remains operational. A target with neither its own classification nor an inherited one remains unclassified; lack of a name match alone does not prove either usage.
+
+Use the rule to discover and review candidate targets, then retain their stable parent/device/child identities in the test plan. Do not silently substitute a new device merely because it later acquires the same name. A parent-wide action still accounts for affected operational children. This is an optional integration convention for consumer configuration; the shared workflow templates do not currently implement automatic device-name classification.
+
+Restoration must account for legitimate changes made after the initial snapshot. Check whether the fields to be restored still match the state produced by the test before writing them back. A detected conflict needs an explicit recovery decision and retained evidence; neither blindly restoring the old snapshot nor reporting successful restoration without verification is acceptable. Devices without comparable state or conditional updates may need a coordinated maintenance window rather than an automatic restoration promise. This is an acceptance requirement for the relevant fixtures, not a claim that every existing fixture already implements conflict handling.
+
+This operational-device profile is distinct from two independent CI runs contending for the same device. Cross-processor CI resource coordination remains a deferred enhancement; protecting normal household or office operation is part of the current live-test requirements.
+
 ## One computer and one processor
 
 1. Build and run offline tests locally. Prepare and pin the Release candidate before submission testing.
@@ -72,6 +97,8 @@ Multiple driver instances do not necessarily require multiple processors. Where 
 If a particular test genuinely requires additional equipment that the developer does not have, report that requirement as uncovered or document permitted non-applicability with its reason. The tools must not impose extra hardware merely because the reference environment has it, or claim that every official requirement can be met with every hardware layout.
 
 ## CI credentials on a shared PC
+
+The normal developer workflow is Windows-based: Visual Studio/.NET, C# tests and documented configuration/console commands. It must not require Linux knowledge or an interactive Linux shell on the processor. The tools handle SSH/SFTP and processor operations internally. Supplying processor credentials is separate from learning Linux administration; any low-level diagnostic instructions are optional troubleshooting. Internal hosted jobs may use Linux or Python without requiring the consuming developer to program or administer either.
 
 Keeping development and monitoring on the same computer does not require exposing submission credentials to source-build jobs. Protect private inputs and evidence with separate account permissions where needed, and restrict privileged jobs to reviewed code and artifacts. Never execute untrusted pull-request code under an account with access to processor credentials, signatures or delivery credentials. A second physical computer is one isolation option; it is not the only one. Account isolation does not protect against local administrators.
 
