@@ -2,7 +2,7 @@
 
 A complete review means complete against our interpretation of Crestron's requirements, as captured in the developer's declared verification plan and the tool's checks. It is not a Crestron decision. No validation result, completed form or successful delivery implies Crestron acceptance, publication or certification.
 
-The source [declared-gaps review mode](DeclaredGaps.md) records explained omissions against the full policy without changing failed outcomes. Source after 1.12.0 supports explicit `--review-mode declared-gaps --declarations FILE --declarations-sha256 REVIEWED_SHA256`, retaining its original evidence and unsigned form together. Signing and delivery integration remains pending. The complete-only behavior described below remains the default.
+The [declared-gaps review mode](DeclaredGaps.md), available in 1.13.0, records explained omissions against the full policy without changing failed outcomes. Use explicit `--review-mode declared-gaps --declarations FILE --declarations-sha256 REVIEWED_SHA256`, retaining its original evidence and unsigned form together. Continue through [unsigned request preparation](ReviewRequest.md) and [independent approval/delivery](ReviewApproval.md). The complete-only behavior described below remains the default.
 
 Command examples use the [bundled submission console](ConsoleTools.md); see that guide for source/release availability and setup.
 
@@ -12,7 +12,7 @@ Use this only after testing an immutable actual-driver Release candidate. Ordina
 
 The source [Android evidence audit](AndroidEvidence.md) checks the Android workflow's retained run before scoped observations are prepared. Version 1.9.0 connects it to this review stage. The stage re-audits raw results before form generation and again before completing the review. It does not authenticate a producer, and an audit receipt alone cannot fill missing official requirements.
 
-When different phases supply separate scoped observation documents, the [source evidence composition API and CLI](EvidenceComposition.md) can assemble them with the full policy checked and failures preserved. This source addition is not in the released 1.12.0 packages. It does not create observations from raw test output or replace trusted producer review.
+When different phases supply separate scoped observation documents, the [evidence composition API and CLI](EvidenceComposition.md), available in 1.13.0, can assemble them with the full policy checked and failures preserved. It does not create observations from raw test output or replace trusted producer review.
 
 The trusted release job supplies four independent pins: candidate declaration SHA-256, reviewed official inventory SHA-256, reviewed form mapping SHA-256 and full source commit. Do not calculate replacement pins from untrusted hardware-worker output. The candidate declaration already pins the package, policy and official template. The caller is responsible for establishing the driver identity, complete applicable policy and trusted evidence provenance.
 

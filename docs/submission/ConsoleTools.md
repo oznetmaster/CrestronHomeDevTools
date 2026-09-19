@@ -31,7 +31,7 @@ The commands take the same reviewed profiles and private settings described in t
 
 The `submission-delivery-settings` command requires 1.10.0 and prepares the protected delivery configuration from the installed bundle. See [Delivery setup](DeliverySetup.md) for inputs and independent approval requirements.
 
-Source additions after 1.12.0, not yet released: [unsigned requests with disclosed omissions](ReviewRequest.md) and their [exact approval and protected delivery commands](ReviewApproval.md). They use a separate request disposition; the existing signed complete-only commands do not silently accept incomplete submissions.
+Version 1.13.0 adds [unsigned requests with disclosed omissions](ReviewRequest.md) and their [exact approval and protected delivery commands](ReviewApproval.md). They use a separate request disposition; the existing signed complete-only commands do not silently accept incomplete submissions.
 
 Append `--help` to any command for its arguments. Preparation does not upload, send email or establish Crestron acceptance. Actual delivery remains a separate protected `submission-deliver` operation with its existing authorization and durable journal requirements.
 

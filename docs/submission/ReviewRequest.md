@@ -1,6 +1,6 @@
 # Prepare an unsigned request with declared omissions
 
-**Source availability:** this command is a source addition after 1.12.0, not part of the released 1.12.0 console. It prepares a reviewable outbound packet; final authorization and delivery integration for this mode remain pending. It signs nothing and sends nothing.
+**Requires 1.13.0 or later.** This command prepares a reviewable outbound packet. Continue through [independent approval and protected request delivery](ReviewApproval.md). Preparation itself signs nothing and sends nothing.
 
 Use this stage after [preparing a declared-gap review](DeclaredGaps.md) when the developer deliberately omits a signature or the official self-test form. The internal `.review.pdf` is not an outbound attachment. This stage creates a separate `.request.pdf` with explicit omission wording from the retained, revalidated evidence.
 

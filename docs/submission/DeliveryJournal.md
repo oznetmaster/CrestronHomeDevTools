@@ -1,6 +1,6 @@
 # Delivery intent, receipts and reconciliation
 
-For the source API that distinguishes complete verification from declared gaps and signed forms from unsigned/disclosure attachments, see [review delivery](ReviewDelivery.md). It shares this journal; its preparation and console integration are not yet released.
+For the 1.13.0 API that distinguishes complete verification from declared gaps and signed forms from unsigned/disclosure attachments, see [review delivery](ReviewDelivery.md). Its preparation and console integration share this journal.
 
 The `SubmissionDelivery` API, introduced in 1.5.0, records the upload/email boundary. Version 1.8.0 adds [upload](CrestronUploader.md) and [SMTP](SmtpDelivery.md) providers and a [protected console command](DeliveryCommand.md). Journal tests use synthetic local transports; no complete signed driver submission has been established through this code.
 

@@ -21,6 +21,7 @@ Reviewed V1 removal can preserve other instances sharing the same driver code ac
 - [Associating Android tiles with installed drivers](docs/DriverUiBinding.md)
 - [Deployment and tests](#deployment-and-tests)
 - [Submission preparation console](docs/submission/ConsoleTools.md) (no Python setup)
+- [Submission runbook](docs/submission/Runbook.md) (normal path, expected results and resuming work)
 - [Reviewed evidence mapping](docs/submission/EvidenceMapping.md) (C# API and CLI, requires 1.11.0)
 - [Passive endurance health assessment](docs/submission/WindowsEnduranceWorker.md#passive-health-assessment) (requires 1.12.0; no notification delivery)
 - [Optional endurance notifications](docs/submission/EnduranceNotifications.md) (requires 1.12.0; authorized SMTP destination required)
@@ -30,6 +31,8 @@ Reviewed V1 removal can preserve other instances sharing the same driver code ac
 - [Submission delivery journal and reconciliation](docs/submission/DeliveryJournal.md) (authorized upload, SMTP delivery and uncertain-outcome handling)
 - [Final submission delivery preparation](docs/submission/DeliveryPreparation.md) (approved signed artifacts to a private plan; no sending)
 - [Bundled delivery settings](docs/submission/DeliverySetup.md) (requires 1.10.0; generate protected settings without runtime paths)
+- [Combining submission evidence](docs/submission/EvidenceComposition.md) (requires 1.13.0)
+- [Requests with declared gaps](docs/submission/DeclaredGaps.md) and [approval/delivery](docs/submission/ReviewApproval.md) (requires 1.13.0)
 - [Documentation](#documentation)
 - [Build and validate](#build-and-validate)
 - [Privacy and compatibility](#privacy-and-compatibility)
@@ -67,7 +70,9 @@ Version 1.11.0 adds [reviewed evidence mapping](docs/submission/EvidenceMapping.
 
 Version 1.12.0 adds passive local/remote observation and authorized operational email notifications through C# APIs and the console. See [endurance monitoring](docs/submission/EnduranceNotifications.md) for configuration, supervision and validation limits.
 
-Install the library with `dotnet add package CrestronHomeDevTools --version 1.12.0`. Download the self-contained Windows x64 console from [GitHub Releases](https://github.com/oznetmaster/CrestronHomeDevTools/releases/latest), extract the complete ZIP, and run `CrestronHomeDevTools.Console.exe`. Its first run opens processor/profile setup; `--help` lists commands.
+Version 1.13.0 adds evidence composition and explicit requests with declared gaps, preserving failures and requiring approval of the exact outgoing artifacts. Start with the [submission runbook](docs/submission/Runbook.md); it links each stage's settings, expected outputs and recovery steps.
+
+Install the library with `dotnet add package CrestronHomeDevTools --version 1.13.0`. Download the self-contained Windows x64 console from [GitHub Releases](https://github.com/oznetmaster/CrestronHomeDevTools/releases/latest), extract the complete ZIP, and run `CrestronHomeDevTools.Console.exe`. Its first run opens processor/profile setup; `--help` lists commands.
 
 To build from source with the .NET 10 SDK:
 

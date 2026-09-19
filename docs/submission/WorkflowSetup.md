@@ -1,5 +1,7 @@
 # Configure the optional submission workflow
 
+Start with the [normal-path runbook](Runbook.md) for stage order, expected results and resuming an interrupted attempt. This page supplies the one-time worker and repository configuration.
+
 These templates belong in your own trusted orchestration repository. They do not depend on the author's private CI repository or require another physical PC. See [development configurations](DevelopmentConfigurations.md) for one or many PCs and processors. Use a private repository for this supplied configuration, with restricted write access and a protected Windows worker; ordinary builds and releases remain independent.
 
 The templates connect the public review, signing, delivery-preparation and delivery commands. They do not run missing acceptance tests or establish that a driver is ready for submission. The complete protected workflow still needs validation against a real candidate. Copying the files leaves it disabled until you configure and explicitly enable it.

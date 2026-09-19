@@ -1,6 +1,6 @@
 # Delivery of a reviewed request with declared gaps
 
-**Source availability:** these C# APIs are additions after 1.12.0 and are not yet released. The existing signature and final-delivery preparation commands still require their complete signed-review chain. The new [unsigned request preparation command](ReviewRequest.md) handles declared form/signature omissions. The [approval and prepared-request coordinator](ReviewApproval.md) connects those requests to this delivery API in C# and through a protected console command.
+**Requires 1.13.0 or later.** The existing signature and final-delivery preparation commands still require their complete signed-review chain. The [unsigned request preparation command](ReviewRequest.md) handles declared form/signature omissions. The [approval and prepared-request coordinator](ReviewApproval.md) connects those requests to this delivery API in C# and through a protected console command.
 
 `SubmissionReviewDeliveryPlan` identifies the exact candidate, review, authorization, package and PDF attachment. It also records the verification mode, verification status, declaration digest, public gap summary, document omissions and attachment kind. These are separate facts:
 

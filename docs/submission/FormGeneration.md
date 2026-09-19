@@ -6,7 +6,7 @@ The `submission self-test-form` command generates an unsigned, interactive revie
 
 The [submission plan](../CrestronSubmission.md) remains authoritative for the work still required. A generated form is one build artifact, not a replacement for the complete driver-specific policy, trusted evidence producer, visual review and signing authorization.
 
-Source after 1.12.0 also supports the [declared-gaps unsigned form mode](DeclaredGaps.md). It preserves incomplete official items as unchecked, with grouped explanations; it is not yet integrated into signing or delivery. The released 1.12.0 console does not include that mode.
+Version 1.13.0 also supports the [declared-gaps unsigned form mode](DeclaredGaps.md). It preserves incomplete official items as unchecked, with grouped explanations. The separate [unsigned request workflow](ReviewRequest.md) prepares an outbound copy for independent approval and delivery; it does not apply a signature.
 
 ## Inputs and installation
 

@@ -1,15 +1,17 @@
-# CrestronHomeDevTools 1.12.0
+# CrestronHomeDevTools 1.13.0
 
-This release adds passive endurance monitoring APIs and console commands. Developers can assess a local or remote Windows collector and send authorized operational email alerts without changing the running collector or contacting its processor.
+This release connects candidate-bound evidence from multiple test phases and adds an explicit submission route for developers who choose to disclose unmet requirements. The normal signed submission path remains complete-only by default.
 
-- Add `SubmissionEnduranceHealth` and `endurance-health` to assess task state, sample freshness, interruptions and run identity. Include the read-only Windows snapshot script in the console archive.
-- Add `SubmissionEnduranceWindowsObserver` and `endurance-observe` for local or pinned-SSH observation. The library includes its reader; developers do not need to write or transfer a remote script. Failed queries produce fresh attention reports where possible, rather than reusing an old healthy result.
-- Add `SubmissionEnduranceNotifier` and `endurance-notify` for TLS-protected SMTP alerts and completion notices. A persistent private journal suppresses duplicate notifications across restarts and holds uncertain sends for explicit reconciliation.
-- Add `endurance-watch` to pass a fresh observation directly to the notifier, including observations that require attention. Windows and SMTP credentials are supplied separately on standard input. Its result reports monitoring health and notification status independently.
-- Validate passive snapshot behavior in the release workflow and require its script in the downloadable archive.
+- Combine scoped observations through the C# API and `submission-combine-evidence`, preserving failed phases and the full reviewed policy.
+- Assess declared gaps, retain the original evidence and prepare unsigned review requests with reasons for omitted forms or signatures. Missing evidence never becomes a passing test.
+- Preview and verify approval of the exact outgoing package, document and correspondence. Protected request delivery checks the retained evidence and approval again before each upload or email.
+- Use the existing durable delivery journal for both routes, preserving known upload results and preventing automatic replay after an uncertain provider response.
+- Add a short [submission runbook](docs/submission/Runbook.md) linking setup, stage inputs, expected results and recovery instructions.
 
-Validation includes the discovered .NET regression suite, simulated SMTP and observation failures, duplicate and uncertain delivery, Windows snapshot tests, and isolated packaged-console acceptance. A read-only remote observation also succeeded against an existing Windows collector using a verified ED25519 SSH key. Scheduled alert delivery, real inbox receipt and restart recovery still require validation in the developer's deployment; this release does not claim those checks or completed driver submission.
+The NuGet package supplies the C# APIs. The complete Windows console ZIP includes the document commands and their internal runtime; developers do not need to install or write Python. Credentials, evidence and signatures remain private.
 
-See [endurance notifications and observation](docs/submission/EnduranceNotifications.md) and [Windows endurance workers](docs/submission/WindowsEnduranceWorker.md). The NuGet package provides C# APIs; the complete Windows console ZIP provides the commands and scripts. An operator must configure supervision, private credential access and authorized recipients. Existing collectors can keep their pinned versions. Ordinary driver, library and client releases do not require submission tooling.
+Validation includes 943 passing .NET tests, generated unsigned/disclosure requests through the protected command with simulated providers, and isolated packaged-console checks. Document checks passed after an unchanged rerun of a temporary-file replacement failure. The release workflow also runs its full build and packaged-console acceptance checks before publishing. These are tooling checks; end-to-end submission of a real driver through the protected workflow remains to be validated.
+
+The ordinary workflow still requires complete candidate evidence, visual review and separate signing and delivery authorization. Declared-gap signing and omissions of other required documents are not implemented. See [declared gaps](docs/submission/DeclaredGaps.md), [request preparation](docs/submission/ReviewRequest.md) and [approval](docs/submission/ReviewApproval.md). Passing checks means complete only against our interpretation of Crestron's requirements; neither passing checks nor successful delivery implies Crestron acceptance, publication or certification.
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.

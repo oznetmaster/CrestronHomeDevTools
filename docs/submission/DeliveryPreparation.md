@@ -68,11 +68,11 @@ The evidence ZIP, original signature image and worker settings are not copied in
 
 Preparation records `DeliveryPlanPrepared`, `deliveryAuthorized: true`, `deliveryAttempted: false` and `submissionReady: false`. The reviewed files and plan are prepared; supported transport configuration and dispatch remain outstanding.
 
-The source [delivery revalidation command](DeliveryRevalidation.md) repeats the complete offline chain against the original approval and evidence and verifies the actual prepared send files. It is not in the published 1.7.0 package; guarded callback invocation and real transport integration remain separate work.
+The [delivery revalidation command](DeliveryRevalidation.md), bundled since 1.9.0, repeats the complete offline chain against the original approval and evidence and verifies the actual prepared send files. Use [bundled delivery settings](DeliverySetup.md) to connect it to the protected transport command.
 
 Before dispatch, the trusted transport job must revalidate the completed handoff, original approval and current expiry, current evidence/policy validity, and intended sender account. Run preparation immediately before dispatch; retaining a plan does not permit sending indefinitely. The published `SubmissionDelivery.ExecuteAsync` primitive does not enforce approval expiry or evaluate evidence. Version 1.8.0 adds [guarded dispatch](DeliveryJournal.md#authorization-immediately-before-each-step), which requires trusted revalidation before both upload and email and enforces the returned approval expiry and plan identity. Its callback still has to perform the complete handoff, evidence and approval checks; merely returning a matching digest is insufficient. Earlier APIs do not supply this guarded boundary. All attempts must use the same durable journal, including new preparations of the same files; never bypass an uncertain upload or send with a fresh directory.
 
-The transport must follow the journal's no-replay/reconciliation rules, upload only the package, and attach only the signed PDF to the documented email containing the returned download URL. A supported uploader, configured mail provider, controlled-recipient validation and an authorized real submission remain pending. A provider receipt is not Crestron approval or certification.
+The transport follows the journal's no-replay/reconciliation rules, uploads only the package, and attaches only the signed PDF to the documented email containing the returned download URL. The [delivery command](DeliveryCommand.md) supplies uploader and SMTP providers; the developer must configure and validate their sender and protected environment before an authorized real submission. A provider receipt is not Crestron approval or certification.
 
 ## Validation
 

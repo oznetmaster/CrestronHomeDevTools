@@ -1,6 +1,6 @@
 # Review with declared gaps
 
-**Source availability:** the assessment APIs, unsigned form mode and private review/bundle integration described here are source additions after 1.12.0. They are not in the released 1.12.0 packages. Signing and delivery integration for requests with gaps is still being implemented. The existing complete-only behavior remains the default.
+**Requires 1.13.0 or later.** This workflow assesses explained gaps, prepares an unsigned form or disclosure report, and delivers the independently approved request. Complete mode remains the default. Signing a form with gaps and omission of other required documents are not supported by the supplied preparation commands.
 
 Complete means complete against **our interpretation of Crestron's published submission requirements**, captured in the full reviewed verification plan. It does not mean finishing an arbitrarily reduced checklist. No result from this workflow implies or predicts acceptance, publication or certification. Crestron makes those decisions.
 
@@ -85,16 +85,16 @@ The command revalidates the candidate and declarations during form generation an
 
 If every Android scope is wholly unperformed and explicitly declared, the review can be prepared without Android runs. Any supplied Android observation, including a failure, still requires the raw-run audit and independent pins. Existing supplied runs cannot be silently dropped. Physical reservations and unresolved restoration are not released by creating a review.
 
-The reusable private CI template accepts `review_mode` and `declarations_sha256`; the worker's private `CRESTRON_SUBMISSION_DECLARATIONS` variable locates the document. Complete mode remains the default. This template extension is source-only and has not yet been validated as a packaged-console service run.
+The reusable private CI template accepts `review_mode` and `declarations_sha256`; the worker's private `CRESTRON_SUBMISSION_DECLARATIONS` variable locates the document. Complete mode remains the default. Packaged-console preparation and the template's delivery preflight have automated checks; each developer must verify their protected worker configuration before supplying real delivery credentials.
 
-## Remaining integration
+## Delivery and current limits
 
-The source [unsigned request preparation command](ReviewRequest.md) now creates a separate outbound copy for an explicitly omitted signature or official form, from a revalidated retained review. It requires its own pinned document disposition and another visual review. It does not authorize delivery.
+The [unsigned request preparation command](ReviewRequest.md) creates a separate outbound copy for an explicitly omitted signature or official form, from a revalidated retained review. It requires its own pinned document disposition and another visual review. It does not authorize delivery.
 
 Missing required documents or signatures need explicit disclosure; no signature may imply work that was not done. The unsigned request stage handles form/signature omissions. Other required documents, including package help, still use the existing file assessment/package validation rules and cannot yet be omitted.
 
-The new source [review delivery API](ReviewDelivery.md) binds mode, gap declarations, document omissions, attachment disposition and actual generated correspondence to approval. Its separate receipt preserves verification status alongside provider delivery state. Signed forms, unsigned forms and disclosure-only attachments have distinct wording. It shares the existing journal and SMTP provider; offline tests include a synthetic journal-plus-mailer rehearsal without external transmission.
+The [review delivery API](ReviewDelivery.md) binds mode, gap declarations, document omissions, attachment disposition and actual generated correspondence to approval. Its separate receipt preserves verification status alongside provider delivery state. Signed forms, unsigned forms and disclosure-only attachments have distinct wording. It shares the existing journal and SMTP provider; offline tests include a synthetic journal-plus-mailer rehearsal without external transmission.
 
-The signing and delivery preparation commands still need this integration, complete document-omission handling and synthetic end-to-end acceptance from evidence to delivery. Until that integration is available, this command is an assessment component, not an end-to-end incomplete-submission command. It does not bypass reservations or resolve uncertain previous send outcomes.
+Use the [approval and unsigned-request delivery guide](ReviewApproval.md) to continue through C# or the protected console. Integration tests exercise generated requests through approval, fresh evidence checks and simulated delivery. The existing complete-only signing and delivery-preparation commands remain separate; do not relabel an unsigned request as a signed form. The workflow does not bypass reservations or resolve uncertain previous send outcomes.
 
 Keep three separate facts throughout: verification against our interpreted requirements, actual delivery state, and any actual decision communicated by Crestron. Successful tests, signed forms, upload receipts, email delivery and silence cannot establish that last fact.
