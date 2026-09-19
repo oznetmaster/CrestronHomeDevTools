@@ -48,6 +48,7 @@ public sealed class SubmissionSmtpMailerTests
 		Assert.That (sent.To.Mailboxes.Single ().Address, Is.EqualTo (_plan.Recipient));
 		Assert.That (sent.Cc.Concat (sent.Bcc), Is.Empty);
 		Assert.That (sent.MessageId, Is.EqualTo (MessageId[1..^1]));
+		Assert.That (sent.Subject, Is.EqualTo ("Driver Submission Package"));
 		Assert.That (sent.TextBody, Does.Contain (Upload.DownloadUrl));
 		var attachment = (MimePart)sent.Attachments.Single ();
 		Assert.That (attachment.FileName, Is.EqualTo (_plan.SignedFormFileName));
@@ -114,6 +115,72 @@ public sealed class SubmissionSmtpMailerTests
 			new NetworkCredential ("test", "test"), _root, TimeSpan.FromSeconds (5)));
 		}
 
+	[TestCase (SubmissionReviewAttachmentKind.SignedSelfTest, "signed self-test form")]
+	[TestCase (SubmissionReviewAttachmentKind.UnsignedSelfTest, "UNSIGNED self-test form")]
+	[TestCase (SubmissionReviewAttachmentKind.DisclosureOnly, "disclosure report only")]
+	public async Task ReviewMailDisclosesGapsAndActualDocumentStatus (SubmissionReviewAttachmentKind kind, string expected)
+		{
+		var plan = ReviewPlan (kind);
+		var session = new Session ();
+		string digest = SubmissionDelivery.ReviewPlanDigest (plan);
+		await Create (session).SendReviewAsync (plan, Upload, new MemoryStream (Form), "<crestron-" + digest + "@submission.local>");
+		using var sent = MimeMessage.Load (new MemoryStream (session.SentBytes!));
+		var approved = SubmissionDelivery.ReviewCorrespondence (plan);
+		Assert.That (sent.Subject, Is.EqualTo ("Driver Submission Package"));
+		Assert.That (sent.TextBody!.Replace ("\r\n", "\n"), Is.EqualTo (
+			(approved.Body + "\r\nConfirmed package download link:\r\n" + Upload.DownloadUrl + "\r\n").Replace ("\r\n", "\n")));
+		Assert.That (sent.TextBody, Does.Contain ("Request for review with declared gaps"));
+		Assert.That (sent.TextBody, Does.Contain (expected));
+		Assert.That (sent.TextBody, Does.Contain (plan.GapSummary));
+		Assert.That (sent.TextBody, Does.Contain (plan.DocumentOmissions));
+		Assert.That (sent.TextBody, Does.Contain ("Only Crestron can decide"));
+		Assert.That (sent.TextBody, Does.Not.Contain ("Our verification is complete"));
+		Assert.That (sent.To.Mailboxes.Single ().Address, Is.EqualTo (plan.Recipient));
+		Assert.That (sent.Cc.Concat (sent.Bcc), Is.Empty);
+		var attachment = (MimePart)sent.Attachments.Single ();
+		using var bytes = new MemoryStream ();
+		attachment.Content!.DecodeTo (bytes);
+		Assert.That (attachment.FileName, Is.EqualTo (plan.AttachmentFileName));
+		Assert.That (bytes.ToArray (), Is.EqualTo (Form));
+		}
+
+	[Test]
+	public async Task CompleteReviewMailLimitsItsClaimToInterpretedRequirements ()
+		{
+		var plan = ReviewPlan (SubmissionReviewAttachmentKind.SignedSelfTest) with
+			{
+			ReviewMode = SubmissionReviewMode.Complete, VerificationStatus = SubmissionVerificationStatus.CompleteAgainstInterpretedRequirements,
+			DeclarationsSha256 = null, GapSummary = null, DocumentOmissions = null
+			};
+		var session = new Session ();
+		await Create (session).SendReviewAsync (plan, Upload, new MemoryStream (Form),
+			"<crestron-" + SubmissionDelivery.ReviewPlanDigest (plan) + "@submission.local>");
+		using var sent = MimeMessage.Load (new MemoryStream (session.SentBytes!));
+		Assert.That (sent.TextBody, Does.Contain ("complete against our interpretation of Crestron's published submission requirements"));
+		Assert.That (sent.TextBody, Does.Contain ("Only Crestron can decide acceptance, publication or certification"));
+		Assert.That (sent.TextBody, Does.Not.Contain ("Request for review with declared gaps"));
+		}
+
+	[TestCase ("attachment")]
+	[TestCase ("disclosure")]
+	public void ChangedReviewCannotConnectToMailServer (string change)
+		{
+		var plan = ReviewPlan (SubmissionReviewAttachmentKind.UnsignedSelfTest);
+		string messageId = "<crestron-" + SubmissionDelivery.ReviewPlanDigest (plan) + "@submission.local>";
+		var session = new Session ();
+		if (change == "disclosure") plan = plan with { DocumentOmissions = "Different reviewed omission" };
+		Assert.ThrowsAsync<InvalidDataException> (() => Create (session).SendReviewAsync (plan, Upload,
+			new MemoryStream (change == "attachment" ? "different"u8.ToArray () : Form), messageId));
+		Assert.That (session.Connects, Is.Zero);
+		}
+
+	private SubmissionReviewDeliveryPlan ReviewPlan (SubmissionReviewAttachmentKind kind) =>
+		new (_plan.CandidateSha256, _plan.ReviewSha256, _plan.AuthorizationSha256, _plan.PackageSha256,
+			_plan.SignedFormSha256, _plan.PackageFileName, "review-disclosures.pdf", _plan.Sender, _plan.Recipient,
+			SubmissionReviewMode.DeclaredGaps, SubmissionVerificationStatus.GapsDeclared, kind, new ('e', 64),
+			"Endurance was untested because equipment was unavailable; a recovery check failed.",
+			"The document or signature omission is deliberately disclosed in this synthetic fixture.");
+
 	[Test]
 	public void DeliveryJournalPreservesUploadAndBlocksRetryAfterLostMailAcknowledgement ()
 		{
@@ -137,7 +204,42 @@ public sealed class SubmissionSmtpMailerTests
 		Assert.That (transport.Uploads, Is.EqualTo (1));
 		}
 
-	private sealed class Transport (SubmissionSmtpMailer mailer) : ISubmissionDeliveryTransport
+	[TestCase (false)]
+	[TestCase (true)]
+	public async Task ReviewJournalAndSmtpPreserveDispositionAndNeverReplayAnUncertainSend (bool loseAcknowledgement)
+		{
+		byte[] package = "synthetic package"u8.ToArray ();
+		var plan = ReviewPlan (SubmissionReviewAttachmentKind.UnsignedSelfTest) with { PackageSha256 = Hash (package) };
+		string packagePath = Path.Combine (_root, plan.PackageFileName), formPath = Path.Combine (_root, plan.AttachmentFileName);
+		File.WriteAllBytes (packagePath, package);
+		File.WriteAllBytes (formPath, Form);
+		var session = new Session { Failure = loseAcknowledgement ? "send" : "" };
+		var transport = new Transport (Create (session));
+		string journal = Path.Combine (_root, "review-journal");
+		Directory.CreateDirectory (journal);
+		Task<SubmissionReviewDeliveryReceipt> Execute () => SubmissionDelivery.ExecuteReviewAuthorizedAsync (journal, plan, packagePath, formPath,
+			transport, (_, _) => Task.FromResult (new SubmissionDeliveryAuthorization (SubmissionDelivery.ReviewPlanDigest (plan), DateTimeOffset.UtcNow.AddMinutes (2))));
+		if (loseAcknowledgement)
+			{
+			Assert.ThrowsAsync<InvalidDataException> (async () => await Execute ());
+			session.Failure = "";
+			Assert.ThrowsAsync<InvalidOperationException> (async () => await Execute ());
+			}
+		else
+			{
+			await Execute ();
+			await Execute ();
+			}
+		var receipt = SubmissionDelivery.ReadReview (journal, plan)!;
+		Assert.That (receipt.VerificationStatus, Is.EqualTo (SubmissionVerificationStatus.GapsDeclared));
+		Assert.That (receipt.AttachmentKind, Is.EqualTo (SubmissionReviewAttachmentKind.UnsignedSelfTest));
+		Assert.That (receipt.DeclarationsSha256, Is.EqualTo (plan.DeclarationsSha256));
+		Assert.That (receipt.Delivery.State, Is.EqualTo (loseAcknowledgement ? SubmissionDeliveryState.OutcomeUnknown : SubmissionDeliveryState.Submitted));
+		Assert.That (receipt.Delivery.Upload, Is.EqualTo (Upload));
+		Assert.That ((transport.Uploads, session.Sends), Is.EqualTo ((1, 1)));
+		}
+
+	private sealed class Transport (SubmissionSmtpMailer mailer) : ISubmissionDeliveryTransport, ISubmissionReviewDeliveryTransport
 		{
 		public int Uploads;
 		public Task<SubmissionUploadReceipt> UploadAsync (Stream package, string filename, CancellationToken token)
@@ -147,6 +249,8 @@ public sealed class SubmissionSmtpMailerTests
 			}
 		public Task<SubmissionMailReceipt> SendAsync (SubmissionDeliveryPlan plan, SubmissionUploadReceipt upload,
 			Stream form, string messageId, CancellationToken token) => mailer.SendAsync (plan, upload, form, messageId, token);
+		public Task<SubmissionMailReceipt> SendReviewAsync (SubmissionReviewDeliveryPlan plan, SubmissionUploadReceipt upload,
+			Stream form, string messageId, CancellationToken token) => mailer.SendReviewAsync (plan, upload, form, messageId, token);
 		}
 
 	private sealed class Session : ISubmissionSmtpSession

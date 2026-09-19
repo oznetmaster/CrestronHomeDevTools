@@ -63,11 +63,35 @@ public sealed class SubmissionSmtpMailer
 		}
 
 	/// <summary>Send once and retain the SMTP acceptance response. Acceptance does not establish inbox delivery or certification.</summary>
-	public async Task<SubmissionMailReceipt> SendAsync (SubmissionDeliveryPlan plan, SubmissionUploadReceipt upload,
+	public Task<SubmissionMailReceipt> SendAsync (SubmissionDeliveryPlan plan, SubmissionUploadReceipt upload,
 		Stream signedForm, string messageId, CancellationToken cancellationToken = default)
 		{
+		ArgumentNullException.ThrowIfNull (upload);
 		string digest = SubmissionDelivery.PlanDigest (plan);
-		if (plan.Sender != _sender || messageId != "<crestron-" + digest + "@submission.local>")
+		return SendCoreAsync (digest, plan.Sender, plan.Recipient, plan.SignedFormFileName, plan.SignedFormSha256,
+			"Driver Submission Package",
+			"Please review the attached signed self-test form and the driver package at the following download link.\r\n\r\n" +
+				upload.DownloadUrl + "\r\n\r\nPackage: " + plan.PackageFileName + "\r\nSHA-256: " + plan.PackageSha256 + "\r\n",
+			upload, signedForm, messageId, cancellationToken);
+		}
+
+	/// <summary>Send the exact reviewed disposition and disclosure attachment without implying a signature or vendor decision.</summary>
+	public Task<SubmissionMailReceipt> SendReviewAsync (SubmissionReviewDeliveryPlan plan, SubmissionUploadReceipt upload,
+		Stream attachment, string messageId, CancellationToken cancellationToken = default)
+		{
+		ArgumentNullException.ThrowIfNull (upload);
+		string digest = SubmissionDelivery.ReviewPlanDigest (plan);
+		var correspondence = SubmissionDelivery.ReviewCorrespondence (plan);
+		return SendCoreAsync (digest, plan.Sender, plan.Recipient, plan.AttachmentFileName, plan.AttachmentSha256,
+			correspondence.Subject, correspondence.Body + "\r\nConfirmed package download link:\r\n" + upload.DownloadUrl + "\r\n",
+			upload, attachment, messageId, cancellationToken);
+		}
+
+	private async Task<SubmissionMailReceipt> SendCoreAsync (string digest, string sender, string recipient,
+		string attachmentFileName, string attachmentSha256, string subject, string bodyText,
+		SubmissionUploadReceipt upload, Stream attachmentStream, string messageId, CancellationToken cancellationToken)
+		{
+		if (sender != _sender || messageId != "<crestron-" + digest + "@submission.local>")
 			{
 			throw new InvalidDataException ("The configured sender and message ID must match the authorized plan.");
 			}
@@ -82,30 +106,26 @@ public sealed class SubmissionSmtpMailer
 		using var snapshot = new MemoryStream ();
 		var buffer = new byte[81920];
 		int count;
-		while ((count = await signedForm.ReadAsync (buffer, deadline.Token).ConfigureAwait (false)) != 0)
+		while ((count = await attachmentStream.ReadAsync (buffer, deadline.Token).ConfigureAwait (false)) != 0)
 			{
 			if (snapshot.Length + count > FormLimit)
 				{
-				throw new InvalidDataException ("The signed form exceeds 64 MiB.");
+				throw new InvalidDataException ("The attachment exceeds 64 MiB.");
 				}
 			snapshot.Write (buffer, 0, count);
 			}
 		byte[] form = snapshot.ToArray ();
-		if (form.Length == 0 || Hash (form) != plan.SignedFormSha256)
+		if (form.Length == 0 || Hash (form) != attachmentSha256)
 			{
-			throw new InvalidDataException ("The signed form differs from the authorized plan.");
+			throw new InvalidDataException ("The attachment differs from the authorized plan.");
 			}
 		using var message = new MimeMessage ();
-		message.From.Add (MailboxAddress.Parse (plan.Sender));
-		message.To.Add (MailboxAddress.Parse (plan.Recipient));
+		message.From.Add (MailboxAddress.Parse (sender));
+		message.To.Add (MailboxAddress.Parse (recipient));
 		message.MessageId = messageId[1..^1];
-		message.Subject = "Driver submission: " + plan.PackageFileName;
-		var body = new BodyBuilder
-			{
-			TextBody = "Please review the attached signed self-test form and the driver package at the following download link.\r\n\r\n" +
-				upload.DownloadUrl + "\r\n\r\nPackage: " + plan.PackageFileName + "\r\nSHA-256: " + plan.PackageSha256 + "\r\n"
-			};
-		body.Attachments.Add (plan.SignedFormFileName, form, new ContentType ("application", "pdf"));
+		message.Subject = subject;
+		var body = new BodyBuilder { TextBody = bodyText };
+		body.Attachments.Add (attachmentFileName, form, new ContentType ("application", "pdf"));
 		message.Body = body.ToMessageBody ();
 		string attemptId = "mail-" + Guid.NewGuid ().ToString ("N");
 		string attempt = Path.Combine (_root, attemptId);

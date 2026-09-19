@@ -1,5 +1,7 @@
 # Delivery intent, receipts and reconciliation
 
+For the source API that distinguishes complete verification from declared gaps and signed forms from unsigned/disclosure attachments, see [review delivery](ReviewDelivery.md). It shares this journal; its preparation and console integration are not yet released.
+
 The `SubmissionDelivery` API, introduced in 1.5.0, records the upload/email boundary. Version 1.8.0 adds [upload](CrestronUploader.md) and [SMTP](SmtpDelivery.md) providers and a [protected console command](DeliveryCommand.md). Journal tests use synthetic local transports; no complete signed driver submission has been established through this code.
 
 Crestron's [published submission procedure](https://sdkcon78221.crestron.com/sdk/Crestron_Certified_Drivers_SDK/Content/Topics/Submit-a-Driver/Submit-a-Driver.htm) requires its file-sharing service for the `.pkg`, then an email to `drivers@crestron.com` with subject `Driver Submission Package`, the returned download URL and the signed self-test plan attached. The sending email address receives subsequent correspondence. An email-provider acceptance receipt is not proof that Crestron received, approved or certified the driver.

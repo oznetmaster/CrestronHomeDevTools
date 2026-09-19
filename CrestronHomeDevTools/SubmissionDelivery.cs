@@ -32,7 +32,7 @@ public interface ISubmissionDeliveryTransport
 	}
 
 /// <summary>Private delivery journal. The caller must verify signed-form authorization and evidence before invoking it.</summary>
-public static class SubmissionDelivery
+public static partial class SubmissionDelivery
 	{
 	private static readonly JsonSerializerOptions JsonOptions = new ()
 		{ PropertyNamingPolicy = JsonNamingPolicy.CamelCase, Converters = { new JsonStringEnumConverter () }, WriteIndented = true };
@@ -46,8 +46,12 @@ public static class SubmissionDelivery
 	/// <summary>Uses one deterministic journal per plan. Unknown outcomes stop until independently reconciled.</summary>
 	public static Task<SubmissionDeliveryReceipt> ExecuteAsync (string privateJournalDirectory,
 		SubmissionDeliveryPlan plan, string packagePath, string signedFormPath, ISubmissionDeliveryTransport transport,
-		CancellationToken cancellationToken = default) =>
-		ExecuteCoreAsync (privateJournalDirectory, plan, packagePath, signedFormPath, transport, null, cancellationToken);
+		CancellationToken cancellationToken = default)
+		{
+		ArgumentNullException.ThrowIfNull (transport);
+		return ExecuteCoreAsync (privateJournalDirectory, Describe (plan), packagePath, signedFormPath, transport.UploadAsync,
+			(upload, form, messageId, token) => transport.SendAsync (plan, upload, form, messageId, token), null, cancellationToken);
+		}
 
 	/// <summary>
 	/// Revalidate evidence and approval before each external step. The callback must be trusted and independently
@@ -59,8 +63,25 @@ public static class SubmissionDelivery
 		Func<SubmissionDeliveryStep, CancellationToken, Task<SubmissionDeliveryAuthorization>> revalidate,
 		TimeProvider? timeProvider = null, CancellationToken cancellationToken = default)
 		{
+		ArgumentNullException.ThrowIfNull (transport);
+		return ExecuteAuthorizedCoreAsync (privateJournalDirectory, Describe (plan), packagePath, signedFormPath, transport.UploadAsync,
+			(upload, form, messageId, token) => transport.SendAsync (plan, upload, form, messageId, token), revalidate, timeProvider, cancellationToken);
+		}
+
+	private sealed record DeliveryDescriptor (string Digest, string Key, string PackageFileName, string PackageSha256,
+		string AttachmentFileName, string AttachmentSha256);
+	private static DeliveryDescriptor Describe (SubmissionDeliveryPlan plan) => new (PlanDigest (plan), DeliveryKey (plan),
+		plan.PackageFileName, plan.PackageSha256, plan.SignedFormFileName, plan.SignedFormSha256);
+
+	private static Task<SubmissionDeliveryReceipt> ExecuteAuthorizedCoreAsync (string privateJournalDirectory,
+		DeliveryDescriptor plan, string packagePath, string attachmentPath,
+		Func<Stream, string, CancellationToken, Task<SubmissionUploadReceipt>> upload,
+		Func<SubmissionUploadReceipt, Stream, string, CancellationToken, Task<SubmissionMailReceipt>> send,
+		Func<SubmissionDeliveryStep, CancellationToken, Task<SubmissionDeliveryAuthorization>> revalidate,
+		TimeProvider? timeProvider, CancellationToken cancellationToken)
+		{
 		ArgumentNullException.ThrowIfNull (revalidate);
-		string digest = PlanDigest (plan);
+		string digest = plan.Digest;
 		var clock = timeProvider ?? TimeProvider.System;
 		SubmissionDeliveryAuthorization? currentApproval = null;
 		void RequireFreshApproval ()
@@ -75,16 +96,17 @@ public static class SubmissionDelivery
 			token.ThrowIfCancellationRequested ();
 			RequireFreshApproval ();
 			}
-		return ExecuteCoreAsync (privateJournalDirectory, plan, packagePath, signedFormPath, transport, Check, cancellationToken, RequireFreshApproval);
+		return ExecuteCoreAsync (privateJournalDirectory, plan, packagePath, attachmentPath, upload, send, Check, cancellationToken, RequireFreshApproval);
 		}
 
 	private static async Task<SubmissionDeliveryReceipt> ExecuteCoreAsync (string privateJournalDirectory,
-		SubmissionDeliveryPlan plan, string packagePath, string signedFormPath, ISubmissionDeliveryTransport transport,
+		DeliveryDescriptor plan, string packagePath, string attachmentPath,
+		Func<Stream, string, CancellationToken, Task<SubmissionUploadReceipt>> uploadProvider,
+		Func<SubmissionUploadReceipt, Stream, string, CancellationToken, Task<SubmissionMailReceipt>> sendProvider,
 		Func<SubmissionDeliveryStep, CancellationToken, Task>? authorize, CancellationToken cancellationToken, Action? requireFreshApproval = null)
 		{
-		ArgumentNullException.ThrowIfNull (transport);
-		var digest = PlanDigest (plan);
-		using var journal = new Journal (privateJournalDirectory, digest, DeliveryKey (plan));
+		var digest = plan.Digest;
+		using var journal = new Journal (privateJournalDirectory, digest, plan.Key);
 		var receipt = journal.Read () ?? new (1, digest, SubmissionDeliveryState.Prepared,
 			"<crestron-" + digest + "@submission.local>", DateTimeOffset.UtcNow);
 		if (receipt.State == SubmissionDeliveryState.Submitted) return receipt;
@@ -93,7 +115,7 @@ public static class SubmissionDelivery
 		if (receipt.State is not (SubmissionDeliveryState.Prepared or SubmissionDeliveryState.Uploaded))
 			throw new InvalidDataException ("Unsupported delivery state.");
 		using var package = OpenVerified (packagePath, plan.PackageFileName, plan.PackageSha256);
-		using var form = OpenVerified (signedFormPath, plan.SignedFormFileName, plan.SignedFormSha256);
+		using var form = OpenVerified (attachmentPath, plan.AttachmentFileName, plan.AttachmentSha256);
 		journal.Write (receipt);
 		if (receipt.State == SubmissionDeliveryState.Prepared)
 			{
@@ -104,7 +126,7 @@ public static class SubmissionDelivery
 			RecheckBeforeProvider (journal, receipt, SubmissionDeliveryState.Prepared, requireFreshApproval, cancellationToken);
 			try
 				{
-				var upload = await transport.UploadAsync (package, plan.PackageFileName, cancellationToken).ConfigureAwait (false);
+				var upload = await uploadProvider (package, plan.PackageFileName, cancellationToken).ConfigureAwait (false);
 				RequireUpload (upload);
 				receipt = receipt with { State = SubmissionDeliveryState.Uploaded, Upload = upload, PendingStep = null, UpdatedUtc = DateTimeOffset.UtcNow };
 				journal.Write (receipt);
@@ -123,7 +145,7 @@ public static class SubmissionDelivery
 		RecheckBeforeProvider (journal, receipt, SubmissionDeliveryState.Uploaded, requireFreshApproval, cancellationToken);
 		try
 			{
-			var mail = await transport.SendAsync (plan, receipt.Upload!, form, receipt.MessageId, cancellationToken).ConfigureAwait (false);
+			var mail = await sendProvider (receipt.Upload!, form, receipt.MessageId, cancellationToken).ConfigureAwait (false);
 			RequireMail (mail);
 			receipt = receipt with { State = SubmissionDeliveryState.Submitted, Mail = mail, PendingStep = null, UpdatedUtc = DateTimeOffset.UtcNow };
 			journal.Write (receipt);
@@ -157,10 +179,14 @@ public static class SubmissionDelivery
 	/// <summary>Call only after a provider lookup or authorized operator establishes the outcome. Never infer non-delivery from a timeout.</summary>
 	public static SubmissionDeliveryReceipt Reconcile (string privateJournalDirectory, SubmissionDeliveryPlan plan,
 		SubmissionDeliveryStep step, bool performed, string evidence, SubmissionUploadReceipt? upload = null, SubmissionMailReceipt? mail = null)
+		=> ReconcileCore (privateJournalDirectory, Describe (plan), step, performed, evidence, upload, mail);
+
+	private static SubmissionDeliveryReceipt ReconcileCore (string privateJournalDirectory, DeliveryDescriptor plan,
+		SubmissionDeliveryStep step, bool performed, string evidence, SubmissionUploadReceipt? upload, SubmissionMailReceipt? mail)
 		{
 		ArgumentException.ThrowIfNullOrWhiteSpace (evidence);
 		if (!Enum.IsDefined (step)) throw new ArgumentException ("Unknown delivery step.");
-		using var journal = new Journal (privateJournalDirectory, PlanDigest (plan), DeliveryKey (plan));
+		using var journal = new Journal (privateJournalDirectory, plan.Digest, plan.Key);
 		var receipt = journal.Read () ?? throw new InvalidOperationException ("There is no delivery attempt to reconcile.");
 		if (receipt.State is not (SubmissionDeliveryState.UploadPending or SubmissionDeliveryState.SendPending or SubmissionDeliveryState.OutcomeUnknown) || receipt.PendingStep != step)
 			throw new InvalidOperationException ("Only the outstanding uncertain step can be reconciled.");

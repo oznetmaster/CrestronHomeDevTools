@@ -91,6 +91,8 @@ The reusable private CI template accepts `review_mode` and `declarations_sha256`
 
 Missing required documents or signatures need explicit disclosure; no signature may imply work that was not done. These document omissions are not yet accepted by the current file assessment/package validation path.
 
-The signing and delivery stages still need gap-bound authorization and correspondence, retained receipts and synthetic end-to-end acceptance. Until that integration is available, this command is an assessment component, not an end-to-end incomplete-submission command. It does not bypass reservations or resolve uncertain previous send outcomes.
+The new source [review delivery API](ReviewDelivery.md) binds mode, gap declarations, document omissions, attachment disposition and actual generated correspondence to approval. Its separate receipt preserves verification status alongside provider delivery state. Signed forms, unsigned forms and disclosure-only attachments have distinct wording. It shares the existing journal and SMTP provider; offline tests include a synthetic journal-plus-mailer rehearsal without external transmission.
+
+The signing and delivery preparation commands still need this integration, complete document-omission handling and synthetic end-to-end acceptance from evidence to delivery. Until that integration is available, this command is an assessment component, not an end-to-end incomplete-submission command. It does not bypass reservations or resolve uncertain previous send outcomes.
 
 Keep three separate facts throughout: verification against our interpreted requirements, actual delivery state, and any actual decision communicated by Crestron. Successful tests, signed forms, upload receipts, email delivery and silence cannot establish that last fact.
