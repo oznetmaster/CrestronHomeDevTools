@@ -11,9 +11,21 @@ public sealed record SubmissionBundleReport (string BundleSha256, int FileCount,
 	public bool ValidationChecksPassed => Validation.ValidationChecksPassed;
 	}
 
+public sealed record SubmissionReviewBundleReport (string BundleSha256, int FileCount, SubmissionReviewFileReport Review)
+	{
+	/// <summary>Internal review eligibility only. Original validation failures remain in Review.Validation.</summary>
+	public bool ReadyForReview => Review.ReadyForReview;
+	}
+
 /// <summary>Creates and verifies private evidence archives. Digests detect changes; they do not authenticate the test producer.</summary>
 public static class SubmissionBundle
 	{
+	private sealed record ReviewInput (string? Path, string Digest, SubmissionReviewMode Mode);
+	private sealed record CheckedBundle (SubmissionBundleReport Bundle, SubmissionReviewFileReport? Review)
+		{
+		public SubmissionReviewBundleReport AsReview () => new (Bundle.BundleSha256, Bundle.FileCount,
+			Review ?? throw new InvalidOperationException ("Review bundle assessment is missing."));
+		}
 	private const int MAX_FILES = 4096;
 	private const long MAX_FILE_BYTES = 64L * 1024 * 1024;
 	private const long MAX_TOTAL_BYTES = 512L * 1024 * 1024;
@@ -23,8 +35,23 @@ public static class SubmissionBundle
 	public static SubmissionBundleReport Create (string outputPath, string candidatePath, string expectedCandidateSha256,
 		string packagePath, string policyPath, string templatePath, string observationsPath, string evidenceDirectory,
 		DateTimeOffset now, CancellationToken cancellationToken = default)
+		=> CreateCore (outputPath, candidatePath, expectedCandidateSha256, packagePath, policyPath, templatePath,
+			observationsPath, evidenceDirectory, null, now, cancellationToken).Bundle;
+
+	/// <summary>Retains an explicit, candidate-bound review mode and all declared gaps. Never represents failed tests as passed.</summary>
+	public static SubmissionReviewBundleReport CreateReview (string outputPath, string candidatePath, string expectedCandidateSha256,
+		string packagePath, string policyPath, string templatePath, string observationsPath, string evidenceDirectory,
+		string declarationsPath, string expectedDeclarationsSha256, SubmissionReviewMode mode,
+		DateTimeOffset now, CancellationToken cancellationToken = default)
+		=> CreateCore (outputPath, candidatePath, expectedCandidateSha256, packagePath, policyPath, templatePath,
+			observationsPath, evidenceDirectory, new (declarationsPath, expectedDeclarationsSha256, mode), now, cancellationToken).AsReview ();
+
+	private static CheckedBundle CreateCore (string outputPath, string candidatePath, string expectedCandidateSha256,
+		string packagePath, string policyPath, string templatePath, string observationsPath, string evidenceDirectory,
+		ReviewInput? review, DateTimeOffset now, CancellationToken cancellationToken)
 		{
 		RequireHash (expectedCandidateSha256);
+		ValidateReview (review);
 		outputPath = Path.GetFullPath (outputPath);
 		if (File.Exists (outputPath) || Directory.Exists (outputPath)) throw new IOException ("The bundle output already exists; use a new path.");
 		using var scratch = new Scratch (Path.GetDirectoryName (outputPath)!);
@@ -50,6 +77,7 @@ public static class SubmissionBundle
 		Copy (policyPath, "policy.json");
 		Copy (templatePath, "template.pdf");
 		Copy (observationsPath, "observations.json");
+		if (review != null) Copy (review.Path!, "declarations.json");
 		var evidenceRoot = Path.TrimEndingDirectorySeparator (Path.GetFullPath (evidenceDirectory));
 		foreach (var relative in ReferencedFiles (files["observations.json"]))
 			{
@@ -69,13 +97,13 @@ public static class SubmissionBundle
 				using var destination = entry.Open ();
 				CopyLimited (source, destination, Limit (item.Key), cancellationToken);
 				}
-		SubmissionBundleReport report;
+		CheckedBundle report;
 		using (var retained = Open (pending))
 			{
 			var digest = Hash (retained);
 			retained.Position = 0;
-			report = CheckArchive (retained, digest, expectedCandidateSha256, scratch.DirectoryPath, now, cancellationToken);
-			if (!report.ValidationChecksPassed)
+			report = CheckArchive (retained, digest, expectedCandidateSha256, scratch.DirectoryPath, review, now, cancellationToken);
+			if (review == null ? !report.Bundle.ValidationChecksPassed : report.Review?.ReadyForReview != true)
 				throw new InvalidDataException ("The archived package/evidence failed submission validation; no bundle was published.");
 			}
 		cancellationToken.ThrowIfCancellationRequested ();
@@ -87,9 +115,21 @@ public static class SubmissionBundle
 	/// <summary>Verify against digests retained independently by trusted CI. scratchDirectory must be private existing storage.</summary>
 	public static SubmissionBundleReport Check (string bundlePath, string expectedBundleSha256, string expectedCandidateSha256,
 		string scratchDirectory, DateTimeOffset now, CancellationToken cancellationToken = default)
+		=> CheckCore (bundlePath, expectedBundleSha256, expectedCandidateSha256, scratchDirectory, null, now, cancellationToken).Bundle;
+
+	/// <summary>Rechecks archived bytes with independently retained candidate, archive and declaration digests and explicit mode.</summary>
+	public static SubmissionReviewBundleReport CheckReview (string bundlePath, string expectedBundleSha256, string expectedCandidateSha256,
+		string scratchDirectory, string expectedDeclarationsSha256, SubmissionReviewMode mode,
+		DateTimeOffset now, CancellationToken cancellationToken = default)
+		=> CheckCore (bundlePath, expectedBundleSha256, expectedCandidateSha256, scratchDirectory,
+			new (null, expectedDeclarationsSha256, mode), now, cancellationToken).AsReview ();
+
+	private static CheckedBundle CheckCore (string bundlePath, string expectedBundleSha256, string expectedCandidateSha256,
+		string scratchDirectory, ReviewInput? review, DateTimeOffset now, CancellationToken cancellationToken)
 		{
 		RequireHash (expectedBundleSha256);
 		RequireHash (expectedCandidateSha256);
+		ValidateReview (review);
 		using var input = Open (bundlePath);
 		if (input.Length > MAX_TOTAL_BYTES + 1024 * 1024) throw new InvalidDataException ("The submission archive is too large.");
 		cancellationToken.ThrowIfCancellationRequested ();
@@ -97,14 +137,15 @@ public static class SubmissionBundle
 		if (!digest.Equals (expectedBundleSha256, StringComparison.OrdinalIgnoreCase))
 			throw new InvalidDataException ("The submission archive differs from the independently retained bundle digest.");
 		input.Position = 0;
-		return CheckArchive (input, digest, expectedCandidateSha256, scratchDirectory, now, cancellationToken);
+		return CheckArchive (input, digest, expectedCandidateSha256, scratchDirectory, review, now, cancellationToken);
 		}
 
-	private static SubmissionBundleReport CheckArchive (Stream input, string digest, string candidateDigest, string parent,
-		DateTimeOffset now, CancellationToken token)
+	private static CheckedBundle CheckArchive (Stream input, string digest, string candidateDigest, string parent,
+		ReviewInput? review, DateTimeOffset now, CancellationToken token)
 		{
 		using var scratch = new Scratch (parent);
 		using var zip = new ZipArchive (input, ZipArchiveMode.Read, leaveOpen: true);
+		var requiredFiles = review == null ? RequiredFiles : RequiredFiles.Concat (["declarations.json"]).ToArray ();
 		if (zip.Entries.Count > MAX_FILES) throw new InvalidDataException ("Too many archive entries.");
 		var names = new HashSet<string> (StringComparer.OrdinalIgnoreCase);
 		long total = 0;
@@ -115,7 +156,7 @@ public static class SubmissionBundle
 			if (!PortablePath (name) || !names.Add (name) || entry.Length < 0 || entry.Length > Limit (name) || entry.Length > MAX_TOTAL_BYTES - total ||
 				((entry.ExternalAttributes >> 16) & 0xF000) is not (0 or 0x8000) || (entry.ExternalAttributes & (int)FileAttributes.ReparsePoint) != 0)
 				throw new InvalidDataException ("Archive entries must be bounded, unique regular files with portable paths.");
-			if (!RequiredFiles.Contains (name, StringComparer.Ordinal) && !name.StartsWith ("evidence/", StringComparison.Ordinal) &&
+			if (!requiredFiles.Contains (name, StringComparer.Ordinal) && !name.StartsWith ("evidence/", StringComparison.Ordinal) &&
 				!(name.StartsWith ("package/", StringComparison.Ordinal) && name.Count (c => c == '/') == 1 && name.EndsWith (".pkg", StringComparison.OrdinalIgnoreCase)))
 				throw new InvalidDataException ("Unexpected file in submission archive.");
 			var path = Path.Combine (scratch.DirectoryPath, name.Replace ('/', Path.DirectorySeparatorChar));
@@ -126,18 +167,32 @@ public static class SubmissionBundle
 			if (copied != entry.Length) throw new InvalidDataException ("Archive entry length differs from its contents.");
 			total += copied;
 			}
-		if (RequiredFiles.Any (required => !names.Contains (required)) || names.Count (name => name.StartsWith ("package/", StringComparison.Ordinal)) != 1)
+		if (requiredFiles.Any (required => !names.Contains (required)) || names.Count (name => name.StartsWith ("package/", StringComparison.Ordinal)) != 1)
 			throw new InvalidDataException ("The archive needs one package and all required submission documents.");
 		string FilePath (string name) => Path.Combine (scratch.DirectoryPath, name.Replace ('/', Path.DirectorySeparatorChar));
-		var expectedNames = RequiredFiles.Concat (names.Where (name => name.StartsWith ("package/", StringComparison.Ordinal)))
+		var expectedNames = requiredFiles.Concat (names.Where (name => name.StartsWith ("package/", StringComparison.Ordinal)))
 			.Concat (ReferencedFiles (FilePath ("observations.json")).Select (name => "evidence/" + name)).ToHashSet (StringComparer.Ordinal);
 		if (!expectedNames.SetEquals (names)) throw new InvalidDataException ("Archive evidence must exactly match the referenced files; extra or missing files are rejected.");
 		var evidence = FilePath ("evidence");
 		Directory.CreateDirectory (evidence);
+		if (review != null)
+			{
+			var assessed = SubmissionReviewFiles.Check (FilePath ("candidate.json"), candidateDigest,
+				FilePath (names.Single (name => name.StartsWith ("package/", StringComparison.Ordinal))), FilePath ("policy.json"),
+				FilePath ("template.pdf"), FilePath ("observations.json"), evidence, FilePath ("declarations.json"), review.Digest, review.Mode, now, token);
+			return new (new (digest, names.Count, assessed.Validation), assessed);
+			}
 		var report = SubmissionValidation.CheckFiles (FilePath ("candidate.json"), candidateDigest,
 			FilePath (names.Single (name => name.StartsWith ("package/", StringComparison.Ordinal))), FilePath ("policy.json"),
 			FilePath ("template.pdf"), FilePath ("observations.json"), evidence, now, token);
-		return new (digest, names.Count, report);
+		return new (new (digest, names.Count, report), null);
+		}
+
+	private static void ValidateReview (ReviewInput? review)
+		{
+		if (review == null) return;
+		RequireHash (review.Digest);
+		if (!Enum.IsDefined (review.Mode)) throw new ArgumentOutOfRangeException (nameof (review));
 		}
 
 	private static IReadOnlyList<string> ReferencedFiles (string observationsPath)
@@ -173,7 +228,7 @@ public static class SubmissionBundle
 			stem.Length == 4 && (stem.StartsWith ("COM", StringComparison.Ordinal) || stem.StartsWith ("LPT", StringComparison.Ordinal)) &&
 			"123456789¹²³".Contains (stem[3]);
 		}
-	private static long Limit (string name) => name is "candidate.json" or "policy.json" or "observations.json" ? 16L * 1024 * 1024 : MAX_FILE_BYTES;
+	private static long Limit (string name) => name is "candidate.json" or "policy.json" or "observations.json" or "declarations.json" ? 16L * 1024 * 1024 : MAX_FILE_BYTES;
 	private static long CopyLimited (Stream input, Stream output, long limit, CancellationToken token)
 		{
 		long count = 0;

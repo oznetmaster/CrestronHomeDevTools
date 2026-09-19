@@ -10,7 +10,7 @@ using NUnit.Framework;
 namespace CrestronHomeDevTools.Tests;
 
 [TestFixture]
-public sealed class SubmissionReviewFilesTests
+public sealed partial class SubmissionReviewFilesTests
 	{
 	private string _root = null!, _candidatePin = null!, _declarationsPin = null!;
 	private SubmissionCandidate _candidate = null!;

@@ -23,12 +23,23 @@ from validator_runtime import settings_validator
 
 
 def prepare(settings_path, candidate_digest, inventory_digest, mapping_digest, source_commit, artifact_kind, *, signing_copy=False,
-            android_pins=None, android_pins_sha256=None):
+            android_pins=None, android_pins_sha256=None, review_mode="complete", declarations=None, declarations_sha256=None):
     # These pins come from the trusted release job, separately from worker settings.
     if artifact_kind != "driver":
         raise ValueError("Submission review is only available for an explicitly selected driver release")
     if type(signing_copy) is not bool:
         raise ValueError("Signing-copy selection must be a boolean")
+    if review_mode not in ("complete", "declared-gaps"):
+        raise ValueError("Review mode must be complete or declared-gaps")
+    declared_gaps = review_mode == "declared-gaps"
+    if declared_gaps:
+        if signing_copy or not declarations or not re.fullmatch(r"[0-9a-f]{64}", declarations_sha256 or ""):
+            raise ValueError("Declared-gap review requires pinned declarations and cannot yet prepare a signing copy")
+        if not Path(declarations).is_absolute():
+            raise ValueError("Gap declarations require an absolute private path")
+        _, gap_document = forms.pinned_json(declarations, declarations_sha256)
+    elif declarations is not None or declarations_sha256 is not None:
+        raise ValueError("Gap declarations require explicit declared-gaps review mode")
     for digest in (candidate_digest, inventory_digest, mapping_digest):
         if not re.fullmatch(r"[0-9a-f]{64}", digest):
             raise ValueError("Supply independent lowercase SHA-256 release pins")
@@ -59,9 +70,16 @@ def prepare(settings_path, candidate_digest, inventory_digest, mapping_digest, s
         raise ValueError("Use a new review output directory under an existing private parent")
     android = audit_runs(settings, android_pins, android_pins_sha256, candidate_digest)
     _, policy = forms.pinned_json(settings["policy"], candidate["identity"]["policySha256"])
-    if android is None and any(isinstance(rule.get("execution"), dict) and rule["execution"].get("method") == "android"
-                               for rule in policy["requirements"]):
-        raise ValueError("Android policy requirements need independently pinned Android evidence")
+    android_scopes = {rule["id"] for rule in policy["requirements"]
+                      if isinstance(rule.get("execution"), dict) and rule["execution"].get("method") == "android"}
+    if android is None and android_scopes:
+        # Only wholly unperformed, explicitly declared scopes can lack Android run evidence.
+        # Supplied observations still require the normal raw-run audit, regardless of pass/failure.
+        _, observed = read_json(settings["observations"])
+        observed_ids = {item["requirementId"] for item in observed["observations"]}
+        declared_ids = {item["requirementId"] for item in gap_document["declarations"]} if declared_gaps else set()
+        if not declared_gaps or not android_scopes <= declared_ids or android_scopes & observed_ids:
+            raise ValueError("Android policy requirements need independently pinned Android evidence")
     # Only our own random staging directory is cleaned after failure. No success
     # output is exposed until both artifacts and their shared identities agree.
     with tempfile.TemporaryDirectory(prefix=".submission-review-", dir=output.parent) as temporary:
@@ -71,27 +89,45 @@ def prepare(settings_path, candidate_digest, inventory_digest, mapping_digest, s
         rows, identity, validation_json = forms.validate_evidence(
             inventory, inventory_digest, settings["mapping"], mapping_digest,
             settings["candidate"], candidate_digest, settings["policy"], settings["observations"],
-            settings["package"], settings["template"], settings["evidence"], settings.get("dotnet"), settings.get("validator"))
+            settings["package"], settings["template"], settings["evidence"], settings.get("dotnet"), settings.get("validator"),
+            **({"declarations_path": declarations, "declarations_digest": declarations_sha256} if declared_gaps else {}))
         identity["inventorySha256"] = inventory_digest
         form = completed / "self-test.review.pdf"
         report = forms.write_form(source, inventory, form, settings["title"], settings["author"], rows, identity, False,
-                                  signing_copy=signing_copy)
+                                  signing_copy=signing_copy, **({"declared_gaps": True} if declared_gaps else {}))
         report["validationReportJson"] = validation_json
         write_json(completed / "form-report.json", report)
-        arguments = [*validator_args, "submission-bundle-create",
+        arguments = [*validator_args, "submission-review-bundle-create" if declared_gaps else "submission-bundle-create",
                      "--output", str(completed / "evidence.zip"), "--candidate-sha256", candidate_digest]
         for key in ("candidate", "package", "policy", "template", "observations", "evidence"):
             arguments.extend(("--" + key, settings[key]))
+        if declared_gaps:
+            arguments.extend(("--declarations", str(declarations), "--declarations-sha256", declarations_sha256, "--mode", "declared-gaps"))
         result = run_process(arguments, 180)
         if result.returncode != 0:
             raise ValueError("Evidence bundle validation failed; no completed review was published")
         bundle = json.loads(result.stdout, object_pairs_hook=strict_object)
-        checked = bundle["Validation"]
-        if (bundle["ValidationChecksPassed"] is not True or
-                checked["CandidateSha256"] != candidate_digest or
-                checked["ObservationsSha256"] != identity["observationsSha256"] or
-                checked["Package"]["Sha256"] != identity["packageSha256"] or
-                sha((completed / "evidence.zip").read_bytes()) != bundle["BundleSha256"].lower() or
+        if declared_gaps:
+            reviewed = bundle["review"]
+            checked = reviewed["validation"]
+            if (bundle["readyForReview"] is not True or reviewed["declarationsSha256"] != declarations_sha256 or
+                    reviewed["assessment"]["verificationStatus"] != identity["verificationStatus"]):
+                raise ValueError("Archived review does not match the form's declarations and assessment")
+            valid = reviewed["readyForReview"]
+            bound_candidate = checked["candidateSha256"]
+            bound_observations = checked["observationsSha256"]
+            bound_package = checked["package"]["sha256"]
+            bundle_digest = bundle["bundleSha256"]
+        else:
+            checked = bundle["Validation"]
+            valid = bundle["ValidationChecksPassed"]
+            bound_candidate = checked["CandidateSha256"]
+            bound_observations = checked["ObservationsSha256"]
+            bound_package = checked["Package"]["Sha256"]
+            bundle_digest = bundle["BundleSha256"]
+        if (valid is not True or bound_candidate != candidate_digest or
+                bound_observations != identity["observationsSha256"] or bound_package != identity["packageSha256"] or
+                sha((completed / "evidence.zip").read_bytes()) != bundle_digest.lower() or
                 sha(form.read_bytes()) != report["formSha256"]):
             raise ValueError("Form and retained evidence do not describe the same candidate snapshot")
         write_json(completed / "bundle-report.json", bundle)
@@ -99,6 +135,9 @@ def prepare(settings_path, candidate_digest, inventory_digest, mapping_digest, s
         for key, digest in (("mapping", mapping_digest), ("inventory", inventory_digest)):
             data, _ = forms.pinned_json(settings[key], digest)
             (completed / (key + ".json")).write_bytes(data)
+        if declared_gaps:
+            data, _ = forms.pinned_json(declarations, declarations_sha256)
+            (completed / "declarations.json").write_bytes(data)
         # Revalidate after the form/bundle operations, including independent pins.
         # Do not accept a worker's precomputed audit summary in place of raw data.
         android_report_sha256 = None
@@ -114,9 +153,12 @@ def prepare(settings_path, candidate_digest, inventory_digest, mapping_digest, s
                    "mappingSha256": mapping_digest, "formSha256": report["formSha256"],
                    "formReportSha256": sha((completed / "form-report.json").read_bytes()),
                    "signingCopy": signing_copy,
-                   "bundleSha256": bundle["BundleSha256"], "visualReviewRequired": True,
+                   "bundleSha256": bundle_digest, "visualReviewRequired": True,
                    "producerAuthenticationRequired": True, "signingAuthorizationRequired": True,
                    "submissionReady": False, "deliveryAttempted": False}
+        if declared_gaps:
+            receipt.update(state="UnsignedReviewWithDeclaredGapsPrepared", reviewMode="DeclaredGaps",
+                           verificationStatus=identity["verificationStatus"], declarationsSha256=declarations_sha256)
         if android is not None:
             receipt["androidAuditSha256"] = android_report_sha256
             receipt["androidPinsSha256"] = android_pins_sha256
@@ -139,11 +181,15 @@ def main():
                         help="Prepare the evidence-backed unsigned signing copy; does not authorize or apply a signature")
     parser.add_argument("--android-pins", help="Independent pre-execution Android run pins; requires the matching digest")
     parser.add_argument("--android-pins-sha256", help="SHA-256 retained by the trusted coordinator")
+    parser.add_argument("--review-mode", choices=("complete", "declared-gaps"), default="complete")
+    parser.add_argument("--declarations", help="Candidate-bound private gap declarations; requires declared-gaps mode")
+    parser.add_argument("--declarations-sha256", help="Independent SHA-256 of the exact reviewed explanations")
     args = parser.parse_args()
     try:
         report = prepare(args.settings, args.candidate_sha256, args.inventory_sha256, args.mapping_sha256,
                          args.source_commit, args.artifact_kind, signing_copy=args.prepare_for_signing,
-                         android_pins=args.android_pins, android_pins_sha256=args.android_pins_sha256)
+                         android_pins=args.android_pins, android_pins_sha256=args.android_pins_sha256,
+                         review_mode=args.review_mode, declarations=args.declarations, declarations_sha256=args.declarations_sha256)
         print(json.dumps(report, indent=2))
         return 0
     except (ValueError, OSError, KeyError, TypeError, PdfReadError, LayoutError, XMLSyntaxError, subprocess.SubprocessError):

@@ -1,6 +1,6 @@
 # Review with declared gaps
 
-**Source availability:** the assessment APIs, command and standalone unsigned form mode described here are source additions after 1.12.0. They are not in the released 1.12.0 packages. Evidence-bundle, review-stage, signing and delivery integration for requests with gaps is still being implemented. The existing complete-only review and delivery commands have not been relaxed.
+**Source availability:** the assessment APIs, unsigned form mode and private review/bundle integration described here are source additions after 1.12.0. They are not in the released 1.12.0 packages. Signing and delivery integration for requests with gaps is still being implemented. The existing complete-only behavior remains the default.
 
 Complete means complete against **our interpretation of Crestron's published submission requirements**, captured in the full reviewed verification plan. It does not mean finishing an arbitrarily reduced checklist. No result from this workflow implies or predicts acceptance, publication or certification. Crestron makes those decisions.
 
@@ -69,9 +69,27 @@ It reconciles every policy scope with the complete official-item mapping. An ite
 
 The output remains an **unsigned review, not a delivery packet**. The report retains `reviewMode`, `verificationStatus`, the declaration digest and original validation JSON. Signature/date fields stay blank and the printed official form is unchanged. This mode cannot yet produce a signing copy. It does not add missing required documents or bypass the package validator. Render and inspect every page before progressing to a later review stage.
 
+## Retain a review and its evidence
+
+`SubmissionBundle.CreateReview` and `CheckReview` retain and reassess the archive's own candidate, policy, original observations, referenced evidence and exact declarations. The archive and declaration digests must be retained independently by the trusted coordinator. Unreferenced files are excluded. Original validation failures remain visible under `review.validation`; `readyForReview` never means all tests passed. The strict `Create`/`Check` methods are unchanged and do not accept review archives containing declarations.
+
+Console entry points are `submission-review-bundle-create --help` and `submission-review-bundle-check --help`. Both require an explicit matching mode and independent declaration pin. They use the same bounded archive handling, path checks and no-overwrite behavior as complete-only archives.
+
+To retain the form, bundle and matching receipt together, use the standard [review stage](ReviewStage.md) with these additional arguments:
+
+```text
+--review-mode declared-gaps --declarations PRIVATE_FILE --declarations-sha256 REVIEWED_SHA256
+```
+
+The command revalidates the candidate and declarations during form generation and archive creation. It retains `declarations.json` beside the private outputs and inside `evidence.zip`. The receipt uses `state: UnsignedReviewWithDeclaredGapsPrepared`, with `reviewMode`, `verificationStatus` and `declarationsSha256`. The final `COMPLETE` marker means that this local preparation operation finished consistently, not that all interpreted Crestron requirements passed. No delivery occurred.
+
+If every Android scope is wholly unperformed and explicitly declared, the review can be prepared without Android runs. Any supplied Android observation, including a failure, still requires the raw-run audit and independent pins. Existing supplied runs cannot be silently dropped. Physical reservations and unresolved restoration are not released by creating a review.
+
+The reusable private CI template accepts `review_mode` and `declarations_sha256`; the worker's private `CRESTRON_SUBMISSION_DECLARATIONS` variable locates the document. Complete mode remains the default. This template extension is source-only and has not yet been validated as a packaged-console service run.
+
 ## Remaining integration
 
-The evidence-bundle and review stages must retain and revalidate the exact declarations, original results and generated form together. Missing required documents or signatures need explicit disclosure; no signature may imply work that was not done. These document omissions are not yet accepted by the current file assessment/package validation path.
+Missing required documents or signatures need explicit disclosure; no signature may imply work that was not done. These document omissions are not yet accepted by the current file assessment/package validation path.
 
 The signing and delivery stages still need gap-bound authorization and correspondence, retained receipts and synthetic end-to-end acceptance. Until that integration is available, this command is an assessment component, not an end-to-end incomplete-submission command. It does not bypass reservations or resolve uncertain previous send outcomes.
 

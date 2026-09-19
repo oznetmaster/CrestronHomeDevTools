@@ -13,6 +13,14 @@ on:
         description: Prepare an unsigned signing copy; does not authorize a signature or delivery
         type: boolean
         default: false
+      review_mode:
+        description: complete or declared-gaps; neither implies Crestron acceptance
+        type: string
+        default: complete
+      declarations_sha256:
+        description: Independent digest of candidate-bound gap explanations; required only for declared-gaps
+        type: string
+        default: ''
       artifact_kind:
         type: string
         required: true
@@ -29,7 +37,7 @@ on:
         type: string
         required: true
       android_pins_sha256:
-        description: Independent pre-execution Android pins digest; required for Android policies
+        description: Independent pre-execution Android pins digest; required for supplied Android observations
         type: string
         default: ''
 permissions:
@@ -58,6 +66,7 @@ jobs:
         env:
           CRESTRON_SUBMISSION_REVIEW_SETTINGS: ${{ vars.CRESTRON_SUBMISSION_REVIEW_SETTINGS }}
           CRESTRON_SUBMISSION_ANDROID_PINS: ${{ vars.CRESTRON_SUBMISSION_ANDROID_PINS }}
+          CRESTRON_SUBMISSION_DECLARATIONS: ${{ vars.CRESTRON_SUBMISSION_DECLARATIONS }}
           REVIEW_KIND: ${{ inputs.artifact_kind }}
           REVIEW_SOURCE: ${{ inputs.source_commit }}
           REVIEW_CANDIDATE: ${{ inputs.candidate_sha256 }}
@@ -65,9 +74,17 @@ jobs:
           REVIEW_MAPPING: ${{ inputs.mapping_sha256 }}
           REVIEW_SIGNING_COPY: ${{ inputs.prepare_for_signing }}
           REVIEW_ANDROID_PINS: ${{ inputs.android_pins_sha256 }}
+          REVIEW_MODE: ${{ inputs.review_mode }}
+          REVIEW_DECLARATIONS: ${{ inputs.declarations_sha256 }}
         run: |
           if (-not $env:CRESTRON_SUBMISSION_REVIEW_SETTINGS) { throw 'Private review settings are not configured.' }
-          $reviewOptions = @()
+          if ($env:REVIEW_MODE -notin @('complete', 'declared-gaps')) { throw 'Unsupported review mode.' }
+          $reviewOptions = @('--review-mode', $env:REVIEW_MODE)
+          if ($env:REVIEW_MODE -eq 'declared-gaps') {
+            if ($env:REVIEW_SIGNING_COPY -eq 'true') { throw 'Declared-gap signing integration is not available yet.' }
+            if (-not $env:CRESTRON_SUBMISSION_DECLARATIONS -or -not $env:REVIEW_DECLARATIONS) { throw 'Independently pinned gap declarations are required.' }
+            $reviewOptions += @('--declarations', $env:CRESTRON_SUBMISSION_DECLARATIONS, '--declarations-sha256', $env:REVIEW_DECLARATIONS)
+          } elseif ($env:REVIEW_DECLARATIONS) { throw 'Gap declarations require explicit declared-gaps mode.' }
           if ($env:REVIEW_SIGNING_COPY -eq 'true') { $reviewOptions += '--prepare-for-signing' }
           if ($env:REVIEW_ANDROID_PINS) {
             if (-not $env:CRESTRON_SUBMISSION_ANDROID_PINS) { throw 'Independent Android pins are not configured.' }
@@ -75,4 +92,4 @@ jobs:
           }
           & ./artifacts/submission-console/CrestronHomeDevTools.Console.exe submission prepare-review --settings "$env:CRESTRON_SUBMISSION_REVIEW_SETTINGS" --artifact-kind "$env:REVIEW_KIND" --source-commit "$env:REVIEW_SOURCE" --candidate-sha256 "$env:REVIEW_CANDIDATE" --inventory-sha256 "$env:REVIEW_INVENTORY" --mapping-sha256 "$env:REVIEW_MAPPING" @reviewOptions
           if ($LASTEXITCODE -ne 0) { throw 'Unsigned review preparation failed; no submission was sent.' }
-          'Unsigned review prepared privately. Signing and delivery remain pending.' >> $env:GITHUB_STEP_SUMMARY
+          'Unsigned review prepared privately. Inspect its verification status; successful preparation does not mean every requirement passed. Signing, delivery and any Crestron decision remain separate.' >> $env:GITHUB_STEP_SUMMARY

@@ -2,7 +2,7 @@
 
 A complete review means complete against our interpretation of Crestron's requirements, as captured in the developer's declared verification plan and the tool's checks. It is not a Crestron decision. No validation result, completed form or successful delivery implies Crestron acceptance, publication or certification.
 
-The source [declared-gaps assessment and standalone unsigned form mode](DeclaredGaps.md) record explained omissions against the full policy without changing failed outcomes. Evidence-bundle, review-stage, signing and delivery integration remains pending; the complete-only review command below is unchanged.
+The source [declared-gaps review mode](DeclaredGaps.md) records explained omissions against the full policy without changing failed outcomes. Source after 1.12.0 supports explicit `--review-mode declared-gaps --declarations FILE --declarations-sha256 REVIEWED_SHA256`, retaining its original evidence and unsigned form together. Signing and delivery integration remains pending. The complete-only behavior described below remains the default.
 
 Command examples use the [bundled submission console](ConsoleTools.md); see that guide for source/release availability and setup.
 
