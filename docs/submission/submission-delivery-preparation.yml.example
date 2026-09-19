@@ -17,13 +17,14 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: crestron-submission-delivery
+  group: crestron-submission-protected-stages
+  queue: max
   cancel-in-progress: false
 jobs:
   prepare-delivery:
-    if: ${{ inputs.enabled && (github.event_name == 'workflow_dispatch' || github.event_name == 'release') }}
+    if: ${{ inputs.enabled && vars.CRESTRON_SUBMISSION_STAGES_ENABLED == 'true' && vars.CRESTRON_SUBMISSION_RUNNER_LABEL != '' && vars.CRESTRON_SUBMISSION_REPOSITORY != '' && github.repository == vars.CRESTRON_SUBMISSION_REPOSITORY && vars.CRESTRON_SUBMISSION_BRANCH != '' && github.ref == format('refs/heads/{0}', vars.CRESTRON_SUBMISSION_BRANCH) && (github.event_name == 'workflow_dispatch' || github.event_name == 'release') }}
     environment: crestron-submission-delivery
-    runs-on: [self-hosted, Windows, crestron-submission-delivery]
+    runs-on: [self-hosted, Windows, "${{ vars.CRESTRON_SUBMISSION_RUNNER_LABEL }}"]
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -37,6 +38,7 @@ jobs:
       - name: Prepare the approved plan privately without sending
         shell: pwsh
         env:
+          CRESTRON_SUBMISSION_DELIVERY_SETTINGS: ${{ vars.CRESTRON_SUBMISSION_DELIVERY_SETTINGS }}
           DELIVERY_REVIEW: ${{ inputs.signed_review_sha256 }}
           DELIVERY_AUTHORIZATION: ${{ inputs.authorization_sha256 }}
         run: |

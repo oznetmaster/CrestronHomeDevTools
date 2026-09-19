@@ -4,6 +4,10 @@ The [submission preparation console](submission/ConsoleTools.md) provides the do
 
 This describes the optional submission stage and the state of its shared tooling. Driver-specific rollout plans, public identity, supported models, help content, UI pages and validation results belong in each driver repository. Processor test packages and independent client libraries are not portal submissions.
 
+The baseline is one development PC and one compatible processor. See [development configurations](submission/DevelopmentConfigurations.md) for local execution, optional CI, endurance on the development PC and layouts with additional hardware. A second computer or processor is not a tooling prerequisite; the chosen layout and each applicable submission requirement still need validation.
+
+For the optional final CI stages, [workflow setup](submission/WorkflowSetup.md) supplies a single dispatcher and four coordinated public templates for your own protected repository. The templates remain disabled until configured; they do not supply missing candidate evidence or authorization.
+
 Submission is an explicit opt-in extension, never a mandatory consequence of using the development tools. A client or library workflow ends after its configured tests and ordinary publication. A driver workflow can also update/test the installed driver and its UI without submitting anything. Only a driver release that explicitly enables submission enters the additional evidence, form, signature and delivery gates below. Those gates must not be imported as prerequisites of general test, build or GitHub/NuGet release jobs.
 
 End-to-end submission is not implemented or enabled. Development workflow validation does not establish final Release acceptance, and no submission has been sent by this work.

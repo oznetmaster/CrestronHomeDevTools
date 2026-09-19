@@ -23,6 +23,8 @@ Reviewed V1 removal can preserve other instances sharing the same driver code ac
 - [Submission preparation console](docs/submission/ConsoleTools.md) (no Python setup)
 - [Reviewed evidence mapping](docs/submission/EvidenceMapping.md) (C# API and CLI, requires 1.11.0)
 - [Automated Crestron submission plan and progress](docs/CrestronSubmission.md)
+- [Development configurations](docs/submission/DevelopmentConfigurations.md) (one PC and one processor, optional additional hardware)
+- [Submission workflow setup](docs/submission/WorkflowSetup.md) (dispatcher and protected stages for your own repository)
 - [Submission delivery journal and reconciliation](docs/submission/DeliveryJournal.md) (authorized upload, SMTP delivery and uncertain-outcome handling)
 - [Final submission delivery preparation](docs/submission/DeliveryPreparation.md) (approved signed artifacts to a private plan; no sending)
 - [Bundled delivery settings](docs/submission/DeliverySetup.md) (requires 1.10.0; generate protected settings without runtime paths)

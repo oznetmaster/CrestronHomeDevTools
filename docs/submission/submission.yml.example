@@ -1,0 +1,126 @@
+# Copyright (c) 2026 Neil Colvin.
+# Licensed under the MIT License. See LICENSE in the repository root.
+# Copy with the four called stage templates; see WorkflowSetup.md.
+# No parent concurrency group: the called stages share the protected-stage lock.
+name: Crestron submission
+on:
+  workflow_dispatch:
+    inputs:
+      enabled:
+        description: Request the selected stage; repository enablement and exact artifact approvals remain required
+        type: boolean
+        default: false
+      stage:
+        description: Select only the next reviewed stage
+        type: choice
+        options: [review, sign, delivery-plan, deliver]
+        default: review
+      source_commit:
+        description: Review only - full tested release source commit
+        type: string
+        default: ''
+      candidate_sha256:
+        description: Review only - frozen candidate declaration JSON SHA-256, not the package digest
+        type: string
+        default: ''
+      inventory_sha256:
+        description: Review only - reviewed official form inventory SHA-256
+        type: string
+        default: ''
+      mapping_sha256:
+        description: Review only - reviewed evidence-to-form mapping SHA-256
+        type: string
+        default: ''
+      android_pins_sha256:
+        description: Review only - independent Android pins SHA-256 when the policy requires Android evidence
+        type: string
+        default: ''
+      review_sha256:
+        description: Sign - unsigned review receipt digest; delivery-plan - signed review receipt digest
+        type: string
+        default: ''
+      authorization_sha256:
+        description: Sign or delivery-plan - separate authorization file SHA-256 for that exact operation
+        type: string
+        default: ''
+permissions:
+  contents: read
+jobs:
+  validate-request:
+    if: ${{ inputs.enabled && vars.CRESTRON_SUBMISSION_STAGES_ENABLED == 'true' && vars.CRESTRON_SUBMISSION_REPOSITORY != '' && github.repository == vars.CRESTRON_SUBMISSION_REPOSITORY && vars.CRESTRON_SUBMISSION_BRANCH != '' && github.ref == format('refs/heads/{0}', vars.CRESTRON_SUBMISSION_BRANCH) && github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check stage inputs without accessing private files
+        shell: pwsh
+        env:
+          REQUEST_STAGE: ${{ inputs.stage }}
+          REQUEST_SOURCE: ${{ inputs.source_commit }}
+          REQUEST_CANDIDATE: ${{ inputs.candidate_sha256 }}
+          REQUEST_INVENTORY: ${{ inputs.inventory_sha256 }}
+          REQUEST_MAPPING: ${{ inputs.mapping_sha256 }}
+          REQUEST_ANDROID: ${{ inputs.android_pins_sha256 }}
+          REQUEST_REVIEW: ${{ inputs.review_sha256 }}
+          REQUEST_AUTHORIZATION: ${{ inputs.authorization_sha256 }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          function Require-Pin([string]$label, [string]$value, [int]$length = 64) {
+            if ($value -cnotmatch ('\A[a-f0-9]{' + $length + '}\z')) { throw "$label must be a lowercase hexadecimal digest of $length characters." }
+          }
+          switch -Exact ($env:REQUEST_STAGE) {
+            'review' {
+              Require-Pin 'Release source commit' $env:REQUEST_SOURCE 40
+              Require-Pin 'Candidate declaration' $env:REQUEST_CANDIDATE
+              Require-Pin 'Official inventory' $env:REQUEST_INVENTORY
+              Require-Pin 'Form mapping' $env:REQUEST_MAPPING
+              if ($env:REQUEST_ANDROID) { Require-Pin 'Android pins' $env:REQUEST_ANDROID }
+            }
+            'sign' {
+              Require-Pin 'Unsigned review receipt' $env:REQUEST_REVIEW
+              Require-Pin 'Signing authorization' $env:REQUEST_AUTHORIZATION
+            }
+            'delivery-plan' {
+              Require-Pin 'Signed review receipt' $env:REQUEST_REVIEW
+              Require-Pin 'Delivery authorization' $env:REQUEST_AUTHORIZATION
+            }
+            'deliver' { }
+            default { throw 'Unsupported submission stage.' }
+          }
+          'Request syntax checked. The selected protected stage must still validate evidence, private settings and exact artifact authorization.' >> $env:GITHUB_STEP_SUMMARY
+  review:
+    needs: validate-request
+    if: ${{ inputs.stage == 'review' }}
+    uses: ./.github/workflows/submission-review.yml
+    with:
+      enabled: true
+      prepare_for_signing: true
+      artifact_kind: driver
+      source_commit: ${{ inputs.source_commit }}
+      candidate_sha256: ${{ inputs.candidate_sha256 }}
+      inventory_sha256: ${{ inputs.inventory_sha256 }}
+      mapping_sha256: ${{ inputs.mapping_sha256 }}
+      android_pins_sha256: ${{ inputs.android_pins_sha256 }}
+  sign:
+    needs: validate-request
+    if: ${{ inputs.stage == 'sign' }}
+    uses: ./.github/workflows/submission-signing.yml
+    with:
+      enabled: true
+      review_sha256: ${{ inputs.review_sha256 }}
+      authorization_sha256: ${{ inputs.authorization_sha256 }}
+  delivery-plan:
+    needs: validate-request
+    if: ${{ inputs.stage == 'delivery-plan' }}
+    uses: ./.github/workflows/submission-delivery-preparation.yml
+    with:
+      enabled: true
+      signed_review_sha256: ${{ inputs.review_sha256 }}
+      authorization_sha256: ${{ inputs.authorization_sha256 }}
+  deliver:
+    needs: validate-request
+    if: ${{ inputs.stage == 'deliver' }}
+    uses: ./.github/workflows/submission-delivery.yml
+    with:
+      enabled: true
+    secrets:
+      submission_credentials_json: ${{ secrets.submission_credentials_json }}

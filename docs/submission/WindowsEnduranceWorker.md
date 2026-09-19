@@ -2,7 +2,7 @@
 
 The DevTools 1.8.0 Windows console ZIP includes the scheduler scripts under `scripts/endurance`. Use that complete release archive; earlier 1.7.0 archives do not contain the scripts. This is optional driver-submission tooling; ordinary CI and library releases do not require an endurance worker.
 
-Use a separate Windows computer when development-machine restarts should not interrupt monitoring. The self-contained Windows console includes its .NET runtime; Visual Studio, an Android emulator and a separate .NET installation are not required unless the driver's independently reviewed probe needs them. The computer must remain powered, awake and able to reach the processor and any devices the probe reads.
+The worker can run on the development PC. A separate Windows computer is optional when development-machine restarts should not interrupt monitoring. See [development configurations](DevelopmentConfigurations.md) for the baseline one-PC, one-processor setup, shared CI scheduling and interruption limits. The self-contained Windows console includes its .NET runtime; Visual Studio, an Android emulator and a separate .NET installation are not required unless the driver's independently reviewed probe needs them. The computer must remain powered, awake and able to reach the processor and any devices the probe reads.
 
 For supporting diagnostic retention, see [remote processor logging](../RemoteSystemLogging.md). Syslog collection is separate from functional observations and does not replace them; verify delivery and the diagnostic streams covered before using it as evidence.
 
@@ -54,6 +54,20 @@ $base = 'C:\Private\Endurance\candidate-a'
 Configuration creation records hashes of the worker plan, tick script and every published CLI file. It does not approve those files and never overwrites an existing configuration. The collector separately validates the complete probe bundle and its candidate binding. Protect the configuration itself with the administrator-owned ACL; file hashes do not protect against a malicious administrator.
 
 Registration refuses to overwrite an existing task. The task has a startup trigger and repeats every minute, ignores overlapping starts, runs without a logged-in user, and has no task-level forced time limit. The probe's own deadline handles normal cancellation. A minute-long scheduler interval must be suitable for the approved sample interval and maximum gap, allowing for the actual probe duration and startup delays. Registering a task does not establish that timing requirement.
+
+## Configure the PC for automatic restart
+
+Configure each monitoring PC, including a development PC that also monitors, before starting the observation period:
+
+- Keep the Windows Task Scheduler service running and available at startup. Leave each registered endurance task enabled. The supplied registration script uses a startup trigger, a one-minute repeating trigger and `StartWhenAvailable`; it runs as LocalService without an interactive login. It allows battery operation and does not stop a running task merely because AC power is lost.
+- In Windows power settings, disable automatic sleep and hibernation while plugged in for the monitoring period. The display can turn off and the desktop can be locked. Check the applicable battery and lid-close settings for a laptop, and keep reliable power connected. The task permits battery execution but cannot prevent the computer from sleeping or losing power. Registration does not change the machine's power plan or firmware wake settings.
+- Keep the reviewed inputs, credentials and mutable run state on persistent local storage accessible to LocalService after startup. A saved desktop login, mapped drive or interactive credential prompt must not be needed. Ensure network access and any probe dependencies become available in time for the approved observation gap.
+- Schedule Windows updates outside the observation period where practical; do not disable security updates indefinitely. A startup trigger restarts monitoring, but it cannot preserve missing observations or guarantee continuity through every reboot.
+- Rehearse an actual PC restart using a separate short validation run before relying on the configuration for a submission candidate. Verify that the task runs without login, advances the existing run's observations and retains its identity and ownership. Also verify that an interrupted probe or excessive gap produces an attention/failure record rather than a new silently started period.
+
+Repeat task registration with unique task names and separate worker/run/state files for any number of independent runs. There is no two-task limit. Size the workload so all probes can meet their deadlines, and respect processor and shared-device reservations. Do not assign the same run to multiple monitoring computers.
+
+Automatic recovery means the scheduler starts the existing monitor again and lets it validate the saved run. A consistent run interrupted between completed attempts may continue automatically within its approved gap. An unfinished or inconsistent attempt restarts into an attention state for inspection; it cannot truthfully be resumed as successful evidence merely because Windows has restarted. See the interruption rules below.
 
 ## Results, interruptions and alerts
 

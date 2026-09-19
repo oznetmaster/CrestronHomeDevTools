@@ -15,13 +15,14 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: crestron-submission-delivery
+  group: crestron-submission-protected-stages
+  queue: max
   cancel-in-progress: false
 jobs:
   deliver:
-    if: ${{ inputs.enabled && (github.event_name == 'workflow_dispatch' || github.event_name == 'release') }}
+    if: ${{ inputs.enabled && vars.CRESTRON_SUBMISSION_STAGES_ENABLED == 'true' && vars.CRESTRON_SUBMISSION_RUNNER_LABEL != '' && vars.CRESTRON_SUBMISSION_REPOSITORY != '' && github.repository == vars.CRESTRON_SUBMISSION_REPOSITORY && vars.CRESTRON_SUBMISSION_BRANCH != '' && github.ref == format('refs/heads/{0}', vars.CRESTRON_SUBMISSION_BRANCH) && (github.event_name == 'workflow_dispatch' || github.event_name == 'release') }}
     environment: crestron-submission-delivery
-    runs-on: [self-hosted, Windows, crestron-submission-delivery]
+    runs-on: [self-hosted, Windows, "${{ vars.CRESTRON_SUBMISSION_RUNNER_LABEL }}"]
     timeout-minutes: 50
     steps:
       # These environment variables must be approved independently of the producing worker.
