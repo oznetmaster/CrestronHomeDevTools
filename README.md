@@ -21,6 +21,7 @@ Reviewed V1 removal can preserve other instances sharing the same driver code ac
 - [Associating Android tiles with installed drivers](docs/DriverUiBinding.md)
 - [Deployment and tests](#deployment-and-tests)
 - [Submission preparation console](docs/submission/ConsoleTools.md) (no Python setup)
+- [Reviewed evidence mapping](docs/submission/EvidenceMapping.md) (C# API and CLI, requires 1.11.0)
 - [Automated Crestron submission plan and progress](docs/CrestronSubmission.md)
 - [Submission delivery journal and reconciliation](docs/submission/DeliveryJournal.md) (authorized upload, SMTP delivery and uncertain-outcome handling)
 - [Final submission delivery preparation](docs/submission/DeliveryPreparation.md) (approved signed artifacts to a private plan; no sending)
@@ -58,7 +59,9 @@ The same console includes [authorized image signing](docs/submission/FormSigning
 
 Version 1.9.0 also adds [read-only candidate payload comparison](docs/DriverPayloadInspection.md) under the shared processor reservation and bounded recovery from transient delivery-journal file replacement refusals. It never retries a provider request because a file operation failed.
 
-Install the library with `dotnet add package CrestronHomeDevTools --version 1.9.0`. Download the self-contained Windows x64 console from [GitHub Releases](https://github.com/oznetmaster/CrestronHomeDevTools/releases/latest), extract the complete ZIP, and run `CrestronHomeDevTools.Console.exe`. Its first run opens processor/profile setup; `--help` lists commands.
+Version 1.11.0 adds [reviewed evidence mapping](docs/submission/EvidenceMapping.md) and [completed endurance snapshots](docs/submission/WindowsEnduranceWorker.md). These preserve original evidence and explicitly report uncovered requirements; they do not turn a partial test run into submission approval. Existing running collectors can remain pinned to their original version.
+
+Install the library with `dotnet add package CrestronHomeDevTools --version 1.11.0`. Download the self-contained Windows x64 console from [GitHub Releases](https://github.com/oznetmaster/CrestronHomeDevTools/releases/latest), extract the complete ZIP, and run `CrestronHomeDevTools.Console.exe`. Its first run opens processor/profile setup; `--help` lists commands.
 
 To build from source with the .NET 10 SDK:
 

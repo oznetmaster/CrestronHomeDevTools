@@ -1,6 +1,6 @@
 # Carry reviewed evidence into the submission policy
 
-Availability: implemented in source after DevTools 1.10.0; not included in that released console. The C# API is `SubmissionEvidenceMapping.MapFiles`; the matching console command is `submission-map-evidence`. No Python code or interpreter configuration is required.
+Available in DevTools 1.11.0 and later. The C# API is `SubmissionEvidenceMapping.MapFiles`; the matching console command is `submission-map-evidence`. No Python code or interpreter configuration is required.
 
 A producer can legitimately use a narrower policy than the complete submission. For example, a periodic endurance collector measures a defined continuous interval, while the complete policy separately requires subsequent functional tests and a performance comparison. Keep the original collector records and policy unchanged. Do not edit their identities or extend their timestamps to include later tests.
 

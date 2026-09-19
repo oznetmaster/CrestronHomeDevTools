@@ -72,7 +72,7 @@ Each item is complete only after its stated validation. The list is updated as w
 
 ## Evidence rules
 
-Source after 1.10.0 adds the [reviewed evidence mapping API and CLI](submission/EvidenceMapping.md) for carrying equivalent observations from a narrower producer policy into the submission policy without rewriting original records. It validates only the explicitly mapped subset; remaining coverage and trusted producer review stay mandatory.
+Version 1.11.0 adds the [reviewed evidence mapping API and CLI](submission/EvidenceMapping.md) for carrying equivalent observations from a narrower producer policy into the submission policy without rewriting original records. It validates only the explicitly mapped subset; remaining coverage and trusted producer review stay mandatory.
 
 
 Use stable requirement and test IDs, not a fixed number of passing tests. Pin the official form/template revision and retain the mapping from each requirement to all required tests and observations. A multi-part checkbox needs every applicable part. A passing observation on one subpage or one instance cannot satisfy all controls, all subpages or multiple instances.

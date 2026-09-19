@@ -78,7 +78,7 @@ The wrapper waits for its collector child to exit. If the parent is killed, its 
 
 ## Retain a completed run
 
-The current source adds `scripts/endurance/Export-EnduranceScheduledRun.ps1`; it is not yet in a released archive. It can consume an existing pinned scheduler configuration without changing the scheduled script, task, CLI or worker plan. Supply the original tick script explicitly if its bytes differ from the script beside the exporter. Do not replace pinned files during collection.
+DevTools 1.11.0 and later include `scripts/endurance/Export-EnduranceScheduledRun.ps1` in the complete console archive. It can consume an existing pinned scheduler configuration without changing the scheduled script, task, CLI or worker plan. Supply the original tick script explicitly if its bytes differ from the script beside the exporter. Do not replace pinned files during collection.
 
 ```powershell
 & 'C:\Tools\Export-EnduranceScheduledRun.ps1' `
