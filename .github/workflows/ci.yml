@@ -25,4 +25,7 @@ jobs:
       - name: Validate completed endurance snapshots
         shell: pwsh
         run: ./tools/endurance/Test-EnduranceSnapshot.ps1 -ResultsDirectory artifacts/endurance-snapshot-tests
+      - name: Validate passive endurance health snapshots
+        shell: powershell
+        run: ./tools/endurance/Test-EnduranceHealthSnapshot.ps1 -ResultsDirectory artifacts/endurance-health-tests
       - run: dotnet pack CrestronHomeDevTools/CrestronHomeDevTools.csproj -c Release --no-build -o artifacts

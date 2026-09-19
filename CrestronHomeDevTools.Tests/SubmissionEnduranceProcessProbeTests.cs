@@ -149,6 +149,45 @@ public sealed class SubmissionEnduranceProcessProbeTests
 		try { using var process = Process.GetProcessById (pid); Assert.That (process.HasExited, Is.True); }
 		catch (ArgumentException) { }
 		}
+	[TestCase ("healthy", 0)]
+	[TestCase ("stale", 3)]
+	[TestCase ("offline", 3)]
+	[TestCase ("malformed", 2)]
+	[TestCase ("oversized", 2)]
+	public async Task HealthCliNeedsNoCredentialsJournalOrProducerExecution (string scenario, int expectedExit)
+		{
+		string workerFile = Path.Combine (_root, "worker.json"), snapshotFile = Path.Combine (_root, "health.json");
+		File.WriteAllText (workerFile, JsonSerializer.Serialize (new SubmissionEnduranceWorkerPlan (_plan, new ("processor.invalid", "pin"), _program)));
+		var now = DateTimeOffset.UtcNow.AddSeconds (scenario == "stale" ? -600 : 0);
+		var snapshot = new SubmissionEnduranceHealthSnapshot (now, scenario != "offline", true, true, "Ready", 0, false,
+			new (1, now, "Collecting", 0, new ("Held", new (1, SubmissionEndurance.PlanDigest (_plan), SubmissionEnduranceState.Collecting,
+				now, [new (now, SubmissionEvidenceOutcome.Passed, new ("sample.json", new ('e', 64)), "boot")]))));
+		File.WriteAllText (snapshotFile, scenario switch
+			{
+				"malformed" => "{PRIVATE-SECRET",
+				"oversized" => new string (' ', 8 * 1024 * 1024 + 1),
+				_ => JsonSerializer.Serialize (snapshot)
+				});
+		// A passive observer does not need the producer or its private settings on this machine.
+		File.Delete (_program.SettingsFile!);
+		Directory.Delete (_program.Directory, true);
+		var before = Directory.GetFileSystemEntries (_root).Order ().ToArray ();
+		var start = new ProcessStartInfo ("dotnet") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true, WorkingDirectory = _root };
+		foreach (var argument in new[] { Path.Combine (AppContext.BaseDirectory, "CrestronHomeDevTools.Console.dll"), "endurance-health",
+			"--worker", workerFile, "--snapshot", snapshotFile, "--profile", "nonexistent-health-test-profile" }) start.ArgumentList.Add (argument);
+		using var process = Process.Start (start)!;
+		var stdout = process.StandardOutput.ReadToEndAsync ();
+		var stderr = process.StandardError.ReadToEndAsync ();
+		using var timeout = new CancellationTokenSource (TimeSpan.FromSeconds (20));
+		try { await process.WaitForExitAsync (timeout.Token); }
+		finally { if (!process.HasExited) { process.Kill (true); await process.WaitForExitAsync (); } }
+		Assert.That (process.ExitCode, Is.EqualTo (expectedExit), await stderr);
+		Assert.That ((await stdout) + (await stderr), Does.Not.Contain ("PRIVATE-SECRET"));
+		Assert.That (Directory.GetFileSystemEntries (_root).Order ().ToArray (), Is.EqualTo (before));
+		if (scenario == "healthy") Assert.That (await stdout, Does.Contain ("Collecting"));
+		if (scenario == "stale") Assert.That (await stdout, Does.Contain ("scheduler-stale"));
+		if (scenario == "offline") Assert.That (await stdout, Does.Contain ("worker-unreachable"));
+		}
 	[Test]
 	public async Task ScheduledTickReportsUncertainOwnershipWithoutStartingProducerOrNetwork ()
 		{

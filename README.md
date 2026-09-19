@@ -22,6 +22,7 @@ Reviewed V1 removal can preserve other instances sharing the same driver code ac
 - [Deployment and tests](#deployment-and-tests)
 - [Submission preparation console](docs/submission/ConsoleTools.md) (no Python setup)
 - [Reviewed evidence mapping](docs/submission/EvidenceMapping.md) (C# API and CLI, requires 1.11.0)
+- [Passive endurance health assessment](docs/submission/WindowsEnduranceWorker.md#passive-health-assessment-source-development) (source development; no notification delivery)
 - [Automated Crestron submission plan and progress](docs/CrestronSubmission.md)
 - [Development configurations](docs/submission/DevelopmentConfigurations.md) (one PC and one processor, optional additional hardware)
 - [Submission workflow setup](docs/submission/WorkflowSetup.md) (dispatcher and protected stages for your own repository)

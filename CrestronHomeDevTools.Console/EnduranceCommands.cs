@@ -23,6 +23,20 @@ internal static class EnduranceCommands
 			throw new ArgumentException ("The endurance worker's producer does not match its pinned plan.");
 		return worker;
 		}
+	internal static int Health (string file, SubmissionEnduranceWorkerPlan worker, int maximumStatusAgeSeconds, int clockToleranceSeconds)
+		{
+		if (maximumStatusAgeSeconds is < 1 or > 86400 || clockToleranceSeconds is < 0 or > 60)
+			throw new ArgumentException ("Health freshness must be 1 to 86400 seconds; clock tolerance must be 0 to 60 seconds.");
+		using var input = File.OpenRead (file);
+		if (input.Length > 8 * 1024 * 1024)
+			throw new ArgumentException ("The independent health snapshot exceeds its size limit.");
+		var snapshot = JsonSerializer.Deserialize<SubmissionEnduranceHealthSnapshot> (input, JsonOptions)
+			?? throw new ArgumentException ("The independent health snapshot is empty.");
+		var report = SubmissionEnduranceHealth.Evaluate (worker.Plan, snapshot, DateTimeOffset.UtcNow,
+			TimeSpan.FromSeconds (maximumStatusAgeSeconds), TimeSpan.FromSeconds (clockToleranceSeconds));
+		Console.WriteLine (JsonSerializer.Serialize (report, JsonOptions));
+		return report.RequiresAttention ? 3 : 0;
+		}
 	internal static int Offline (string command, string directory, SubmissionEnduranceWorkerPlan worker)
 		{
 		var evidence = SubmissionEnduranceMonitor.GetEvidenceDirectory (directory);

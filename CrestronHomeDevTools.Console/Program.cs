@@ -147,6 +147,10 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
                                        Release after a known terminal result; never guess ownership.
               endurance-export --worker FILE --run DIR
                                        Revalidate and export a passed endurance observation offline.
+              endurance-health --worker FILE --snapshot FILE
+                [--max-status-age-seconds 300] [--clock-tolerance-seconds 2]
+                                       Assess a passive observer snapshot without collector locks.
+                                       Exit 3 means attention required; sends no notification.
               Schedule tick only after explicit start. Interrupted runs require inspection.
 
             Change processor configuration:
@@ -237,6 +241,7 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 				"submission-bundle-create" => ["output", "candidate", "candidate-sha256", "package", "policy", "template", "observations", "evidence"],
 				"submission-bundle-check" => ["bundle", "bundle-sha256", "candidate-sha256", "scratch"],
 				"endurance-start" or "endurance-tick" or "endurance-status" or "endurance-finish" or "endurance-export" => ["worker", "run"],
+				"endurance-health" => ["worker", "snapshot", "max-status-age-seconds", "clock-tolerance-seconds"],
 				"activate" => ["driver", "name", "room", "device"],
 				"remove" => ["device", "model", "version"],
 				"configure-driver" => ["device", "model", "version", "input"],
@@ -299,6 +304,13 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 			}
 		var jsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true, WriteIndented = true };
 		var endurance = command.StartsWith ("endurance-", StringComparison.Ordinal) ? EnduranceCommands.Read (Required ("worker")) : null;
+		if (command == "endurance-health")
+			{
+			if (!int.TryParse (options.GetValueOrDefault ("max-status-age-seconds", "300"), out int maximumAge) ||
+				!int.TryParse (options.GetValueOrDefault ("clock-tolerance-seconds", "2"), out int tolerance))
+				throw new ArgumentException ("Health time options must be whole seconds.");
+			return EnduranceCommands.Health (Required ("snapshot"), endurance!, maximumAge, tolerance);
+			}
 		if (command is "endurance-status" or "endurance-export")
 			return EnduranceCommands.Offline (command, Required ("run"), endurance!);
 		if (command == "submission-bundle-create")
@@ -590,6 +602,11 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 		}
 	catch (Exception exception) when (exception is IOException or InvalidDataException && args[0].StartsWith ("endurance-", StringComparison.Ordinal))
 		{
+		if (args[0] == "endurance-health")
+			{
+			Console.Error.WriteLine ("Independent health observation could not be read. Check observer access and snapshot collection; no collector operation was attempted.");
+			return 3;
+			}
 		Console.Error.WriteLine ("Endurance file or reservation state could not be confirmed. Inspect endurance-status and the private journal; do not restart the run.");
 		return 3;
 		}

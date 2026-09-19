@@ -90,6 +90,28 @@ The wrapper waits for its collector child to exit. If the parent is killed, its 
 
 `attention.json` is a durable **local alert signal**, not an email or delivered notification. Configure an independent monitoring service to alert on this file, nonzero task results, a stopped/disabled task, missing results or stale collecting observations. That service should also notice when the monitoring computer is offline. A worker cannot reliably report its own loss of power. Test actual notification delivery to an approved destination before relying on unattended endurance monitoring.
 
+### Passive health assessment (source development)
+
+The current source includes `Get-EnduranceHealthSnapshot.ps1` and `endurance-health`; these are not in the 1.11.0 release. They provide an operational health assessment for an independent observer. They do not send notifications, schedule the observer, restart a task, change a reservation, or establish submission evidence.
+
+Run the snapshot script on the monitoring PC through your authenticated monitoring connection:
+
+```powershell
+./scripts/endurance/Get-EnduranceHealthSnapshot.ps1 -TaskName 'Crestron-Endurance-CandidateA' -StateDirectory 'C:\Private\CandidateA\scheduler-state'
+```
+
+Retain its JSON output privately on the observer and assess it with the trusted worker plan:
+
+```powershell
+./CrestronHomeDevTools.Console.exe endurance-health --worker C:\Private\CandidateA\worker.json --snapshot C:\Private\CandidateA\health.json --max-status-age-seconds 300 --clock-tolerance-seconds 2
+```
+
+The observer needs the worker plan, but no processor credentials or producer installation. It checks the current task state, completed scheduler receipt, latched attention, collection identity, sample chronology, maximum gap, boot identity and terminal cleanup. The script retries inconsistent task-status reads at most three times because Windows exposes task state and result through separate queries. Persistent inconsistency remains a fault. No collector journal is opened.
+
+Exit 0 reports `Collecting` or `Completed`; exit 3 reports attention or an unreadable observation; exit 2 reports malformed input or options. Treat **any nonzero exit, failed remote observation, timeout or absent fresh snapshot as an alert condition**. Do not replace an old observation's timestamp with the time it was copied. `Completed` is an operational signal only: still export and validate the retained evidence. Stop monitoring a completed run only after reviewing and retaining its terminal result; its last snapshot will otherwise eventually become stale.
+
+The C# equivalent is `SubmissionEnduranceHealth.Evaluate`. Integrators provide a `SubmissionEnduranceHealthSnapshot` from their own trusted observer. A remote connection failure can be represented with `WorkerReachable = false`; never reuse a previous reachable result after a failed connection. On a one-PC setup, an external heartbeat receiver is needed to detect loss of that PC. A second PC is optional. Notification routing and delivery verification remain the monitoring integration's responsibility.
+
 ## Retain a completed run
 
 DevTools 1.11.0 and later include `scripts/endurance/Export-EnduranceScheduledRun.ps1` in the complete console archive. It can consume an existing pinned scheduler configuration without changing the scheduled script, task, CLI or worker plan. Supply the original tick script explicitly if its bytes differ from the script beside the exporter. Do not replace pinned files during collection.
@@ -114,7 +136,7 @@ This is a completed **collection snapshot**, not a validated full submission bun
 
 The snapshot script has 16 Windows PowerShell 5.1 synthetic scenarios covering successful retention, incomplete/failed/unreleased collections, malformed replies, export failures, changed source/copy evidence, different exports, altered pins, extra CLI files, attention records, lock contention and an unsafe nested destination. The passing case also checks preserved incident history, the file inventory and refusal to overwrite an existing snapshot. A separate two-second synthetic journal passed export and copied-journal revalidation with the released 1.7.0 CLI. That fixture fabricated monitor ownership and used synthetic function samples; it did not acquire a real reservation, contact hardware or establish candidate endurance acceptance.
 
-The current source wrapper has synthetic Windows PowerShell 5.1 checks covering normal collection, completion, failure, incomplete/unknown ownership, malformed output, inherited connection overrides, changed files, overlapping invocations and process-tree termination. Additional cases exercise empty, unavailable, null and structurally invalid status responses before and after a tick. These now retain a specific before/after status failure reason and the original output without a secondary property-access exception, and remain latched without replay. This response-handling change is not yet in a released archive; do not replace pinned tooling during an active run. These tests do not contact a processor or count toward an endurance requirement.
+The current source wrapper has synthetic Windows PowerShell 5.1 checks covering normal collection, completion, failure, incomplete/unknown ownership, malformed output, inherited connection overrides, changed files, overlapping invocations and process-tree termination. Additional cases exercise empty, unavailable, null and structurally invalid status responses before and after a tick. These now retain a specific before/after status failure reason and the original output without a secondary property-access exception, and remain latched without replay. This response-handling change is included in 1.11.0; do not replace pinned tooling during an active run. These tests do not contact a processor or count toward an endurance requirement.
 
 A separate Windows monitoring computer has also run a credential-free synthetic rehearsal under LocalService. Two completed invocations continued the same journal without calling `endurance-start`. In the interruption case, the wrapper alone was terminated after its child started; the child survived. A second invocation returned `AttentionRequired`, retained the unfinished attempt and made no additional collector call. The identified synthetic child was then stopped and both manual-only rehearsal tasks were removed. This verifies service-account process recovery and no replay, not a Windows reboot, delivered alert or real-device acceptance. The active endurance task was not modified by that rehearsal.
 Before a real run, validate the registered task under its actual service account, the protected credential files, independent alerts, an operating-system restart between observations, interruption during an observation, permitted sample gaps and shared physical-device coordination. A processor reservation coordinates cooperating operations on that processor; it does not reserve a physical device shared with another processor. Complete the full approved duration against the exact final candidate after those deployment checks pass.
