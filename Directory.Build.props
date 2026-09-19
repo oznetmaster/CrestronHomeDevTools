@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <Version>1.12.0</Version>
+    <Version>1.13.0</Version>
     <RepositoryUrl>https://github.com/oznetmaster/CrestronHomeDevTools</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageProjectUrl>https://github.com/oznetmaster/CrestronHomeDevTools</PackageProjectUrl>
