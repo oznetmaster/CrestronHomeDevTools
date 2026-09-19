@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.11.0 - 2026-09-19
+
+This release adds a reviewed evidence handoff API and CLI, plus completed endurance snapshots. These optional submission tools remain independent of ordinary driver, library and client releases.
+
+- Add `SubmissionEvidenceMapping.MapFiles` and `submission-map-evidence` to import explicitly reviewed, equivalent observations from a narrower producer policy. Preserve original records and their hashes, measured results and restoration evidence. Validate both source and destination requirements; list uncovered requirements instead of treating a partial import as a completed submission.
+- Accept the original `endurance-export` format directly, including collectors whose behavioral policy and executable worker contract are separate. Retain both originals and verify the worker's candidate and producer inventory identities. Mapping never executes the producer, invents missing measurements or changes the running collector.
+- Include `Export-EnduranceScheduledRun.ps1` in the console archive. Snapshot only a successfully completed, released run; retain scheduler history and reconciled incidents, revalidate the copied journal and require identical original/copied exports. Existing pinned workers can be archived without replacing their running tools. Credentials and external settings are excluded from the snapshot.
+- Handle unavailable or malformed scheduler-status output without masking the original problem with a secondary parsing exception. Uncertain runs remain held for inspection; no probe or processor command is automatically replayed.
+
+Validation covers the complete discovered .NET regression suite, scheduler/snapshot checks, document-tool tests and isolated console acceptance. Compatibility checks used an actual released collector with a separate synthetic journal; they do not constitute driver endurance or submission acceptance.
+
+See [evidence mapping](docs/submission/EvidenceMapping.md), [completed endurance snapshots](docs/submission/WindowsEnduranceWorker.md) and [console setup](docs/submission/ConsoleTools.md). The NuGet package contains the C# APIs; the complete Windows console ZIP includes the CLI, document runtime and scheduling scripts. Existing evidence, producer authentication, behavioral coverage review, signed forms and exact delivery authorization remain prerequisites. No Crestron certification or completed end-to-end driver submission is claimed.
+
+Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
+
 ## 1.10.0 - 2026-09-18
 
 Protected submission delivery can now use the complete Windows console distribution without configuring separate runtime or validator paths. This optional workflow remains independent of ordinary driver, library and client releases.
