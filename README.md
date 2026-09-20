@@ -32,6 +32,7 @@ Reviewed V1 removal can preserve other instances sharing the same driver code ac
 - [Final submission delivery preparation](docs/submission/DeliveryPreparation.md) (approved signed artifacts to a private plan; no sending)
 - [Bundled delivery settings](docs/submission/DeliverySetup.md) (requires 1.10.0; generate protected settings without runtime paths)
 - [Combining submission evidence](docs/submission/EvidenceComposition.md) (requires 1.13.0)
+- [Reviewing prior candidate evidence](docs/submission/PriorEvidence.md) (C# API and CLI)
 - [Requests with declared gaps](docs/submission/DeclaredGaps.md) and [approval/delivery](docs/submission/ReviewApproval.md) (review preparation requires 1.13.0; signed-form delivery requires 1.14.0)
 - [Documentation](#documentation)
 - [Build and validate](#build-and-validate)

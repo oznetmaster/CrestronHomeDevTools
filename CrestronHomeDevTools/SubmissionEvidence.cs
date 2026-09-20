@@ -7,12 +7,15 @@ namespace CrestronHomeDevTools;
 
 public enum SubmissionEvidenceOutcome
 	{
-	NotTested, Passed, Failed, Partial, Inconclusive, NotApplicable
+	NotTested, Passed, Failed, Partial, Inconclusive, NotApplicable, ReviewedPriorPass
 	}
 
 public sealed record SubmissionEvidenceIdentity (string PackageSha256, string SourceCommit, string PolicySha256, string TemplateSha256);
 public sealed record SubmissionRequirement (string Id, TimeSpan MinimumDuration, bool AllowNotApplicable = false,
-	SubmissionExecutionRequirements? Execution = null);
+	SubmissionExecutionRequirements? Execution = null)
+	{
+	public SubmissionPriorEvidenceRequirements? PriorEvidence { get; init; }
+	}
 public sealed record SubmissionEvidenceFile (string RelativePath, string Sha256);
 public sealed record SubmissionObservation (
 	string RequirementId, SubmissionEvidenceIdentity Identity, SubmissionEvidenceOutcome Outcome,
@@ -47,6 +50,7 @@ public static class SubmissionEvidence
 		void Issue (string id, string code, string message) => issues.Add (new (id, code, message));
 		if (observations.Any (item => item == null))
 			throw new ArgumentException ("Evidence observations must not be null.", nameof (observations));
+		var prior = new SubmissionPriorEvidence.Context (candidate, observations, root, now, cancellationToken);
 		foreach (var group in observations.GroupBy (item => item.RequirementId, StringComparer.Ordinal))
 			{
 			if (group.Count () > 1)
@@ -66,7 +70,10 @@ public static class SubmissionEvidence
 				}
 			foreach (var observation in matches)
 				{
-				SubmissionExecution.Evaluate (requirement, observation, issues);
+				if (observation.Outcome == SubmissionEvidenceOutcome.ReviewedPriorPass)
+					prior.Evaluate (requirement, observation, issues);
+				else
+					SubmissionExecution.Evaluate (requirement, observation, issues);
 				if (!ValidIdentity (observation.Identity) || !SameIdentity (candidate, observation.Identity))
 					Issue (requirement.Id, "identity-mismatch", "Evidence belongs to another package, source commit, policy or official form revision.");
 				if (observation.StartedUtc == default || observation.FinishedUtc < observation.StartedUtc || observation.FinishedUtc > now)
@@ -76,11 +83,11 @@ public static class SubmissionEvidence
 					if (!requirement.AllowNotApplicable || string.IsNullOrWhiteSpace (observation.Rationale))
 						Issue (requirement.Id, "invalid-not-applicable", "Non-applicability requires policy permission and an explicit rationale.");
 					}
-				else if (observation.Outcome != SubmissionEvidenceOutcome.Passed)
+				else if (observation.Outcome is not (SubmissionEvidenceOutcome.Passed or SubmissionEvidenceOutcome.ReviewedPriorPass))
 					Issue (requirement.Id, "not-passed", "The requirement is untested, partial, failed or inconclusive.");
 				else
 					{
-					if (observation.FinishedUtc - observation.StartedUtc < requirement.MinimumDuration)
+					if (observation.Outcome == SubmissionEvidenceOutcome.Passed && observation.FinishedUtc - observation.StartedUtc < requirement.MinimumDuration)
 						Issue (requirement.Id, "insufficient-duration", "The observed duration is shorter than this requirement's minimum.");
 					if (observation.Files == null || observation.Files.Count == 0)
 						Issue (requirement.Id, "missing-evidence-file", "A passing observation must reference retained evidence files.");

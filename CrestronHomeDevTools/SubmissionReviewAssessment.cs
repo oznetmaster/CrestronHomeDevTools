@@ -5,7 +5,7 @@ namespace CrestronHomeDevTools;
 
 public enum SubmissionReviewMode { Complete, DeclaredGaps }
 public enum SubmissionVerificationStatus { CompleteAgainstInterpretedRequirements, GapsDeclared, NeedsCorrection }
-public enum SubmissionRequirementReviewStatus { VerifiedAgainstPlan, GapDeclared, GapUndeclared, InvalidEvidence }
+public enum SubmissionRequirementReviewStatus { VerifiedAgainstPlan, GapDeclared, GapUndeclared, InvalidEvidence, VerifiedPriorEvidence }
 public sealed record SubmissionGapDeclaration (string RequirementId, string Reason);
 public sealed record SubmissionRequirementReview (string RequirementId, SubmissionRequirementReviewStatus Status,
 	SubmissionEvidenceOutcome? ObservedOutcome, string? DeclaredReason, IReadOnlyList<SubmissionEvidenceIssue> Issues);
@@ -68,7 +68,8 @@ public static class SubmissionReviewAssessment
 				{
 				if (declaration != null)
 					throw new ArgumentException ("A declared gap no longer matches the evidence. Reconcile the declaration rather than silently dropping it.", nameof (declarations));
-				status = SubmissionRequirementReviewStatus.VerifiedAgainstPlan;
+				status = outcome == SubmissionEvidenceOutcome.ReviewedPriorPass
+					? SubmissionRequirementReviewStatus.VerifiedPriorEvidence : SubmissionRequirementReviewStatus.VerifiedAgainstPlan;
 				}
 			else if (issues.Any (issue => !DeclarableGaps.Contains (issue.Code)))
 				status = SubmissionRequirementReviewStatus.InvalidEvidence;

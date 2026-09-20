@@ -136,7 +136,9 @@ def decisions(inventory, inventory_digest, mapping, policy, observations, assess
                 text(row["declaredReason"])
                 if not row["issues"]:
                     raise ValueError("Declared gap has no supporting validation issue")
-            elif row["status"] != "VerifiedAgainstPlan" or row["issues"] or row["observedOutcome"] not in ("Passed", "NotApplicable"):
+            elif (row["issues"] or
+                  (row["status"], row["observedOutcome"]) not in (("VerifiedAgainstPlan", "Passed"),
+                  ("VerifiedAgainstPlan", "NotApplicable"), ("VerifiedPriorEvidence", "ReviewedPriorPass"))):
                 raise ValueError("Unverified or invalid scope cannot populate the review form")
         has_gaps = any(row["status"] == "GapDeclared" for row in assessed.values())
         if has_gaps != (assessment["verificationStatus"] == "GapsDeclared"):
@@ -152,7 +154,7 @@ def decisions(inventory, inventory_digest, mapping, policy, observations, assess
         if max(duration_seconds(rules[i]["minimumDuration"]) for i in ids) < requirement["minimumObservationSeconds"]:
             raise ValueError("Mapped policy does not enforce the official observation duration")
         statuses = [results.get(i, {}).get("outcome") for i in ids]
-        if assessed is None and any(s not in ("Passed", "NotApplicable") for s in statuses):
+        if assessed is None and any(s not in ("Passed", "NotApplicable", "ReviewedPriorPass") for s in statuses):
             raise ValueError("Incomplete or failing evidence cannot populate a completed review form")
         excluded = [i for i in ids if results.get(i, {}).get("outcome") == "NotApplicable"]
         for i in excluded:
@@ -161,14 +163,20 @@ def decisions(inventory, inventory_digest, mapping, policy, observations, assess
             text(results[i]["rationale"])
         gaps = [i for i in ids if assessed is not None and assessed[i]["status"] == "GapDeclared"]
         rationale = "\n".join(dict.fromkeys(("Non-applicable: " if assessed is not None else i + ": ") + results[i]["rationale"] for i in excluded))
+        prior = [i for i in ids if results.get(i, {}).get("outcome") == "ReviewedPriorPass"]
+        prior_text = "\n".join(dict.fromkeys("Reviewed prior evidence: " + text(results[i]["rationale"]) for i in prior))
+        rationale = "\n".join(filter(None, [rationale, prior_text]))
         if assessed is not None:
             # Outbound companion groups by official item, not internal scope IDs or raw private measurements.
             verified = sum(assessed[i]["status"] == "VerifiedAgainstPlan" and results[i]["outcome"] == "Passed" for i in ids)
             descriptions = {None: "No observation", "Passed": "Claimed pass with incomplete verification",
+                            "ReviewedPriorPass": "Prior evidence review not fully supported",
                             "Failed": "Failed", "Partial": "Partial", "Inconclusive": "Inconclusive",
                             "NotTested": "Not tested", "NotApplicable": "Non-applicability not fully supported"}
             verified_excluded = sum(assessed[i]["status"] == "VerifiedAgainstPlan" for i in excluded)
             details = [f"Verified passing portions: {verified}. Verified non-applicable portions: {verified_excluded}. Declared gaps: {len(gaps)}."]
+            if prior:
+                details.append(f"Supported by explicit prior-evidence review: {len(prior)}. These are not fresh executions on this package.")
             # Keep all scope counts/assessment entries, but print an identical
             # explanation once per official item rather than once per control.
             details.extend(dict.fromkeys(descriptions[assessed[i]["observedOutcome"]] + ": " + assessed[i]["declaredReason"] for i in gaps))
@@ -243,7 +251,7 @@ def companion(title, author, rows, identity, draft, signing_copy=False, declared
              paragraph("Prepared for " + author + ". Crestron's original interactive form follows this companion matrix." if signing_copy else
                        "Prepared for " + author + ". Signature and date fields are blank. Crestron's original interactive form follows this companion matrix."),
              paragraph("No requirements have been attested. Every checkbox remains blank." if draft else
-                       "Checkboxes are checked only when every mapped observation passed validation for the identified candidate. This does not authenticate the evidence producer or establish Crestron approval."),
+                       "Checkboxes are checked only when every mapped assertion is supported by validated current evidence or an explicitly identified, scoped review of prior passing evidence. A prior-evidence review does not claim a new test execution. This does not authenticate the evidence producer or establish Crestron approval."),
              paragraph("Non-applicable items remain unchecked and are explained in the matrix. Confirm their representation with Crestron before signing. Review every page, mapping and applicable subcondition before authorizing a signature.")]
     if declared_gaps:
         has_gaps = any(row["state"] == "GapDeclared" for row in rows)

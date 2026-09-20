@@ -1,13 +1,13 @@
-# CrestronHomeDevTools 1.14.0
+# CrestronHomeDevTools 1.15.0
 
-Submission reviews with declared test gaps can now proceed through approved form signing and delivery. Developers can document unavailable equipment or unperformed checks without converting those results into passes. Crestron alone decides whether to accept a submission.
+Submission reviewers can now retain relevant passing evidence from an earlier candidate through an explicit, scoped change-impact review. Original package identities, execution times, measurements and failures remain intact; a reviewed earlier pass is never labelled as a new test run.
 
-- Prepare a signing copy with `submission prepare-review --review-mode declared-gaps --prepare-for-signing`. The authorization pins the exact form, declarations and review status.
-- After reviewing the signed pages, use the review-request approval and delivery route with attachment kind `SignedSelfTest`. The C# `SubmissionReviewRequestDelivery` API supports the same route. Existing complete-only delivery remains available.
-- Repeated form disclosures are grouped for readability while every affected scope and original outcome remains recorded. The private evidence archive stays local; outbound delivery contains the reviewed driver package and signed form.
+- The C# `SubmissionPriorEvidence` API and `submission-import-prior-evidence` console command validate the original evidence, unchanged assertion requirements and independently pinned review decisions.
+- Forms distinguish fresh results from reviewed earlier evidence. Portable bundles retain and revalidate the original records and supporting change analysis.
+- Failed, partial, inconclusive and unperformed checks cannot be promoted through this path. Changed evidence or missing provenance cannot be waived as a declared gap.
 
-See [form signing](docs/submission/FormSigning.md) and [review approval and delivery](docs/submission/ReviewApproval.md). Use the complete console archive; no Python editing or installation is required from the developer.
+See [reviewing prior evidence](docs/submission/PriorEvidence.md) for the C# and console workflow. The reviewer remains responsible for assessing affected code and dependencies. These checks do not predict Crestron acceptance or certification. Driver-specific submission files remain private.
 
-Validation covers declared-gap signing, changed or revoked authorization, document tampering, simulated-provider delivery and uncertain-send handling. These checks do not constitute a real driver submission or Crestron certification.
+Validation covers prior-evidence import, changed assertions, invalid original measurements, tampered records, form checkboxes and portable bundle verification after the original evidence directory is moved.
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.

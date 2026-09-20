@@ -24,6 +24,8 @@ Freeze the actual Release package and its source commit. Retain the candidate de
 
 Use [evidence mapping](EvidenceMapping.md) and, when phases produce separate observation documents, [evidence composition](EvidenceComposition.md). Neither tool infers passing requirements from test names or authenticates a producer. Review coverage and evidence provenance before preparing the form.
 
+If the candidate changed after testing, [review prior evidence explicitly](PriorEvidence.md) for individual unchanged assertions. Retain original results and assess affected dependencies; do not relabel an earlier run as a fresh execution. This is optional and does not determine whether Crestron will accept that evidence.
+
 Record exact input hashes and completed stage receipts in a private handoff record. This allows another person or assistant to resume without a conversation history. A candidate declaration hash identifies the JSON declaration; it is **not** the package hash.
 
 ## Run the four protected stages

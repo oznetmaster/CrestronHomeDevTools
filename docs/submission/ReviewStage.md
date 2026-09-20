@@ -14,6 +14,8 @@ The source [Android evidence audit](AndroidEvidence.md) checks the Android workf
 
 When different phases supply separate scoped observation documents, the [evidence composition API and CLI](EvidenceComposition.md), available in 1.13.0, can assemble them with the full policy checked and failures preserved. It does not create observations from raw test output or replace trusted producer review.
 
+When a later candidate retains relevant earlier passing tests, use the explicit [prior-evidence review](PriorEvidence.md). It requires a scoped change-impact decision and retains the original outcomes and identities; it does not relabel those tests as fresh executions.
+
 The trusted release job supplies four independent pins: candidate declaration SHA-256, reviewed official inventory SHA-256, reviewed form mapping SHA-256 and full source commit. Do not calculate replacement pins from untrusted hardware-worker output. The candidate declaration already pins the package, policy and official template. The caller is responsible for establishing the driver identity, complete applicable policy and trusted evidence provenance.
 
 Create a private settings file on the worker with exactly these fields (replace the example paths):

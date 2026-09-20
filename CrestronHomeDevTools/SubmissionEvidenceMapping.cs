@@ -117,6 +117,8 @@ public static class SubmissionEvidenceMapping
 					to.Execution.Target != row.DestinationTarget || from.Execution.Method != to.Execution.Method)
 					throw new ArgumentException ("Mapping requires existing scoped requirements, exact reviewed targets and the same observation method.");
 				var original = document.Observations.Single (item => item.RequirementId == row.SourceRequirementId);
+				if (original.Outcome == SubmissionEvidenceOutcome.ReviewedPriorPass || original.Execution == null)
+					throw new ArgumentException ("Mapping requires an original execution. Compose reviewed prior evidence through SubmissionPriorEvidence instead.");
 				var provenance = new List<SubmissionEvidenceFile> { mapping.File, sourcePolicy.File, sourceObservations.File, destinationPolicy.File };
 				if (workerFile != null)
 					provenance.Add (workerFile);
