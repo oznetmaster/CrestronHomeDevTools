@@ -48,6 +48,32 @@ public sealed class InstanceLifecycleTests
 		Assert.That (transport.Commands, Is.EqualTo (new[] { "cp.platformDriverController:getDriver" }));
 		}
 
+	[TestCase ("{\"CommissioningResult\":\"Failed\",\"Id\":0}")]
+	[TestCase ("{\"CommissioningResult\":\"Success\",\"Id\":\"17\"}")]
+	[TestCase ("{\"CommissioningResult\":\"Success\"}")]
+	[TestCase ("null")]
+	public void UnconfirmedInstallationRetainsReplyWithoutRepeatingTheCommand (string responseJson)
+		{
+		var response = JsonSerializer.Deserialize<JsonElement> (responseJson);
+		var transport = new Fake (Catalogue, new Dictionary<string, DeviceInfo> (), "Success", response);
+		var exception = Assert.ThrowsAsync<ProcessorApiException> (async () => await Run (transport))!;
+		Assert.That (exception.DiagnosticCommand, Is.EqualTo ("cp.platformDriverController:commissionDevice"));
+		Assert.That (exception.DiagnosticResponse.HasValue, Is.True);
+		Assert.That (JsonElement.DeepEquals (exception.DiagnosticResponse!.Value, response), Is.True);
+		Assert.That (transport.Commands.Count (command => command.EndsWith (":commissionDevice")), Is.EqualTo (1));
+		Assert.That (transport.Commands.Count, Is.EqualTo (3));
+		}
+
+	[Test]
+	public void FailedPreparationRetainsReplyAndNeverCommissions ()
+		{
+		var transport = new Fake (Catalogue, new Dictionary<string, DeviceInfo> (), "Unavailable");
+		var exception = Assert.ThrowsAsync<ProcessorApiException> (async () => await Run (transport))!;
+		Assert.That (exception.DiagnosticCommand, Is.EqualTo ("cp.platformDriverController:prepareDriverForUse"));
+		Assert.That (exception.DiagnosticResponse!.Value.GetString (), Is.EqualTo ("Unavailable"));
+		Assert.That (transport.Commands.Any (command => command.EndsWith (":commissionDevice")), Is.False);
+		}
+
 	[Test]
 	public async Task DifferentZeroPaddingReusesTheSameDebugBuild ()
 		{

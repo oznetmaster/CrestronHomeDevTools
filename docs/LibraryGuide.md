@@ -91,6 +91,8 @@ Only call removal after preserving results and confirming the test/application a
 
 Catch `ProcessorApiException` for processor/API failures, `ArgumentException` for invalid inputs, and cancellation/timeout or transport exceptions as appropriate. An interrupted wait is not an undo operation. Do not automatically retry a write whose acceptance is unknown. Retain enough private evidence to inspect versions and affected instances before retrying.
 
+From 1.16.2, an unconfirmed `prepareDriverForUse` or `commissionDevice` result exposes `DiagnosticCommand` and `DiagnosticResponse` on `ProcessorApiException`. The response is a retained JSON value, including an explicit JSON null when no result was returned. Store it in the caller's private run journal; do not log it to public output. These diagnostics preserve the reply for reconciliation and do not imply that an attempted installation is stopped or safe to retry. Other API failures may leave both properties unset.
+
 Use [Crestron Home NUnit's workflow](https://github.com/oznetmaster/CrestronHomeNUnit/blob/HEAD/docs/ContinuousIntegration.md) when these operations must be gated by local/processor/live tests. Its orchestration adds source identity, retained artifacts, processor leases, evidence and test-aware cleanup; those are not implicit features of each DevTools call.
 
 ## Confirmed whole-processor reboot

@@ -673,7 +673,24 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 		return 3;
 		}
 	catch (JsonException) { Console.Error.WriteLine ("Invalid JSON settings, plan or processor response."); return 2; }
-	catch (ProcessorApiException exception) { Console.Error.WriteLine (exception.Message); return 1; }
+	catch (ProcessorApiException exception)
+		{
+		Console.Error.WriteLine (exception.Message);
+		if (leaseReceiptPath != null && exception.DiagnosticResponse.HasValue)
+			{
+			try
+				{
+				var responsePath = await ProcessorFailureReceipt.WriteAsync (leaseReceiptPath, exception);
+				Console.Error.WriteLine ("Private processor response retained: " + responsePath);
+				}
+			catch (Exception)
+				{
+				// A diagnostic write failure must not replace the processor failure or release its lease.
+				Console.Error.WriteLine ("The private processor response could not be saved. The original failure and lease state still apply.");
+				}
+			}
+		return 1;
+		}
 	catch (InvalidOperationException exception) { Console.Error.WriteLine (exception.Message); return 1; }
 	catch (Exception) { Console.Error.WriteLine ("Connection or file operation failed. Check connectivity, trusted certificate, credentials and file access."); return 1; }
 	finally

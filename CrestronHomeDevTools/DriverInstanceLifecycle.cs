@@ -50,7 +50,11 @@ public static class DriverInstanceLifecycle
 				driverId
 				}, deadline.Token).ConfigureAwait (false);
 			if (prepared?.ValueKind != JsonValueKind.String || prepared.Value.GetString () != "Success")
-				throw new ProcessorApiException ("The processor did not confirm that this driver is ready to install.");
+				throw new ProcessorApiException ("The processor did not confirm that this driver is ready to install.")
+					{
+					DiagnosticCommand = "cp.platformDriverController:prepareDriverForUse",
+					DiagnosticResponse = prepared?.Clone () ?? JsonSerializer.SerializeToElement<object?> (null)
+					};
 			var result = await client.ExecuteDeviceCommandAsync (-6, "cp.platformDriverController:commissionDevice",
 				 new
 					 {
@@ -60,8 +64,12 @@ public static class DriverInstanceLifecycle
 					 }, deadline.Token).ConfigureAwait (false);
 			if (result?.ValueKind != JsonValueKind.Object || !result.Value.TryGetProperty ("CommissioningResult", out var outcome)
 				 || outcome.ValueKind != JsonValueKind.String || outcome.GetString () != "Success"
-				 || !result.Value.TryGetProperty ("Id", out var id) || !id.TryGetInt32 (out deviceId) || deviceId <= 0)
-				throw new ProcessorApiException ("Installation was not confirmed. Inspect device inventory before retrying.");
+				 || !result.Value.TryGetProperty ("Id", out var id) || id.ValueKind != JsonValueKind.Number || !id.TryGetInt32 (out deviceId) || deviceId <= 0)
+				throw new ProcessorApiException ("Installation was not confirmed. Inspect device inventory before retrying.")
+					{
+					DiagnosticCommand = "cp.platformDriverController:commissionDevice",
+					DiagnosticResponse = result?.Clone () ?? JsonSerializer.SerializeToElement<object?> (null)
+					};
 			action = "Installed";
 			if (installReboot != null)
 				client = await reboot!.RecoverAsync (installReboot with

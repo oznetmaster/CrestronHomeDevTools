@@ -127,6 +127,10 @@ public sealed record OperationResult (string OperationId, string Status, string?
 public sealed class ProcessorApiException (string message, HttpStatusCode? statusCode = null) : Exception (message)
 	{
 	public HttpStatusCode? StatusCode { get; } = statusCode;
+	/// <summary>The command whose returned result could not be confirmed, when available.</summary>
+	public string? DiagnosticCommand { get; init; }
+	/// <summary>The retained processor reply. It may contain private data and must not be published.</summary>
+	public JsonElement? DiagnosticResponse { get; init; }
 	}
 
 public interface IConfigurationConnection : IAsyncDisposable

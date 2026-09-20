@@ -82,6 +82,8 @@ Replace placeholders with reviewed inventory values. `deploy` inspects the root 
 
 Catalogue import is asynchronous. `activate` waits for the required catalogue/eligibility/Loaded state; an upload completing is not proof an installed instance has changed. Instance names are limited to 32 characters. With `--device`, the model/name/room must still identify the intended instance. Without it, ambiguous matches are rejected. Automatic activation refuses a downgrade or an update affecting other instances. Missing targets can be installed initially or after a prior removal.
 
+In 1.16.2, an unconfirmed preparation or commissioning reply is retained beside the private lease receipt as `<owner>.failure.json`. The CLI prints that file's location, not its contents. Inspect its `Command` and `Response` together with fresh processor inventory before deciding how to recover. The response can contain private data and belongs outside source control and public CI artifacts. Recording it does not classify the operation as stopped, release the reservation or retry the request. If the diagnostic file cannot be written, the original failure and retained reservation still apply.
+
 Changed package contents require a new version. Identical version strings cannot prove identical code. Numeric comparisons preserve the fourth Debug component while tolerating zero-padding: `2.0.000.0005` and `2.0.0.5` match; `2.0.0.6` is different.
 
 ## Reviewed updates and removal
