@@ -32,7 +32,7 @@ Reviewed V1 removal can preserve other instances sharing the same driver code ac
 - [Final submission delivery preparation](docs/submission/DeliveryPreparation.md) (approved signed artifacts to a private plan; no sending)
 - [Bundled delivery settings](docs/submission/DeliverySetup.md) (requires 1.10.0; generate protected settings without runtime paths)
 - [Combining submission evidence](docs/submission/EvidenceComposition.md) (requires 1.13.0)
-- [Requests with declared gaps](docs/submission/DeclaredGaps.md) and [approval/delivery](docs/submission/ReviewApproval.md) (requires 1.13.0)
+- [Requests with declared gaps](docs/submission/DeclaredGaps.md) and [approval/delivery](docs/submission/ReviewApproval.md) (review preparation requires 1.13.0; signed-form delivery requires 1.14.0)
 - [Documentation](#documentation)
 - [Build and validate](#build-and-validate)
 - [Privacy and compatibility](#privacy-and-compatibility)
@@ -70,7 +70,7 @@ Version 1.11.0 adds [reviewed evidence mapping](docs/submission/EvidenceMapping.
 
 Version 1.12.0 adds passive local/remote observation and authorized operational email notifications through C# APIs and the console. See [endurance monitoring](docs/submission/EnduranceNotifications.md) for configuration, supervision and validation limits.
 
-Version 1.13.0 adds evidence composition and explicit requests with declared gaps, preserving failures and requiring approval of the exact outgoing artifacts. Start with the [submission runbook](docs/submission/Runbook.md); it links each stage's settings, expected outputs and recovery steps.
+Version 1.14.0 extends explicit requests with declared gaps to signed forms and approved delivery. Failed, partial and unperformed checks remain disclosed; a signature does not turn them into passes or imply Crestron acceptance. Start with the [submission runbook](docs/submission/Runbook.md); it links each stage's settings, expected outputs and recovery steps. Developers use the bundled console or C# API without editing the bundled document-processing scripts.
 
 Install the library with `dotnet add package CrestronHomeDevTools --version 1.13.0`. Download the self-contained Windows x64 console from [GitHub Releases](https://github.com/oznetmaster/CrestronHomeDevTools/releases/latest), extract the complete ZIP, and run `CrestronHomeDevTools.Console.exe`. Its first run opens processor/profile setup; `--help` lists commands.
 

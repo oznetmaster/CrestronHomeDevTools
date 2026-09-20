@@ -18,9 +18,9 @@ The signing copy uses a neutral evidence-summary heading so it remains correct a
 
 Retain the package, evidence and report as immutable private candidate artifacts. Signing does not rebuild the package or rerun hardware tests. Candidate validation and evidence freshness must still be checked by the final submission gate.
 
-### Signing with declared gaps (source update)
+### Signing with declared gaps (1.14.0)
 
-The current source also supports `declared-gaps-for-signing`, or `submission prepare-review --review-mode declared-gaps --prepare-for-signing` with independently pinned declarations. This extension is not in the 1.13.1 console download. Use a console built from the matching source until it is released.
+Version 1.14.0 adds `declared-gaps-for-signing`, or `submission prepare-review --review-mode declared-gaps --prepare-for-signing` with independently pinned declarations. Use the complete 1.14.0 or later console archive; the 1.13.1 download cannot sign and deliver this review type.
 
 Every gap remains unchecked and explained in the companion matrix. Signing neither changes the test outcomes nor makes the submission complete. The signing authorization must additionally contain `reviewMode: "DeclaredGaps"`, the exact `verificationStatus` from the reviewed receipt, and `declarationsSha256`. A generic complete-form authorization cannot authorize a declared-gap form. The signed receipt retains those same values.
 
