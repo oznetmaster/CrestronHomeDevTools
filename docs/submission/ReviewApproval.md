@@ -28,7 +28,7 @@ Retain the approval file and its SHA-256 through that protected channel. Set the
 CrestronHomeDevTools.Console submission-review-approval-check --plan PRIVATE_FINAL_PLAN_JSON --plan-file-sha256 REVIEWED_FINAL_PLAN_FILE_SHA256 --approval PRIVATE_APPROVAL_JSON --approval-sha256 INDEPENDENT_APPROVAL_SHA256 --output NEW_PRIVATE_CHECK_JSON
 ```
 
-## Deliver a prepared unsigned request from C#
+## Deliver a prepared review request from C#
 
 Use `SubmissionReviewRequestDelivery.ExecuteAsync` with the prepared request directory, final plan, approval path and independently trusted hash, existing private journal and scratch directories, and an `ISubmissionReviewDeliveryTransport`. `CrestronSubmissionTransport` supplies the real upload and SMTP implementations; tests can supply simulated implementations.
 
@@ -45,7 +45,9 @@ Before each pending upload or email the coordinator checks the receipt and prepa
 
 Execution uses the existing durable journal and freezes outgoing bytes. Changed approval or evidence after upload stops email while retaining the confirmed upload. An uncertain provider outcome is not automatically retried; use the [journal's reconciliation procedure](DeliveryJournal.md). Cooperating workers must share the same durable journal. A completed operation returns its existing receipt without transmitting again. `Submitted` records provider-confirmed upload and send, not inbox delivery or a Crestron decision.
 
-This coordinator currently accepts only the output of [unsigned request preparation](ReviewRequest.md): `UnsignedSelfTest` or `DisclosureOnly`. It does not apply signatures or bypass validation of other required documents. Gap-aware signing and other document omissions remain separate work. The complete-only signed workflow remains available through its existing commands.
+The released 1.13.1 coordinator accepts the output of [unsigned request preparation](ReviewRequest.md): `UnsignedSelfTest` or `DisclosureOnly`. The current source additionally accepts the declared-gap output of [signed review preparation](SigningStage.md). It never applies signatures during delivery or bypasses required-document validation.
+
+For a signed declared-gap request, use the signed-review directory as `requestDirectory`, set `ReviewSha256` to the independently reviewed `signed-review-receipt.json` hash, and select `SignedSelfTest`. Map `signedFormSha256` and `signedFormFileName` to the plan's attachment fields. Preserve the receipt's exact verification status and declarations digest, supply the reviewed public gap summary, and leave `DocumentOmissions` null. This mode checks the retained signing report and original unsigned review as well as freshly reassessing the evidence archive. The signature source image is not needed or transmitted. Use the same approval preview and protected command below; legacy complete-only delivery commands remain separate.
 
 ## Protected console and CI delivery
 

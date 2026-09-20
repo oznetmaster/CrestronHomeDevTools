@@ -13,6 +13,7 @@ namespace CrestronHomeDevTools.Tests;
 public sealed class SubmissionReviewRequestDispatchTests
 	{
 	[TestCase ("valid")]
+	[TestCase ("valid-signed")]
 	[TestCase ("schema")]
 	[TestCase ("pin")]
 	[TestCase ("approval-pin")]
@@ -42,6 +43,7 @@ public sealed class SubmissionReviewRequestDispatchTests
 				"nested" => settings with { ScratchDirectory = root },
 				"unencrypted" => settings with { SmtpPort = 25 },
 				"signed" => settings with { Plan = plan with { AttachmentKind = SubmissionReviewAttachmentKind.SignedSelfTest } },
+				"valid-signed" => settings with { Plan = plan with { AttachmentKind = SubmissionReviewAttachmentKind.SignedSelfTest, DocumentOmissions = null } },
 				_ => settings
 				};
 			var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, Converters = { new JsonStringEnumConverter () } };
@@ -66,8 +68,8 @@ public sealed class SubmissionReviewRequestDispatchTests
 					return Task.FromResult (new SubmissionDeliveryReceipt (1, SubmissionDelivery.ReviewPlanDigest (parsed.Plan),
 						SubmissionDeliveryState.Submitted, "synthetic", DateTimeOffset.UtcNow));
 					});
-			Assert.That (code, Is.EqualTo (variant == "valid" ? 0 : 2));
-			Assert.That (calls, Is.EqualTo (variant is "valid" or "provider-error" ? 1 : 0));
+			Assert.That (code, Is.EqualTo (variant is "valid" or "valid-signed" ? 0 : 2));
+			Assert.That (calls, Is.EqualTo (variant is "valid" or "valid-signed" or "provider-error" ? 1 : 0));
 			Assert.That (output.ToString () + error, Does.Not.Contain ("private-mail").And.Not.Contain ("private-upload")
 				.And.Not.Contain ("secret.example.test").And.Not.Contain (root));
 			}

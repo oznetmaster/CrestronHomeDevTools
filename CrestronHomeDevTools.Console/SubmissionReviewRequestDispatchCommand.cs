@@ -32,8 +32,10 @@ internal static class SubmissionReviewRequestDispatchCommand
 			throw new InvalidDataException ("Unsupported review request delivery settings.");
 		_ = SubmissionDelivery.ReviewPlanDigest (settings.Plan);
 		if (settings.Plan.ReviewMode != SubmissionReviewMode.DeclaredGaps ||
-			settings.Plan.AttachmentKind is not (SubmissionReviewAttachmentKind.UnsignedSelfTest or SubmissionReviewAttachmentKind.DisclosureOnly))
-			throw new InvalidDataException ("This command delivers prepared unsigned requests only.");
+			settings.Plan.AttachmentKind is not (SubmissionReviewAttachmentKind.SignedSelfTest or SubmissionReviewAttachmentKind.UnsignedSelfTest or SubmissionReviewAttachmentKind.DisclosureOnly))
+			throw new InvalidDataException ("This command requires a prepared review with declared gaps.");
+		if (settings.Plan.AttachmentKind == SubmissionReviewAttachmentKind.SignedSelfTest && !string.IsNullOrEmpty (settings.Plan.DocumentOmissions))
+			throw new InvalidDataException ("A prepared signed review cannot also claim document or signature omissions.");
 		string[] directories = [settings.RequestDirectory, settings.JournalDirectory, settings.ScratchDirectory,
 			settings.UploadReceiptDirectory, settings.MailReceiptDirectory];
 		foreach (var directory in directories)

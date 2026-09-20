@@ -325,8 +325,8 @@ def write_form(source_bytes, inventory, output, title, author, rows, identity, d
     text(author)
     if signing_copy and draft:
         raise ValueError("A blank draft cannot be prepared for signing")
-    if declared_gaps and (draft or signing_copy or identity.get("reviewMode") != "DeclaredGaps"):
-        raise ValueError("Declared-gap review requires its bound assessment and cannot yet be prepared for signing")
+    if declared_gaps and (draft or identity.get("reviewMode") != "DeclaredGaps"):
+        raise ValueError("Declared-gap review requires its bound assessment")
     declared = indexed(inventory["requirements"], "id")
     resolved = indexed(rows, "id")
     allowed = {"NotTested"} if draft else {"Passed", "NotApplicable", "GapDeclared"} if declared_gaps else {"Passed", "NotApplicable"}
@@ -372,7 +372,7 @@ def write_form(source_bytes, inventory, output, title, author, rows, identity, d
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("draft", "from-evidence", "for-signing", "declared-gaps"))
+    parser.add_argument("mode", choices=("draft", "from-evidence", "for-signing", "declared-gaps", "declared-gaps-for-signing"))
     for field in ("template", "inventory", "inventory-sha256", "output", "title", "author", "report"):
         parser.add_argument("--" + field, required=True)
     for field in ("mapping", "mapping-sha256", "candidate", "candidate-sha256", "policy", "observations", "package", "evidence", "dotnet", "validator"):
@@ -398,18 +398,20 @@ def main():
                             args.observations, args.package, args.evidence)
         if args.mode == "draft" and any((*evidence_options, args.dotnet, args.validator)):
             raise ValueError("Use from-evidence mode to evaluate candidate evidence; draft mode never attests tests")
-        if args.mode != "declared-gaps" and (args.declarations or args.declarations_sha256):
+        declared_gaps = args.mode in ("declared-gaps", "declared-gaps-for-signing")
+        if not declared_gaps and (args.declarations or args.declarations_sha256):
             raise ValueError("Gap declarations require explicit declared-gaps mode")
-        if args.mode == "declared-gaps" and not (args.declarations and args.declarations_sha256):
+        if declared_gaps and not (args.declarations and args.declarations_sha256):
             raise ValueError("Declared-gap review requires pinned gap declarations")
-        if args.mode in ("from-evidence", "for-signing", "declared-gaps"):
+        if args.mode != "draft":
             if not all(evidence_options):
                 raise ValueError("Evidence mode requires all pinned candidate, policy and mapping inputs")
             rows, checked, validation_json = validate_evidence(inventory, args.inventory_sha256, args.mapping, args.mapping_sha256,
                 args.candidate, args.candidate_sha256, args.policy, args.observations, args.package, args.template,
                 args.evidence, args.dotnet, args.validator, declarations_path=args.declarations, declarations_digest=args.declarations_sha256)
             identity.update(checked)
-        report = write_form(source, inventory, args.output, args.title, args.author, rows, identity, args.mode == "draft", args.mode == "for-signing", args.mode == "declared-gaps")
+        report = write_form(source, inventory, args.output, args.title, args.author, rows, identity, args.mode == "draft",
+                            args.mode in ("for-signing", "declared-gaps-for-signing"), declared_gaps)
         report["validationReportJson"] = validation_json
         write_json(args.report, report)
         print(json.dumps(report, indent=2))

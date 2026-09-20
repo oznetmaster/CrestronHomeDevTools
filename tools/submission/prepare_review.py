@@ -33,8 +33,8 @@ def prepare(settings_path, candidate_digest, inventory_digest, mapping_digest, s
         raise ValueError("Review mode must be complete or declared-gaps")
     declared_gaps = review_mode == "declared-gaps"
     if declared_gaps:
-        if signing_copy or not declarations or not re.fullmatch(r"[0-9a-f]{64}", declarations_sha256 or ""):
-            raise ValueError("Declared-gap review requires pinned declarations and cannot yet prepare a signing copy")
+        if not declarations or not re.fullmatch(r"[0-9a-f]{64}", declarations_sha256 or ""):
+            raise ValueError("Declared-gap review requires pinned declarations")
         if not Path(declarations).is_absolute():
             raise ValueError("Gap declarations require an absolute private path")
         _, gap_document = forms.pinned_json(declarations, declarations_sha256)

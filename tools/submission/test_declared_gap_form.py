@@ -157,11 +157,11 @@ class DeclaredGapFormTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     forms.decisions(self.inventory, self.inventory_digest, self.mapping, self.policy, self.observations, assessment)
 
-    def test_declared_gap_form_is_not_a_signing_copy_or_a_complete_form(self):
+    def test_declared_gap_form_cannot_be_prepared_as_a_complete_form(self):
         self.observations["observations"].pop()
         self.gaps = [{"requirementId": "second.duration", "reason": "Not observed."}]
         rows, identity, _ = self.validate()
-        for signing, gaps in ((True, True), (False, False)):
+        for signing, gaps in ((True, False), (False, False)):
             with self.subTest(signing=signing, gaps=gaps):
                 with self.assertRaises(ValueError):
                     forms.write_form(self.source, self.inventory, self.output, "Synthetic", "Example", rows, identity,

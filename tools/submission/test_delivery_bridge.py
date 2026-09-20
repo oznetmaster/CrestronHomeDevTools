@@ -11,6 +11,7 @@ import unittest
 from build_help import sha
 import test_prepare_delivery as preparation_tests
 import test_prepare_review_request as request_tests
+import test_prepare_signed_review as signing_tests
 
 
 class DeliveryProcessBridgeTests(unittest.TestCase):
@@ -130,3 +131,39 @@ class ReviewRequestDeliveryBridgeTests(unittest.TestCase):
 
     def test_evidence_changed_after_upload_prevents_email(self):
         self.exercise("UnsignedSelfTest", "evidence")
+
+    def exercise_signed(self, change, corrupt_before=None):
+        fixture = signing_tests.SignedReviewStageTests()
+        fixture.setUp(declared_gaps=True)
+        try:
+            receipt = fixture.run_stage()
+            if corrupt_before:
+                path = fixture.output / corrupt_before
+                path.write_bytes(path.read_bytes() + b"changed before delivery")
+            run = subprocess.run([self.dotnet, str(self.harness), "--review-request-delivery", str(fixture.output),
+                str(fixture.root / "synthetic-delivery"), change], capture_output=True, timeout=120)
+            succeeds = change == "none" and corrupt_before is None
+            self.assertEqual(run.returncode, 0 if succeeds else 2, run.stderr.decode(errors="replace"))
+            result = json.loads(run.stdout)
+            self.assertTrue(result["syntheticTransport"])
+            self.assertEqual(result["Uploads"], 0 if corrupt_before else 1)
+            self.assertEqual(result["Sends"], 1 if succeeds else 0)
+            self.assertEqual(result["state"], "Prepared" if corrupt_before else "Submitted" if succeeds else "Uploaded")
+            self.assertEqual(result["verification"], "GapsDeclared")
+            self.assertTrue(receipt["signatureApplied"])
+        finally:
+            fixture.doCleanups()
+
+    def test_signed_declared_gap_form_through_guarded_delivery(self):
+        self.exercise_signed("none")
+
+    def test_signed_gap_approval_revoked_after_upload_prevents_email(self):
+        self.exercise_signed("approval")
+
+    def test_signed_gap_evidence_changed_after_upload_prevents_email(self):
+        self.exercise_signed("evidence")
+
+    def test_signed_gap_packet_tampering_prevents_upload(self):
+        for path in ("signing-report.json", "declarations.json", "review-receipt.json", "form-report.json"):
+            with self.subTest(path=path):
+                self.exercise_signed("none", path)

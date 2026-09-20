@@ -50,10 +50,12 @@ def prepare(settings_path, review_digest, authorization_digest):
     validator_args = settings_validator(settings)
     review = Path(settings["reviewDirectory"])
     receipt_bytes, receipt = pinned_json(review / "review-receipt.json", review_digest)
+    declared_gaps = receipt.get("reviewMode") == "DeclaredGaps"
+    expected_state = "UnsignedReviewWithDeclaredGapsPrepared" if declared_gaps else "UnsignedReviewPrepared"
     if not isinstance(receipt["bundleSha256"], str) or not re.fullmatch(r"[0-9a-fA-F]{64}", receipt["bundleSha256"]):
         raise ValueError("Review bundle digest is invalid")
     if (type(receipt["schemaVersion"]) is not int or receipt["schemaVersion"] != 1 or
-            receipt["state"] != "UnsignedReviewPrepared" or receipt.get("signingCopy") is not True or
+            receipt["state"] != expected_state or receipt.get("signingCopy") is not True or
             receipt["submissionReady"] is not False or receipt["deliveryAttempted"] is not False or
             (review / "COMPLETE").read_text(encoding="ascii").strip() != review_digest):
         raise ValueError("A completed unsigned signing-copy review is required")
@@ -65,6 +67,9 @@ def prepare(settings_path, review_digest, authorization_digest):
             approval["inventorySha256"] != receipt["inventorySha256"] or
             approval["candidateSha256"] != receipt["candidateSha256"]):
         raise ValueError("Signing authorization does not identify this exact review")
+    gap_keys = ("reviewMode", "verificationStatus", "declarationsSha256")
+    if declared_gaps and any(approval.get(key) != receipt[key] for key in gap_keys):
+        raise ValueError("Signing authorization must explicitly identify this review's declared gaps")
     output = Path(settings["output"])
     if output.exists() or not output.parent.is_dir():
         raise ValueError("Use a new signed-review output under an existing private parent")
@@ -81,21 +86,41 @@ def prepare(settings_path, review_digest, authorization_digest):
                 ("evidence.zip", receipt["bundleSha256"].lower(), 513 * 1024 * 1024)):
             copy_pinned(review / name, staging / name, digest, limit)
         _, form_report = read_json(staging / "form-report.json")
-        checked = run_process([*validator_args, "submission-bundle-check",
+        command = "submission-review-bundle-check" if declared_gaps else "submission-bundle-check"
+        options = []
+        if declared_gaps:
+            copy_pinned(review / "declarations.json", staging / "declarations.json", receipt["declarationsSha256"], 16 * 1024 * 1024)
+            options = ["--mode", "declared-gaps", "--declarations-sha256", receipt["declarationsSha256"]]
+        checked = run_process([*validator_args, command,
                                "--bundle", str(staging / "evidence.zip"),
                                "--bundle-sha256", receipt["bundleSha256"].lower(),
-                               "--candidate-sha256", receipt["candidateSha256"], "--scratch", str(staging)], 180)
+                               "--candidate-sha256", receipt["candidateSha256"], "--scratch", str(staging), *options], 180)
         if checked.returncode != 0:
             raise ValueError("Evidence no longer passes validation; no signature was applied")
         revalidated_utc = datetime.now(timezone.utc).isoformat()
         bundle = json.loads(checked.stdout, object_pairs_hook=strict_object)
-        validation = bundle["Validation"]
         identity = form_report["identity"]
-        if (bundle["ValidationChecksPassed"] is not True or
-                bundle["BundleSha256"].lower() != receipt["bundleSha256"].lower() or
-                validation["CandidateSha256"] != receipt["candidateSha256"] or
-                validation["ObservationsSha256"] != identity["observationsSha256"] or
-                validation["Package"]["Sha256"] != approval["packageSha256"] or
+        if declared_gaps:
+            review_result = bundle["review"]
+            validation = review_result["validation"]
+            valid = (bundle["readyForReview"] is True and review_result["readyForReview"] is True and
+                     not validation["issues"] and validation["package"]["packageChecksPassed"] is True and
+                     review_result["declarationsSha256"] == receipt["declarationsSha256"] and
+                     review_result["assessment"]["verificationStatus"] == receipt["verificationStatus"] and
+                     all(form_report.get(key) == receipt[key] and identity.get(key) == receipt[key] for key in gap_keys))
+            bound_bundle = bundle["bundleSha256"]
+            bound_candidate, bound_observations = validation["candidateSha256"], validation["observationsSha256"]
+            bound_package = validation["package"]["sha256"]
+        else:
+            validation = bundle["Validation"]
+            valid = bundle["ValidationChecksPassed"] is True
+            bound_bundle = bundle["BundleSha256"]
+            bound_candidate, bound_observations = validation["CandidateSha256"], validation["ObservationsSha256"]
+            bound_package = validation["Package"]["Sha256"]
+        if (not valid or bound_bundle.lower() != receipt["bundleSha256"].lower() or
+                bound_candidate != receipt["candidateSha256"] or
+                bound_observations != identity["observationsSha256"] or
+                bound_package != approval["packageSha256"] or
                 identity["packageSha256"] != approval["packageSha256"]):
             raise ValueError("Current evidence validation does not match the reviewed form and authorization")
         completed = staging / "completed"
@@ -137,6 +162,12 @@ def prepare(settings_path, review_digest, authorization_digest):
                   "evidenceRevalidatedUtc": revalidated_utc,
                   "signatureApplied": True, "visualReviewRequired": True, "deliveryAuthorized": False,
                   "submissionReady": False, "deliveryAttempted": False}
+        if declared_gaps:
+            result.update({key: receipt[key] for key in gap_keys})
+            # The protected review-delivery coordinator reassesses the archive
+            # before each provider step. These files remain private, outside delivery/.
+            for name in ("declarations.json", "inventory.json", "mapping.json", "form-report.json", "self-test.review.pdf", "evidence.zip"):
+                (staging / name).rename(completed / name)
         write_json(completed / "signed-review-receipt.json", result)
         output.mkdir()
         for item in completed.iterdir():

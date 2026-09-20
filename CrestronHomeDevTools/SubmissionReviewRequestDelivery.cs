@@ -17,10 +17,10 @@ public sealed record SubmissionReviewRequestReceipt (int SchemaVersion, string S
 	bool SignatureApplied, bool VisualReviewRequired, bool ProducerAuthenticationRequired,
 	bool DeliveryAuthorized, bool SubmissionReady, bool DeliveryAttempted);
 
-/// <summary>Deliver a prepared unsigned request using independently approved pins, fresh archived-evidence checks,
+/// <summary>Deliver a prepared review request using independently approved pins, fresh archived-evidence checks,
 /// and the durable delivery journal. The caller must authenticate the evidence producer and approver independently.
 /// This does not apply a signature or infer any decision by Crestron.</summary>
-public static class SubmissionReviewRequestDelivery
+public static partial class SubmissionReviewRequestDelivery
 	{
 	private static readonly JsonSerializerOptions Options = new ()
 		{
@@ -62,6 +62,8 @@ public static class SubmissionReviewRequestDelivery
 		RequireDirectory (requestDirectory);
 		RequireDirectory (privateScratchDirectory);
 		cancellationToken.ThrowIfCancellationRequested ();
+		if (plan.AttachmentKind == SubmissionReviewAttachmentKind.SignedSelfTest)
+			return CheckSigned (requestDirectory, plan, privateScratchDirectory, now, cancellationToken);
 		if (now == default || plan.ReviewMode != SubmissionReviewMode.DeclaredGaps ||
 			plan.AttachmentKind is not (SubmissionReviewAttachmentKind.UnsignedSelfTest or SubmissionReviewAttachmentKind.DisclosureOnly))
 			throw new InvalidDataException ("This route requires a prepared unsigned request with disclosed omissions and the current time.");

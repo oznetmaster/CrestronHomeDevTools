@@ -15,19 +15,23 @@ internal static class SyntheticReviewRequestDelivery
 		{
 		var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
 			Converters = { new JsonStringEnumConverter () } };
-		string requestPath = Path.Combine (requestDirectory, "request-receipt.json");
-		var receipt = JsonSerializer.Deserialize<SubmissionReviewRequestReceipt> (File.ReadAllBytes (requestPath), options)!;
+		bool signed = File.Exists (Path.Combine (requestDirectory, "signed-review-receipt.json"));
+		string requestPath = Path.Combine (requestDirectory, signed ? "signed-review-receipt.json" : "request-receipt.json");
+		using var receiptDocument = JsonDocument.Parse (File.ReadAllBytes (requestPath));
+		var receipt = receiptDocument.RootElement;
+		string Text (string key) => receipt.GetProperty (key).GetString ()!;
+		var kind = signed ? SubmissionReviewAttachmentKind.SignedSelfTest : Enum.Parse<SubmissionReviewAttachmentKind> (Text ("attachmentKind"));
 		Directory.CreateDirectory (workDirectory);
 		string journal = Path.Combine (workDirectory, "journal"), scratch = Path.Combine (workDirectory, "scratch");
 		Directory.CreateDirectory (journal); Directory.CreateDirectory (scratch);
 		string uploadReceipts = Directory.CreateDirectory (Path.Combine (workDirectory, "uploads")).FullName;
 		string mailReceipts = Directory.CreateDirectory (Path.Combine (workDirectory, "mail")).FullName;
 		string approvalPath = Path.Combine (workDirectory, "synthetic-approval.json");
-		var plan = new SubmissionReviewDeliveryPlan (receipt.CandidateSha256, Digest (requestPath), new ('0', 64),
-			receipt.PackageSha256, receipt.AttachmentSha256, receipt.PackageFileName, receipt.AttachmentFileName,
+		var plan = new SubmissionReviewDeliveryPlan (Text ("candidateSha256"), Digest (requestPath), new ('0', 64),
+			Text ("packageSha256"), Text (signed ? "signedFormSha256" : "attachmentSha256"), Text ("packageFileName"), Text (signed ? "signedFormFileName" : "attachmentFileName"),
 			"synthetic@example.test", "synthetic-recipient@example.test", SubmissionReviewMode.DeclaredGaps,
-			SubmissionVerificationStatus.GapsDeclared, receipt.AttachmentKind, receipt.DeclarationsSha256,
-			"SYNTHETIC: the generated PDF retains every unperformed test and reason.", "SYNTHETIC: signature and any explicitly omitted form are absent.");
+			SubmissionVerificationStatus.GapsDeclared, kind, Text ("declarationsSha256"),
+			"SYNTHETIC: the generated PDF retains every unperformed test and reason.", signed ? null : "SYNTHETIC: signature and any explicitly omitted form are absent.");
 		var preview = SubmissionReviewApproval.Preview (plan);
 		File.WriteAllBytes (approvalPath, JsonSerializer.SerializeToUtf8Bytes (new SubmissionReviewApprovalDocument (1,
 			preview.PacketSha256, preview.CorrespondenceSha256, DateTimeOffset.UtcNow.AddMinutes (10), true, true, true), options));

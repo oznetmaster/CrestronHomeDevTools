@@ -61,11 +61,19 @@ class DeclaredGapReviewTests(unittest.TestCase):
         self.assertEqual(reader.get_fields()["Second"]["/V"], "/Off")
         self.assertEqual(reader.get_fields()["Signature"].get("/V", ""), "")
 
-    def test_declarations_cannot_silently_change_complete_mode_or_prepare_a_signature(self):
-        for options in ({"review_mode": "complete"}, {"signing_copy": True}):
-            with self.subTest(options=options), self.assertRaises(ValueError):
-                self.run_stage(**options)
-            self.assertFalse(self.output.exists())
+    def test_declarations_cannot_silently_change_complete_mode(self):
+        with self.assertRaises(ValueError):
+            self.run_stage(review_mode="complete")
+        self.assertFalse(self.output.exists())
+
+    def test_declared_gap_signing_copy_preserves_gaps_and_has_no_signature(self):
+        receipt = self.run_stage(signing_copy=True)
+        self.assertTrue(receipt["signingCopy"])
+        self.assertEqual(receipt["verificationStatus"], "GapsDeclared")
+        reader = PdfReader(self.output / "self-test.review.pdf")
+        self.assertEqual(reader.get_fields()["Second"]["/V"], "/Off")
+        self.assertEqual(reader.get_fields()["Signature"].get("/V", ""), "")
+        self.assertIn("REVIEW WITH DECLARED GAPS", reader.pages[0].extract_text())
 
     def test_unexplained_missing_scope_cannot_publish_review(self):
         self.gaps = []

@@ -18,11 +18,19 @@ import test_prepare_review as review_tests
 
 
 class SignedReviewStageTests(unittest.TestCase):
-    def setUp(self, android=False):
+    def setUp(self, android=False, declared_gaps=False):
         self.review = f = review_tests.ReviewStageTests()
         f.setUp()
         self.addCleanup(f.doCleanups)
         options = f.android_run()[1] if android else {}
+        if declared_gaps:
+            f.fixture.observations["observations"].pop()
+            f.fixture.write_json(Path(f.settings["observations"]), f.fixture.observations)
+            declarations = f.root / "declarations.json"
+            f.fixture.write_json(declarations, {"schemaVersion": 1, "identity": f.fixture.identity,
+                "mode": "DeclaredGaps", "declarations": [{"requirementId": "second.duration", "reason": "Equipment unavailable."}]})
+            options.update(review_mode="declared-gaps", declarations=declarations,
+                           declarations_sha256=stage.sha(declarations.read_bytes()))
         self.receipt = f.run_stage(signing_copy=True, **options)
         self.root = f.root
         self.output = f.root / "signed-review"
@@ -41,6 +49,8 @@ class SignedReviewStageTests(unittest.TestCase):
                         "expiresUtc": (now + timedelta(minutes=10)).isoformat(),
                         "signatureField": "Signature", "dateField": "Date",
                         "visualReviewCompleted": True, "signatureAuthorized": True}
+        if declared_gaps:
+            self.approval.update({key: self.receipt[key] for key in ("reviewMode", "verificationStatus", "declarationsSha256")})
         self.authorization = f.root / "synthetic-authorization.json"
         f.fixture.write_json(self.authorization, self.approval)
         self.approval_pin = stage.sha(self.authorization.read_bytes())

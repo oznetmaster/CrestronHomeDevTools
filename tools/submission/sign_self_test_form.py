@@ -56,7 +56,8 @@ def sign(form_path, report_path, inventory_path, authorization_path, authorizati
     _, approval = pinned_json(authorization_path, authorization_sha256)
     keys(approval, ("schemaVersion", "formSha256", "formReportSha256", "inventorySha256", "candidateSha256",
                     "packageSha256", "signatureImageSha256", "signer", "signingDate", "expiresUtc",
-                    "signatureField", "dateField", "visualReviewCompleted", "signatureAuthorized"))
+                    "signatureField", "dateField", "visualReviewCompleted", "signatureAuthorized"),
+         ("reviewMode", "verificationStatus", "declarationsSha256"))
     if type(approval["schemaVersion"]) is not int or approval["schemaVersion"] != 1 or approval["visualReviewCompleted"] is not True or approval["signatureAuthorized"] is not True:
         raise ValueError("Explicit reviewed-form signing authorization is required")
     now = now or datetime.now(timezone.utc)
@@ -79,15 +80,37 @@ def sign(form_path, report_path, inventory_path, authorization_path, authorizati
         raise ValueError("Signing requires the exact evidence-backed signing copy and candidate")
     validation_bytes = report["validationReportJson"].encode("utf-8")
     validation = json.loads(validation_bytes, object_pairs_hook=strict_object)
-    if (sha(validation_bytes) != identity["validationReportSha256"] or validation["ValidationChecksPassed"] is not True or
-            validation["CandidateSha256"] != identity["candidateSha256"] or
-            validation["ObservationsSha256"] != identity["observationsSha256"] or
-            validation["Package"]["Sha256"] != identity["packageSha256"]):
+    if sha(validation_bytes) != identity["validationReportSha256"]:
         raise ValueError("Evidence validation report is incomplete or inconsistent")
+    gap_keys = ("reviewMode", "verificationStatus", "declarationsSha256")
+    declared_gaps = report.get("reviewMode") == "DeclaredGaps"
+    if declared_gaps:
+        if (any(key not in approval or approval[key] != report[key] or report[key] != identity[key] for key in gap_keys) or
+                report["verificationStatus"] not in ("GapsDeclared", "CompleteAgainstInterpretedRequirements") or
+                validation["readyForReview"] is not True or
+                validation["declarationsSha256"] != approval["declarationsSha256"] or
+                validation["assessment"]["verificationStatus"] != approval["verificationStatus"]):
+            raise ValueError("Signing declared gaps requires authorization for the exact mode, assessment and declarations")
+        checked = validation["validation"]
+        if (checked["issues"] or checked["package"]["packageChecksPassed"] is not True or
+                checked["candidateSha256"] != identity["candidateSha256"] or
+                checked["observationsSha256"] != identity["observationsSha256"] or
+                checked["package"]["sha256"] != identity["packageSha256"]):
+            raise ValueError("Declared-gap assessment is inconsistent with the reviewed candidate")
+    else:
+        if any(key in approval or key in report or key in identity for key in gap_keys) or report.get("declaredGapRequirements"):
+            raise ValueError("Declared-gap metadata requires the explicit declared-gap signing path")
+        if (validation["ValidationChecksPassed"] is not True or
+                validation["CandidateSha256"] != identity["candidateSha256"] or
+                validation["ObservationsSha256"] != identity["observationsSha256"] or
+                validation["Package"]["Sha256"] != identity["packageSha256"]):
+            raise ValueError("Evidence validation report is incomplete or inconsistent")
     declared = indexed(inventory["requirements"], "id")
     passed, excluded = report["checkedRequirements"], report["notApplicableRequirements"]
-    if (len(set(passed)) != len(passed) or len(set(excluded)) != len(excluded) or set(passed) & set(excluded) or
-            set(passed) | set(excluded) != declared.keys()):
+    gaps = report["declaredGapRequirements"] if declared_gaps else []
+    decisions = passed + excluded + gaps
+    if (len(set(decisions)) != len(decisions) or set(decisions) != declared.keys() or
+            declared_gaps and bool(gaps) != (report["verificationStatus"] == "GapsDeclared")):
         raise ValueError("Form decisions are incomplete")
     values = {v["field"]: v["checkedAppearance"][0] if k in passed else "/Off" for k, v in declared.items()}
     fields = indexed(inventory["signingFields"], "field")
@@ -119,7 +142,7 @@ def sign(form_path, report_path, inventory_path, authorization_path, authorizati
                                 label=signing_values[name] if name == date_field else None)
             widget[NameObject("/V")] = TextStringObject(signing_values[name])
             widget[NameObject("/AP")] = DictionaryObject({NameObject("/N"): normal})
-    writer.add_metadata({"/Title": "Completed driver self-test form", "/Author": signer,
+    writer.add_metadata({"/Title": "Driver self-test form with declared gaps" if gaps else "Completed driver self-test form", "/Author": signer,
                          "/Subject": "Authorized image signature; not a cryptographic signature or Crestron acceptance"})
     buffer = io.BytesIO()
     writer.write(buffer)
@@ -134,10 +157,13 @@ def sign(form_path, report_path, inventory_path, authorization_path, authorizati
         raise ValueError("Use a new .signed.pdf output")
     with output.open("xb") as stream:
         stream.write(signed)
-    return {"schemaVersion": 1, "signedFormSha256": sha(signed), "unsignedFormSha256": sha(form_bytes),
+    receipt = {"schemaVersion": 1, "signedFormSha256": sha(signed), "unsignedFormSha256": sha(form_bytes),
             "authorizationSha256": authorization_sha256, "candidateSha256": identity["candidateSha256"],
             "packageSha256": identity["packageSha256"], "signer": signer, "signingDate": approval["signingDate"],
             "signatureApplied": True, "cryptographicSignature": False, "visualReviewRequired": True, "submissionReady": False}
+    if declared_gaps:
+        receipt.update({key: report[key] for key in gap_keys})
+    return receipt
 
 
 def main():
