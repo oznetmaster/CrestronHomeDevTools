@@ -23,7 +23,7 @@ from reportlab.platypus.doctemplate import LayoutError
 
 from build_help import keys, sha, strict_object, text
 from package_help import read_json, write_json
-from checklist_notes import notes_document, link_notes
+from checklist_notes import notes_document, link_notes, identify_form
 from render_help import run_process
 from validator_runtime import validator_command
 
@@ -393,6 +393,7 @@ def write_form(source_bytes, inventory, output, title, author, rows, identity, d
     cover, note_positions = notes_document(title, author, rows, identity, draft, signing_copy, declared_gaps)
     writer = PdfWriter()
     writer.clone_document_from_reader(source)
+    identify_form(writer, title, author)
     vector_check_appearances(writer, inventory)
     writer.update_page_form_field_values(None, values, auto_regenerate=False)
     for page in cover.pages:

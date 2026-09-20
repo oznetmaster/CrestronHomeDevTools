@@ -10,6 +10,8 @@ from pypdf.generic import (ArrayObject, DecodedStreamObject, DictionaryObject,
                           FloatObject, NameObject, NumberObject, TextStringObject)
 from pypdf.generic import Fit
 from reportlab.lib.styles import ParagraphStyle
+from reportlab.pdfgen import canvas
+from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.platypus import Flowable, KeepTogether, Paragraph, SimpleDocTemplate, Spacer
 
 
@@ -112,3 +114,35 @@ def link_notes(writer, rows, positions, notes_start):
             linked.add(number)
     if linked!=set(positions):
         raise ValueError('Numbered notes do not match the official checklist widgets')
+
+
+def identify_form(writer, title, author):
+    """Identify the submission in the first page's upper margin without changing official text."""
+    page = writer.pages[0]
+    width = float(page.mediabox.width) - 108
+    height = 38
+    buffer = io.BytesIO()
+    drawing = canvas.Canvas(buffer, pagesize=(width, height))
+    for value, maximum, y in ((title, 11, 24), ('Developer: ' + author, 9, 9)):
+        size = min(maximum, maximum * (width - 4) / max(1, stringWidth(value, 'Helvetica', maximum)))
+        if size < 7:
+            raise ValueError('Use a shorter submission title or developer name for the first-page heading')
+        drawing.setFont('Helvetica', size)
+        drawing.drawString(2, y, value)
+    drawing.save()
+    heading = PdfReader(buffer).pages[0]
+    appearance = DecodedStreamObject()
+    appearance.update({NameObject('/Type'): NameObject('/XObject'),
+        NameObject('/Subtype'): NameObject('/Form'),
+        NameObject('/BBox'): ArrayObject(map(FloatObject, [0, 0, width, height])),
+        NameObject('/Resources'): heading['/Resources'].clone(writer)})
+    appearance.set_data(heading.get_contents().get_data())
+    top = float(page.mediabox.top) - 24
+    left = float(page.mediabox.left) + 54
+    writer.add_annotation(0, DictionaryObject({NameObject('/Type'): NameObject('/Annot'),
+        NameObject('/Subtype'): NameObject('/FreeText'),
+        NameObject('/Rect'): ArrayObject(map(FloatObject, [left, top-height, left+width, top])),
+        NameObject('/Contents'): TextStringObject(title + '\nDeveloper: ' + author),
+        NameObject('/NM'): TextStringObject('submission-identification'),
+        NameObject('/DA'): TextStringObject('/Helv 9 Tf 0 g'), NameObject('/F'): NumberObject(4),
+        NameObject('/AP'): DictionaryObject({NameObject('/N'): writer._add_object(appearance)})}))

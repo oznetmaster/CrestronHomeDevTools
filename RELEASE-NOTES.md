@@ -1,13 +1,11 @@
-# CrestronHomeDevTools 1.16.0
+# CrestronHomeDevTools 1.16.1
 
-Submission checklists now place numbered, linked notes after the unchanged official form. Reviewers can record a scoped interpretation of retained evidence without rewriting the original automatic findings.
+Generated self-test forms now identify the driver and developer on the first page, so the checklist remains identifiable without turning to its notes.
 
-- Add `SubmissionInterpretationReview` and the `AcceptedInterpretation` assessment status. Each decision requires a named reviewer, an explanation and retained evidence. Missing, failed and unperformed tests cannot be accepted through this route.
-- Show accepted interpretations as checked items with explicit notes. Original outcomes and validation issues remain in the evidence archive, and the review retains its disclosed-qualification status.
-- Bind interpretation decisions to the exact form, declarations, signing authorization and delivery checks. A review decision does not authorize signing or sending.
-- Keep the official checklist first, followed by numbered notes with links in both directions. Entirely non-applicable items remain labelled N/A; unperformed items remain unchecked.
-- Include the notes module in the self-contained console so developers need no separate Python installation or script changes.
+- Print the supplied submission title and developer name in the first page's upper margin. Use the driver name and version in the title.
+- Preserve the official printed content, interactive fields, checkboxes and numbered notes. Signing retains the identification heading.
+- Continue to require approval of the exact resulting PDF; approval of an earlier form does not authorize a revised document.
 
-See [reviewing declared gaps and interpretations](docs/submission/DeclaredGaps.md) and [form signing](docs/submission/FormSigning.md). These are reviewer decisions against our interpretation of the requirements, not a prediction of Crestron acceptance or certification. Driver-specific submissions remain private.
+See [form generation](docs/submission/FormGeneration.md). The developer uses the existing title and author inputs; no new configuration or separate document tool is required. This change makes no claim about Crestron acceptance or certification.
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.

@@ -85,6 +85,17 @@ class SelfTestFormTests(unittest.TestCase):
     def write(self, rows, draft=False):
         return forms.write_form(self.source, self.inventory, self.output, "SYNTHETIC TEST FIXTURE", "Example Developer", rows, {}, draft)
 
+    def test_first_page_identifies_submission_without_changing_official_content(self):
+        self.write(self.decisions())
+        original, result = PdfReader(io.BytesIO(self.source)), PdfReader(self.output)
+        headings = [item.get_object() for item in result.pages[0]['/Annots']
+                    if item.get_object().get('/NM') == 'submission-identification']
+        self.assertEqual(len(headings), 1)
+        self.assertEqual(headings[0]['/Contents'], 'SYNTHETIC TEST FIXTURE\nDeveloper: Example Developer')
+        self.assertTrue(headings[0]['/AP']['/N'].get_object().get_data())
+        for before, after in zip(original.pages, result.pages):
+            self.assertEqual(before.get_contents().get_data(), after.get_contents().get_data())
+
     def test_checked_boxes_agree_in_widgets_canonical_fields_and_appearances(self):
         result = self.write(self.decisions())
         reader = PdfReader(self.output)
@@ -157,7 +168,7 @@ class SelfTestFormTests(unittest.TestCase):
         reader = PdfReader(self.output)
         self.assertEqual(reader.get_fields()['First']['/V'], '/Off')
         notes = [a.get_object() for page in reader.pages for a in page.get('/Annots', [])
-                 if a.get_object().get('/Subtype') == '/FreeText']
+                 if a.get_object().get('/NM', '').startswith('submission-note:')]
         self.assertEqual([a['/Contents'] for a in notes], ['N/A 1', '[2]'])
         self.assertEqual(notes[0]['/NM'], 'submission-note:First')
         self.assertIn(b'(N/A 1) Tj', notes[0]['/AP']['/N'].get_object().get_data())
@@ -174,7 +185,7 @@ class SelfTestFormTests(unittest.TestCase):
             False, declared_gaps=True)
         reader = PdfReader(self.output)
         notes = [a.get_object() for page in reader.pages for a in page.get('/Annots', [])
-                 if a.get_object().get('/Subtype') == '/FreeText']
+                 if a.get_object().get('/NM', '').startswith('submission-note:')]
         self.assertEqual(reader.get_fields()['First']['/V'], '/Off')
         self.assertEqual([a['/Contents'] for a in notes], ['[1]', '[2]'])
         self.assertEqual(report['checkedRequirements'], ['second'])

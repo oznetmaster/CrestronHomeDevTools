@@ -2,11 +2,13 @@
 
 Command examples use the [bundled submission console](ConsoleTools.md); see that guide for source/release availability and setup.
 
-The `submission self-test-form` command generates an unsigned, interactive review PDF. It preserves the official form's printed pages, adds a companion matrix, and can populate checkboxes from evidence checked by the existing DevTools offline validator. It does not apply a signature/date, upload, email, authorize delivery or claim Crestron acceptance. Use the matching bundled console; the document runtime is not a dependency of the NuGet configuration library.
+The `submission self-test-form` command generates an unsigned, interactive review PDF. It preserves the official form's printed pages, adds numbered notes after the checklist, and can populate checkboxes from evidence checked by the existing DevTools offline validator. It does not apply a signature/date, upload, email, authorize delivery or claim Crestron acceptance. Use the matching bundled console; the document runtime is not a dependency of the NuGet configuration library.
 
 The [submission plan](../CrestronSubmission.md) remains authoritative for the work still required. A generated form is one build artifact, not a replacement for the complete driver-specific policy, trusted evidence producer, visual review and signing authorization.
 
 Version 1.13.0 also supports the [declared-gaps unsigned form mode](DeclaredGaps.md). It preserves incomplete official items as unchecked, with grouped explanations. The separate [unsigned request workflow](ReviewRequest.md) prepares an outbound copy for independent approval and delivery; it does not apply a signature.
+
+Version 1.16.1 prints the supplied title and developer name in the first page's upper margin. Include the driver name and submitted version in `--title` (or the review settings' `title`), and the developer name in `--author`. The official printed text, form fields and checkbox meanings are unchanged. A changed title produces a new document hash and requires approval of that exact form before signing.
 
 ## Inputs and installation
 
@@ -17,10 +19,10 @@ Download the applicable original form from Crestron's published source. Do not c
 ## Draft without attestations
 
 ```text
-CrestronHomeDevTools.Console.exe submission self-test-form draft --template OFFICIAL.pdf --inventory INVENTORY.json --inventory-sha256 PINNED_INVENTORY_SHA256 --output Driver-Self-Test.review.pdf --title "Driver self-test plan" --author "Developer name" --report draft-report.json
+CrestronHomeDevTools.Console.exe submission self-test-form draft --template OFFICIAL.pdf --inventory INVENTORY.json --inventory-sha256 PINNED_INVENTORY_SHA256 --output Driver-Self-Test.review.pdf --title "Example Driver 1.2.3 - Crestron Home driver" --author "Developer name" --report draft-report.json
 ```
 
-This produces an unsigned review matrix followed by the original form. Every item is marked not evaluated and all checkboxes remain off. Signature/date fields stay blank. Candidate/evidence arguments are rejected in this mode so an unevaluated draft cannot be mistaken for an evidence-backed result. Use fresh output/report paths; an existing artifact is never overwritten.
+This produces the original form followed by numbered review notes. Every item is marked not evaluated and all checkboxes remain off. Signature/date fields stay blank. Candidate/evidence arguments are rejected in this mode so an unevaluated draft cannot be mistaken for an evidence-backed result. Use fresh output/report paths; an existing artifact is never overwritten.
 
 The sample driver draft was generated with the actual pinned Extension form. All seven pages were rendered and inspected. Its matrix contains no passing claims, and all original printed page streams, field identities and blank signature/date values were verified. This is not a test result for a sample driver submission candidate.
 
@@ -53,7 +55,7 @@ This illustrative subset cannot pass: a real mapping must cover every official i
 Retain the mapping's SHA-256 in the trusted workflow separately from hardware-worker output, then run:
 
 ```text
-CrestronHomeDevTools.Console.exe submission self-test-form from-evidence --template OFFICIAL.pdf --inventory INVENTORY.json --inventory-sha256 PINNED_INVENTORY_SHA256 --mapping form-mapping.json --mapping-sha256 APPROVED_MAPPING_SHA256 --candidate candidate.json --candidate-sha256 TRUSTED_CANDIDATE_SHA256 --policy policy.json --observations observations.json --package Driver.pkg --evidence EVIDENCE_DIRECTORY --output Driver-Self-Test.review.pdf --title "Driver self-test plan" --author "Developer name" --report form-report.json
+CrestronHomeDevTools.Console.exe submission self-test-form from-evidence --template OFFICIAL.pdf --inventory INVENTORY.json --inventory-sha256 PINNED_INVENTORY_SHA256 --mapping form-mapping.json --mapping-sha256 APPROVED_MAPPING_SHA256 --candidate candidate.json --candidate-sha256 TRUSTED_CANDIDATE_SHA256 --policy policy.json --observations observations.json --package Driver.pkg --evidence EVIDENCE_DIRECTORY --output Driver-Self-Test.review.pdf --title "Example Driver 1.2.3 - Crestron Home driver" --author "Developer name" --report form-report.json
 ```
 
 Use the same package, official template, policy and observation bytes retained by the candidate workflow. The generator invokes `submission-evidence-check` itself; it does not accept a user-supplied `passed: true` report. A failed validator or changed candidate/observation/policy/template identity stops generation. It then checks the complete mapping and any inventory duration floor. The known 24-hour requirement must map to a policy observation requiring at least 24 hours; adding shorter observations together does not satisfy that floor. Continuous functional observation and the remaining outage subconditions still belong in the approved policy and test producer.
