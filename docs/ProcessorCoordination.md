@@ -33,6 +33,8 @@ Keep these properties in the locally excluded project `.csproj.user` file:
 
 `CRESTRON_HOME_DEVTOOLS_PATH` or the script's `-DevToolsPath` argument can supply the tool path instead. Credentials travel in the child process environment, never command-line arguments. They are not printed. Scripts fail on an occupied reservation, missing capability, failed import or unconfirmed version. Build targets must propagate that failure: do not use `ContinueOnError="true"`, and only write a deployment stamp after success. An import is not evidence that an installed device was updated; use activation or a gated workflow for that step.
 
+SSH fingerprints use the non-padded base64 SHA-256 digest returned by `DriverDeployment.ReadSshFingerprintAsync` and the console setup flow. If transferring an independently verified OpenSSH fingerprint, omit its `SHA256:` display prefix; DevTools compares the digest exactly. This SSH value is different from the hexadecimal HTTPS certificate fingerprint. A format correction must preserve the independently trusted key, not accept a newly observed key without verification.
+
 ## Catalogue and storage are separate from installed instances
 
 `remove` and NUnit's automatic cleanup remove a selected installed instance. Imported packages remain in `/user/ThirdPartyDrivers/Storage/Rad`; Home also maintains extracted copies beneath `/user/Data/UsedThirdPartyDrivers`. Emptying the import folder does not remove those retained packages.
