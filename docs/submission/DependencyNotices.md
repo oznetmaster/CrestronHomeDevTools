@@ -15,6 +15,8 @@ Keep these public source files in the driver repository:
 
 Each document has a unique `id`, a relative `path` within the inventory directory, its exact `sha256`, and a public `source` reference. Each component has its DLL `assembly` name and `sha256`, `packageId`, `packageVersion`, declared `license`, original `copyright` metadata, and nonempty `noticeIds`. Driver license references are listed separately. The inventory rejects missing references, duplicates and unreferenced documents.
 
+Use the actual plain DLL filename for `assembly`, including any internal spaces (for example, `Example Library.dll`). Do not substitute a package ID or rename the assembly in the inventory. Directory paths and control characters are rejected.
+
 Package IDs, versions and licensing metadata are reviewed declarations. The tool verifies the actual DLL hashes; it does not query NuGet or decide whether a legal declaration is correct. For a dependency update, review the corresponding package, upstream commit, license and shipped notices before updating its pins. Recalculating hashes alone is insufficient.
 
 Set `SubmissionDependencyNotices` to the inventory path in the driver's opt-in submission property group. The shared `CrestronSubmissionHelp.targets` stages the notices after copying ordinary assets and verifies them after archive-path normalization. Each consuming project must explicitly configure it; an unset property does not establish that their notice obligations have been met.

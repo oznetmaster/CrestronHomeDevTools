@@ -27,7 +27,7 @@ def checked_file(path):
 
 
 def file_name(value):
-    if not isinstance(value, str) or not re.fullmatch(r"[A-Za-z0-9_.-]+\.dll", value):
+    if not isinstance(value, str) or value != value.strip() or not re.fullmatch(r"[A-Za-z0-9_. -]+\.dll", value):
         raise ValueError("Use a plain assembly filename")
     return value
 

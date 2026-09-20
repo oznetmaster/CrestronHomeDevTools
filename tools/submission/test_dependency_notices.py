@@ -74,6 +74,27 @@ class DependencyNoticeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "notice changed"):
             self.prepare()
 
+    def test_dependency_filename_with_spaces_is_staged_and_verified(self):
+        self.dependency = self.dependency.rename(self.root / "Example Library.dll")
+        self.plan["components"][0]["assembly"] = self.dependency.name
+        self.save()
+        self.inputs.write_text(str(self.driver) + "\n" + str(self.dependency))
+        self.stage()
+        self.pack()
+        self.assertTrue(self.verify()["packagedNoticesVerified"])
+        self.assertIn(b"Example Library.dll", (self.include / notices.FILENAME).read_bytes())
+        self.dependency.write_bytes(b"changed library")
+        with self.assertRaisesRegex(ValueError, "Merged dependencies"):
+            self.verify()
+
+    def test_dependency_filename_cannot_be_a_path_or_contain_control_characters(self):
+        for name in ("../Library.dll", "Folder/Library.dll", "Folder\\Library.dll",
+                     "C:Library.dll", "Library.dll:stream", "Library\tName.dll", "Library\nName.dll"):
+            self.plan["components"][0]["assembly"] = name
+            self.save()
+            with self.subTest(name=name), self.assertRaisesRegex(ValueError, "plain assembly filename"):
+                self.prepare()
+
     def test_missing_and_extra_merge_inputs_are_rejected(self):
         self.inputs.write_text(str(self.driver))
         with self.assertRaises(ValueError):

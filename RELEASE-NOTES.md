@@ -1,12 +1,9 @@
-# CrestronHomeDevTools 1.16.2
+# CrestronHomeDevTools 1.16.3
 
-Failed installation attempts now retain the processor's preparation or commissioning reply so developers can investigate without repeating the command merely to recover its result.
+Dependency-notice preparation now accepts merged DLL filenames containing spaces. Previously, a valid filename such as `Example Library.dll` failed validation before its reviewed notices could be staged.
 
-- The console saves the reply beside its private lease receipt as `<owner>.failure.json` and prints only the file location. Existing records are never overwritten; a diagnostic write failure preserves the original processor failure.
-- C# callers can retain `ProcessorApiException.DiagnosticCommand` and `DiagnosticResponse` in their own private run journal.
-- Malformed commissioning IDs are reported through the same diagnostic path. Installation still requires an explicit success result and a positive integer device ID; no request is retried and uncertain operations retain their reservation.
-- Clarify the SSH fingerprint format, obtaining the complete ManifestUtil NuGet distribution, and collecting preparatory help screenshots before freezing a candidate.
+The inventory still requires plain filenames and exact dependency hashes. Paths, control characters, missing or additional DLLs, and changed packaged notice text remain rejected. Regression tests cover staging and package verification with a spaced filename, including rejection after the dependency changes.
 
-See [deployment and activation](docs/UserGuide.md#deploy-and-activate), [library diagnostics](docs/LibraryGuide.md#advanced-commands-and-failures), and [help preparation](docs/submission/HelpBuild.md). Processor responses may contain private data and must remain outside public source and CI artifacts. This release changes desktop diagnostics, not driver runtime behavior or Crestron's acceptance criteria.
+See [reviewed dependency notices](docs/submission/DependencyNotices.md) for the inventory and packaging workflow. This fixes desktop packaging tools; it does not change driver runtime behavior.
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
