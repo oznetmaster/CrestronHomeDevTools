@@ -14,7 +14,8 @@ from xml.sax.saxutils import escape
 
 from pypdf import PdfReader, PdfWriter
 from pypdf.errors import PdfReadError
-from pypdf.generic import DecodedStreamObject, NameObject
+from pypdf.generic import (ArrayObject, DecodedStreamObject, DictionaryObject, FloatObject,
+                          NameObject, NumberObject, TextStringObject)
 from reportlab.lib import colors
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -252,7 +253,7 @@ def companion(title, author, rows, identity, draft, signing_copy=False, declared
                        "Prepared for " + author + ". Signature and date fields are blank. Crestron's original interactive form follows this companion matrix."),
              paragraph("No requirements have been attested. Every checkbox remains blank." if draft else
                        "Checkboxes are checked only when every applicable mapped assertion is supported by validated current evidence or an explicitly identified, scoped review of prior passing evidence. Validated non-applicable subconditions are disclosed. A prior-evidence review does not claim a new test execution. This does not authenticate the evidence producer or establish Crestron approval."),
-             paragraph("Non-applicable items remain unchecked and are explained in the matrix. Confirm their representation with Crestron before signing. Review every page, mapping and applicable subcondition before authorizing a signature.")]
+             paragraph("Non-applicable items are labelled N/A beside their unchecked boxes. Other qualified items are labelled Notes and explained in this matrix. These margin annotations are reviewer explanations, not pass marks. Review every page, mapping and applicable subcondition before authorizing a signature.")]
     if declared_gaps:
         has_gaps = any(row["state"] == "GapDeclared" for row in rows)
         story.insert(2, paragraph("REVIEW WITH DECLARED GAPS" if has_gaps else "DECLARED-GAPS MODE - NO VERIFICATION GAPS", heading))
@@ -327,6 +328,42 @@ def vector_check_appearances(writer, inventory):
             states[NameObject(fields[widget["/T"]]["checkedAppearance"][0])] = writer._add_object(appearance)
 
 
+def annotate_unchecked_items(writer, rows):
+    """Keep official checkbox values/content intact while distinguishing N/A from gaps."""
+    labels = {row["field"]: ("N/A" if row["state"] == "NotApplicable" else "Notes")
+              for row in rows if row["state"] in ("NotApplicable", "GapDeclared")}
+    font = DictionaryObject({NameObject("/Type"): NameObject("/Font"),
+                             NameObject("/Subtype"): NameObject("/Type1"),
+                             NameObject("/BaseFont"): NameObject("/Helvetica")})
+    for index, page in enumerate(writer.pages):
+        for reference in list(page.get("/Annots", [])):
+            widget = reference.get_object()
+            label = labels.get(widget.get("/T")) if widget.get("/Subtype") == "/Widget" else None
+            if label is None:
+                continue
+            left, bottom, _, top = map(float, widget["/Rect"])
+            width, height = 26, 12
+            x, y = left - width - 4, (bottom + top - height) / 2
+            if x < float(page.mediabox.left) or y < float(page.mediabox.bottom):
+                raise ValueError("No margin space for an unchecked-item annotation")
+            appearance = DecodedStreamObject()
+            appearance.update({NameObject("/Type"): NameObject("/XObject"),
+                               NameObject("/Subtype"): NameObject("/Form"),
+                               NameObject("/BBox"): ArrayObject(map(FloatObject, [0, 0, width, height])),
+                               NameObject("/Resources"): DictionaryObject({NameObject("/Font"):
+                                   DictionaryObject({NameObject("/Helv"): font})})})
+            appearance.set_data(f"q BT /Helv 7 Tf 0 g 1 3 Td ({label}) Tj ET Q\n".encode("ascii"))
+            annotation = DictionaryObject({NameObject("/Type"): NameObject("/Annot"),
+                NameObject("/Subtype"): NameObject("/FreeText"),
+                NameObject("/Rect"): ArrayObject(map(FloatObject, [x, y, x + width, y + height])),
+                NameObject("/Contents"): TextStringObject(label),
+                NameObject("/NM"): TextStringObject("submission-status:" + widget["/T"]),
+                NameObject("/DA"): TextStringObject("/Helv 7 Tf 0 g"),
+                NameObject("/F"): NumberObject(4),
+                NameObject("/AP"): DictionaryObject({NameObject("/N"): writer._add_object(appearance)})})
+            writer.add_annotation(index, annotation)
+
+
 def write_form(source_bytes, inventory, output, title, author, rows, identity, draft, signing_copy=False, declared_gaps=False):
     output = Path(output)
     if not output.name.endswith(".review.pdf") or output.exists():
@@ -351,6 +388,7 @@ def write_form(source_bytes, inventory, output, title, author, rows, identity, d
     writer.clone_document_from_reader(source)
     vector_check_appearances(writer, inventory)
     writer.update_page_form_field_values(None, values, auto_regenerate=False)
+    annotate_unchecked_items(writer, rows)
     for index, page in enumerate(cover.pages):
         writer.insert_page(page, index)
     writer.add_metadata({"/Title": title + " - unsigned review", "/Author": author,

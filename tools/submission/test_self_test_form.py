@@ -132,7 +132,30 @@ class SelfTestFormTests(unittest.TestCase):
         report = self.write(self.decisions())
         self.assertEqual(report['checkedRequirements'], ['second'])
         self.assertEqual(report['notApplicableRequirements'], ['first'])
-        self.assertEqual(PdfReader(self.output).get_fields()['First']['/V'], '/Off')
+        reader = PdfReader(self.output)
+        self.assertEqual(reader.get_fields()['First']['/V'], '/Off')
+        notes = [a.get_object() for page in reader.pages for a in page.get('/Annots', [])
+                 if a.get_object().get('/Subtype') == '/FreeText']
+        self.assertEqual([a['/Contents'] for a in notes], ['N/A'])
+        self.assertEqual(notes[0]['/NM'], 'submission-status:First')
+        self.assertIn(b'(N/A) Tj', notes[0]['/AP']['/N'].get_object().get_data())
+        self.assertEqual(notes[0]['/F'], 4)  # Printed as well as displayed.
+        for i, page in enumerate(PdfReader(self.template).pages):
+            self.assertEqual(page.get_contents().get_data(),
+                             reader.pages[i + report['companionPages']].get_contents().get_data())
+
+    def test_qualified_item_is_labelled_notes_without_a_pass_mark(self):
+        rows = self.decisions()
+        rows[0].update(state='GapDeclared', rationale='Synthetic missing observation.')
+        report = forms.write_form(self.source, self.inventory, self.output, 'SYNTHETIC', 'Example', rows,
+            {'reviewMode': 'DeclaredGaps', 'verificationStatus': 'GapsDeclared', 'declarationsSha256': 'a' * 64},
+            False, declared_gaps=True)
+        reader = PdfReader(self.output)
+        notes = [a.get_object() for page in reader.pages for a in page.get('/Annots', [])
+                 if a.get_object().get('/Subtype') == '/FreeText']
+        self.assertEqual(reader.get_fields()['First']['/V'], '/Off')
+        self.assertEqual([a['/Contents'] for a in notes], ['Notes'])
+        self.assertEqual(report['checkedRequirements'], ['second'])
 
     def test_failed_partial_and_missing_observations_are_rejected(self):
         for outcome in ("Failed", "Partial", "NotTested", "Inconclusive"):
