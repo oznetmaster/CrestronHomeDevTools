@@ -8,6 +8,25 @@ The [official Resources page](https://sdkcon78221.crestron.com/sdk/Crestron_Cert
 
 The template covers driver identification, recommendations, requirements, installation, the end-user experience, limitations, supported features, test environment, models, contacts, version history and licensing. Its end-user section requests sample screenshots of every UI page with descriptions. Generating prose alone will not complete that section. Use approved screenshots that exclude private household/device information and credentials.
 
+## Prepare screenshots before freezing the candidate
+
+Use a separately labelled preparatory driver build to observe the intended UI and record the actual processor, app, device and firmware configuration. Keep its package and observations separate from the submission candidate. This supplies screenshots and factual environment descriptions needed to finish the embedded help; it does not establish that the final candidate passed its tests.
+
+After reviewing the help and screenshots, build the final package with that help embedded, freeze its hash, and run candidate verification against those exact bytes. Do not require a final-candidate test before generating the help that must already be inside that candidate. If preparation exposes a UI or documentation change, update the help before freezing the package.
+
+## Obtain the complete package compiler
+
+ManifestUtil is separate from the driver's runtime references. A build worker can obtain the complete [Crestron.DeviceDrivers.ManifestUtil NuGet package](https://www.nuget.org/packages/Crestron.DeviceDrivers.ManifestUtil/29.0.10), without modifying an installed SDK folder:
+
+```powershell
+nuget install Crestron.DeviceDrivers.ManifestUtil -Version 29.0.10 -OutputDirectory tools -NonInteractive
+& ./tools/Crestron.DeviceDrivers.ManifestUtil.29.0.10/tools/net8.0/any/ManifestUtil.exe --help
+```
+
+Set the driver's `ManifestUtilExe` build property to that executable's absolute path. Keep the complete tool directory together, including `ManifestUtil.dll`, its runtime configuration, dependency metadata and dependency assemblies. An isolated executable without its companion files is not a usable installation. Pin the package version in CI and retain the tool package hash with the build record.
+
+The complete 29.0.10 distribution has built a preparatory driver package on Windows. This does not require changing that driver's DevKit package reference and does not yet establish that a particular final help PDF was included correctly; the package-help verification below checks that separately.
+
 ## Renderer
 
 LibreOffice supports conversion with no interactive application window. Its [command-line documentation](https://help.libreoffice.org/latest/en-GB/text/shared/guide/start_parameters.html) defines the headless mode, PDF filter and separate user-profile option. A build worker needs LibreOffice, required fonts and a PDF renderer such as Poppler; it does not need Word, BlueStacks or processor access for this document step.
