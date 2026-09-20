@@ -1,8 +1,8 @@
 # Submit a driver: the normal path
 
-This is the entry point for a developer or an assistant using the public workflow. Use DevTools 1.13.0 or later. Follow the linked settings schemas; capitalized command arguments are placeholders to replace.
+This is the entry point for a developer or an assistant using the public workflow. Use the current stable DevTools release (1.16.1 or later for the first-page driver identification). Follow the linked settings schemas; capitalized command arguments are placeholders to replace.
 
-Submission is optional and applies only to actual Crestron drivers. Library, client and processor-test releases do not use it. Passing these checks means complete against our interpretation of Crestron's requirements, not accepted or certified by Crestron. The protected stages have tooling acceptance tests; the complete sequence with a real driver is still awaiting end-to-end validation.
+Submission is optional and applies only to actual Crestron drivers. Library, client and processor-test releases do not use it. Passing these checks means complete against our interpretation of Crestron's requirements, not accepted or certified by Crestron. The protected stages have tooling acceptance tests, and the published console has completed real authorized upload and signed-form email delivery. See [validation status](ValidationStatus.md) for the distinction between this local run, CI rehearsals and the consuming developer's environment validation.
 
 ## Set up once
 

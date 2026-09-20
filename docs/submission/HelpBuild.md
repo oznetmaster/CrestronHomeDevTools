@@ -76,15 +76,15 @@ Paths are build-local settings, not values to commit to a driver repository. Use
 
 To add another driver, import `CrestronSubmissionHelp.targets` only when explicitly selected, reject a missing import before the version bump, call `StageSubmissionHelp` immediately after the asset copy and before ManifestUtil, and call `VerifySubmissionHelp` immediately after ManifestUtil. Merely attaching a staging target with `BeforeTargets="PackageDriver"` is incorrect if `PackageDriver` then clears `IncludeInPkg`. Preserve the driver's GUID and prepare a new candidate version before eventual hardware testing. The current helper enforces the new-submission developer filename rule; adapting it for an existing portal driver's naming exemption remains separate work.
 
-A consuming project evaluation rejected incomplete content before compilation or manifest-version changes, while its ordinary test build remained usable. Offline MSBuild fixtures verify preparation/staging/packaging order, fresh receipts, rejected packaging errors and ordinary/test/design-time compatibility. A final Release package built with actual ManifestUtil remains to be verified.
+A consuming project evaluation rejected incomplete content before compilation or manifest-version changes, while its ordinary test build remained usable. Offline MSBuild fixtures verify preparation/staging/packaging order, fresh receipts, rejected packaging errors and ordinary/test/design-time compatibility. A real Release package built with ManifestUtil has subsequently been checked for exact embedded help bytes, matching names and approved rendered content; see [validation status](ValidationStatus.md).
 
-## Remaining integration
+## Consuming-project setup
 
-Next, complete the driver-specific public content and approved UI figures, verify accurate licensing and support details, and pin the CI renderer/toolchain/fonts. Validate a complete Release candidate with the actual ManifestUtil and connect its retained receipts to the trusted candidate/evidence producer. Validate the hooks for each consuming build layout. Hosted rendering and the final submission CI job remain pending; ordinary publication is unaffected.
+Prepare the driver-specific help content and approved UI figures in private working storage, verify accurate licensing and support details, and pin the renderer/toolchain/fonts. Validate the hooks for the consuming build layout and connect the final package receipts to the trusted candidate/evidence producer. The help PDF is public-facing; its preparation settings and submission workflow need not be published in the driver repository. See [workflow setup](WorkflowSetup.md) for optional CI and [validation status](ValidationStatus.md) for the verified scope.
 
 The help must preserve the consuming driver's actual license and third-party notices; do not assume they match DevTools' MIT license. Public support may use a repository and issue tracker. Keep private submission correspondence out of public help and metadata. Supported models, firmware, figures and candidate test environments require evidence, not inference from renderer checks.
 
-See the [submission plan](../CrestronSubmission.md) for the remaining help, evidence, signing and delivery work.
+See the [submission workflow](../CrestronSubmission.md) for help, evidence, signing and delivery responsibilities.
 
 ### Archive path correction in 1.6.0
 

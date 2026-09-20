@@ -1,5 +1,11 @@
 # Development history
 
+## 20 September 2026 - Public submission workflow validation
+
+The published protected console completed a real authorized submission: candidate/evidence revalidation, actual package upload, byte-identical verification download, and SMTP acceptance of the confirmed link with the exact signed checklist. Private driver identity, artifacts, correspondence and provider receipts remain outside this repository. This establishes the actual local console/provider path, not a live GitHub Actions service send or a Crestron acceptance decision.
+
+Updated the shared runbook and status guides to distinguish released capabilities, actual provider checks, synthetic CI rehearsals and environment-specific prerequisites. Driver submission profiles and progress belong in private developer-controlled storage; public driver documentation remains focused on the product. No code or package behavior changed.
+
 ## 19 September 2026 - Combined passive observation and notification command
 
 Source after 1.11.0 adds `endurance-watch`, a single bounded invocation that observes local or pinned remote Windows monitoring and hands its fresh report to the existing notifier. Attention reports reach notification even though they represent monitoring failure; accepted email does not hide that failure. The command preserves separate health/delivery results and the notification journal across invocations. Credentials remain separated on standard input. Synthetic handoff tests cover query failure, duplicate suppression, uncertain delivery, invalid inputs, cancellation and loss of journal access. Scheduling, private credential provisioning and actual delivery remain deployment validation; no collector or driver submission operation is performed.

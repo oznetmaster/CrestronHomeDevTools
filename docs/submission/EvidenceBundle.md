@@ -2,11 +2,11 @@
 
 The `submission-bundle-create` and `submission-bundle-check` commands, introduced in 1.5.0, retain a validated snapshot for later submission stages. Both run offline without processor credentials, an emulator or an email account.
 
-The bundle is private working evidence. It may contain unredacted screenshots, device names or other private information from the referenced files. Do not attach it to a public GitHub release or send it to Crestron as the final submission package. The final delivery package and its disclosure review remain separate work.
+The bundle is private working evidence. It may contain unredacted screenshots, device names or other private information from the referenced files. Do not attach it to a public GitHub release or send it to Crestron as the final submission package. The final delivery package and its disclosure review are separate artifacts; see [review and delivery](ReviewApproval.md).
 
 ## Build and retain a bundle
 
-First produce the [candidate declaration, approved policy and observations](EvidenceCli.md). The trusted release job must retain the candidate declaration's SHA-256 independently of the evidence worker. The source commit and package hash must identify the exact tested Release artifact; a successful Debug workflow is insufficient. The NUnit source supports a [prebuilt Release handoff](https://github.com/oznetmaster/CrestronHomeNUnit/blob/main/docs/ReleaseCandidateTesting.md), whose Release hardware validation is still pending.
+First produce the [candidate declaration, approved policy and observations](EvidenceCli.md). The trusted release job must retain the candidate declaration's SHA-256 independently of the evidence worker. The source commit and package hash must identify the exact tested Release artifact; a successful Debug workflow is insufficient. The NUnit source supports a [prebuilt Release handoff](https://github.com/oznetmaster/CrestronHomeNUnit/blob/main/docs/ReleaseCandidateTesting.md), for exact-candidate hardware runs. Each consuming driver must validate its own candidate; see [verified scope](ValidationStatus.md).
 
 Use an existing private output directory with access restricted to the intended build/signing accounts. Keep it outside the source checkout. The commands create randomly named temporary children there and remove them after a completed or handled failed operation. They do not configure filesystem permissions for you.
 
