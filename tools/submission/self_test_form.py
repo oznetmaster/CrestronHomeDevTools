@@ -182,7 +182,7 @@ def decisions(inventory, inventory_digest, mapping, policy, observations, assess
             details.extend(dict.fromkeys(descriptions[assessed[i]["observedOutcome"]] + ": " + assessed[i]["declaredReason"] for i in gaps))
             rationale = "\n".join(filter(None, [*details, rationale]))
         rows.append({"id": identifier, "label": requirement["label"], "field": requirement["field"],
-                     "state": "GapDeclared" if gaps else "NotApplicable" if excluded else "Passed", "observationIds": ids,
+                     "state": "GapDeclared" if gaps else "NotApplicable" if len(excluded) == len(ids) else "Passed", "observationIds": ids,
                      "rationale": rationale})
     if covered != rules.keys():
         raise ValueError("Form mapping leaves policy requirements unused")
@@ -251,7 +251,7 @@ def companion(title, author, rows, identity, draft, signing_copy=False, declared
              paragraph("Prepared for " + author + ". Crestron's original interactive form follows this companion matrix." if signing_copy else
                        "Prepared for " + author + ". Signature and date fields are blank. Crestron's original interactive form follows this companion matrix."),
              paragraph("No requirements have been attested. Every checkbox remains blank." if draft else
-                       "Checkboxes are checked only when every mapped assertion is supported by validated current evidence or an explicitly identified, scoped review of prior passing evidence. A prior-evidence review does not claim a new test execution. This does not authenticate the evidence producer or establish Crestron approval."),
+                       "Checkboxes are checked only when every applicable mapped assertion is supported by validated current evidence or an explicitly identified, scoped review of prior passing evidence. Validated non-applicable subconditions are disclosed. A prior-evidence review does not claim a new test execution. This does not authenticate the evidence producer or establish Crestron approval."),
              paragraph("Non-applicable items remain unchecked and are explained in the matrix. Confirm their representation with Crestron before signing. Review every page, mapping and applicable subcondition before authorizing a signature.")]
     if declared_gaps:
         has_gaps = any(row["state"] == "GapDeclared" for row in rows)
@@ -279,7 +279,7 @@ def companion(title, author, rows, identity, draft, signing_copy=False, declared
     story.append(Spacer(1, 12))
     data = [[paragraph("Official item", small), paragraph("Result / evidence mapping", small)]]
     for row in rows:
-        status = {"Passed": "Passed - checkbox checked", "NotApplicable": "Includes non-applicability - unchecked",
+        status = {"Passed": "Passed - checkbox checked", "NotApplicable": "Not applicable - unchecked",
                   "NotTested": "Not evaluated - unchecked", "GapDeclared": "Declared gaps - unchecked"}[row["state"]]
         if request is not None and request["attachmentKind"] == "DisclosureOnly":
             status = {"Passed": "Verified supporting evidence", "NotApplicable": "Includes non-applicability",

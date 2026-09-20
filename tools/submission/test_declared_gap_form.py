@@ -155,9 +155,9 @@ class DeclaredGapFormTests(unittest.TestCase):
         self.gaps = [{"requirementId": "second.duration", "reason": "Not observed."}]
         rows, identity, _ = self.validate()
         report = self.write(rows, identity)
-        self.assertEqual(report["notApplicableRequirements"], ["first"])
+        self.assertEqual(report["notApplicableRequirements"], [])
         self.assertEqual(report["declaredGapRequirements"], ["second"])
-        self.assertEqual(report["checkedRequirements"], [])
+        self.assertEqual(report["checkedRequirements"], ["first"])
 
     def test_assessment_cannot_hide_scope_failures_or_change_original_outcomes(self):
         _, _, raw = self.validate()

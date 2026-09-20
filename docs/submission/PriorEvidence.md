@@ -38,7 +38,7 @@ SubmissionEvidenceDocument imported = SubmissionPriorEvidence.ImportFiles(
 
 ## How the results appear
 
-The assessment uses `VerifiedPriorEvidence` for a valid review. Original physical measurements remain in the retained source document; the imported observation records the review date without invented execution measurements. The form companion identifies prior evidence separately from fresh passes. A checkbox is checked only when every mapped assertion has sufficient validated support; mixed incomplete items remain unchecked with their explanations.
+The assessment uses `VerifiedPriorEvidence` for a valid review. Original physical measurements remain in the retained source document; the imported observation records the review date without invented execution measurements. The form companion identifies prior evidence separately from fresh passes. A checkbox is checked only when every applicable mapped assertion has sufficient validated support. Explicitly justified, policy-permitted non-applicable subconditions are disclosed without preventing an otherwise supported item from being checked. Entirely non-applicable items and items with incomplete applicable checks remain unchecked with their explanations.
 
 Portable bundles retain and revalidate the original evidence and the change review, so validation does not depend on the original working directory still existing. Changed hashes, missing provenance or an altered original scope are errors that cannot be waived as ordinary verification gaps.
 

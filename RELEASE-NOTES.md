@@ -4,6 +4,7 @@ Submission reviewers can now retain relevant passing evidence from an earlier ca
 
 - The C# `SubmissionPriorEvidence` API and `submission-import-prior-evidence` console command validate the original evidence, unchanged assertion requirements and independently pinned review decisions.
 - Forms distinguish fresh results from reviewed earlier evidence. Portable bundles retain and revalidate the original records and supporting change analysis.
+- Form items can be checked when all applicable subconditions pass and optional absent controls have validated non-applicability explanations. Entirely non-applicable items remain unchecked; incomplete applicable checks still prevent a checkmark.
 - Failed, partial, inconclusive and unperformed checks cannot be promoted through this path. Changed evidence or missing provenance cannot be waived as a declared gap.
 
 See [reviewing prior evidence](docs/submission/PriorEvidence.md) for the C# and console workflow. The reviewer remains responsible for assessing affected code and dependencies. These checks do not predict Crestron acceptance or certification. Driver-specific submission files remain private.

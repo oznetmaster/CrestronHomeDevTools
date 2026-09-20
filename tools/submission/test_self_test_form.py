@@ -115,15 +115,24 @@ class SelfTestFormTests(unittest.TestCase):
             actual = reader.pages[i + report["companionPages"]]
             self.assertEqual(page.get_contents().get_data(), actual.get_contents().get_data())
 
-    def test_non_applicable_subcondition_does_not_get_a_pass_tick(self):
+    def test_all_applicable_subconditions_pass_with_optional_absence_disclosed(self):
         self.observations["observations"][1].update(outcome="NotApplicable", rationale="This synthetic device has no optional control.")
         rows = self.decisions()
         report = self.write(rows)
-        self.assertEqual(report["checkedRequirements"], ["second"])
-        self.assertEqual(report["notApplicableRequirements"], ["first"])
+        self.assertEqual(report["checkedRequirements"], ["first", "second"])
+        self.assertEqual(report["notApplicableRequirements"], [])
         reader = PdfReader(self.output)
-        self.assertEqual(reader.get_fields()["First"]["/V"], "/Off")
+        self.assertEqual(reader.get_fields()["First"]["/V"], "/Yes")
         self.assertIn("no optional control", "".join(p.extract_text() for p in reader.pages))
+
+    def test_wholly_non_applicable_item_remains_unchecked(self):
+        self.policy['requirements'][0]['allowNotApplicable'] = True
+        for row in self.observations['observations'][:2]:
+            row.update(outcome='NotApplicable', rationale='This entire synthetic control family is absent.')
+        report = self.write(self.decisions())
+        self.assertEqual(report['checkedRequirements'], ['second'])
+        self.assertEqual(report['notApplicableRequirements'], ['first'])
+        self.assertEqual(PdfReader(self.output).get_fields()['First']['/V'], '/Off')
 
     def test_failed_partial_and_missing_observations_are_rejected(self):
         for outcome in ("Failed", "Partial", "NotTested", "Inconclusive"):
