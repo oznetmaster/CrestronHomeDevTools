@@ -100,6 +100,20 @@ class DeclaredGapFormTests(unittest.TestCase):
         self.assertEqual(report["checkedRequirements"], ["first"])
         self.assertIn("Claimed pass with incomplete verification", rows[1]["rationale"])
 
+    def test_shared_explanation_is_printed_once_without_hiding_scoped_gaps(self):
+        self.observations["observations"][0]["outcome"] = "Partial"
+        self.observations["observations"][1]["outcome"] = "Partial"
+        reason = "Only the documented portion could be observed."
+        self.gaps = [{"requirementId": identifier, "reason": reason} for identifier in ("first.a", "first.b")]
+        rows, identity, raw = self.validate()
+        self.assertEqual(rows[0]["rationale"].count(reason), 1)
+        self.assertIn("Declared gaps: 2", rows[0]["rationale"])
+        assessed = json.loads(raw)["assessment"]["requirements"]
+        self.assertEqual(sum(item["status"] == "GapDeclared" for item in assessed), 2)
+        report = self.write(rows, identity)
+        self.assertEqual(report["declaredGapRequirements"], ["first"])
+        self.assertEqual(PdfReader(self.output).get_fields()["First"]["/V"], "/Off")
+
     def test_empty_observations_require_every_gap_and_leave_all_boxes_unchecked(self):
         self.observations["observations"] = []
         self.gaps = [{"requirementId": rule["id"], "reason": "Hardware unavailable."} for rule in self.policy["requirements"]]

@@ -160,7 +160,7 @@ def decisions(inventory, inventory_digest, mapping, policy, observations, assess
                 raise ValueError("Policy does not permit non-applicability")
             text(results[i]["rationale"])
         gaps = [i for i in ids if assessed is not None and assessed[i]["status"] == "GapDeclared"]
-        rationale = "\n".join(("Non-applicable: " if assessed is not None else i + ": ") + results[i]["rationale"] for i in excluded)
+        rationale = "\n".join(dict.fromkeys(("Non-applicable: " if assessed is not None else i + ": ") + results[i]["rationale"] for i in excluded))
         if assessed is not None:
             # Outbound companion groups by official item, not internal scope IDs or raw private measurements.
             verified = sum(assessed[i]["status"] == "VerifiedAgainstPlan" and results[i]["outcome"] == "Passed" for i in ids)
@@ -169,7 +169,9 @@ def decisions(inventory, inventory_digest, mapping, policy, observations, assess
                             "NotTested": "Not tested", "NotApplicable": "Non-applicability not fully supported"}
             verified_excluded = sum(assessed[i]["status"] == "VerifiedAgainstPlan" for i in excluded)
             details = [f"Verified passing portions: {verified}. Verified non-applicable portions: {verified_excluded}. Declared gaps: {len(gaps)}."]
-            details.extend(descriptions[assessed[i]["observedOutcome"]] + ": " + assessed[i]["declaredReason"] for i in gaps)
+            # Keep all scope counts/assessment entries, but print an identical
+            # explanation once per official item rather than once per control.
+            details.extend(dict.fromkeys(descriptions[assessed[i]["observedOutcome"]] + ": " + assessed[i]["declaredReason"] for i in gaps))
             rationale = "\n".join(filter(None, [*details, rationale]))
         rows.append({"id": identifier, "label": requirement["label"], "field": requirement["field"],
                      "state": "GapDeclared" if gaps else "NotApplicable" if excluded else "Passed", "observationIds": ids,
