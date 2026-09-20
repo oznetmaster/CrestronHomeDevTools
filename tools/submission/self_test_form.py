@@ -23,6 +23,7 @@ from reportlab.platypus.doctemplate import LayoutError
 
 from build_help import keys, sha, strict_object, text
 from package_help import read_json, write_json
+from checklist_notes import notes_document, link_notes
 from render_help import run_process
 from validator_runtime import validator_command
 
@@ -56,8 +57,8 @@ def indexed(items, key):
     return result
 
 
-def inspect_form(reader, inventory, expected_values=None, page_offset=0, signing_values=None):
-    if reader.is_encrypted or reader.attachments or len(reader.pages) != inventory["templatePages"] + page_offset:
+def inspect_form(reader, inventory, expected_values=None, page_offset=0, signing_values=None, trailing_pages=0):
+    if reader.is_encrypted or reader.attachments or len(reader.pages) != inventory["templatePages"] + page_offset + trailing_pages:
         raise ValueError("Official form page count or document structure changed")
     requirements = indexed(inventory["requirements"], "field")
     signing = indexed(inventory["signingFields"], "field")
@@ -133,15 +134,17 @@ def decisions(inventory, inventory_digest, mapping, policy, observations, assess
         for identifier, row in assessed.items():
             if row["observedOutcome"] != results.get(identifier, {}).get("outcome"):
                 raise ValueError("Assessment outcome differs from original observation")
-            if row["status"] == "GapDeclared":
+            if row["status"] in ("GapDeclared", "AcceptedInterpretation"):
                 text(row["declaredReason"])
                 if not row["issues"]:
                     raise ValueError("Declared gap has no supporting validation issue")
+                if row["status"] == "AcceptedInterpretation" and row["observedOutcome"] not in ("Passed", "Partial", "Inconclusive"):
+                    raise ValueError("An interpretation cannot accept a missing, failed or unperformed test")
             elif (row["issues"] or
                   (row["status"], row["observedOutcome"]) not in (("VerifiedAgainstPlan", "Passed"),
                   ("VerifiedAgainstPlan", "NotApplicable"), ("VerifiedPriorEvidence", "ReviewedPriorPass"))):
                 raise ValueError("Unverified or invalid scope cannot populate the review form")
-        has_gaps = any(row["status"] == "GapDeclared" for row in assessed.values())
+        has_gaps = any(row["status"] in ("GapDeclared", "AcceptedInterpretation") for row in assessed.values())
         if has_gaps != (assessment["verificationStatus"] == "GapsDeclared"):
             raise ValueError("Assessment summary differs from its scoped results")
     covered, rows = set(), []
@@ -163,6 +166,7 @@ def decisions(inventory, inventory_digest, mapping, policy, observations, assess
                 raise ValueError("Policy does not permit non-applicability")
             text(results[i]["rationale"])
         gaps = [i for i in ids if assessed is not None and assessed[i]["status"] == "GapDeclared"]
+        interpretations = [i for i in ids if assessed is not None and assessed[i]["status"] == "AcceptedInterpretation"]
         rationale = "\n".join(dict.fromkeys(("Non-applicable: " if assessed is not None else i + ": ") + results[i]["rationale"] for i in excluded))
         prior = [i for i in ids if results.get(i, {}).get("outcome") == "ReviewedPriorPass"]
         prior_text = "\n".join(dict.fromkeys("Reviewed prior evidence: " + text(results[i]["rationale"]) for i in prior))
@@ -181,10 +185,13 @@ def decisions(inventory, inventory_digest, mapping, policy, observations, assess
             # Keep all scope counts/assessment entries, but print an identical
             # explanation once per official item rather than once per control.
             details.extend(dict.fromkeys(descriptions[assessed[i]["observedOutcome"]] + ": " + assessed[i]["declaredReason"] for i in gaps))
+            if interpretations:
+                details.append("Checked using an explicit review of the retained evidence and interpreted scope. Original automatic findings are retained; this is not a new automatic pass.")
+                details.extend(dict.fromkeys(assessed[i]["declaredReason"] for i in interpretations))
             rationale = "\n".join(filter(None, [*details, rationale]))
         rows.append({"id": identifier, "label": requirement["label"], "field": requirement["field"],
                      "state": "GapDeclared" if gaps else "NotApplicable" if len(excluded) == len(ids) else "Passed", "observationIds": ids,
-                     "rationale": rationale})
+                     "rationale": rationale, "interpretationReviewed": bool(interpretations)})
     if covered != rules.keys():
         raise ValueError("Form mapping leaves policy requirements unused")
     return rows
@@ -255,7 +262,7 @@ def companion(title, author, rows, identity, draft, signing_copy=False, declared
                        "Checkboxes are checked only when every applicable mapped assertion is supported by validated current evidence or an explicitly identified, scoped review of prior passing evidence. Validated non-applicable subconditions are disclosed. A prior-evidence review does not claim a new test execution. This does not authenticate the evidence producer or establish Crestron approval."),
              paragraph("Non-applicable items are labelled N/A beside their unchecked boxes. Other qualified items are labelled Notes and explained in this matrix. These margin annotations are reviewer explanations, not pass marks. Review every page, mapping and applicable subcondition before authorizing a signature.")]
     if declared_gaps:
-        has_gaps = any(row["state"] == "GapDeclared" for row in rows)
+        has_gaps = any(row["state"] == "GapDeclared" or row.get("interpretationReviewed") for row in rows)
         story.insert(2, paragraph("REVIEW WITH DECLARED GAPS" if has_gaps else "DECLARED-GAPS MODE - NO VERIFICATION GAPS", heading))
         story.insert(3, paragraph(("This request contains the omissions or verification limits listed below. " if has_gaps else
                                   "No verification gaps were found against the full reviewed policy. ") +
@@ -383,22 +390,22 @@ def write_form(source_bytes, inventory, output, title, author, rows, identity, d
     inspect_form(source, inventory)
     values = {r["field"]: NameObject(r["checkedAppearance"][0] if resolved[r["id"]]["state"] == "Passed" else "/Off")
               for r in inventory["requirements"]}
-    cover = companion(title, author, rows, identity, draft, signing_copy, declared_gaps)
+    cover, note_positions = notes_document(title, author, rows, identity, draft, signing_copy, declared_gaps)
     writer = PdfWriter()
     writer.clone_document_from_reader(source)
     vector_check_appearances(writer, inventory)
     writer.update_page_form_field_values(None, values, auto_regenerate=False)
-    annotate_unchecked_items(writer, rows)
-    for index, page in enumerate(cover.pages):
-        writer.insert_page(page, index)
+    for page in cover.pages:
+        writer.add_page(page)
+    link_notes(writer, rows, note_positions, len(source.pages))
     writer.add_metadata({"/Title": title + " - unsigned review", "/Author": author,
                          "/Subject": "Unsigned self-test review; not a submission or certification"})
     data = io.BytesIO()
     writer.write(data)
     result = PdfReader(io.BytesIO(data.getvalue()), strict=True)
-    inspect_form(result, inventory, values, len(cover.pages))
+    inspect_form(result, inventory, values, 0, trailing_pages=len(cover.pages))
     for index, page in enumerate(source.pages):
-        actual = result.pages[index + len(cover.pages)]
+        actual = result.pages[index]
         if (page.get_contents().get_data() != actual.get_contents().get_data() or
                 list(page.mediabox) != list(actual.mediabox) or page.extract_text() != actual.extract_text()):
             raise ValueError("The official form's printed content changed")
@@ -407,6 +414,7 @@ def write_form(source_bytes, inventory, output, title, author, rows, identity, d
         destination.write(data.getvalue())
     report = {"schemaVersion": 1, "formSha256": sha(data.getvalue()), "templateSha256": sha(source_bytes),
             "identity": identity, "pages": len(result.pages), "companionPages": len(cover.pages),
+            "officialStartPage": 0, "notesStartPage": len(source.pages), "numberedNotes": len(rows),
             "checkedRequirements": [row["id"] for row in rows if row["state"] == "Passed"],
             "notApplicableRequirements": [row["id"] for row in rows if row["state"] == "NotApplicable"],
             "signatureBlank": True, "dateBlank": True, "visualReviewRequired": True,
@@ -414,6 +422,7 @@ def write_form(source_bytes, inventory, output, title, author, rows, identity, d
     if declared_gaps:
         report.update(reviewMode="DeclaredGaps", verificationStatus=identity["verificationStatus"],
                       declaredGapRequirements=[row["id"] for row in rows if row["state"] == "GapDeclared"],
+                      interpretedRequirements=[row["id"] for row in rows if row.get("interpretationReviewed")],
                       declarationsSha256=identity["declarationsSha256"])
     return report
 

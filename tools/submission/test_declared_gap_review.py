@@ -73,7 +73,8 @@ class DeclaredGapReviewTests(unittest.TestCase):
         reader = PdfReader(self.output / "self-test.review.pdf")
         self.assertEqual(reader.get_fields()["Second"]["/V"], "/Off")
         self.assertEqual(reader.get_fields()["Signature"].get("/V", ""), "")
-        self.assertIn("REVIEW WITH DECLARED GAPS", reader.pages[0].extract_text())
+        self.assertIn("Synthetic official-form fixture", reader.pages[0].extract_text())
+        self.assertIn("Disclosed limitations remain identified below", "\n".join(page.extract_text() for page in reader.pages[2:]))
 
     def test_unexplained_missing_scope_cannot_publish_review(self):
         self.gaps = []

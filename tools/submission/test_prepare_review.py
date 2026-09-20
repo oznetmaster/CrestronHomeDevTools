@@ -202,7 +202,8 @@ class ReviewStageTests(unittest.TestCase):
         form = self.output / "self-test.review.pdf"
         original = form.read_bytes()
         reader = PdfReader(form)
-        self.assertIn("SELF-TEST EVIDENCE SUMMARY", reader.pages[0].extract_text())
+        self.assertIn("Synthetic official-form fixture", reader.pages[0].extract_text())
+        self.assertIn("Checklist notes", "\n".join(page.extract_text() for page in reader.pages[2:]))
         self.assertEqual(reader.get_fields()["Signature"].get("/V", ""), "")
         self.assertEqual(reader.get_fields()["Date"].get("/V", ""), "")
         image = self.root / "synthetic-signature.png"

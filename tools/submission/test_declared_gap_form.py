@@ -66,11 +66,11 @@ class DeclaredGapFormTests(unittest.TestCase):
         self.assertEqual(report["verificationStatus"], "GapsDeclared")
         self.assertFalse(json.loads(raw)["validation"]["validationChecksPassed"])
         reader = PdfReader(self.output)
-        forms.inspect_form(reader, self.inventory, {"First": "/Yes", "Second": "/Off"}, report["companionPages"])
+        forms.inspect_form(reader, self.inventory, {"First": "/Yes", "Second": "/Off"}, report["officialStartPage"], trailing_pages=report["companionPages"])
         text = "\n".join(page.extract_text() for page in reader.pages)
         self.assertIn("No observation: The developer declined", text)
         self.assertIn("our interpretation", text)
-        self.assertIn("Nothing in this report implies", text)
+        self.assertIn("They do not imply or predict Crestron acceptance", text)
         self.assertNotIn("second.duration", text)
         self.assertNotIn("first.a", text)
         for name in ("Signature", "Date"):
@@ -207,6 +207,27 @@ class DeclaredGapFormTests(unittest.TestCase):
         self.assertIn("explicit declared-gaps mode", result.stderr)
         self.assertFalse(self.output.exists())
 
+    def test_reviewed_interpretation_checks_item_and_preserves_partial_observation(self):
+        original = self.observations['observations'][0]
+        original['outcome'] = 'Partial'
+        self.gaps = [{'requirementId': original['requirementId'], 'reason': 'Optional undefined presentation is N/A.',
+                      'interpretationReview': {'reviewer': 'Example developer',
+                                               'rationale': 'Retained observations cover the supported control.',
+                                               'evidence': original['files']}}]
+        rows, identity, raw = self.validate()
+        report = self.write(rows, identity)
+        self.assertEqual(report['checkedRequirements'], ['first', 'second'])
+        self.assertEqual(report['interpretedRequirements'], ['first'])
+        self.assertEqual(report['declaredGapRequirements'], [])
+        self.assertEqual(report['verificationStatus'], 'GapsDeclared')
+        self.assertEqual(original['outcome'], 'Partial')
+        assessment = json.loads(raw)['assessment']
+        self.assertEqual(assessment['requirements'][0]['status'], 'AcceptedInterpretation')
+        self.assertEqual(assessment['requirements'][0]['observedOutcome'], 'Partial')
+        content = '\n'.join(page.extract_text() for page in PdfReader(self.output).pages)
+        self.assertIn('Example developer', content)
+        self.assertIn('not a new automatic pass', content)
+
     def test_long_official_item_explanation_continues_across_pages_without_losing_text(self):
         self.observations["observations"].pop()
         reason = "\n".join(f"Explanation paragraph {index:03}: Required equipment was unavailable." for index in range(120))
@@ -217,7 +238,7 @@ class DeclaredGapFormTests(unittest.TestCase):
         reader = PdfReader(self.output)
         text = "\n".join(page.extract_text() for page in reader.pages)
         for index in range(120): self.assertIn(f"Explanation paragraph {index:03}", text)
-        forms.inspect_form(reader, self.inventory, {"First": "/Yes", "Second": "/Off"}, report["companionPages"])
+        forms.inspect_form(reader, self.inventory, {"First": "/Yes", "Second": "/Off"}, report["officialStartPage"], trailing_pages=report["companionPages"])
 
 
 if __name__ == "__main__":

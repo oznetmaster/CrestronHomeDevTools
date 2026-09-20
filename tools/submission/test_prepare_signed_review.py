@@ -18,17 +18,25 @@ import test_prepare_review as review_tests
 
 
 class SignedReviewStageTests(unittest.TestCase):
-    def setUp(self, android=False, declared_gaps=False):
+    def setUp(self, android=False, declared_gaps=False, interpreted=False):
         self.review = f = review_tests.ReviewStageTests()
         f.setUp()
         self.addCleanup(f.doCleanups)
         options = f.android_run()[1] if android else {}
-        if declared_gaps:
-            f.fixture.observations["observations"].pop()
+        if declared_gaps or interpreted:
+            if interpreted:
+                observation = f.fixture.observations['observations'][0]
+                observation['outcome'] = 'Partial'
+                gaps = [{'requirementId': observation['requirementId'], 'reason': 'Undefined optional behavior is N/A.',
+                         'interpretationReview': {'reviewer': 'Example developer', 'rationale': 'The retained evidence covers the defined behavior.',
+                                                  'evidence': observation['files']}}]
+            else:
+                f.fixture.observations["observations"].pop()
+                gaps = [{"requirementId": "second.duration", "reason": "Equipment unavailable."}]
             f.fixture.write_json(Path(f.settings["observations"]), f.fixture.observations)
             declarations = f.root / "declarations.json"
             f.fixture.write_json(declarations, {"schemaVersion": 1, "identity": f.fixture.identity,
-                "mode": "DeclaredGaps", "declarations": [{"requirementId": "second.duration", "reason": "Equipment unavailable."}]})
+                "mode": "DeclaredGaps", "declarations": gaps})
             options.update(review_mode="declared-gaps", declarations=declarations,
                            declarations_sha256=stage.sha(declarations.read_bytes()))
         self.receipt = f.run_stage(signing_copy=True, **options)
@@ -49,7 +57,7 @@ class SignedReviewStageTests(unittest.TestCase):
                         "expiresUtc": (now + timedelta(minutes=10)).isoformat(),
                         "signatureField": "Signature", "dateField": "Date",
                         "visualReviewCompleted": True, "signatureAuthorized": True}
-        if declared_gaps:
+        if declared_gaps or interpreted:
             self.approval.update({key: self.receipt[key] for key in ("reviewMode", "verificationStatus", "declarationsSha256")})
         self.authorization = f.root / "synthetic-authorization.json"
         f.fixture.write_json(self.authorization, self.approval)
@@ -190,6 +198,30 @@ class SignedReviewStageTests(unittest.TestCase):
         self.assertFalse((self.output / "COMPLETE").exists())
         with self.assertRaisesRegex(ValueError, "new signed-review"):
             self.run_stage()
+
+
+class InterpretedSigningStageTests(unittest.TestCase):
+    def setUp(self):
+        SignedReviewStageTests.setUp(self, interpreted=True)
+
+    run_stage = SignedReviewStageTests.run_stage
+
+    def test_reviewed_interpretation_survives_exact_form_signing_without_changing_original_outcome(self):
+        original = (self.review.output / 'self-test.review.pdf').read_bytes()
+        result = self.run_stage()
+        self.assertTrue(result['signatureApplied'])
+        self.assertFalse(result['submissionReady'])
+        self.assertEqual((self.review.output / 'self-test.review.pdf').read_bytes(), original)
+        report = json.loads((self.review.output / 'form-report.json').read_text())
+        self.assertEqual(report['interpretedRequirements'], ['first'])
+        self.assertEqual(report['declaredGapRequirements'], [])
+        validation = json.loads(report['validationReportJson'])
+        self.assertEqual(validation['assessment']['requirements'][0]['observedOutcome'], 'Partial')
+        self.assertEqual(validation['assessment']['requirements'][0]['status'], 'AcceptedInterpretation')
+        self.assertFalse(validation['validation']['validationChecksPassed'])
+        signed = PdfReader(self.output / 'delivery/Driver-Self-Test.signed.pdf')
+        self.assertEqual(signed.get_fields()['First']['/V'], '/Yes')
+        self.assertIn('not a new automatic pass', '\n'.join(page.extract_text() for page in signed.pages))
 
 
 if __name__ == "__main__":

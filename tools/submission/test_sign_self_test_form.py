@@ -69,7 +69,8 @@ class SigningTests(unittest.TestCase):
         self.assertFalse(report["submissionReady"])
         self.assertFalse(report["cryptographicSignature"])
         self.assertEqual(report["signedFormSha256"], forms.sha(self.output.read_bytes()))
-        self.assertIn("SELF-TEST EVIDENCE SUMMARY", result.pages[0].extract_text())
+        self.assertIn("Synthetic official-form fixture", result.pages[0].extract_text())
+        self.assertIn("Checklist notes", result.pages[self.report['notesStartPage']].extract_text())
         self.assertNotIn("UNSIGNED REVIEW", result.pages[0].extract_text())
 
     def test_changed_inputs_are_refused(self):

@@ -41,7 +41,7 @@ foreach ($artifact in $lock.artifacts) {
 Remove-Item -LiteralPath $download
 $scripts = Join-Path $output 'scripts'
 New-Item -ItemType Directory -Path $scripts | Out-Null
-$modules = @('audit_android','build_help','coverage_plan','dependency_notices','normalize_package','package_help',
+$modules = @('audit_android','build_help','checklist_notes','coverage_plan','dependency_notices','normalize_package','package_help',
              'prepare_delivery','prepare_review','prepare_review_request','prepare_signed_review','render_help','revalidate_delivery',
              'review_android','self_test_form','sign_self_test_form','bundled_entry','validator_runtime')
 foreach ($module in $modules) { Copy-Item -LiteralPath (Join-Path $source ($module + '.py')) -Destination $scripts }

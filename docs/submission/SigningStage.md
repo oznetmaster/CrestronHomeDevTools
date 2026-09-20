@@ -6,7 +6,7 @@ The source tool `tools/submission/prepare_signed_review.py` connects a completed
 
 Use it only after the final driver Release candidate and all applicable evidence have passed review. Ordinary driver/library releases remain independent of portal submission. A completed signing stage means that authorized files were prepared, not that a driver was submitted or certified.
 
-The current source additionally accepts an explicitly reviewed declared-gap signing copy as described in [Form signing](FormSigning.md#signing-with-declared-gaps-source-update). This extension is not in the 1.13.1 download. It reassesses the declared-gap archive, binds the exact declarations and verification status to the signing authorization, and preserves unchecked requirements. For this mode, the output also retains the evidence archive, declarations, mapping, inventory and unsigned form/report privately so the review-delivery coordinator can revalidate before each provider step. Only the package and signed PDF enter `delivery/`.
+Version 1.14.0 and later accept an explicitly reviewed declared-gap signing copy as described in [Form signing](FormSigning.md#signing-with-declared-gaps-source-update). It reassesses the declared-gap archive, binds the exact declarations and verification status to the signing authorization, and preserves unchecked requirements. For this mode, the output also retains the evidence archive, declarations, mapping, inventory and unsigned form/report privately so the review-delivery coordinator can revalidate before each provider step. Only the package and signed PDF enter `delivery/`.
 
 ## Trust and private inputs
 

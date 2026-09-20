@@ -166,4 +166,47 @@ public sealed class SubmissionReviewAssessmentTests
 		Assert.That (report.VerificationStatus, Is.EqualTo (SubmissionVerificationStatus.CompleteAgainstInterpretedRequirements));
 		Assert.That (report.Requirements[0].ObservedOutcome, Is.EqualTo (SubmissionEvidenceOutcome.NotApplicable));
 		}
+
+	[Test]
+	public void AcceptedInterpretationRetainsPartialOutcomeAndAllOriginalIssues ()
+		{
+		var original = Passing with { Outcome = SubmissionEvidenceOutcome.Partial };
+		var declaration = new SubmissionGapDeclaration ("controls", "Undefined optional presentations are not applicable.")
+			{ InterpretationReview = new ("Example developer", "Retained observations cover the defined controls.", [_file]) };
+		var report = Assess ([original, Endurance], [declaration]);
+		Assert.Multiple (() =>
+			{
+			Assert.That (report.ReadyForReview, Is.True);
+			Assert.That (report.Evidence.EvidenceChecksPassed, Is.False);
+			Assert.That (report.VerificationStatus, Is.EqualTo (SubmissionVerificationStatus.GapsDeclared));
+			Assert.That (report.Requirements[0].Status, Is.EqualTo (SubmissionRequirementReviewStatus.AcceptedInterpretation));
+			Assert.That (report.Requirements[0].ObservedOutcome, Is.EqualTo (SubmissionEvidenceOutcome.Partial));
+			Assert.That (report.Requirements[0].Issues.Select (issue => issue.Code), Does.Contain ("not-passed"));
+			Assert.That (report.Requirements[0].DeclaredReason, Does.Contain ("Example developer"));
+			Assert.That (original.Outcome, Is.EqualTo (SubmissionEvidenceOutcome.Partial));
+			});
+		}
+
+	[TestCase (SubmissionEvidenceOutcome.Failed)]
+	[TestCase (SubmissionEvidenceOutcome.NotTested)]
+	public void InterpretationCannotConvertFailedOrUnperformedTests (SubmissionEvidenceOutcome outcome)
+		{
+		var declaration = new SubmissionGapDeclaration ("controls", "Cannot waive this outcome.")
+			{ InterpretationReview = new ("Example developer", "A reason is not a completed test.", [_file]) };
+		Assert.Throws<ArgumentException> (() => Assess ([Passing with { Outcome = outcome }, Endurance], [declaration]));
+		}
+
+	[Test]
+	public void InterpretationMustReferenceIntactRetainedEvidence ()
+		{
+		var declaration = new SubmissionGapDeclaration ("controls", "Review the supported scope.")
+			{ InterpretationReview = new ("Example developer", "A supported interpretation.", [_file]) };
+		var original = Passing with { Outcome = SubmissionEvidenceOutcome.Partial };
+		Assert.Throws<ArgumentException> (() => Assess ([original, Endurance],
+			[declaration with { InterpretationReview = declaration.InterpretationReview with { Evidence = [] } }]));
+		File.WriteAllText (Path.Combine (_root, _file.RelativePath), "Changed evidence");
+		var report = Assess ([original, Endurance], [declaration]);
+		Assert.That (report.ReadyForReview, Is.False);
+		Assert.That (report.Requirements[0].Status, Is.EqualTo (SubmissionRequirementReviewStatus.InvalidEvidence));
+		}
 	}

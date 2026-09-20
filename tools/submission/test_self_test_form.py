@@ -99,10 +99,32 @@ class SelfTestFormTests(unittest.TestCase):
                     checked = widget["/AP"]["/N"]["/Yes"].get_object().get_data()
                     self.assertNotIn(b" Tf", checked)
                     self.assertIn(b" l S Q", checked)
-        forms.inspect_form(reader, self.inventory, {"First": "/Yes", "Second": "/Yes"}, result["companionPages"])
+        forms.inspect_form(reader, self.inventory, {"First": "/Yes", "Second": "/Yes"}, result["officialStartPage"], trailing_pages=result["companionPages"])
         for name in ("Signature", "Date"):
             self.assertEqual(reader.get_fields()[name].get("/V", ""), "")
         self.assertEqual(self.source, self.template.read_bytes())
+
+    def test_numbered_notes_follow_checklist_and_link_both_directions(self):
+        report = self.write(self.decisions())
+        reader = PdfReader(self.output)
+        first_notes = report['notesStartPage']
+        self.assertEqual(first_notes, self.inventory['templatePages'])
+        self.assertEqual(report['officialStartPage'], 0)
+        self.assertIn('1. First requirement', reader.pages[first_notes].extract_text())
+        self.assertIn('2. Continuous observation', reader.pages[first_notes].extract_text())
+        page_refs = [p.indirect_reference for p in reader.pages]
+        forwards, backwards = [], []
+        for index, page in enumerate(reader.pages):
+            for annotation in page.get('/Annots', []):
+                link = annotation.get_object()
+                if link.get('/Subtype') != '/Link':
+                    continue
+                destination = page_refs.index(link['/Dest'][0])
+                (forwards if index < first_notes else backwards).append((index,destination))
+        self.assertEqual(len(forwards), 2)
+        self.assertEqual(len(backwards), 2)
+        self.assertTrue(all(dest >= first_notes for _,dest in forwards))
+        self.assertEqual(sorted(dest for _,dest in backwards), [0,1])
 
     def test_draft_has_no_attestations_and_original_pages_are_unchanged(self):
         rows = self.decisions()
@@ -112,7 +134,7 @@ class SelfTestFormTests(unittest.TestCase):
         self.assertEqual(report["checkedRequirements"], [])
         reader = PdfReader(self.output)
         for i, page in enumerate(PdfReader(self.template).pages):
-            actual = reader.pages[i + report["companionPages"]]
+            actual = reader.pages[i + report["officialStartPage"]]
             self.assertEqual(page.get_contents().get_data(), actual.get_contents().get_data())
 
     def test_all_applicable_subconditions_pass_with_optional_absence_disclosed(self):
@@ -136,13 +158,13 @@ class SelfTestFormTests(unittest.TestCase):
         self.assertEqual(reader.get_fields()['First']['/V'], '/Off')
         notes = [a.get_object() for page in reader.pages for a in page.get('/Annots', [])
                  if a.get_object().get('/Subtype') == '/FreeText']
-        self.assertEqual([a['/Contents'] for a in notes], ['N/A'])
-        self.assertEqual(notes[0]['/NM'], 'submission-status:First')
-        self.assertIn(b'(N/A) Tj', notes[0]['/AP']['/N'].get_object().get_data())
+        self.assertEqual([a['/Contents'] for a in notes], ['N/A 1', '[2]'])
+        self.assertEqual(notes[0]['/NM'], 'submission-note:First')
+        self.assertIn(b'(N/A 1) Tj', notes[0]['/AP']['/N'].get_object().get_data())
         self.assertEqual(notes[0]['/F'], 4)  # Printed as well as displayed.
         for i, page in enumerate(PdfReader(self.template).pages):
             self.assertEqual(page.get_contents().get_data(),
-                             reader.pages[i + report['companionPages']].get_contents().get_data())
+                             reader.pages[i + report['officialStartPage']].get_contents().get_data())
 
     def test_qualified_item_is_labelled_notes_without_a_pass_mark(self):
         rows = self.decisions()
@@ -154,7 +176,7 @@ class SelfTestFormTests(unittest.TestCase):
         notes = [a.get_object() for page in reader.pages for a in page.get('/Annots', [])
                  if a.get_object().get('/Subtype') == '/FreeText']
         self.assertEqual(reader.get_fields()['First']['/V'], '/Off')
-        self.assertEqual([a['/Contents'] for a in notes], ['Notes'])
+        self.assertEqual([a['/Contents'] for a in notes], ['[1]', '[2]'])
         self.assertEqual(report['checkedRequirements'], ['second'])
 
     def test_failed_partial_and_missing_observations_are_rejected(self):

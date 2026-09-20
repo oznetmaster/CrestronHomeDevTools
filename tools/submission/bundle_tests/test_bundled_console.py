@@ -134,6 +134,21 @@ class BundledConsoleTests(unittest.TestCase):
         self.assertEqual(receipt["state"], "SignedReviewPrepared")
         self.assertFalse(receipt["deliveryAttempted"])
 
+    def test_reviewed_interpretation_signing_uses_bundled_tools(self):
+        f = signed.SignedReviewStageTests()
+        f.setUp(interpreted=True)
+        self.addCleanup(f.doCleanups)
+        self.portable_settings(f)
+        output, _ = self.invoke("prepare-signed-review", "--settings", f.settings_path,
+                               "--review-sha256", f.review_pin, "--authorization-sha256", f.approval_pin)
+        receipt = json.loads(output)
+        self.assertEqual(receipt["verificationStatus"], "GapsDeclared")
+        self.assertTrue(receipt["signatureApplied"])
+        self.assertFalse(receipt["deliveryAttempted"])
+        self.assertFalse(receipt["deliveryAuthorized"])
+        form = signed.PdfReader(f.output / "delivery" / "Driver-Self-Test.signed.pdf")
+        self.assertIn("Checked - reviewed interpretation", "\n".join(page.extract_text() for page in form.pages))
+
     def test_delivery_preparation_uses_bundled_validator_without_sending(self):
         f = self.fixture(delivery.DeliveryStageTests)
         output, _ = self.invoke("prepare-delivery", "--settings", f.settings_path,

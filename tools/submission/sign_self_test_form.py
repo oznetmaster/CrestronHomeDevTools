@@ -108,9 +108,13 @@ def sign(form_path, report_path, inventory_path, authorization_path, authorizati
     declared = indexed(inventory["requirements"], "id")
     passed, excluded = report["checkedRequirements"], report["notApplicableRequirements"]
     gaps = report["declaredGapRequirements"] if declared_gaps else []
+    interpreted = report.get("interpretedRequirements", [])
+    if (len(set(interpreted)) != len(interpreted) or any(item not in passed + gaps for item in interpreted) or
+            interpreted and not declared_gaps):
+        raise ValueError("Reviewed interpretations must identify recorded checked or qualified items in declared-gaps mode")
     decisions = passed + excluded + gaps
     if (len(set(decisions)) != len(decisions) or set(decisions) != declared.keys() or
-            declared_gaps and bool(gaps) != (report["verificationStatus"] == "GapsDeclared")):
+            declared_gaps and bool(gaps or interpreted) != (report["verificationStatus"] == "GapsDeclared")):
         raise ValueError("Form decisions are incomplete")
     values = {v["field"]: v["checkedAppearance"][0] if k in passed else "/Off" for k, v in declared.items()}
     fields = indexed(inventory["signingFields"], "field")
@@ -118,7 +122,9 @@ def sign(form_path, report_path, inventory_path, authorization_path, authorizati
     if signature_field == date_field or set(fields) != {signature_field, date_field}:
         raise ValueError("Signature and date must map to the two reviewed official fields")
     reader = PdfReader(io.BytesIO(form_bytes), strict=True)
-    inspect_form(reader, inventory, values, report["companionPages"])
+    official_start = report.get("officialStartPage", report["companionPages"])
+    trailing_pages = report["pages"] - inventory["templatePages"] - official_start
+    inspect_form(reader, inventory, values, official_start, trailing_pages=trailing_pages)
     with Path(image_path).open("rb") as source_image:
         image_bytes = source_image.read(10 * 1024 * 1024 + 1)
     if len(image_bytes) > 10 * 1024 * 1024 or sha(image_bytes) != approval["signatureImageSha256"]:
@@ -148,7 +154,7 @@ def sign(form_path, report_path, inventory_path, authorization_path, authorizati
     writer.write(buffer)
     signed = buffer.getvalue()
     result = PdfReader(io.BytesIO(signed), strict=True)
-    inspect_form(result, inventory, values, report["companionPages"], signing_values)
+    inspect_form(result, inventory, values, official_start, signing_values, trailing_pages)
     for before, after in zip(reader.pages, result.pages, strict=True):
         if before.get_contents().get_data() != after.get_contents().get_data() or list(before.mediabox) != list(after.mediabox):
             raise ValueError("Printed official or companion content changed while signing")

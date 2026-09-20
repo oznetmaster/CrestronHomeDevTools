@@ -75,7 +75,7 @@ class PriorEvidenceFormTests(unittest.TestCase):
             'Example Developer', rows, identity, False, declared_gaps=True)
         self.assertEqual(report['checkedRequirements'], ['first', 'second'])
         reader = PdfReader(self.output)
-        forms.inspect_form(reader, self.inventory, {'First': '/Yes', 'Second': '/Yes'}, report['companionPages'])
+        forms.inspect_form(reader, self.inventory, {'First': '/Yes', 'Second': '/Yes'}, report['officialStartPage'], trailing_pages=report['companionPages'])
         body = '\n'.join(page.extract_text() for page in reader.pages)
         self.assertIn('Reviewed prior evidence', body)
         self.assertIn('not fresh executions', body)

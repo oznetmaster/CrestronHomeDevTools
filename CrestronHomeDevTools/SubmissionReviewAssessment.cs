@@ -5,8 +5,13 @@ namespace CrestronHomeDevTools;
 
 public enum SubmissionReviewMode { Complete, DeclaredGaps }
 public enum SubmissionVerificationStatus { CompleteAgainstInterpretedRequirements, GapsDeclared, NeedsCorrection }
-public enum SubmissionRequirementReviewStatus { VerifiedAgainstPlan, GapDeclared, GapUndeclared, InvalidEvidence, VerifiedPriorEvidence }
-public sealed record SubmissionGapDeclaration (string RequirementId, string Reason);
+public enum SubmissionRequirementReviewStatus { VerifiedAgainstPlan, GapDeclared, GapUndeclared, InvalidEvidence, VerifiedPriorEvidence, AcceptedInterpretation }
+/// <summary>A named review of retained evidence. This is not a new execution or an automatic passing result.</summary>
+public sealed record SubmissionInterpretationReview (string Reviewer, string Rationale, IReadOnlyList<SubmissionEvidenceFile> Evidence);
+public sealed record SubmissionGapDeclaration (string RequirementId, string Reason)
+	{
+	public SubmissionInterpretationReview? InterpretationReview { get; init; }
+	}
 public sealed record SubmissionRequirementReview (string RequirementId, SubmissionRequirementReviewStatus Status,
 	SubmissionEvidenceOutcome? ObservedOutcome, string? DeclaredReason, IReadOnlyList<SubmissionEvidenceIssue> Issues);
 public sealed record SubmissionReviewAssessmentReport (SubmissionReviewMode Mode, SubmissionVerificationStatus VerificationStatus,
@@ -45,6 +50,16 @@ public static class SubmissionReviewAssessment
 			throw new ArgumentException ("Gap declarations require unique scoped requirement IDs and explicit reasons.", nameof (declarations));
 		if (mode == SubmissionReviewMode.Complete && declarations.Count != 0)
 			throw new ArgumentException ("Choose declared-gaps review explicitly before supplying gap declarations.", nameof (mode));
+		foreach (var declaration in declarations.Where (item => item.InterpretationReview != null))
+			{
+			var review = declaration.InterpretationReview!;
+			var originals = observations.Where (item => item.RequirementId == declaration.RequirementId).ToArray ();
+			if (string.IsNullOrWhiteSpace (review.Reviewer) || string.IsNullOrWhiteSpace (review.Rationale) ||
+				review.Evidence == null || review.Evidence.Count == 0 || originals.Length != 1 ||
+				originals[0].Outcome is not (SubmissionEvidenceOutcome.Partial or SubmissionEvidenceOutcome.Inconclusive or SubmissionEvidenceOutcome.Passed) ||
+				review.Evidence.Any (file => file == null || !(originals[0].Files?.Contains (file) ?? false)))
+				throw new ArgumentException ("An interpretation review requires a named reviewer, rationale and retained observation evidence. Missing, failed or unperformed tests cannot be accepted this way.", nameof (declarations));
+			}
 		var evidence = SubmissionEvidence.Evaluate (identity, requirements, observations, evidenceDirectory, now, cancellationToken);
 		// The underlying evaluator treats every nonpassing value alike. Unknown enum values are malformed data,
 		// not a genuine failed/partial/untested outcome that a developer can explain.
@@ -74,13 +89,20 @@ public static class SubmissionReviewAssessment
 			else if (issues.Any (issue => !DeclarableGaps.Contains (issue.Code)))
 				status = SubmissionRequirementReviewStatus.InvalidEvidence;
 			else if (mode == SubmissionReviewMode.DeclaredGaps && declaration != null)
-				status = SubmissionRequirementReviewStatus.GapDeclared;
+				status = declaration.InterpretationReview == null
+					? SubmissionRequirementReviewStatus.GapDeclared : SubmissionRequirementReviewStatus.AcceptedInterpretation;
 			else
 				{
 				status = SubmissionRequirementReviewStatus.GapUndeclared;
 				blocking.Add (new (requirement.Id, "undeclared-gap", "This unmet requirement needs an explicit reason in declared-gaps mode, or completed verification."));
 				}
-			rows.Add (new (requirement.Id, status, outcome, declaration?.Reason, issues));
+			string? reason = declaration?.Reason;
+			if (status == SubmissionRequirementReviewStatus.AcceptedInterpretation)
+				{
+				var review = declaration!.InterpretationReview!;
+				reason = $"Reviewed interpretation by {review.Reviewer}: {review.Rationale} {declaration.Reason}";
+				}
+			rows.Add (new (requirement.Id, status, outcome, reason, issues));
 			}
 		var decision = blocking.Count != 0 ? SubmissionVerificationStatus.NeedsCorrection
 			: evidence.EvidenceChecksPassed ? SubmissionVerificationStatus.CompleteAgainstInterpretedRequirements
