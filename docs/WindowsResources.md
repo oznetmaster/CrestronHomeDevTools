@@ -1,6 +1,6 @@
 # Assess and select development computers
 
-These commands and APIs are in development, not part of the released 1.16.3 console. They perform read-only assessment and selection; they do not install prerequisites, register runners, log on users or reserve resources.
+These commands and APIs are in development, not part of the released 1.16.3 console. The inspection and selection commands are read-only. Separate reviewed [OpenSSH setup](WindowsSetup.md) is available; inspection does not install prerequisites, register runners, log on users or reserve resources.
 
 ## Inspect a Windows computer
 
@@ -53,4 +53,4 @@ Service/session-zero execution does not establish desktop automation capability.
 
 Capability names are your inventory's names for retained rehearsal evidence. Planned or disabled resources are never selected. Multiple matches require a name. Selection is read-only and does not contact the resource. The calling workflow must still acquire its shared resource reservation, apply real-use restrictions, and confirm that the recorded evidence remains applicable. Desktop automation jobs must not compete for the same interactive session.
 
-The inventory CLI does not yet route existing workflow commands automatically. Prerequisite installation, cross-computer encrypted credential provisioning and automatic desktop-session recovery setup remain pending; do not treat the inspection command as a completed machine installer.
+The inventory CLI does not yet route existing workflow commands automatically. Selected-entry [cross-computer provisioning](PrivateInputs.md#transfer-one-entry-to-another-windows-computer) and reviewed [OpenSSH setup](WindowsSetup.md) have separate commands. GitHub runner/tool installation and automatic desktop-session recovery setup remain pending; do not treat inspection as a completed machine installer.

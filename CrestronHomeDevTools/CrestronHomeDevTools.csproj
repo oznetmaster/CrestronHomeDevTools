@@ -10,6 +10,7 @@
   </PropertyGroup>
   <ItemGroup>
     <EmbeddedResource Include="../scripts/Get-WindowsHostSnapshot.ps1" LogicalName="CrestronHomeDevTools.WindowsHostSnapshot.ps1" />
+    <EmbeddedResource Include="../scripts/Set-WindowsSshPrerequisite.ps1" LogicalName="CrestronHomeDevTools.WindowsSshSetup.ps1" />
     <EmbeddedResource Include="../scripts/endurance/Get-EnduranceHealthSnapshot.ps1" LogicalName="CrestronHomeDevTools.EnduranceHealthSnapshot.ps1" />
     <None Include="../README.md" Pack="true" PackagePath="/" />
     <None Include="../licenses/*.txt" Pack="true" PackagePath="licenses/" />

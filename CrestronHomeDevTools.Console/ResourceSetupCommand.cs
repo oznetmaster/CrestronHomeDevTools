@@ -10,6 +10,8 @@ internal static class ResourceSetupCommand
 	{
 	internal static async Task<int> RunAsync (string[] args, TextWriter output, TextWriter error, CancellationToken token)
 		{
+		if (args.FirstOrDefault () is "prepare-ssh" or "apply-ssh")
+			return await WindowsSshSetupCommand.RunAsync (args, output, error, token);
 		if (args.Length == 0 || args.SequenceEqual (["--help"]))
 			{
 			await output.WriteLineAsync ("""
@@ -20,6 +22,11 @@ internal static class ResourceSetupCommand
 				  Validate the named processor and Windows computer inventory.
 				resources select --inventory PRIVATE_JSON --kind CrestronProcessor|WindowsComputer --role ROLE [--capabilities NAME,NAME] [--name NAME]
 				  Select one ready, permitted resource with recorded capabilities. Does not reserve or contact it.
+				resources prepare-ssh --remote-address IP_OR_LocalSubnet --output NEW_PLAN_JSON
+				  Prepare a reviewable plan for OpenSSH Server, automatic service startup and scoped firewall rules; no changes.
+				resources apply-ssh --plan PLAN_JSON --sha256 REVIEWED_DIGEST --state PRIVATE_DIRECTORY --apply-reviewed true [--resume-after-inspection true]
+				  Apply the reviewed plan in an elevated terminal. Exit 3010 means reboot is needed; run the same command afterwards.
+				  Never reboots automatically. Use resume-after-inspection only after investigating an interrupted installation.
 				""");
 			return 0;
 			}
