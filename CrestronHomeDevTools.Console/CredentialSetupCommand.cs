@@ -9,7 +9,7 @@ using CrestronHomeDevTools;
 
 internal static class CredentialSetupCommand
 	{
-	internal static int Run (string[] args, TextWriter output, TextWriter error)
+	internal static async Task<int> RunAsync (string[] args, TextWriter output, TextWriter error)
 		{
 		if (args.Length == 0 || args.SequenceEqual (["--help"]))
 			{
@@ -26,6 +26,10 @@ internal static class CredentialSetupCommand
               List saved entry names only.
             credentials provision --name NAME --target-store DIRECTORY [--store DIRECTORY] [--replace true]
               Copy only that entry into an existing local service store; no remote transfer.
+            credentials provision-remote --name NAME --destination PRIVATE_JSON --windows-entry NAME [--store DIRECTORY]
+              Send one entry through pinned SSH into the destination's existing encrypted store. No automatic retry.
+            credentials receive --name NAME [--store DIRECTORY] [--replace true]
+              Receive a selected entry over protected stdin and apply this computer's encryption; intended for provisioning.
             credentials remove --name NAME [--store DIRECTORY]
               Forget the selected saved entry.
             """);
@@ -37,7 +41,7 @@ internal static class CredentialSetupCommand
 				throw new PlatformNotSupportedException ("Encrypted stores require Windows.");
 			var options = new Dictionary<string, string> (StringComparer.Ordinal);
 			for (int i = 1; i < args.Length; i += 2)
-				if (i + 1 >= args.Length || args[i] is not ("--store" or "--service-reader" or "--name" or "--kind" or "--replace" or "--file" or "--target-store") || !options.TryAdd (args[i], args[i + 1]))
+				if (i + 1 >= args.Length || args[i] is not ("--store" or "--service-reader" or "--name" or "--kind" or "--replace" or "--file" or "--target-store" or "--destination" or "--windows-entry") || !options.TryAdd (args[i], args[i + 1]))
 					throw new ArgumentException ("Invalid credential setup options.");
 			string Required (string key) => options.GetValueOrDefault (key) ?? throw new ArgumentException ($"Missing {key}.");
 			string directory = options.GetValueOrDefault ("--store", DevToolsPrivateStore.DefaultDirectory);
@@ -82,22 +86,25 @@ internal static class CredentialSetupCommand
 					store.SaveCredential (name, new (kind, host, user, password, port, sender, certificate, ssh), replace);
 					break;
 				case "import":
-					if (!Console.IsInputRedirected)
-						throw new ArgumentException ("Import needs protected JSON on standard input.");
-					char[] buffer = new char[16385];
-					try
 						{
-						int count = 0, read;
-						while (count < buffer.Length && (read = Console.In.Read (buffer, count, buffer.Length - count)) != 0)
-							count += read;
-						if (count == 0 || count == buffer.Length)
-							throw new ArgumentException ("Missing or oversized credential input.");
-						var credential = JsonSerializer.Deserialize<DevToolsStoredCredential> (buffer.AsSpan (0, count), new JsonSerializerOptions { PropertyNameCaseInsensitive = true, Converters = { new JsonStringEnumConverter () } })
-							?? throw new ArgumentException ("Empty credential input.");
-						store.SaveCredential (name, credential, replace);
+						if (!Console.IsInputRedirected)
+							throw new ArgumentException ("Import needs protected JSON on standard input.");
+						char[] buffer = new char[16385];
+						using var inputDeadline = new CancellationTokenSource (TimeSpan.FromSeconds (30));
+						try
+							{
+							int count = 0, read;
+							while (count < buffer.Length && (read = await Console.In.ReadAsync (buffer.AsMemory (count), inputDeadline.Token)) != 0)
+								count += read;
+							if (count == 0 || count == buffer.Length)
+								throw new ArgumentException ("Missing or oversized credential input.");
+							var credential = JsonSerializer.Deserialize<DevToolsStoredCredential> (buffer.AsSpan (0, count), new JsonSerializerOptions { PropertyNameCaseInsensitive = true, Converters = { new JsonStringEnumConverter () } })
+								?? throw new ArgumentException ("Empty credential input.");
+							store.SaveCredential (name, credential, replace);
+							}
+						finally { Array.Clear (buffer); }
+						break;
 						}
-					finally { Array.Clear (buffer); }
-					break;
 				case "signature":
 					string file = Required ("--file");
 					if (new FileInfo (file).Length > 8388608)
@@ -112,6 +119,25 @@ internal static class CredentialSetupCommand
 				case "provision":
 					store.Provision (name, DevToolsPrivateStore.Open (Required ("--target-store")), replace: replace);
 					break;
+				case "provision-remote":
+					using (var destinationFile = File.OpenRead (Required ("--destination")))
+						{
+						if (destinationFile.Length > 65536)
+							throw new InvalidDataException ("Destination settings exceed their size limit.");
+						var destination = JsonSerializer.Deserialize<DevToolsPrivateStoreDestination> (destinationFile, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+							?? throw new InvalidDataException ("Empty destination settings.");
+						var login = store.LoadCredential (Required ("--windows-entry"), DevToolsCredentialPurpose.Windows, destination.Host);
+						if (login.Port != destination.Port || login.SshFingerprint != destination.SshFingerprint)
+							throw new InvalidDataException ("Saved Windows trust does not match the destination.");
+						await store.ProvisionRemoteAsync (name, destination, new System.Net.NetworkCredential (login.UserName, login.Password));
+						}
+					break;
+				case "receive":
+					if (!Console.IsInputRedirected)
+						throw new ArgumentException ("Receive requires protected standard input.");
+					await store.ReceiveAsync (name, Console.OpenStandardInput (), replace);
+					output.WriteLine ("private-entry-imported");
+					return 0;
 				case "remove":
 					store.Remove (name);
 					break;
@@ -121,9 +147,9 @@ internal static class CredentialSetupCommand
 			output.WriteLine ("Private-store operation completed. No processor command, email or signing operation was performed.");
 			return 0;
 			}
-		catch (Exception failure) when (failure is ArgumentException or IOException or UnauthorizedAccessException or InvalidOperationException or JsonException or CryptographicException or PlatformNotSupportedException or FormatException)
+		catch (Exception failure) when (failure is ArgumentException or IOException or UnauthorizedAccessException or InvalidOperationException or JsonException or CryptographicException or PlatformNotSupportedException or FormatException or OperationCanceledException or Renci.SshNet.Common.SshException or System.Net.Sockets.SocketException)
 			{
-			error.WriteLine ("Credential setup did not complete. Check the store, account access and requested options. Values are not included in diagnostics. Use credentials --help.");
+			error.WriteLine ("Credential setup was not confirmed. Check the store, account access and requested options before retrying; a remote import may already have completed. Values are not included in diagnostics. Use credentials --help.");
 			return 2;
 			}
 		}

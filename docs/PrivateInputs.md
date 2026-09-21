@@ -59,7 +59,35 @@ Run under an account permitted to create the destination. This is an explicit gr
 
 Only named entries are copied. The provision command neither registers a task nor changes a running collector. Point that service's bindings at its service store. Replacing your personal entry does not silently replace its provisioned service copy; provision the update deliberately.
 
-This is **local** provisioning. Copying a personal DPAPI store to another computer or Windows account does not transfer access. Automated encrypted cross-computer provisioning is not yet implemented. For now, run credential setup on the destination account/computer, then selectively provision its local service store if needed.
+This command is **local** provisioning. Copying a personal DPAPI store to another computer or Windows account does not transfer access. For another computer, use the selected-entry SSH transfer below.
+
+## Transfer one entry to another Windows computer
+
+Install the trusted complete DevTools console on the destination and run `credentials create` there under the Windows account that will own the entry. For a service, create a restricted service store as described above, using an account permitted to create it. Do not send a credential to an untrusted console executable or share the complete store. Remote provisioning neither installs tooling nor creates the destination store automatically.
+
+On the source computer, save a Windows SSH login for that destination with `credentials configure --name worker-login --kind Windows`. Independently verify its SSH fingerprint. Prepare a private destination file containing references and the verified destination details, not passwords:
+
+```json
+{
+  "Host": "worker.example.test",
+  "Port": 22,
+  "SshFingerprint": "VERIFIED_SSH_SHA256_FINGERPRINT",
+  "ConsolePath": "C:\\Tools\\DevTools\\CrestronHomeDevTools.Console.exe",
+  "StoreDirectory": "C:\\Users\\Developer\\AppData\\Local\\CrestronHomeDevTools\\PrivateStore",
+  "EntryName": "mail",
+  "Replace": false
+}
+```
+
+```powershell
+.\CrestronHomeDevTools.Console.exe credentials provision-remote --name mail --windows-entry worker-login --destination C:\Private\worker-destination.json
+```
+
+The source selects exactly `mail`. It verifies the saved Windows login's host, port and SSH fingerprint against this destination, then pins the actual SSH connection to that fingerprint. Entry bytes travel only in the encrypted SSH channel to the receiver's standard input. The receiver applies its own store encryption; no plaintext transfer file, shared DPAPI key, password argument or password log is produced. A private signature can be transferred the same way by explicitly selecting its name, without authorizing signing.
+
+The public C# API is `DevToolsPrivateStore.ProvisionRemoteAsync(name, destination, windowsCredential, cancellationToken)`. Its receiver is `ReceiveAsync`, exposed for protected-stream integrations. `credentials receive` is the destination command used by the transfer; developers do not need to invoke it by hand. The transfer is bounded and never automatically retried. If the response is lost, import may already have succeeded: inspect the destination before deciding whether to set `Replace` to true. A saved credential still grants no approval to send mail, sign a form or operate a processor.
+
+Validation includes a real two-computer Windows SSH rehearsal with a synthetic credential, destination decryption and automatic removal of the temporary rehearsal folder. This validates user-store transfer, not every service identity or network configuration; verify the intended service account separately before provisioning production credentials.
 
 ## Signature and processor entries
 

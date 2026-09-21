@@ -49,7 +49,7 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 	if (args.FirstOrDefault () == "resources")
 		return await ResourceSetupCommand.RunAsync (args[1..], Console.Out, Console.Error, CancellationToken.None);
 	if (args.FirstOrDefault () == "credentials")
-		return CredentialSetupCommand.Run (args[1..], Console.Out, Console.Error);
+		return await CredentialSetupCommand.RunAsync (args[1..], Console.Out, Console.Error);
 	if (args.FirstOrDefault () == "endurance-watch")
 		{
 		if (args.Length == 2 && args[1] == "--help")

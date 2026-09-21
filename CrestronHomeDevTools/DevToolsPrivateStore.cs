@@ -27,7 +27,7 @@ public sealed record DevToolsStoredCredential (
 
 /// <summary>Windows-encrypted, named private inputs. Saving an entry grants no operation or signing approval.</summary>
 [SupportedOSPlatform ("windows")]
-public sealed class DevToolsPrivateStore
+public sealed partial class DevToolsPrivateStore
 	{
 	private sealed record Settings (int SchemaVersion, bool MachineScope, string OwnerSid, string? ReaderSid);
 	private sealed record Entry (int SchemaVersion, string Name, DevToolsStoredCredential? Credential, byte[]? Signature, string? Extension);
