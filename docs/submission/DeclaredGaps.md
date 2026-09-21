@@ -1,6 +1,6 @@
 # Review with declared gaps
 
-**Requires 1.13.0 or later.** This workflow assesses explained gaps, prepares an unsigned form or disclosure report, and delivers the independently approved request. Complete mode remains the default. Signing a form with gaps and omission of other required documents are not supported by the supplied preparation commands.
+**Requires 1.13.0 or later; signing with declared gaps requires 1.14.0 or later.** This workflow assesses explained gaps and prepares an unsigned review. The developer can then authorize the exact form for [signing](FormSigning.md#signing-with-declared-gaps-1140), or explicitly disclose an omitted form or signature through [unsigned request preparation](ReviewRequest.md). Delivery requires separate approval of the resulting request. Complete mode remains the default. Other required documents, including embedded package help, cannot be omitted through these commands.
 
 Complete means complete against **our interpretation of Crestron's published submission requirements**, captured in the full reviewed verification plan. It does not mean finishing an arbitrarily reduced checklist. No result from this workflow implies or predicts acceptance, publication or certification. Crestron makes those decisions.
 
