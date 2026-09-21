@@ -1,6 +1,6 @@
 # Set up a Windows GitHub Actions runner
 
-This helper is in development, not in released DevTools 1.16.3. It installs a new Windows x64 runner as a service. It does not alter existing runners, grant repository permissions, configure GitHub environments, provision private credentials, or make a desktop session available.
+This helper requires DevTools 1.17.0 or later. It installs a new Windows x64 runner as a service. It does not alter existing runners, grant repository permissions, configure GitHub environments, provision private credentials, or make a desktop session available.
 
 ## Prepare the computer and GitHub destination
 

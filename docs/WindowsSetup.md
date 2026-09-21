@@ -1,6 +1,6 @@
 # Reviewed Windows prerequisite setup
 
-This feature is in development, not in released DevTools 1.16.3. This page covers Windows OpenSSH Server. A separate [reviewed GitHub runner setup](WindowsRunnerSetup.md) is also available in source. Build-tool and emulator installation remain separate steps; these commands do not prepare an entire workstation.
+This feature requires DevTools 1.17.0 or later. This page covers Windows OpenSSH Server. A separate [reviewed GitHub runner setup](WindowsRunnerSetup.md) also requires 1.17.0. Build-tool and emulator installation remain separate steps; these commands do not prepare an entire workstation.
 
 ## Prepare and review
 

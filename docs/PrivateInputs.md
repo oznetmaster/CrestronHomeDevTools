@@ -1,6 +1,6 @@
 # Reusable private inputs on Windows
 
-The `credentials` commands and `DevToolsPrivateStore` API collect private inputs once and let supported commands refer to them by name. These additions are in development and are not present in the released 1.16.3 console.
+The `credentials` commands and `DevToolsPrivateStore` API collect private inputs once and let supported commands refer to them by name. These additions require DevTools 1.17.0 or later.
 
 The store can hold processor, Windows SSH, SMTP and uploader logins, and a signature image. Creating or populating a store never connects to a processor, sends email, uploads a file or signs a document. Existing processor `configure` profiles and protected standard-input integrations continue to work.
 
@@ -118,4 +118,4 @@ The complete `submission prepare-signed-review` stage accepts the same final `--
 
 The public `DevToolsResourceInventory` API represents any number of processors and Windows computers with permitted roles, named credential references and capability evidence. A planned resource cannot be selected. Selecting among several matching resources requires a name. Inventory selection does not acquire an execution lease or authorize an operation.
 
-Use [Windows resource assessment](WindowsResources.md) for the new read-only inspection and selection commands. Separate reviewed [OpenSSH setup](WindowsSetup.md) and [GitHub runner setup](WindowsRunnerSetup.md) are available in source; other prerequisite installers remain pending. A logged-in Windows desktop must not be confused with an unlocked, usable desktop. Desktop automation needs verification after remote-control disconnects and Windows restarts; background monitoring and builds do not establish that capability. A physical monitor and the full Visual Studio IDE are not prerequisites in the inventory model. Emulator acceleration and actual workload suitability still require checks on the chosen computer.
+Use [Windows resource assessment](WindowsResources.md) for the new read-only inspection and selection commands. Separate reviewed [OpenSSH setup](WindowsSetup.md) and [GitHub runner setup](WindowsRunnerSetup.md) require 1.17.0; other prerequisite installers remain pending. A logged-in Windows desktop must not be confused with an unlocked, usable desktop. Desktop automation needs verification after remote-control disconnects and Windows restarts; background monitoring and builds do not establish that capability. A physical monitor and the full Visual Studio IDE are not prerequisites in the inventory model. Emulator acceleration and actual workload suitability still require checks on the chosen computer.

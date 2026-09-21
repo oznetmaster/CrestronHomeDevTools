@@ -24,7 +24,7 @@ Authorize the sender and recipient before enabling sending. Keep settings, crede
 
 ### Windows unattended setup
 
-The Windows scripts and named credential bindings below are in development and are not in released DevTools 1.16.3. They provide the protected credential handoff and scheduled invocation, so a developer does not have to write a launcher or secret-store integration. They use the existing `endurance-watch` command and its notification journal. They never start, tick, restart or change the collector. See [reusable private inputs](../PrivateInputs.md) for supported consumers and provisioning limits.
+The Windows scripts and named credential bindings below require DevTools 1.17.0 or later. They provide the protected credential handoff and scheduled invocation, so a developer does not have to write a launcher or secret-store integration. They use the existing `endurance-watch` command and its notification journal. They never start, tick, restart or change the collector. See [reusable private inputs](../PrivateInputs.md) for supported consumers and provisioning limits.
 
 Use a **separate** complete console bundle for the observer; do not replace a bundle pinned by a running collector. Copy its `scripts/endurance` directory to a sibling `scripts` directory as described in [Windows worker setup](WindowsEnduranceWorker.md). The observer can run on the same PC as the collector, or on another Windows PC. For remote monitoring, retain a local copy of the exact existing `worker.json`; do not regenerate its plan. Prepare `observer.json` and `notifications.json` using the formats on this page and the approved SMTP provider details.
 
