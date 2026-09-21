@@ -137,6 +137,16 @@ class SelfTestFormTests(unittest.TestCase):
         self.assertTrue(all(dest >= first_notes for _,dest in forwards))
         self.assertEqual(sorted(dest for _,dest in backwards), [0,1])
 
+    def test_checked_item_retains_its_observation_context_once(self):
+        reason = "Configuration API verified; no visual UI check."
+        for observation in self.observations["observations"][:2]:
+            observation["rationale"] = reason
+        report = self.write(self.decisions())
+        reader = PdfReader(self.output)
+        notes = "\n".join(page.extract_text() for page in reader.pages[report["notesStartPage"]:])
+        self.assertEqual(notes.count(reason), 1)
+        self.assertEqual(reader.get_fields()["First"]["/V"], "/Yes")
+
     def test_draft_has_no_attestations_and_original_pages_are_unchanged(self):
         rows = self.decisions()
         for row in rows:

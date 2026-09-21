@@ -170,7 +170,13 @@ def decisions(inventory, inventory_digest, mapping, policy, observations, assess
         rationale = "\n".join(dict.fromkeys(("Non-applicable: " if assessed is not None else i + ": ") + results[i]["rationale"] for i in excluded))
         prior = [i for i in ids if results.get(i, {}).get("outcome") == "ReviewedPriorPass"]
         prior_text = "\n".join(dict.fromkeys("Reviewed prior evidence: " + text(results[i]["rationale"]) for i in prior))
-        rationale = "\n".join(filter(None, [rationale, prior_text]))
+        verified_context = "\n".join(dict.fromkeys(
+            "Verified observation: " + text(results[i]["rationale"])
+            for i in ids
+            if results.get(i, {}).get("outcome") == "Passed"
+            and (assessed is None or assessed[i]["status"] == "VerifiedAgainstPlan")
+            and (results[i].get("rationale") or "").strip()))
+        rationale = "\n".join(filter(None, [verified_context, rationale, prior_text]))
         if assessed is not None:
             # Outbound companion groups by official item, not internal scope IDs or raw private measurements.
             verified = sum(assessed[i]["status"] == "VerifiedAgainstPlan" and results[i]["outcome"] == "Passed" for i in ids)

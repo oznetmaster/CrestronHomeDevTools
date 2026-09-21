@@ -100,6 +100,23 @@ class DeclaredGapFormTests(unittest.TestCase):
         self.assertEqual(report["checkedRequirements"], ["first"])
         self.assertIn("Claimed pass with incomplete verification", rows[1]["rationale"])
 
+    def test_verified_context_is_retained_without_promoting_incomplete_claims(self):
+        reason = "Configuration API verified; no visual UI check."
+        for observation in self.observations["observations"][:2]:
+            observation["rationale"] = reason
+        self.observations["observations"][-1].update(
+            startedUtc="2026-01-01T12:00:00Z", rationale="UNVERIFIED full-duration claim.")
+        self.gaps = [{"requirementId": "second.duration", "reason": "Only half the required time was observed."}]
+        rows, identity, _ = self.validate()
+        self.write(rows, identity)
+        reader = PdfReader(self.output)
+        notes = "\n".join(page.extract_text() for page in reader.pages)
+        self.assertEqual(notes.count(reason), 1)
+        self.assertNotIn("UNVERIFIED full-duration claim.", notes)
+        self.assertIn("Claimed pass with incomplete verification", notes)
+        self.assertEqual(reader.get_fields()["First"]["/V"], "/Yes")
+        self.assertEqual(reader.get_fields()["Second"]["/V"], "/Off")
+
     def test_shared_explanation_is_printed_once_without_hiding_scoped_gaps(self):
         self.observations["observations"][0]["outcome"] = "Partial"
         self.observations["observations"][1]["outcome"] = "Partial"
