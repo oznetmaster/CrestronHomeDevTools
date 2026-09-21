@@ -19,6 +19,15 @@ on:
         description: Review only - full tested release source commit
         type: string
         default: ''
+      review_mode:
+        description: Review and delivery-plan only - declared gaps retain all omissions and require explicit approval
+        type: choice
+        options: [complete, declared-gaps]
+        default: complete
+      declarations_sha256:
+        description: Review only - independently reviewed gap declaration digest for declared-gaps mode
+        type: string
+        default: ''
       candidate_sha256:
         description: Review only - frozen candidate declaration JSON SHA-256, not the package digest
         type: string
@@ -62,6 +71,8 @@ jobs:
           REQUEST_ANDROID: ${{ inputs.android_pins_sha256 }}
           REQUEST_REVIEW: ${{ inputs.review_sha256 }}
           REQUEST_AUTHORIZATION: ${{ inputs.authorization_sha256 }}
+          REQUEST_MODE: ${{ inputs.review_mode }}
+          REQUEST_DECLARATIONS: ${{ inputs.declarations_sha256 }}
         run: |
           $ErrorActionPreference = 'Stop'
           function Require-Pin([string]$label, [string]$value, [int]$length = 64) {
@@ -69,6 +80,9 @@ jobs:
           }
           switch -Exact ($env:REQUEST_STAGE) {
             'review' {
+              if ($env:REQUEST_MODE -notin @('complete', 'declared-gaps')) { throw 'Select a supported review mode.' }
+              if ($env:REQUEST_MODE -eq 'declared-gaps') { Require-Pin 'Gap declarations' $env:REQUEST_DECLARATIONS }
+              elseif ($env:REQUEST_DECLARATIONS) { throw 'Gap declarations require declared-gaps mode.' }
               Require-Pin 'Release source commit' $env:REQUEST_SOURCE 40
               Require-Pin 'Candidate declaration' $env:REQUEST_CANDIDATE
               Require-Pin 'Official inventory' $env:REQUEST_INVENTORY
@@ -80,6 +94,7 @@ jobs:
               Require-Pin 'Signing authorization' $env:REQUEST_AUTHORIZATION
             }
             'delivery-plan' {
+              if ($env:REQUEST_MODE -notin @('complete', 'declared-gaps')) { throw 'Select a supported review mode.' }
               Require-Pin 'Signed review receipt' $env:REQUEST_REVIEW
               Require-Pin 'Delivery authorization' $env:REQUEST_AUTHORIZATION
             }
@@ -94,6 +109,8 @@ jobs:
     with:
       enabled: true
       prepare_for_signing: true
+      review_mode: ${{ inputs.review_mode }}
+      declarations_sha256: ${{ inputs.declarations_sha256 }}
       artifact_kind: driver
       source_commit: ${{ inputs.source_commit }}
       candidate_sha256: ${{ inputs.candidate_sha256 }}
@@ -115,6 +132,7 @@ jobs:
     with:
       enabled: true
       signed_review_sha256: ${{ inputs.review_sha256 }}
+      review_mode: ${{ inputs.review_mode }}
       authorization_sha256: ${{ inputs.authorization_sha256 }}
   deliver:
     needs: validate-request

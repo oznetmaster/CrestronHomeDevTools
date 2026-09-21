@@ -139,7 +139,13 @@ Omit `remote` to read the local Windows PC. For another Windows PC, enable its S
 CrestronHomeDevTools.Console.exe endurance-observe --worker PRIVATE_WORKER.json --observer PRIVATE_OBSERVER.json
 ```
 
-For remote observation, the protected calling process supplies `{ "userName": "WINDOWS_LOGIN", "password": "WINDOWS_PASSWORD" }` on standard input and closes it. Local observation does not need that input. The result is the same health-report JSON consumed by the notification command. The remote reader runs from the installed library over pinned SSH; it does not upload a script, acquire a collector lock or contact a processor. Each query is bounded and is not automatically retried, apart from the snapshot reader's bounded inconsistent task-state reads.
+For a saved Windows login, add `--credentials PRIVATE_BINDINGS_JSON`; see [named private inputs](../PrivateInputs.md). This avoids a credential handoff script. Alternatively, an existing secret-manager integration supplies this **observer-only** object on standard input and closes it:
+
+```json
+{ "userName": "WINDOWS_LOGIN", "password": "WINDOWS_PASSWORD" }
+```
+
+The surrounding `windows` and `smtp` objects shown under `endurance-watch` belong to that combined command, not `endurance-observe`. Local observation needs neither remote credentials nor that input. The result is the same health-report JSON consumed by the notification command. The remote reader runs from the installed library over pinned SSH; it does not upload a script, acquire a collector lock or contact a processor. Each query is bounded and is not automatically retried, apart from the snapshot reader's bounded inconsistent task-state reads.
 
 A failed connection, authentication, query or malformed response produces an `observer-query-failed` attention report where possible. It does not fall back to a previous healthy snapshot. Invalid local inputs and explicit cancellation can return a nonzero exit without a report; the supervising job must also surface those errors. Exit 3 with a valid attention report is deliberately eligible for notification, not a reason to skip the notification step. Do not join the two commands with a success-only conditional. Retain the fresh stdout privately, inspect its schema and pass that report to the notification command even when observation returned 3. Never pass stderr as a health report.
 

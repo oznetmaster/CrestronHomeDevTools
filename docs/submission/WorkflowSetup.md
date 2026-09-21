@@ -43,7 +43,7 @@ Create these environments, with branch restrictions and the required human revie
 
 | Environment | Environment variables / secrets |
 | --- | --- |
-| `crestron-submission-review` | Variable `CRESTRON_SUBMISSION_REVIEW_SETTINGS`: absolute path to reviewed private settings. Optional variable `CRESTRON_SUBMISSION_ANDROID_PINS`: path to independent pre-execution Android pins when required. |
+| `crestron-submission-review` | Variable `CRESTRON_SUBMISSION_REVIEW_SETTINGS`: absolute path to reviewed private settings. Optional variable `CRESTRON_SUBMISSION_ANDROID_PINS`: path to independent pre-execution Android pins when required. For declared gaps, `CRESTRON_SUBMISSION_DECLARATIONS`: path to the candidate-bound declarations. |
 | `crestron-submission-signing` | Variable `CRESTRON_SUBMISSION_SIGNING_SETTINGS`: absolute path to private signing settings. Optional `CRESTRON_SUBMISSION_CREDENTIAL_BINDINGS`: absolute path to the signing account's private named-input bindings. |
 | `crestron-submission-delivery` | Variables `CRESTRON_SUBMISSION_DELIVERY_SETTINGS`, `CRESTRON_SUBMISSION_DISPATCH_SETTINGS` and `CRESTRON_SUBMISSION_DISPATCH_SETTINGS_SHA256`: private preparation settings, reviewed dispatch settings and their independently retained digest. Either variable `CRESTRON_SUBMISSION_CREDENTIAL_BINDINGS` for named provider inputs, or secret `submission_credentials_json` for protected stdin credentials. |
 
@@ -61,14 +61,38 @@ Select **Actions > Crestron submission > Run workflow**, choose the protected br
 
 | Stage | Required dispatch inputs | Result |
 | --- | --- | --- |
-| `review` | Full release `source_commit`; `candidate_sha256`, `inventory_sha256`, `mapping_sha256`; `android_pins_sha256` when the policy requires Android evidence. | Validated unsigned signing copy and retained evidence. The candidate pin identifies the declaration JSON, not just the package file. |
+| `review` | Full release `source_commit`; `candidate_sha256`, `inventory_sha256`, `mapping_sha256`; `android_pins_sha256` when the policy requires Android evidence. Select `review_mode`; declared gaps additionally require `declarations_sha256`. | Validated unsigned signing copy and retained evidence. The candidate pin identifies the declaration JSON, not just the package file. |
 | `sign` | `review_sha256` for the unsigned review receipt; `authorization_sha256` for its exact signing authorization. | Signed review retained privately. |
-| `delivery-plan` | `review_sha256` for the signed review receipt; `authorization_sha256` for the separate delivery authorization. | Approved delivery plan; no external request. |
+| `delivery-plan` | `review_sha256` for the signed review receipt; `authorization_sha256` for the separate delivery authorization; matching `review_mode`. | Complete mode prepares a delivery plan. Declared-gaps mode verifies the exact independently approved plan as described below. Neither sends anything. |
 | `deliver` | No new artifact pins in dispatch; the protected environment pins the reviewed dispatch settings and the plan they identify. | Delivery receipts, or a retained failure/uncertain outcome requiring inspection. |
 
 Obtain digests from independently reviewed retained artifacts; do not replace a failed pin with the current file's hash just to pass a check. The dispatcher validates input syntax on a hosted runner before routing a job to the protected worker. Each actual command still validates contents, identities and exact authorization. A green skipped workflow is not a completed stage; inspect the called job and its private completion receipt.
 
 Never automatically retry upload or email after an uncertain outcome. Inspect the [delivery journal](DeliveryJournal.md) and use its supported reconciliation path. Confirmed provider acceptance records submission delivery, not Crestron certification or portal acceptance.
+
+## Signed submissions with declared gaps
+
+Copy the matching updated templates together from DevTools 1.17.3 or later. The dispatcher exposes `review_mode` and `declarations_sha256`; older copies can reject declared-gap signing even with a recent console. These template changes use existing public commands also tested with DevTools 1.17.2. Keep complete mode unless the developer deliberately chooses and explains the gaps.
+
+For `review`, choose `declared-gaps` and supply the reviewed declarations digest. The protected review environment locates the declarations file. The generated signing copy preserves the gaps. The `sign` stage follows the same exact-form approval procedure; its authorization must also identify the declared-gap mode, verification status and declarations digest. An earlier complete-only authorization cannot sign this form.
+
+Before `delivery-plan`, follow [review approval](ReviewApproval.md) to prepare a `SubmissionReviewDeliveryPlan` for the signed-review directory, preview its correspondence, obtain separate approval, and retain the final plan with its exact approval hash. Configure `CRESTRON_SUBMISSION_DELIVERY_SETTINGS` for declared-gaps mode with this different schema:
+
+```json
+{
+  "schemaVersion": 1,
+  "plan": "C:/CI/Private/approved-review-plan.json",
+  "planFileSha256": "INDEPENDENTLY_REVIEWED_FINAL_PLAN_SHA256",
+  "approval": "C:/CI/Private/delivery-approval.json",
+  "output": "C:/CI/Private/checks/new-approval-check.json"
+}
+```
+
+Use an existing private output parent and a new output filename. Select `delivery-plan` with `review_mode: declared-gaps`, the signed-review receipt digest and the separate delivery-approval digest. The template checks the pinned plan identifies that signed review and approval, then runs `submission-review-approval-check`. It records verification of the exact packet/correspondence authorization; it does **not** repeat evidence validation or prepare the complete-mode delivery directory. A changed plan, mismatched receipt, expired approval or existing output stops the stage.
+
+Next prepare and independently pin the schema-1 dispatch settings in [ReviewApproval.md](ReviewApproval.md#protected-console-and-ci-delivery), using that same final plan and signed-review directory. Set the protected dispatch-settings path and digest. The existing `deliver` stage selects the declared-gap command from those pinned settings. That command revalidates the full retained evidence, outgoing files and approval before upload and again before email. The preparation check is not a substitute for that final validation. Neither stage changes a gap to a pass or determines Crestron's decision.
+
+Requests deliberately omitting a signature or official form use the separate [unsigned request preparation](ReviewRequest.md) path. They do not go through this signed-form dispatcher sequence; the final delivery template can consume their independently approved request settings as documented in ReviewApproval.md.
 
 ## Rehearse before real delivery
 

@@ -43,6 +43,8 @@ Before `deliver`, generate and review the private dispatch settings using [deliv
 
 You can also run each underlying public console command locally using its linked settings and command guide. Preparation commands do not send anything. Do not use local dispatch to bypass the configured approvals or journal.
 
+The table describes complete mode. For a signed submission with disclosed gaps, select `review_mode: declared-gaps` and follow the [declared-gap CI sequence](WorkflowSetup.md#signed-submissions-with-declared-gaps). It retains the review/sign/delivery-plan/deliver stages, but uses different delivery-plan settings and verifies an explicitly approved review plan. The final delivery command still revalidates all evidence. Do not feed a declared-gap review into the complete-only preparation command or silently switch modes after a failure.
+
 ## Resume after an interruption
 
 | Last observed state | Next action |

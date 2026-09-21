@@ -81,7 +81,6 @@ jobs:
           if ($env:REVIEW_MODE -notin @('complete', 'declared-gaps')) { throw 'Unsupported review mode.' }
           $reviewOptions = @('--review-mode', $env:REVIEW_MODE)
           if ($env:REVIEW_MODE -eq 'declared-gaps') {
-            if ($env:REVIEW_SIGNING_COPY -eq 'true') { throw 'Declared-gap signing integration is not available yet.' }
             if (-not $env:CRESTRON_SUBMISSION_DECLARATIONS -or -not $env:REVIEW_DECLARATIONS) { throw 'Independently pinned gap declarations are required.' }
             $reviewOptions += @('--declarations', $env:CRESTRON_SUBMISSION_DECLARATIONS, '--declarations-sha256', $env:REVIEW_DECLARATIONS)
           } elseif ($env:REVIEW_DECLARATIONS) { throw 'Gap declarations require explicit declared-gaps mode.' }

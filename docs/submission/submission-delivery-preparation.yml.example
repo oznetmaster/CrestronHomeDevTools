@@ -11,6 +11,10 @@ on:
       signed_review_sha256:
         type: string
         required: true
+      review_mode:
+        description: Complete delivery preparation or exact declared-gap approval verification
+        type: string
+        default: complete
       authorization_sha256:
         type: string
         required: true
@@ -41,8 +45,33 @@ jobs:
           CRESTRON_SUBMISSION_DELIVERY_SETTINGS: ${{ vars.CRESTRON_SUBMISSION_DELIVERY_SETTINGS }}
           DELIVERY_REVIEW: ${{ inputs.signed_review_sha256 }}
           DELIVERY_AUTHORIZATION: ${{ inputs.authorization_sha256 }}
+          DELIVERY_MODE: ${{ inputs.review_mode }}
         run: |
+          $ErrorActionPreference = 'Stop'
           if (-not $env:CRESTRON_SUBMISSION_DELIVERY_SETTINGS) { throw 'Private delivery settings are not configured.' }
-          & ./artifacts/submission-console/CrestronHomeDevTools.Console.exe submission prepare-delivery --settings "$env:CRESTRON_SUBMISSION_DELIVERY_SETTINGS" --signed-review-sha256 "$env:DELIVERY_REVIEW" --authorization-sha256 "$env:DELIVERY_AUTHORIZATION"
-          if ($LASTEXITCODE -ne 0) { throw 'Delivery preparation failed; no upload or email was attempted.' }
-          'Delivery plan prepared privately. No upload or email was attempted.' >> $env:GITHUB_STEP_SUMMARY
+          if ($env:DELIVERY_MODE -eq 'complete') {
+            & ./artifacts/submission-console/CrestronHomeDevTools.Console.exe submission prepare-delivery --settings "$env:CRESTRON_SUBMISSION_DELIVERY_SETTINGS" --signed-review-sha256 "$env:DELIVERY_REVIEW" --authorization-sha256 "$env:DELIVERY_AUTHORIZATION"
+            if ($LASTEXITCODE -ne 0) { throw 'Delivery preparation failed; no upload or email was attempted.' }
+            'Delivery plan prepared privately. No upload or email was attempted.' >> $env:GITHUB_STEP_SUMMARY
+          } elseif ($env:DELIVERY_MODE -eq 'declared-gaps') {
+            # This route checks an already prepared and independently approved review plan.
+            # It never creates approval; the final delivery command revalidates the full evidence.
+            $path = $env:CRESTRON_SUBMISSION_DELIVERY_SETTINGS
+            if (-not [IO.Path]::IsPathFullyQualified($path) -or (Get-Item -LiteralPath $path).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Use an absolute private settings file without redirection.' }
+            $bytes = [IO.File]::ReadAllBytes($path)
+            if ($bytes.Length -gt 1048576) { throw 'Private settings are too large.' }
+            $settings = [Text.Encoding]::UTF8.GetString($bytes) | ConvertFrom-Json
+            $names = @($settings.PSObject.Properties.Name | Sort-Object)
+            if (($names -join ',') -cne 'approval,output,plan,planFileSha256,schemaVersion' -or $settings.schemaVersion -ne 1) { throw 'Use the declared-gap approval settings schema from WorkflowSetup.md.' }
+            foreach ($value in @($settings.plan,$settings.approval,$settings.output)) {
+              if (-not [IO.Path]::IsPathFullyQualified($value)) { throw 'Use absolute private input/output paths.' }
+            }
+            if ($settings.planFileSha256 -cnotmatch '\A[a-f0-9]{64}\z' -or (Get-Item -LiteralPath $settings.plan).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Pin the reviewed plan without redirection.' }
+            $planBytes = [IO.File]::ReadAllBytes($settings.plan)
+            if ($planBytes.Length -gt 1048576 -or [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($planBytes)).ToLowerInvariant() -cne $settings.planFileSha256) { throw 'Reviewed plan changed.' }
+            $plan = [Text.Encoding]::UTF8.GetString($planBytes) | ConvertFrom-Json
+            if ($plan.reviewMode -cne 'DeclaredGaps' -or $plan.attachmentKind -cne 'SignedSelfTest' -or $plan.reviewSha256 -cne $env:DELIVERY_REVIEW -or $plan.authorizationSha256 -cne $env:DELIVERY_AUTHORIZATION) { throw 'The plan must identify the selected signed review and exact delivery approval.' }
+            & ./artifacts/submission-console/CrestronHomeDevTools.Console.exe submission-review-approval-check --plan "$($settings.plan)" --plan-file-sha256 "$($settings.planFileSha256)" --approval "$($settings.approval)" --approval-sha256 "$env:DELIVERY_AUTHORIZATION" --output "$($settings.output)"
+            if ($LASTEXITCODE -ne 0) { throw 'Declared-gap delivery approval check failed; no upload or email was attempted.' }
+            'Exact declared-gap plan and correspondence approval verified privately. Final delivery must revalidate all evidence. No upload or email was attempted.' >> $env:GITHUB_STEP_SUMMARY
+          } else { throw 'Unsupported delivery preparation mode.' }

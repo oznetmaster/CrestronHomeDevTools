@@ -1,5 +1,7 @@
 # Final delivery preparation
 
+This command prepares **complete-mode** submissions. Signed forms with declared gaps use the [declared-gap CI sequence](WorkflowSetup.md#signed-submissions-with-declared-gaps) and its separate exact-plan approval check, followed by full evidence revalidation in the review-request delivery command. Do not use complete-mode settings for that route.
+
 Command examples use the [bundled submission console](ConsoleTools.md); see that guide for source/release availability and setup.
 
 `tools/submission/prepare_delivery.py` connects the [private signing stage](SigningStage.md) to the [delivery journal](DeliveryJournal.md). It prepares a `SubmissionDeliveryPlan` after final signed-page review and separate delivery approval. It never uploads a package or sends mail. Version 1.9.0 includes this preparation command in the complete console archive.

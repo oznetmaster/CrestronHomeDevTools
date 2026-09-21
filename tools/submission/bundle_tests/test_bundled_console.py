@@ -386,6 +386,7 @@ class BundledConsoleTests(unittest.TestCase):
             fixture.setUp(android=True)
         receipt = stage("delivery-preparation", fixture, {
             "CRESTRON_SUBMISSION_DELIVERY_SETTINGS": str(fixture.settings_path),
+            "DELIVERY_MODE": "complete",
             "DELIVERY_REVIEW": fixture.pin, "DELIVERY_AUTHORIZATION": fixture.authorization_pin},
             "delivery-review-receipt.json", {"DELIVERY_REVIEW": "0" * 64})
         self.assertEqual(completed, ["review", "signing", "delivery-preparation"])
@@ -455,6 +456,81 @@ class BundledConsoleTests(unittest.TestCase):
         plan.write_bytes(plan.read_bytes() + b" ")
         self.prepare_dispatch(source, f.root / "changed-plan.json", success=False)
         self.assertFalse((f.root / "changed-plan.json").exists())
+
+    def test_declared_gap_templates_prepare_sign_and_verify_approval_without_providers(self):
+        installation = self.hostile / "artifacts/submission-console"
+        shutil.copytree(self.console.parent, installation)
+
+        def stage(name, values, rejected=None):
+            template = Path(__file__).resolve().parents[3] / ("docs/submission/submission-" + name + ".yml.example")
+            lines = template.read_text().split("        run: |\n", 1)[1].splitlines()
+            script = self.hostile / (name + ".ps1")
+            script.write_text("\n".join(line[10:] for line in lines) + "\n")
+            env = dict(self.env, **values, GITHUB_STEP_SUMMARY=str(self.hostile / "summary.md"))
+            command = [os.environ["SUBMISSION_TEST_PWSH"], "-NoProfile", "-NonInteractive", "-File", str(script)]
+            if rejected:
+                result = subprocess.run(command, cwd=self.hostile, env=dict(env, **rejected), capture_output=True, timeout=180)
+                self.assertNotEqual(result.returncode, 0)
+            result = subprocess.run(command, cwd=self.hostile, env=env, capture_output=True, timeout=180)
+            self.assertEqual(result.returncode, 0, result.stderr.decode(errors="replace"))
+
+        def review_stage(fixture, *, signing_copy=False, **options):
+            self.assertTrue(signing_copy)
+            self.portable_settings(fixture)
+            stage("review", {
+                "CRESTRON_SUBMISSION_REVIEW_SETTINGS": str(fixture.settings_path),
+                "CRESTRON_SUBMISSION_DECLARATIONS": str(options["declarations"]),
+                "REVIEW_KIND": "driver", "REVIEW_SOURCE": "a" * 40,
+                "REVIEW_CANDIDATE": fixture.pins[0], "REVIEW_INVENTORY": fixture.pins[1],
+                "REVIEW_MAPPING": fixture.pins[2], "REVIEW_SIGNING_COPY": "true",
+                "REVIEW_MODE": "declared-gaps", "REVIEW_DECLARATIONS": options["declarations_sha256"],
+                "REVIEW_ANDROID_PINS": ""}, {"REVIEW_DECLARATIONS": "0" * 64})
+            return json.loads((fixture.output / "review-receipt.json").read_bytes())
+
+        f = signed.SignedReviewStageTests()
+        self.addCleanup(f.doCleanups)
+        with patch.object(review.ReviewStageTests, "run_stage", review_stage):
+            f.setUp(declared_gaps=True)
+        self.portable_settings(f)
+        stage("signing", {"CRESTRON_SUBMISSION_SIGNING_SETTINGS": str(f.settings_path),
+              "CRESTRON_SUBMISSION_CREDENTIAL_BINDINGS": "", "SIGNING_REVIEW": f.review_pin,
+              "SIGNING_AUTHORIZATION": f.approval_pin}, {"SIGNING_AUTHORIZATION": "0" * 64})
+        receipt = json.loads((f.output / "signed-review-receipt.json").read_bytes())
+        self.assertTrue(receipt["signatureApplied"])
+        self.assertEqual(receipt["verificationStatus"], "GapsDeclared")
+        self.assertFalse(receipt["deliveryAttempted"])
+        plan = {"candidateSha256": receipt["candidateSha256"], "reviewSha256": sha((f.output / "signed-review-receipt.json").read_bytes()),
+                "authorizationSha256": "0" * 64, "packageSha256": receipt["packageSha256"],
+                "attachmentSha256": receipt["signedFormSha256"], "packageFileName": receipt["packageFileName"],
+                "attachmentFileName": receipt["signedFormFileName"], "sender": "sender@example.test", "recipient": "drivers@crestron.com",
+                "reviewMode": "DeclaredGaps", "verificationStatus": "GapsDeclared", "attachmentKind": "SignedSelfTest",
+                "declarationsSha256": receipt["declarationsSha256"], "gapSummary": "Synthetic equipment-unavailable test gap.", "documentOmissions": None}
+        plan_path, preview_path, approval_path = (f.root / name for name in ("approved-plan.json", "preview.json", "delivery-approval.json"))
+        plan_path.write_text(json.dumps(plan))
+        preview = subprocess.run([str(self.console), "submission-review-approval-preview", "--plan", str(plan_path),
+                    "--plan-file-sha256", sha(plan_path.read_bytes()), "--output", str(preview_path)], capture_output=True, timeout=30)
+        self.assertEqual(preview.returncode, 0, preview.stderr.decode(errors="replace"))
+        preview = json.loads(preview_path.read_bytes())
+        approval_path.write_text(json.dumps({"schemaVersion": 1, "packetSha256": preview["packetSha256"],
+            "correspondenceSha256": preview["correspondenceSha256"], "expiresUtc": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
+            "visualReviewCompleted": True, "producerAuthenticationConfirmed": True, "deliveryAuthorized": True}))
+        plan["authorizationSha256"] = sha(approval_path.read_bytes())
+        plan_path.write_text(json.dumps(plan))
+        checked = f.root / "delivery-approval-check.json"
+        settings = f.root / "delivery-stage.json"
+        settings.write_text(json.dumps({"schemaVersion": 1, "plan": str(plan_path), "planFileSha256": sha(plan_path.read_bytes()),
+                                       "approval": str(approval_path), "output": str(checked)}))
+        stage("delivery-preparation", {"CRESTRON_SUBMISSION_DELIVERY_SETTINGS": str(settings),
+              "DELIVERY_MODE": "declared-gaps", "DELIVERY_REVIEW": plan["reviewSha256"],
+              "DELIVERY_AUTHORIZATION": plan["authorizationSha256"]}, {"DELIVERY_REVIEW": "0" * 64})
+        self.assertTrue(checked.is_file())
+        # The exact template-produced signed packet also passes real archive revalidation and simulated delivery.
+        result = subprocess.run([os.environ["SUBMISSION_TEST_DOTNET"], os.environ["SUBMISSION_TEST_PROBE"],
+            "--review-request-delivery", str(f.output), str(f.root / "simulated-delivery"), "none"], capture_output=True, timeout=120)
+        self.assertEqual(result.returncode, 0, result.stderr.decode(errors="replace"))
+        delivered = json.loads(result.stdout)
+        self.assertTrue(delivered["syntheticTransport"])
+        self.assertEqual((delivered["Uploads"], delivered["Sends"], delivered["verification"]), (1, 1, "GapsDeclared"))
 
     def test_workflow_preflight_consumes_generated_settings_and_refuses_changed_pins(self):
         f, source, path, settings = self.dispatch_fixture()

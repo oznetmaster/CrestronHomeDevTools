@@ -95,6 +95,7 @@ class SubmissionTemplateTests(unittest.TestCase):
         env = {key: value for key, value in os.environ.items() if not key.startswith("REQUEST_")}
         env.update({key: "" for key in step["env"]})
         env["REQUEST_STAGE"] = stage
+        env["REQUEST_MODE"] = "complete"
         if stage == "review":
             env.update(REQUEST_SOURCE="a" * 40, REQUEST_CANDIDATE="b" * 64, REQUEST_INVENTORY="c" * 64, REQUEST_MAPPING="d" * 64)
         elif stage in ("sign", "delivery-plan"):
@@ -131,6 +132,18 @@ class SubmissionTemplateTests(unittest.TestCase):
                 self.assertNotEqual(0, self.run_request("review", {"REQUEST_ANDROID": pin}).returncode)
         self.assertNotEqual(0, self.run_request("review", {"REQUEST_SOURCE": "a" * 64}).returncode)
         self.assertNotEqual(0, self.run_request("unknown").returncode)
+
+    def test_declared_gap_mode_requires_its_independent_pin_and_is_forwarded(self):
+        self.assertEqual(0, self.run_request("review", {"REQUEST_MODE": "declared-gaps", "REQUEST_DECLARATIONS": "f" * 64}).returncode)
+        for overrides in ({"REQUEST_MODE": "declared-gaps"}, {"REQUEST_DECLARATIONS": "f" * 64},
+                          {"REQUEST_MODE": "unknown"}, {"REQUEST_MODE": "declared-gaps", "REQUEST_DECLARATIONS": "F" * 64}):
+            self.assertNotEqual(0, self.run_request("review", overrides).returncode)
+        self.assertEqual(0, self.run_request("delivery-plan", {"REQUEST_MODE": "declared-gaps"}).returncode)
+        self.assertNotEqual(0, self.run_request("delivery-plan", {"REQUEST_MODE": "unknown"}).returncode)
+        jobs = load("submission")["jobs"]
+        self.assertEqual("${{ inputs.review_mode }}", jobs["review"]["with"]["review_mode"])
+        self.assertEqual("${{ inputs.declarations_sha256 }}", jobs["review"]["with"]["declarations_sha256"])
+        self.assertEqual("${{ inputs.review_mode }}", jobs["delivery-plan"]["with"]["review_mode"])
 
 
 if __name__ == "__main__":
