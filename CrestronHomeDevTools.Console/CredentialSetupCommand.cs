@@ -104,7 +104,7 @@ internal static class CredentialSetupCommand
 								count += read;
 							if (count == 0 || count == buffer.Length)
 								throw new ArgumentException ("Missing or oversized credential input.");
-							var credential = JsonSerializer.Deserialize<DevToolsStoredCredential> (buffer.AsSpan (0, count), new JsonSerializerOptions { PropertyNameCaseInsensitive = true, Converters = { new JsonStringEnumConverter () } })
+							var credential = ProtectedJsonInput.Deserialize<DevToolsStoredCredential> (buffer.AsSpan (0, count), new JsonSerializerOptions { PropertyNameCaseInsensitive = true, Converters = { new JsonStringEnumConverter () } })
 								?? throw new ArgumentException ("Empty credential input.");
 							store.SaveCredential (name, credential, replace);
 							}

@@ -64,7 +64,7 @@ internal static class EnduranceNotificationCommand
 						count += read;
 					if (count == 0 || count == buffer.Length)
 						throw new ArgumentException ("Supply a bounded SMTP credential document on standard input.");
-					credentials = JsonSerializer.Deserialize<Credentials> (buffer.AsSpan (0, count), JsonOptions) ?? throw new ArgumentException ("SMTP credentials are empty.");
+					credentials = ProtectedJsonInput.Deserialize<Credentials> (buffer.AsSpan (0, count), JsonOptions) ?? throw new ArgumentException ("SMTP credentials are empty.");
 					}
 				finally { Array.Clear (buffer); }
 				}

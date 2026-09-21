@@ -1,11 +1,11 @@
-# CrestronHomeDevTools 1.17.3
+# CrestronHomeDevTools 1.17.4
 
-The supplied GitHub workflow templates now support signing and preparing delivery of a submission with explicitly declared gaps. Previously, the review template rejected that signing mode even though the public console supported it, and the dispatcher did not expose its required inputs.
+Protected JSON input now works when Windows PowerShell 5.1 supplies a UTF-8 byte-order marker. Previously, the same saved-credential import or remote endurance observation could succeed from PowerShell 7 and fail before making a connection from Windows PowerShell 5.1. Redirected input is now decoded as UTF-8, preserving non-ASCII credential values, and the private JSON readers accept one leading marker.
 
-The dispatcher accepts an explicit review mode and independently reviewed declarations digest. Declared-gap delivery preparation verifies the exact signed-review plan and separate correspondence approval; final delivery still revalidates all evidence before upload and email. Complete mode remains the default. No omitted test becomes a pass, and the workflow does not determine whether Crestron will accept a submission.
+The correction covers credential import, runner setup, endurance observation/watch/notification and both submission delivery commands. Existing input bounds, private-buffer cleanup, endpoint checks, evidence checks and exact signing/delivery approvals are unchanged. It does not change driver behavior or require restarting an active endurance run.
 
-Copy the matching updated templates together and follow [the declared-gap workflow sequence](docs/submission/WorkflowSetup.md#signed-submissions-with-declared-gaps). The console commands already existed; this patch changes the distributed templates and documentation. It also distinguishes the remote observer's credential input from the combined notification command, with an optional named-credential alternative.
+Validation includes the actual credential-import executable with marked and unmarked UTF-8, non-ASCII synthetic credentials, encrypted-store verification, and command tests for observation, notification and delivery. The original Windows PowerShell 5.1 reproduction now succeeds using dummy data. No real credentials or external providers were used by these regression tests.
 
-Validation exercises the actual complete and declared-gap template sequences against the packaged console, including rejected mismatched pins, synthetic signatures and simulated upload/email providers. Dispatcher contract checks also pass. These checks do not validate a particular developer's GitHub permissions, service account or real provider delivery. No driver runtime changes or active-monitor upgrades are required.
+See [reusable private inputs](docs/PrivateInputs.md). Use the updated console for new setup or observation commands; leave active collectors on their pinned tools.
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.

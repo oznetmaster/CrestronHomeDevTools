@@ -2,9 +2,15 @@
 // Licensed under the MIT License. See LICENSE in the repository root.
 
 using System.Net;
+using System.Text;
 using System.Text.Json;
 
 using CrestronHomeDevTools;
+
+// Automation sends UTF-8 JSON. Do not decode redirected input using the Windows
+// console's legacy code page; that corrupts a UTF-8 BOM and non-ASCII credentials.
+if (Console.IsInputRedirected)
+	Console.InputEncoding = new UTF8Encoding (false);
 
 if (args.Length == 0 && !Console.IsInputRedirected)
 	{

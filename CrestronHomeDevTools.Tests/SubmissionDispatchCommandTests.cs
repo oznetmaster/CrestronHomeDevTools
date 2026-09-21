@@ -87,13 +87,14 @@ public sealed class SubmissionDispatchCommandTests
 		public override ValueTask<int> ReadAsync (Memory<char> buffer, CancellationToken cancellationToken = default)
 			=> throw new AssertionException ("Saved credentials must not read standard input.");
 		}
-	[Test]
-	public async Task PinnedSettingsAndStdinCredentialsReachDispatchWithoutBeingPrinted ()
+	[TestCase ("")]
+	[TestCase ("\uFEFF")]
+	public async Task PinnedSettingsAndStdinCredentialsReachDispatchWithoutBeingPrinted (string prefix)
 		{
 		using var output = new StringWriter ();
 		using var error = new StringWriter ();
 		int calls = 0;
-		int result = await SubmissionDispatchCommand.RunAsync (Args (), new StringReader (Credentials), output, error, execute: (settings, credentials, _) =>
+		int result = await SubmissionDispatchCommand.RunAsync (Args (), new StringReader (prefix + Credentials), output, error, execute: (settings, credentials, _) =>
 			{
 				calls++;
 				Assert.That (settings.Plan, Is.EqualTo (_settings.Plan));

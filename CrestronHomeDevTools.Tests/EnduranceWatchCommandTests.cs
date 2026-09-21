@@ -98,7 +98,7 @@ public sealed class EnduranceWatchCommandTests
 		var output = new StringWriter ();
 		var error = new StringWriter ();
 		string input = Input.Insert (1, "\"windows\":{\"userName\":\"windows-user\",\"password\":\"WINDOWS-SECRET\"},");
-		int result = await EnduranceWatchCommand.RunAsync (_args, new StringReader (input), output, error, CancellationToken.None,
+		int result = await EnduranceWatchCommand.RunAsync (_args, new StringReader ("\uFEFF" + input), output, error, CancellationToken.None,
 			(plan, settings, credential, token) =>
 				{
 					Assert.That (credential!.UserName, Is.EqualTo ("windows-user"));
@@ -216,6 +216,29 @@ public sealed class EnduranceWatchCommandTests
 		Assert.That (result, Is.EqualTo (3));
 		Assert.That (smtp.Sends, Is.Zero);
 		Assert.That (output.ToString (), Does.Contain ("AttentionRequired").And.Contain ("inspection-required"));
+		}
+
+	[TestCase ("", 0, 1)]
+	[TestCase ("\uFEFF", 0, 1)]
+	[TestCase ("\uFEFF\uFEFF", 2, 0)]
+	[TestCase (" \uFEFF", 2, 0)]
+	public async Task StandaloneObserverAcceptsOneLeadingPreambleWithoutChangingCredentialValidation (string prefix, int expectedExit, int expectedCalls)
+		{
+		Write ("observer", new EnduranceObservationCommand.Settings (new ("Synthetic task", Path.Combine (_root, "state")),
+			new ("windows.example.test", 22, "ssh-ed25519", "pinned")));
+		int calls = 0;
+		using var output = new StringWriter ();
+		using var error = new StringWriter ();
+		int result = await EnduranceObservationCommand.RunAsync (_args[..4],
+			new StringReader (prefix + "{\"userName\":\"synthetic\",\"password\":\"PRIVATE-PASSWORD\"}"), output, error, CancellationToken.None,
+			(plan, settings, credential, token) =>
+				{
+				calls++;
+				Assert.That (credential!.Password, Is.EqualTo ("PRIVATE-PASSWORD"));
+				return Task.FromResult (Report (SubmissionEnduranceHealthState.Collecting));
+				});
+		Assert.That ((result, calls), Is.EqualTo ((expectedExit, expectedCalls)));
+		Assert.That (output.ToString () + error, Does.Not.Contain ("PRIVATE-PASSWORD"));
 		}
 
 	private SubmissionEnduranceHealthReport Report (SubmissionEnduranceHealthState state) =>

@@ -82,7 +82,7 @@ internal static class EnduranceWatchCommand
 						count += read;
 					if (count == 0 || count == buffer.Length)
 						throw new ArgumentException ("Supply bounded credentials on standard input.");
-					credentials = JsonSerializer.Deserialize<Credentials> (buffer.AsSpan (0, count), JsonOptions) ?? throw new ArgumentException ("Empty credentials.");
+					credentials = ProtectedJsonInput.Deserialize<Credentials> (buffer.AsSpan (0, count), JsonOptions) ?? throw new ArgumentException ("Empty credentials.");
 					}
 				finally { Array.Clear (buffer); }
 				}

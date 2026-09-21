@@ -58,8 +58,9 @@ public sealed class EnduranceNotificationCommandTests
 		Assert.That (session.Sends, Is.EqualTo (wrongSender ? 0 : 1));
 		Assert.That (output.ToString () + error, Does.Not.Contain ("PRIVATE-PASSWORD"));
 		}
-	[Test]
-	public async Task CommandUsesStdinCredentialsAndRetainsDuplicateSuppression ()
+	[TestCase ("")]
+	[TestCase ("\uFEFF")]
+	public async Task CommandUsesStdinCredentialsAndRetainsDuplicateSuppression (string prefix)
 		{
 		var session = new Session ();
 		var output = new StringWriter ();
@@ -69,8 +70,8 @@ public sealed class EnduranceNotificationCommandTests
 			Assert.That (credential.Password, Is.EqualTo ("PRIVATE-PASSWORD"));
 			return new (settings, credential, directory, () => session);
 			}
-		Assert.That (await EnduranceNotificationCommand.RunAsync (_args, new StringReader (CredentialJson), output, error, CancellationToken.None, Create), Is.Zero);
-		Assert.That (await EnduranceNotificationCommand.RunAsync (_args, new StringReader (CredentialJson), output, error, CancellationToken.None, Create), Is.Zero);
+		Assert.That (await EnduranceNotificationCommand.RunAsync (_args, new StringReader (prefix + CredentialJson), output, error, CancellationToken.None, Create), Is.Zero);
+		Assert.That (await EnduranceNotificationCommand.RunAsync (_args, new StringReader (prefix + CredentialJson), output, error, CancellationToken.None, Create), Is.Zero);
 		Assert.That (session.Sends, Is.EqualTo (1));
 		Assert.That (output.ToString (), Does.Contain ("Accepted").And.Contain ("AlreadyAccepted").And.Not.Contain ("PRIVATE-PASSWORD"));
 		Assert.That (error.ToString (), Is.Empty);

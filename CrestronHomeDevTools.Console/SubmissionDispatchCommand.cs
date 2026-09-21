@@ -86,7 +86,7 @@ internal static class SubmissionDispatchCommand
 						}
 					if (count == 0 || count == buffer.Length)
 						throw new InvalidDataException ("Missing or oversized private credentials.");
-					credentials = JsonSerializer.Deserialize<SubmissionDispatchCredentials> (buffer.AsSpan (0, count), Options)
+					credentials = ProtectedJsonInput.Deserialize<SubmissionDispatchCredentials> (buffer.AsSpan (0, count), Options)
 						?? throw new InvalidDataException ("Missing private credentials.");
 					}
 				if (string.IsNullOrWhiteSpace (credentials.UploadUserName) || string.IsNullOrEmpty (credentials.UploadPassword) ||

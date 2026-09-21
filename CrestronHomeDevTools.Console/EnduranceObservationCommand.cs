@@ -64,7 +64,7 @@ internal static class EnduranceObservationCommand
 							count += read;
 						if (count == 0 || count == buffer.Length)
 							throw new ArgumentException ("Supply bounded Windows SSH credentials on standard input.");
-						var value = JsonSerializer.Deserialize<Credentials> (buffer.AsSpan (0, count), JsonOptions) ?? throw new ArgumentException ("Empty credentials.");
+						var value = ProtectedJsonInput.Deserialize<Credentials> (buffer.AsSpan (0, count), JsonOptions) ?? throw new ArgumentException ("Empty credentials.");
 						credential = new (value.UserName, value.Password);
 						}
 					finally { Array.Clear (buffer); }

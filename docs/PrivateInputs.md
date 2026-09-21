@@ -4,6 +4,8 @@ The `credentials` commands and `DevToolsPrivateStore` API collect private inputs
 
 The store can hold processor, Windows SSH, SMTP and uploader logins, and a signature image. Creating or populating a store never connects to a processor, sends email, uploads a file or signs a document. Existing processor `configure` profiles and protected standard-input integrations continue to work.
 
+Protected JSON sent on standard input uses UTF-8. DevTools 1.17.4 accepts it with or without the leading byte-order marker emitted by Windows PowerShell 5.1 process input. This applies to credential import, runner setup, endurance observation/notification and submission delivery. Older consoles can reject that input as invalid credentials before making a connection; the named-credential option remains available. Keep existing endurance collectors on their pinned release while updating a separate observation console.
+
 ## Create your personal store
 
 Run these commands in a Windows terminal. The configure command prompts for the password without echoing it. Supply a hostname, not a URL, for an endpoint. SMTP entries also record the port and approved sender address; Windows SSH entries record the verified SSH fingerprint.

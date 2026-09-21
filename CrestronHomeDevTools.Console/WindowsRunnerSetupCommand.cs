@@ -70,7 +70,7 @@ internal static class WindowsRunnerSetupCommand
 						count += read;
 					if (count == 0 || count == buffer.Length)
 						throw new InvalidDataException ("Missing or oversized private setup input.");
-					secrets = JsonSerializer.Deserialize<WindowsRunnerSetupSecrets> (buffer.AsSpan (0, count), new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? throw new InvalidDataException ("Missing setup input.");
+					secrets = ProtectedJsonInput.Deserialize<WindowsRunnerSetupSecrets> (buffer.AsSpan (0, count), new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? throw new InvalidDataException ("Missing setup input.");
 					}
 				finally { Array.Clear (buffer); }
 				}
