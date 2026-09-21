@@ -15,6 +15,31 @@ namespace CrestronHomeDevTools.Tests;
 public sealed class DevToolsPrivateStoreTests
 	{
 	[Test]
+	public async Task VerificationDoesNotExposeOrModifyEntryAndRejectsCorruptData ()
+		{
+		if (!OperatingSystem.IsWindows ())
+			{
+			Assert.Ignore ("Windows DPAPI test.");
+			return;
+			}
+		string path = Path.Combine (TestContext.CurrentContext.WorkDirectory, "private-verify-" + Guid.NewGuid ().ToString ("N"));
+		var store = DevToolsPrivateStore.Create (path);
+		store.SaveCredential ("mail", new (DevToolsCredentialPurpose.Smtp, "example.invalid", "synthetic-user", "SYNTHETIC-VERIFY-SECRET"));
+		string file = Path.Combine (path, "mail.private");
+		byte[] before = File.ReadAllBytes (file);
+		var output = new StringWriter ();
+		var error = new StringWriter ();
+		Assert.That (await CredentialSetupCommand.RunAsync (["verify", "--name", "mail", "--store", path], output, error), Is.Zero);
+		Assert.That (output.ToString (), Does.Not.Contain ("synthetic-user").And.Not.Contain ("SYNTHETIC-VERIFY-SECRET").And.Not.Contain ("example.invalid"));
+		Assert.That (error.ToString (), Is.Empty);
+		Assert.That (File.ReadAllBytes (file), Is.EqualTo (before));
+		store.SaveSignature ("image", [1, 2, 3], ".png");
+		store.VerifyReadable ("image");
+		File.WriteAllBytes (file, [1, 2, 3]);
+		Assert.That (await CredentialSetupCommand.RunAsync (["verify", "--name", "mail", "--store", path], new StringWriter (), error), Is.EqualTo (2));
+		}
+
+	[Test]
 	public void UserStoreEncryptsInputsAndBindsCredentialUse ()
 		{
 		if (!OperatingSystem.IsWindows ())

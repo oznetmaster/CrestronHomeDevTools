@@ -96,7 +96,10 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 		using var deadline = new CancellationTokenSource (TimeSpan.FromMinutes (45));
 		ConsoleCancelEventHandler cancel = (_, e) => { e.Cancel = true; deadline.Cancel (); };
 		Console.CancelKeyPress += cancel;
-		try { return await SubmissionToolsCommand.RunAsync (args[1..], deadline.Token); }
+		try
+			{
+			return await SubmissionToolsCommand.RunAsync (args[1..], deadline.Token);
+			}
 		finally { Console.CancelKeyPress -= cancel; }
 		}
 	if (args.FirstOrDefault () == "submission-delivery-settings")
@@ -104,7 +107,10 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 		using var deadline = new CancellationTokenSource (TimeSpan.FromMinutes (10));
 		ConsoleCancelEventHandler cancel = (_, e) => { e.Cancel = true; deadline.Cancel (); };
 		Console.CancelKeyPress += cancel;
-		try { return await SubmissionDispatchPreparationCommand.RunAsync (args[1..], Console.Out, Console.Error, deadline.Token); }
+		try
+			{
+			return await SubmissionDispatchPreparationCommand.RunAsync (args[1..], Console.Out, Console.Error, deadline.Token);
+			}
 		finally { Console.CancelKeyPress -= cancel; }
 		}
 	if (args.FirstOrDefault () is "submission-deliver" or "submission-review-request-deliver")
@@ -263,6 +269,7 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
               --processor IP-or-system-name        Select processor for this command
               --profile name                      Saved encrypted profile (default: default)
               --settings private-settings.json    Optional private connection settings
+              --credentials private-bindings.json Named encrypted processor credential; no environment overrides
               --timeout seconds                   Wait timeout (default 120; reboot 600)
               --help                              Show this help
 
@@ -327,7 +334,7 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 			if (!args[index].StartsWith ("--", StringComparison.Ordinal) || index + 1 == args.Length)
 				throw new ArgumentException ("Options must use --name value pairs.");
 			var key = args[index][2..];
-			if (!allowed.Concat (["settings", "timeout", "profile", "processor"]).Contains (key) || !options.TryAdd (key, args[index + 1]))
+			if (!allowed.Concat (["settings", "timeout", "profile", "processor", "credentials"]).Contains (key) || !options.TryAdd (key, args[index + 1]))
 				throw new ArgumentException ("Unknown or duplicate option. Run with --help.");
 			}
 		var preauthorizedReboot = command == "reboot" && RebootConfirmation.ValidateCliAuthorization (
@@ -414,7 +421,9 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 					};
 			var report = SubmissionPackage.Inspect (Required ("package"), new (
 				Required ("driver"), Required ("version"), kind, options.GetValueOrDefault ("developer-name-token", ""), options.GetValueOrDefault ("support-email", ""))
-				{ PublicSupportWebsite = options.GetValueOrDefault ("support-website") });
+				{
+				PublicSupportWebsite = options.GetValueOrDefault ("support-website")
+				});
 			Console.WriteLine (JsonSerializer.Serialize (report, jsonOptions));
 			return report.PackageChecksPassed ? 0 : 1;
 			}
@@ -432,11 +441,14 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 			throw new ArgumentException ("The plan output file already exists. Choose a new path.");
 		if (options.ContainsKey ("settings") && options.ContainsKey ("profile"))
 			throw new ArgumentException ("Use either --settings or --profile.");
+		string? credentialBindings = options.GetValueOrDefault ("credentials");
+		if (credentialBindings != null && (options.ContainsKey ("profile") || command == "configure"))
+			throw new ArgumentException ("Named credentials cannot be combined with a profile or interactive configure. Use credentials configure to save an entry.");
 		var store = new ProfileStore ();
 		var profileName = options.GetValueOrDefault ("profile", "default");
 		var settings = options.TryGetValue ("settings", out var file)
 			 ? JsonSerializer.Deserialize<ConsoleSettings> (await File.ReadAllTextAsync (file, cancellation.Token), jsonOptions) ?? new () : new ConsoleSettings ();
-		if (file == null && store.Exists (profileName))
+		if (credentialBindings == null && file == null && store.Exists (profileName))
 			{
 			if (!OperatingSystem.IsWindows ())
 				throw new PlatformNotSupportedException ("Saved profiles require Windows.");
@@ -449,10 +461,12 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 			await ProfileSetup.ConfigureAsync (store, profileName, options.GetValueOrDefault ("processor"), settings, cancellation.Token);
 			return 0;
 			}
-		string? Setting (string environmentName, string? fallback) => Environment.GetEnvironmentVariable (environmentName) ?? fallback;
+		string? Setting (string environmentName, string? fallback) => credentialBindings == null ? Environment.GetEnvironmentVariable (environmentName) ?? fallback : fallback;
 		var selector = options.GetValueOrDefault ("processor") ?? Setting ("CRESTRON_HOME_HOST", settings.SystemName ?? settings.Host)
 			 ?? throw new ArgumentException ("Run configure, choose --processor, or provide CRESTRON_HOME_HOST.");
 		var host = IPAddress.TryParse (selector, out _) ? selector : (await ProcessorDiscovery.ResolveAsync (selector, cancellation.Token)).Address;
+		if (credentialBindings != null)
+			settings = ProcessorCredentialSettings.Resolve (credentialBindings, host, settings);
 		var user = Setting ("CRESTRON_HOME_USER", settings.UserName) ?? throw new ArgumentException ("Provide a processor user in settings or CRESTRON_HOME_USER.");
 		var password = Setting ("CRESTRON_HOME_PASSWORD", settings.Password) ?? throw new ArgumentException ("Provide a processor password in settings or CRESTRON_HOME_PASSWORD.");
 		if (endurance != null)
@@ -648,7 +662,8 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 			}
 		mutationStopped = true;
 		Console.WriteLine (JsonSerializer.Serialize (result, jsonOptions));
-		if (result is ManagedDeviceResult { State: "ConfigurationRequired" }) return 3;
+		if (result is ManagedDeviceResult { State: "ConfigurationRequired" })
+			return 3;
 		return result is OperationResult operation && !operation.Succeeded ? operation.Status == "Failed" ? 1 : 3 : 0;
 		}
 	catch (OperationCanceledException) when (cancellation.IsCancellationRequested)

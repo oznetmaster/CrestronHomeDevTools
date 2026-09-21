@@ -24,6 +24,8 @@ internal static class CredentialSetupCommand
               Store an encrypted image; does not sign any document.
             credentials list [--store DIRECTORY]
               List saved entry names only.
+            credentials verify --name NAME [--store DIRECTORY]
+              Verify decryption under this Windows identity without displaying values or making a connection.
             credentials provision --name NAME --target-store DIRECTORY [--store DIRECTORY] [--replace true]
               Copy only that entry into an existing local service store; no remote transfer.
             credentials provision-remote --name NAME --destination PRIVATE_JSON --windows-entry NAME [--store DIRECTORY]
@@ -66,6 +68,10 @@ internal static class CredentialSetupCommand
 			string name = Required ("--name");
 			switch (args[0])
 				{
+				case "verify":
+					store.VerifyReadable (name);
+					output.WriteLine ("Private entry is readable by the current Windows identity. No values displayed or connection made.");
+					return 0;
 				case "configure":
 					if (Console.IsInputRedirected)
 						throw new ArgumentException ("Configure needs an interactive console. Use import with protected stdin for automation.");

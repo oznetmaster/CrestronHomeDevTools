@@ -59,6 +59,10 @@ Run under an account permitted to create the destination. This is an explicit gr
 
 Only named entries are copied. The provision command neither registers a task nor changes a running collector. Point that service's bindings at its service store. Replacing your personal entry does not silently replace its provisioned service copy; provision the update deliberately.
 
+Use `credentials verify --name mail --store C:\ProgramData\ExampleMonitor\PrivateStore` under the intended task or service identity to check decryption. This command returns no credential values, changes no entries and contacts no endpoint. Running it in your own terminal verifies your account only. Exit 0 confirms the selected entry can be decrypted; exit 2 means it was not verified. The C# equivalent is `DevToolsPrivateStore.VerifyReadable(name)`. Successful decryption does not establish that an endpoint will accept the saved login.
+
+A synthetic Windows scheduled-task rehearsal under LocalService verified decryption of its assigned store, refusal of writes, and refusal of access to a separate user-only store. Its temporary task and files were removed automatically. Other accounts and destination computers still require their own access check.
+
 This command is **local** provisioning. Copying a personal DPAPI store to another computer or Windows account does not transfer access. For another computer, use the selected-entry SSH transfer below.
 
 ## Transfer one entry to another Windows computer
@@ -96,7 +100,15 @@ Validation includes a real two-computer Windows SSH rehearsal with a synthetic c
 .\CrestronHomeDevTools.Console.exe credentials configure --name processor --kind Processor
 ```
 
-These entries are available through the public `LoadSignature` and `LoadCredential` APIs. Their creation does not automatically migrate existing processor profiles or replace the signing command's current private image input. Those command integrations are still pending. A signature must only be applied after approval of the exact declaration being signed; saving it is not standing signing authorization. Clear returned signature bytes after use.
+Processor commands accept `--credentials C:\Private\bindings.json` with a `Processor` entry name in the bindings. Select the target with `--processor IP-or-system-name`; after discovery, its address must match the saved entry. For example:
+
+```powershell
+.\CrestronHomeDevTools.Console.exe devices --processor 192.0.2.10 --credentials C:\Private\bindings.json
+```
+
+Named-credential execution skips the default profile and ignores connection environment variables. Do not combine it with `--profile` or interactive `configure`. Optional `--settings` can supply only the target and connection ports, without login or trust fields. The saved HTTPS port (443 when omitted) must match, and a saved verified certificate is required. Mutations still require the verified SSH fingerprint and processor lease. Missing entries fail without prompting. Existing profiles remain supported when `--credentials` is omitted; no automatic migration occurs.
+
+Signature entries remain available through `LoadSignature`; the signing command's current private image input has not yet been replaced. A signature must only be applied after approval of the exact declaration being signed; saving it is not standing signing authorization. Clear returned signature bytes after use.
 
 ## Inventory and workstation setup
 

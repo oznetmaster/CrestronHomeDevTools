@@ -84,6 +84,18 @@ public sealed partial class DevToolsPrivateStore
 	/// <summary>List entry names only; passwords, usernames and signature bytes are not returned.</summary>
 	public IReadOnlyList<string> ListNames () => Directory.EnumerateFiles (DirectoryPath, "*.private").Select (p => Path.GetFileNameWithoutExtension (p)).Order (StringComparer.Ordinal).ToArray ();
 
+	/// <summary>Verify that the current Windows identity can decrypt one entry without returning its contents or connecting anywhere.</summary>
+	public void VerifyReadable (string name)
+		{
+		var entry = Load (name);
+		try
+			{
+			if ((entry.Credential == null) == (entry.Signature == null))
+				throw new InvalidDataException ("Private entry must contain one credential or signature.");
+			}
+		finally { if (entry.Signature != null) CryptographicOperations.ZeroMemory (entry.Signature); }
+		}
+
 	public void SaveCredential (string name, DevToolsStoredCredential credential, bool replace = false)
 		{
 		ArgumentNullException.ThrowIfNull (credential);
