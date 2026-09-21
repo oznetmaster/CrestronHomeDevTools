@@ -36,6 +36,19 @@ SubmissionEvidenceDocument imported = SubmissionPriorEvidence.ImportFiles(
 
 `Import` is also available for callers already holding the independently reviewed identity and policy. Neither entry point performs hardware tests, applies a signature or delivers anything. Import validates only the selected subset; it does not establish full submission readiness.
 
+## A completed endurance run followed by a documentation-only package
+
+A new package has a new identity even if only its bundled help changed. Do not edit the earlier export or pretend that the later package was installed during that run. Review the actual runtime, resources and dependencies before deciding whether to reuse the evidence.
+
+When the collector used a separate policy, perform two distinct operations:
+
+1. Retain the completed, passed collection and confirmed reservation release using the [scheduled-run export](WindowsEnduranceWorker.md#retain-a-completed-run).
+2. Use [evidence mapping](EvidenceMapping.md) to map that original export into the **earlier package's** full submission policy. Set `sourceFormat` to `endurance-export` and retain `sourceWorker` when the collection policy is a behavioral document. Both mapping identities must still name the earlier package and source commit. Keep the raw export bytes, original policy, worker, samples and mapping alongside the derived observation.
+3. Use the resulting mapped `Passed` observation document and its full submission policy as the source for the explicit prior-evidence review described above. The later package's requirement must match that source requirement exactly, apart from its added `PriorEvidence` permission. Retain the entire mapped evidence tree beneath the later package's evidence directory.
+4. Import it with `submission-import-prior-evidence`, then compose it with the later package's fresh observations. The imported outcome is `ReviewedPriorPass`; its original measurements remain in the retained source records. Do not feed that imported result into another prior-evidence review.
+
+The prior-evidence command does not directly read a raw PascalCase `endurance-export` observation or a behavioral collection policy. Mapping resolves the schema and policy scope; the subsequent review resolves the package change. Neither step fills missing functional tests, expands the measured duration, or establishes Crestron acceptance. Reassess applicability against the later package's actual source instead of trying to import `NotApplicable` as a prior pass.
+
 ## How the results appear
 
 The assessment uses `VerifiedPriorEvidence` for a valid review. Original physical measurements remain in the retained source document; the imported observation records the review date without invented execution measurements. The form companion identifies prior evidence separately from fresh passes. A checkbox is checked only when every applicable mapped assertion has sufficient validated support. Explicitly justified, policy-permitted non-applicable subconditions are disclosed without preventing an otherwise supported item from being checked. Entirely non-applicable items and items with incomplete applicable checks remain unchecked with their explanations.
