@@ -57,6 +57,23 @@ public sealed class SubmissionEnduranceWindowsObserverTests
 		Assert.That (report.PlanSha256, Is.EqualTo (SubmissionEndurance.PlanDigest (Plan)));
 		Assert.That (report.LastSampleUtc, Is.Null);
 		}
+	[TestCase (3, "{}", "")]
+	[TestCase (0, "null", "")]
+	[TestCase (0, "{PRIVATE-SECRET", "")]
+	[TestCase (0, "{}", "PRIVATE-SECRET")]
+	public async Task FailedSnapshotParsingProducesAttentionInsteadOfEscapingTheObserver (int exitCode, string output, string error)
+		{
+		int calls = 0;
+		var before = DateTimeOffset.UtcNow;
+		var report = await SubmissionEnduranceWindowsObserver.AssessCoreAsync (Plan,
+			_ => { calls++; return Task.FromResult (SubmissionEnduranceWindowsObserver.Parse (exitCode, output, error)); }, CancellationToken.None);
+		Assert.That (calls, Is.EqualTo (1));
+		Assert.That (report.State, Is.EqualTo (SubmissionEnduranceHealthState.AttentionRequired));
+		Assert.That (report.Reasons, Is.EqualTo (new[] { "observer-query-failed" }));
+		Assert.That (report.PlanSha256, Is.EqualTo (SubmissionEndurance.PlanDigest (Plan)));
+		Assert.That (report.EvaluatedUtc, Is.InRange (before, DateTimeOffset.UtcNow));
+		Assert.That (report.LastSampleUtc, Is.Null);
+		}
 	[Test]
 	public void ExplicitCancellationDoesNotBecomeAHealthyOrSyntheticObservation ()
 		{
@@ -70,7 +87,8 @@ public sealed class SubmissionEnduranceWindowsObserverTests
 	[Test]
 	public async Task EmbeddedReaderExecutesWithLiteralTaskNameAndNoInjectedCommands ()
 		{
-		if (!OperatingSystem.IsWindows ()) Assert.Ignore ("Windows PowerShell integration.");
+		if (!OperatingSystem.IsWindows ())
+			Assert.Ignore ("Windows PowerShell integration.");
 		string root = Path.Combine (TestContext.CurrentContext.WorkDirectory, "observer-" + Guid.NewGuid ().ToString ("N"));
 		Directory.CreateDirectory (root);
 		try
@@ -82,12 +100,16 @@ public sealed class SubmissionEnduranceWindowsObserverTests
 				"function Get-ScheduledTaskInfo { param([Parameter(ValueFromPipeline)]$InputObject) process { [pscustomobject]@{LastTaskResult=0} } };";
 			string bootstrap = Encoding.Unicode.GetString (Convert.FromBase64String (SubmissionEnduranceWindowsObserver.EncodedCommand (new (name, root)).Split (' ').Last ()));
 			var start = new ProcessStartInfo ("powershell.exe") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
-			foreach (string arg in new[] { "-NoProfile", "-NonInteractive", "-EncodedCommand", Convert.ToBase64String (Encoding.Unicode.GetBytes (mock + bootstrap)) }) start.ArgumentList.Add (arg);
+			foreach (string arg in new[] { "-NoProfile", "-NonInteractive", "-EncodedCommand", Convert.ToBase64String (Encoding.Unicode.GetBytes (mock + bootstrap)) })
+				start.ArgumentList.Add (arg);
 			using var process = Process.Start (start)!;
 			var stdout = process.StandardOutput.ReadToEndAsync ();
 			var stderr = process.StandardError.ReadToEndAsync ();
 			using var deadline = new CancellationTokenSource (TimeSpan.FromSeconds (20));
-			try { await process.WaitForExitAsync (deadline.Token); }
+			try
+				{
+				await process.WaitForExitAsync (deadline.Token);
+				}
 			finally { if (!process.HasExited) { process.Kill (true); await process.WaitForExitAsync (); } }
 			var snapshot = SubmissionEnduranceWindowsObserver.Parse (process.ExitCode, await stdout, await stderr);
 			Assert.That (snapshot.TaskPresent, Is.True);

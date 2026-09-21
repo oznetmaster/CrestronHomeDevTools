@@ -88,8 +88,9 @@ public sealed class EnduranceWatchCommandTests
 		Assert.That (error.ToString (), Is.Empty);
 		}
 
-	[Test]
-	public async Task FailedRemoteQueryStillSendsAttentionAndSeparatesCredentials ()
+	[TestCase (false)]
+	[TestCase (true)]
+	public async Task FailedRemoteQueryStillSendsAttentionAndSeparatesCredentials (bool malformedSnapshot)
 		{
 		Write ("observer", new EnduranceObservationCommand.Settings (new ("Synthetic task", Path.Combine (_root, "state")),
 			new ("windows.example.test", 22, "ssh-ed25519", "pinned")));
@@ -102,7 +103,12 @@ public sealed class EnduranceWatchCommandTests
 				{
 					Assert.That (credential!.UserName, Is.EqualTo ("windows-user"));
 					Assert.That (credential.Password, Is.EqualTo ("WINDOWS-SECRET"));
-					return SubmissionEnduranceWindowsObserver.AssessCoreAsync (plan, _ => throw new IOException ("PRIVATE-QUERY-DETAILS"), token);
+					return SubmissionEnduranceWindowsObserver.AssessCoreAsync (plan, _ =>
+						{
+							if (malformedSnapshot)
+								return Task.FromResult (SubmissionEnduranceWindowsObserver.Parse (1, "", "PRIVATE-QUERY-DETAILS"));
+							throw new IOException ("PRIVATE-QUERY-DETAILS");
+						}, token);
 				}, (s, c, d) =>
 				{
 					Assert.That (c.UserName, Is.EqualTo ("synthetic"));

@@ -26,7 +26,8 @@ public sealed class SubmissionEnduranceProcessProbeTests
 			{
 			string destination = Path.Combine (bundle, Path.GetFileName (file));
 			File.Copy (file, destination);
-			if (!OperatingSystem.IsWindows ()) File.SetUnixFileMode (destination, File.GetUnixFileMode (file));
+			if (!OperatingSystem.IsWindows ())
+				File.SetUnixFileMode (destination, File.GetUnixFileMode (file));
 			pins.Add (new (Path.GetFileName (file), Convert.ToHexString (SHA256.HashData (File.ReadAllBytes (file)))));
 			}
 		string settings = Path.Combine (_root, "private.json");
@@ -40,13 +41,17 @@ public sealed class SubmissionEnduranceProcessProbeTests
 	[TearDown]
 	public async Task TearDown ()
 		{
-		if (File.Exists (_program.SettingsFile + ".pid")) AssertStopped ();
+		if (File.Exists (_program.SettingsFile + ".pid"))
+			AssertStopped ();
 		// Process termination is asserted separately. Windows may briefly retain the
 		// executable mapping after exit; retry only deletion of this test's own bundle.
 		var elapsed = Stopwatch.StartNew ();
 		while (Directory.Exists (_root))
 			{
-			try { Directory.Delete (_root, true); }
+			try
+				{
+				Directory.Delete (_root, true);
+				}
 			catch (Exception error) when ((error is IOException or UnauthorizedAccessException) && elapsed.Elapsed < TimeSpan.FromSeconds (5))
 				{
 				await Task.Delay (100);
@@ -60,11 +65,11 @@ public sealed class SubmissionEnduranceProcessProbeTests
 		var result = await SubmissionEnduranceProcessProbe.RunAsync (_program, _plan);
 		Assert.Multiple (() =>
 			{
-			Assert.That (result.Identity, Is.EqualTo (_plan.Identity));
-			Assert.That (result.ProducerId, Is.EqualTo (_plan.ProducerId));
-			Assert.That (result.ReservationId, Is.EqualTo (_plan.ReservationId));
-			Assert.That (result.BootIdentity, Is.EqualTo ("synthetic-boot"));
-			Assert.That (result.Outcome, Is.EqualTo (SubmissionEvidenceOutcome.Passed));
+				Assert.That (result.Identity, Is.EqualTo (_plan.Identity));
+				Assert.That (result.ProducerId, Is.EqualTo (_plan.ProducerId));
+				Assert.That (result.ReservationId, Is.EqualTo (_plan.ReservationId));
+				Assert.That (result.BootIdentity, Is.EqualTo ("synthetic-boot"));
+				Assert.That (result.Outcome, Is.EqualTo (SubmissionEvidenceOutcome.Passed));
 			});
 		AssertStopped ();
 		}
@@ -102,7 +107,8 @@ public sealed class SubmissionEnduranceProcessProbeTests
 		var running = SubmissionEnduranceProcessProbe.RunAsync (_program, _plan, cancel.Token);
 		try
 			{
-			while (!File.Exists (_program.SettingsFile + ".pid")) await Task.Delay (20, cancel.Token);
+			while (!File.Exists (_program.SettingsFile + ".pid"))
+				await Task.Delay (20, cancel.Token);
 			cancel.Cancel ();
 			Assert.ThrowsAsync<OperationCanceledException> (async () => await running);
 			AssertStopped ();
@@ -115,24 +121,36 @@ public sealed class SubmissionEnduranceProcessProbeTests
 	public void ChangedMissingOrAddedBundleFilePreventsProcessStart (string change)
 		{
 		string file = Path.Combine (_program.Directory, _program.Files[0].RelativePath);
-		if (change == "changed") File.AppendAllText (file, "changed");
-		else if (change == "extra") File.WriteAllText (Path.Combine (_program.Directory, "unreviewed.dll"), "extra");
-		else File.Delete (file);
+		if (change == "changed")
+			File.AppendAllText (file, "changed");
+		else if (change == "extra")
+			File.WriteAllText (Path.Combine (_program.Directory, "unreviewed.dll"), "extra");
+		else
+			File.Delete (file);
 		Assert.ThrowsAsync<InvalidDataException> (async () => await SubmissionEnduranceProcessProbe.RunAsync (_program, _plan));
 		Assert.That (File.Exists (_program.SettingsFile + ".pid"), Is.False);
 		}
 	[Test]
 	public void ChangedManifestCannotReplaceTheProducerOnAResumedPlan ()
 		{
-		var changed = _program with { SettingsFile = Path.Combine (_root, "another-private-file") };
+		var changed = _program with
+			{
+			SettingsFile = Path.Combine (_root, "another-private-file")
+			};
 		Assert.Throws<InvalidDataException> (() => SubmissionEnduranceProcessProbe.Validate (changed, _plan));
 		}
 	[Test]
 	public void FileOrderingDoesNotChangeProducerIdentity () => Assert.That (
-		SubmissionEnduranceProcessProbe.GetProducerId (_program with { Files = _program.Files.Reverse ().ToArray () }), Is.EqualTo (_plan.ProducerId));
+		SubmissionEnduranceProcessProbe.GetProducerId (_program with
+			{
+			Files = _program.Files.Reverse ().ToArray ()
+			}), Is.EqualTo (_plan.ProducerId));
 	[Test]
 	public void DuplicateManifestPathsAreRejected () => Assert.Throws<ArgumentException> (() =>
-		SubmissionEnduranceProcessProbe.GetProducerId (_program with { Files = [.. _program.Files, _program.Files[0]] }));
+		SubmissionEnduranceProcessProbe.GetProducerId (_program with
+			{
+			Files = [.. _program.Files, _program.Files[0]]
+			}));
 	[Test]
 	public void OfflineStatusNeedsNoCredentialsAndRejectsAChangedProducer ()
 		{
@@ -140,13 +158,23 @@ public sealed class SubmissionEnduranceProcessProbeTests
 		string file = Path.Combine (_root, "worker.json");
 		File.WriteAllText (file, JsonSerializer.Serialize (worker));
 		Assert.That (EnduranceCommands.Read (file).Plan, Is.EqualTo (_plan));
-		File.WriteAllText (file, JsonSerializer.Serialize (worker with { Probe = _program with { SettingsFile = null } }));
+		File.WriteAllText (file, JsonSerializer.Serialize (worker with
+			{
+			Probe = _program with
+				{
+				SettingsFile = null
+				}
+			}));
 		Assert.Throws<ArgumentException> (() => EnduranceCommands.Read (file));
 		}
 	private void AssertStopped ()
 		{
 		int pid = int.Parse (File.ReadAllText (_program.SettingsFile + ".pid"));
-		try { using var process = Process.GetProcessById (pid); Assert.That (process.HasExited, Is.True); }
+		try
+			{
+			using var process = Process.GetProcessById (pid);
+			Assert.That (process.HasExited, Is.True);
+			}
 		catch (ArgumentException) { }
 		}
 	[TestCase (false)]
@@ -164,18 +192,49 @@ public sealed class SubmissionEnduranceProcessProbeTests
 			new StringReader (remote ? "{\"userName\":\"windows-user\",\"password\":\"PRIVATE-SECRET\"}" : ""), output, error, CancellationToken.None,
 			(plan, settings, credential, _) =>
 				{
-				calls++;
-				Assert.That (plan, Is.EqualTo (_plan));
-				Assert.That (settings.Task.TaskName, Is.EqualTo ("Candidate"));
-				Assert.That (credential?.Password, Is.EqualTo (remote ? "PRIVATE-SECRET" : null));
-				return Task.FromResult (new SubmissionEnduranceHealthReport (SubmissionEnduranceHealthState.AttentionRequired,
-					["observer-query-failed"], DateTimeOffset.UtcNow, null, SubmissionEndurance.PlanDigest (_plan)));
+					calls++;
+					Assert.That (plan, Is.EqualTo (_plan));
+					Assert.That (settings.Task.TaskName, Is.EqualTo ("Candidate"));
+					Assert.That (credential?.Password, Is.EqualTo (remote ? "PRIVATE-SECRET" : null));
+					return Task.FromResult (new SubmissionEnduranceHealthReport (SubmissionEnduranceHealthState.AttentionRequired,
+						["observer-query-failed"], DateTimeOffset.UtcNow, null, SubmissionEndurance.PlanDigest (_plan)));
 				});
 		Assert.That (calls, Is.EqualTo (1));
 		Assert.That (exit, Is.EqualTo (3));
 		Assert.That (output.ToString (), Does.Contain ("observer-query-failed").And.Not.Contain ("PRIVATE-SECRET"));
 		Assert.That (error.ToString (), Is.Empty);
 		Assert.That (File.Exists (_program.SettingsFile + ".pid"), Is.False);
+		}
+	[Test]
+	public async Task LocalObserverCliReportsAttentionWithoutCrashingOrStartingACollector ()
+		{
+		if (!OperatingSystem.IsWindows ())
+			Assert.Ignore ("Windows scheduled-task observation.");
+		string worker = Path.Combine (_root, "worker.json"), observer = Path.Combine (_root, "observer.json");
+		File.WriteAllText (worker, JsonSerializer.Serialize (new SubmissionEnduranceWorkerPlan (_plan, new ("processor.invalid", "pin"), _program)));
+		File.WriteAllText (observer, JsonSerializer.Serialize (new EnduranceObservationCommand.Settings (
+			new ("Missing-Synthetic-Observer-" + Guid.NewGuid ().ToString ("N"), Path.Combine (_root, "absent-state")), null)));
+		var start = new ProcessStartInfo ("dotnet") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+		foreach (var argument in new[] { Path.Combine (AppContext.BaseDirectory, "CrestronHomeDevTools.Console.dll"), "endurance-observe",
+			"--worker", worker, "--observer", observer })
+			start.ArgumentList.Add (argument);
+		using var process = Process.Start (start)!;
+		var stdout = process.StandardOutput.ReadToEndAsync ();
+		var stderr = process.StandardError.ReadToEndAsync ();
+		using var timeout = new CancellationTokenSource (TimeSpan.FromSeconds (45));
+		try
+			{
+			await process.WaitForExitAsync (timeout.Token);
+			}
+		finally { if (!process.HasExited) { process.Kill (true); await process.WaitForExitAsync (); } }
+		Assert.That (process.ExitCode, Is.EqualTo (3), await stderr);
+		Assert.That (await stderr, Is.Empty);
+		using var report = JsonDocument.Parse (await stdout);
+		Assert.That (report.RootElement.GetProperty ("State").GetString (), Is.EqualTo ("AttentionRequired"));
+		Assert.That (report.RootElement.GetProperty ("RequiresAttention").GetBoolean (), Is.True);
+		Assert.That (report.RootElement.GetProperty ("PlanSha256").GetString (), Is.EqualTo (SubmissionEndurance.PlanDigest (_plan)));
+		Assert.That (File.Exists (_program.SettingsFile + ".pid"), Is.False);
+		Assert.That (Directory.Exists (Path.Combine (_root, "absent-state")), Is.False);
 		}
 	[TestCase ("healthy", 0)]
 	[TestCase ("stale", 3)]
@@ -202,19 +261,26 @@ public sealed class SubmissionEnduranceProcessProbeTests
 		var before = Directory.GetFileSystemEntries (_root).Order ().ToArray ();
 		var start = new ProcessStartInfo ("dotnet") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true, WorkingDirectory = _root };
 		foreach (var argument in new[] { Path.Combine (AppContext.BaseDirectory, "CrestronHomeDevTools.Console.dll"), "endurance-health",
-			"--worker", workerFile, "--snapshot", snapshotFile, "--profile", "nonexistent-health-test-profile" }) start.ArgumentList.Add (argument);
+			"--worker", workerFile, "--snapshot", snapshotFile, "--profile", "nonexistent-health-test-profile" })
+			start.ArgumentList.Add (argument);
 		using var process = Process.Start (start)!;
 		var stdout = process.StandardOutput.ReadToEndAsync ();
 		var stderr = process.StandardError.ReadToEndAsync ();
 		using var timeout = new CancellationTokenSource (TimeSpan.FromSeconds (20));
-		try { await process.WaitForExitAsync (timeout.Token); }
+		try
+			{
+			await process.WaitForExitAsync (timeout.Token);
+			}
 		finally { if (!process.HasExited) { process.Kill (true); await process.WaitForExitAsync (); } }
 		Assert.That (process.ExitCode, Is.EqualTo (expectedExit), await stderr);
 		Assert.That ((await stdout) + (await stderr), Does.Not.Contain ("PRIVATE-SECRET"));
 		Assert.That (Directory.GetFileSystemEntries (_root).Order ().ToArray (), Is.EqualTo (before));
-		if (scenario == "healthy") Assert.That (await stdout, Does.Contain ("Collecting"));
-		if (scenario == "stale") Assert.That (await stdout, Does.Contain ("scheduler-stale"));
-		if (scenario == "offline") Assert.That (await stdout, Does.Contain ("worker-unreachable"));
+		if (scenario == "healthy")
+			Assert.That (await stdout, Does.Contain ("Collecting"));
+		if (scenario == "stale")
+			Assert.That (await stdout, Does.Contain ("scheduler-stale"));
+		if (scenario == "offline")
+			Assert.That (await stdout, Does.Contain ("worker-unreachable"));
 		}
 	[Test]
 	public async Task ScheduledTickReportsUncertainOwnershipWithoutStartingProducerOrNetwork ()
@@ -235,19 +301,25 @@ public sealed class SubmissionEnduranceProcessProbeTests
 		string run = Path.Combine (_root, "cli-run"), workerFile = Path.Combine (_root, "worker.json");
 		Directory.CreateDirectory (run);
 		File.WriteAllText (workerFile, JsonSerializer.Serialize (new SubmissionEnduranceWorkerPlan (_plan, new ("processor.invalid", "pin"), _program)));
-		if (corrupt) File.WriteAllText (Path.Combine (run, "monitor.json"), "{\"privateValue\":\"PRIVATE-SECRET\"}");
+		if (corrupt)
+			File.WriteAllText (Path.Combine (run, "monitor.json"), "{\"privateValue\":\"PRIVATE-SECRET\"}");
 		var start = new ProcessStartInfo ("dotnet") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
 		foreach (var argument in new[] { Path.Combine (AppContext.BaseDirectory, "CrestronHomeDevTools.Console.dll"), "endurance-status",
-			"--worker", workerFile, "--run", run, "--profile", "nonexistent-endurance-test-profile" }) start.ArgumentList.Add (argument);
+			"--worker", workerFile, "--run", run, "--profile", "nonexistent-endurance-test-profile" })
+			start.ArgumentList.Add (argument);
 		using var process = Process.Start (start)!;
 		var stdout = process.StandardOutput.ReadToEndAsync ();
 		var stderr = process.StandardError.ReadToEndAsync ();
 		using var timeout = new CancellationTokenSource (TimeSpan.FromSeconds (20));
-		try { await process.WaitForExitAsync (timeout.Token); }
+		try
+			{
+			await process.WaitForExitAsync (timeout.Token);
+			}
 		finally { if (!process.HasExited) { process.Kill (true); await process.WaitForExitAsync (); } }
 		Assert.That (process.ExitCode, Is.EqualTo (corrupt ? 3 : 0), await stderr);
 		Assert.That ((await stdout) + (await stderr), Does.Not.Contain ("PRIVATE-SECRET"));
-		if (!corrupt) Assert.That (await stdout, Does.Contain ("NotStarted"));
+		if (!corrupt)
+			Assert.That (await stdout, Does.Contain ("NotStarted"));
 		Assert.That (File.Exists (_program.SettingsFile + ".pid"), Is.False);
 		}
 	}

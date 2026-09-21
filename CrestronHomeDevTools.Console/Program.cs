@@ -36,6 +36,11 @@ static async Task<int> RunSafelyAsync (string[] args, bool interactive = false)
 		{
 		return await RunAsync (args, interactive);
 		}
+	catch (InvalidDataException)
+		{
+		Console.Error.WriteLine ("Command data could not be validated. Inspect the retained inputs and results; do not retry a submitted operation automatically.");
+		return 3;
+		}
 	catch (IOException exception)
 		{
 		// Final lease cleanup can fail after the command itself has completed.

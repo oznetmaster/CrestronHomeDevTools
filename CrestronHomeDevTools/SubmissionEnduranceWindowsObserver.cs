@@ -22,7 +22,10 @@ public static class SubmissionEnduranceWindowsObserver
 	{
 	private const int OutputLimit = 8 * 1024 * 1024;
 	private static readonly JsonSerializerOptions JsonOptions = new ()
-		{ PropertyNameCaseInsensitive = true, Converters = { new JsonStringEnumConverter () } };
+		{
+		PropertyNameCaseInsensitive = true,
+		Converters = { new JsonStringEnumConverter () }
+		};
 
 	/// <summary>Assess one fresh observation. A query failure is an alert, never a reused healthy snapshot.</summary>
 	public static Task<SubmissionEnduranceHealthReport> AssessAsync (SubmissionEndurancePlan plan, SubmissionEnduranceWindowsTask task,
@@ -40,7 +43,7 @@ public static class SubmissionEnduranceWindowsObserver
 			var snapshot = await observe (token).ConfigureAwait (false);
 			return SubmissionEnduranceHealth.Evaluate (plan, snapshot, DateTimeOffset.UtcNow, TimeSpan.FromMinutes (5), TimeSpan.FromSeconds (2));
 			}
-		catch (Exception failure) when (!token.IsCancellationRequested && failure is SshException or IOException or UnauthorizedAccessException or Win32Exception or OperationCanceledException or TimeoutException)
+		catch (Exception failure) when (!token.IsCancellationRequested && failure is SshException or IOException or InvalidDataException or UnauthorizedAccessException or Win32Exception or OperationCanceledException or TimeoutException)
 			{
 			return new (SubmissionEnduranceHealthState.AttentionRequired, ["observer-query-failed"], DateTimeOffset.UtcNow, null, SubmissionEndurance.PlanDigest (plan));
 			}
@@ -53,7 +56,8 @@ public static class SubmissionEnduranceWindowsObserver
 			if (string.IsNullOrWhiteSpace (value) || value.Length > 1024 || value.Any (char.IsControl))
 				throw new ArgumentException ("Provide bounded Windows task names and paths without control characters.");
 		if (task.StateDirectory.Length < 3 || !char.IsAsciiLetter (task.StateDirectory[0]) || task.StateDirectory[1] != ':' || task.StateDirectory[2] != '\\' ||
-			!task.TaskPath.StartsWith ('\\')) throw new ArgumentException ("Use a local absolute Windows scheduler-state directory and task-folder path.");
+			!task.TaskPath.StartsWith ('\\'))
+			throw new ArgumentException ("Use a local absolute Windows scheduler-state directory and task-folder path.");
 		using var source = typeof (SubmissionEnduranceWindowsObserver).Assembly.GetManifestResourceStream ("CrestronHomeDevTools.EnduranceHealthSnapshot.ps1")
 			?? throw new InvalidOperationException ("The installed observer is missing its bundled snapshot reader.");
 		using var reader = new StreamReader (source);
@@ -73,20 +77,28 @@ public static class SubmissionEnduranceWindowsObserver
 			"$g=[IO.Compression.GZipStream]::new($m,[IO.Compression.CompressionMode]::Decompress);" +
 			"$r=[IO.StreamReader]::new($g,[Text.Encoding]::UTF8);try{& ([ScriptBlock]::Create($r.ReadToEnd()))}finally{$r.Dispose();$g.Dispose();$m.Dispose()}";
 		string command = "powershell.exe -NoProfile -NonInteractive -EncodedCommand " + Convert.ToBase64String (Encoding.Unicode.GetBytes (bootstrap));
-		if (command.Length > 7900) throw new ArgumentException ("Observer arguments exceed the remote Windows command limit.");
+		if (command.Length > 7900)
+			throw new ArgumentException ("Observer arguments exceed the remote Windows command limit.");
 		return command;
 		}
 
 	public static async Task<SubmissionEnduranceHealthSnapshot> ReadLocalAsync (SubmissionEnduranceWindowsTask task,
 		CancellationToken token = default)
 		{
-		if (!OperatingSystem.IsWindows ()) throw new PlatformNotSupportedException ("Local task observation requires Windows.");
+		if (!OperatingSystem.IsWindows ())
+			throw new PlatformNotSupportedException ("Local task observation requires Windows.");
 		string command = EncodedCommand (task);
 		using var deadline = CancellationTokenSource.CreateLinkedTokenSource (token);
 		deadline.CancelAfter (TimeSpan.FromSeconds (30));
 		var start = new ProcessStartInfo (Path.Combine (Environment.GetFolderPath (Environment.SpecialFolder.Windows), "System32", "WindowsPowerShell", "v1.0", "powershell.exe"))
-			{ UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
-		foreach (string argument in command["powershell.exe ".Length..].Split (' ')) start.ArgumentList.Add (argument);
+			{
+			UseShellExecute = false,
+			CreateNoWindow = true,
+			RedirectStandardOutput = true,
+			RedirectStandardError = true
+			};
+		foreach (string argument in command["powershell.exe ".Length..].Split (' '))
+			start.ArgumentList.Add (argument);
 		using var process = Process.Start (start) ?? throw new IOException ("The passive Windows observer could not start.");
 		try
 			{
@@ -111,7 +123,8 @@ public static class SubmissionEnduranceWindowsObserver
 		using var deadline = CancellationTokenSource.CreateLinkedTokenSource (token);
 		deadline.CancelAfter (TimeSpan.FromSeconds (30));
 		var connection = new PasswordConnectionInfo (endpoint.Host, endpoint.Port, credential.UserName, credential.Password) { Timeout = TimeSpan.FromSeconds (15) };
-		if (!connection.HostKeyAlgorithms.TryGetValue (endpoint.HostKeyAlgorithm, out var algorithm)) throw new ArgumentException ("The selected SSH host-key algorithm is unavailable.");
+		if (!connection.HostKeyAlgorithms.TryGetValue (endpoint.HostKeyAlgorithm, out var algorithm))
+			throw new ArgumentException ("The selected SSH host-key algorithm is unavailable.");
 		connection.HostKeyAlgorithms.Clear ();
 		connection.HostKeyAlgorithms.Add (endpoint.HostKeyAlgorithm, algorithm);
 		using var client = new SshClient (connection);
@@ -141,7 +154,8 @@ public static class SubmissionEnduranceWindowsObserver
 		int count;
 		while ((count = await reader.ReadAsync (buffer, token).ConfigureAwait (false)) != 0)
 			{
-			if (text.Length + count > OutputLimit) throw new InvalidDataException ("Passive observation output exceeds its limit.");
+			if (text.Length + count > OutputLimit)
+				throw new InvalidDataException ("Passive observation output exceeds its limit.");
 			text.Append (buffer, 0, count);
 			}
 		return text.ToString ();
