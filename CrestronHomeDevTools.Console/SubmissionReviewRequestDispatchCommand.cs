@@ -13,13 +13,14 @@ internal sealed record SubmissionReviewRequestDispatchSettings (int SchemaVersio
 
 internal sealed record SubmissionReviewRequestTooling (string ConsoleDirectory, IReadOnlyList<SubmissionEvidenceFile> ConsoleFiles);
 
-/// <summary>Protected noninteractive dispatch of an independently approved unsigned request. Credentials are stdin-only.</summary>
+/// <summary>Protected dispatch of an independently approved review using stdin or named encrypted credentials.</summary>
 internal static class SubmissionReviewRequestDispatchCommand
 	{
 	internal static Task<int> RunAsync (string[] args, TextReader input, TextWriter output, TextWriter error,
 		CancellationToken token = default,
 		Func<SubmissionReviewRequestDispatchSettings, SubmissionDispatchCredentials, CancellationToken, Task<SubmissionDeliveryReceipt>>? execute = null)
-		=> SubmissionDispatchCommand.RunProtectedAsync (args, input, output, error, Validate, execute ?? ExecuteAsync, token);
+		=> SubmissionDispatchCommand.RunProtectedAsync (args, input, output, error, Validate, execute ?? ExecuteAsync, token,
+			(settings, path) => SubmissionDispatchCommand.ResolveCredentials (path, settings.SmtpHost, settings.SmtpPort, settings.Plan.Sender));
 
 	internal static void Validate (SubmissionReviewRequestDispatchSettings settings)
 		{

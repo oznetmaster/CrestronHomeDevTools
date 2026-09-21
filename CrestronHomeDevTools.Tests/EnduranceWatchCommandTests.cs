@@ -35,6 +35,28 @@ public sealed class EnduranceWatchCommandTests
 			"--notifications", Path.Combine (_root, "notifications.json"), "--journal", Path.Combine (_root, "journal"), "--send", "true"];
 		}
 	private void Write (string name, object value) => File.WriteAllText (Path.Combine (_root, name + ".json"), JsonSerializer.Serialize (value));
+
+	[TestCase ("smtp.example.test", "from@example.test", 0)]
+	[TestCase ("different.example.test", "from@example.test", 3)]
+	[TestCase ("smtp.example.test", "different@example.test", 3)]
+	[Platform ("Win")]
+	[System.Runtime.Versioning.SupportedOSPlatform ("windows")]
+	public async Task SavedCredentialsAreBoundToEndpointAndSenderBeforeAnyObservation (string host, string sender, int expected)
+		{
+		var store = DevToolsPrivateStore.Create (Path.Combine (_root, "store"));
+		store.SaveCredential ("mail", new (DevToolsCredentialPurpose.Smtp, host, "synthetic", "PRIVATE-PASSWORD", 587, sender));
+		Write ("bindings", new DevToolsCredentialBindings (store.DirectoryPath, Smtp: "mail"));
+		int observations = 0;
+		var output = new StringWriter ();
+		var error = new StringWriter ();
+		int code = await EnduranceWatchCommand.RunAsync ([.. _args, "--credentials", Path.Combine (_root, "bindings.json")],
+			new StringReader ("INVALID-STDIN-MUST-NOT-BE-USED"), output, error, CancellationToken.None,
+			(plan, settings, credential, token) => { observations++; return Task.FromResult (Report (SubmissionEnduranceHealthState.Collecting)); },
+			(s, c, d) => { Assert.That (c.Password, Is.EqualTo ("PRIVATE-PASSWORD")); return new (s, c, d, () => new Session ()); });
+		Assert.That (code, Is.EqualTo (expected), error.ToString ());
+		Assert.That (observations, Is.EqualTo (expected == 0 ? 1 : 0));
+		Assert.That (output.ToString () + error, Does.Not.Contain ("PRIVATE-PASSWORD"));
+		}
 	[TearDown]
 	public void TearDown () => Directory.Delete (_root, true);
 
@@ -52,10 +74,10 @@ public sealed class EnduranceWatchCommandTests
 			int result = await EnduranceWatchCommand.RunAsync (_args, new StringReader (Input), output, error, CancellationToken.None,
 				(plan, settings, credential, token) =>
 					{
-					observations++;
-					Assert.That (credential, Is.Null);
-					Assert.That (SubmissionEndurance.PlanDigest (plan), Is.EqualTo (_identity));
-					return Task.FromResult (Report (state));
+						observations++;
+						Assert.That (credential, Is.Null);
+						Assert.That (SubmissionEndurance.PlanDigest (plan), Is.EqualTo (_identity));
+						return Task.FromResult (Report (state));
 					}, (s, c, d) => new (s, c, d, () => smtp));
 			Assert.That (result, Is.EqualTo (exitCode), error.ToString ());
 			}
@@ -78,14 +100,14 @@ public sealed class EnduranceWatchCommandTests
 		int result = await EnduranceWatchCommand.RunAsync (_args, new StringReader (input), output, error, CancellationToken.None,
 			(plan, settings, credential, token) =>
 				{
-				Assert.That (credential!.UserName, Is.EqualTo ("windows-user"));
-				Assert.That (credential.Password, Is.EqualTo ("WINDOWS-SECRET"));
-				return SubmissionEnduranceWindowsObserver.AssessCoreAsync (plan, _ => throw new IOException ("PRIVATE-QUERY-DETAILS"), token);
+					Assert.That (credential!.UserName, Is.EqualTo ("windows-user"));
+					Assert.That (credential.Password, Is.EqualTo ("WINDOWS-SECRET"));
+					return SubmissionEnduranceWindowsObserver.AssessCoreAsync (plan, _ => throw new IOException ("PRIVATE-QUERY-DETAILS"), token);
 				}, (s, c, d) =>
 				{
-				Assert.That (c.UserName, Is.EqualTo ("synthetic"));
-				Assert.That (c.Password, Is.EqualTo ("PRIVATE-PASSWORD"));
-				return new (s, c, d, () => smtp);
+					Assert.That (c.UserName, Is.EqualTo ("synthetic"));
+					Assert.That (c.Password, Is.EqualTo ("PRIVATE-PASSWORD"));
+					return new (s, c, d, () => smtp);
 				});
 		Assert.That (result, Is.EqualTo (3));
 		Assert.That (smtp.Sends, Is.EqualTo (1));
@@ -121,12 +143,20 @@ public sealed class EnduranceWatchCommandTests
 		if (scenario == "missing-windows")
 			Write ("observer", new EnduranceObservationCommand.Settings (new ("Synthetic task", Path.Combine (_root, "state")),
 				new ("windows.example.test", 22, "ssh-ed25519", "pinned")));
-		string[] args = scenario switch { "missing-send" => _args[..^2], "duplicate" => [.. _args, "--send", "true"], _ => _args };
+		string[] args = scenario switch
+			{
+				"missing-send" => _args[..^2],
+				"duplicate" => [.. _args, "--send", "true"],
+				_ => _args
+				};
 		string input = scenario switch
 			{
-			"malformed" => "{PRIVATE-PASSWORD", "oversized" => new string ('x', 16385), "missing-smtp" => "{}",
-			"unneeded-windows" => Input.Insert (1, "\"windows\":{\"userName\":\"unused\",\"password\":\"unused\"},"), _ => Input
-			};
+				"malformed" => "{PRIVATE-PASSWORD",
+				"oversized" => new string ('x', 16385),
+				"missing-smtp" => "{}",
+				"unneeded-windows" => Input.Insert (1, "\"windows\":{\"userName\":\"unused\",\"password\":\"unused\"},"),
+				_ => Input
+				};
 		int observations = 0, factories = 0;
 		var output = new StringWriter ();
 		var error = new StringWriter ();
@@ -174,8 +204,8 @@ public sealed class EnduranceWatchCommandTests
 		result = await EnduranceWatchCommand.RunAsync (_args, new StringReader (Input), output, new StringWriter (), CancellationToken.None,
 			(p, s, c, t) =>
 				{
-				Directory.Delete (Path.Combine (_root, "journal"));
-				return Task.FromResult (Report (SubmissionEnduranceHealthState.AttentionRequired));
+					Directory.Delete (Path.Combine (_root, "journal"));
+					return Task.FromResult (Report (SubmissionEnduranceHealthState.AttentionRequired));
 				}, (s, c, d) => new (s, c, d, () => smtp));
 		Assert.That (result, Is.EqualTo (3));
 		Assert.That (smtp.Sends, Is.Zero);
@@ -184,16 +214,47 @@ public sealed class EnduranceWatchCommandTests
 
 	private SubmissionEnduranceHealthReport Report (SubmissionEnduranceHealthState state) =>
 		new (state, state == SubmissionEnduranceHealthState.AttentionRequired ? ["sample-too-old"] : [], DateTimeOffset.UtcNow, null, _identity);
+	[TestCase (false)]
+	[TestCase (true)]
+	[Platform ("Win")]
+	[System.Runtime.Versioning.SupportedOSPlatform ("windows")]
+	public async Task StandaloneObserverUsesSavedWindowsCredentialsAndChecksHostTrust (bool wrongTrust)
+		{
+		var store = DevToolsPrivateStore.Create (Path.Combine (_root, "observer-store"));
+		store.SaveCredential ("monitor", new (DevToolsCredentialPurpose.Windows, "windows.example.test", "synthetic", "PRIVATE-PASSWORD", 22,
+			SshFingerprint: wrongTrust ? "changed" : "pinned"));
+		Write ("bindings", new DevToolsCredentialBindings (store.DirectoryPath, Windows: "monitor"));
+		Write ("observer", new EnduranceObservationCommand.Settings (new ("Synthetic task", Path.Combine (_root, "state")),
+			new ("windows.example.test", 22, "ssh-ed25519", "pinned")));
+		int observations = 0;
+		using var output = new StringWriter ();
+		using var error = new StringWriter ();
+		int result = await EnduranceObservationCommand.RunAsync ([.. _args[..4], "--credentials", Path.Combine (_root, "bindings.json")],
+			new StringReader ("invalid-stdin"), output, error, CancellationToken.None, (p, s, c, t) =>
+				{
+					observations++;
+					Assert.That (c!.Password, Is.EqualTo ("PRIVATE-PASSWORD"));
+					return Task.FromResult (Report (SubmissionEnduranceHealthState.Collecting));
+				});
+		Assert.That ((result, observations), Is.EqualTo (wrongTrust ? (2, 0) : (0, 1)));
+		Assert.That (output.ToString () + error, Does.Not.Contain ("PRIVATE-PASSWORD"));
+		}
 	private sealed class Session : ISubmissionSmtpSession
 		{
 		internal int Connections, Sends;
 		internal bool FailSend;
-		public Task ConnectAsync (string host, int port, NetworkCredential credential, CancellationToken token) { Connections++; return Task.CompletedTask; }
+		public Task ConnectAsync (string host, int port, NetworkCredential credential, CancellationToken token)
+			{
+			Connections++;
+			return Task.CompletedTask;
+			}
 		public Task<string> SendAsync (MimeMessage message, CancellationToken token)
 			{
 			Sends++;
 			return FailSend ? Task.FromException<string> (new IOException ("PRIVATE-SMTP-DETAILS")) : Task.FromResult ("synthetic acceptance");
 			}
-		public void Dispose () { }
+		public void Dispose ()
+			{
+			}
 		}
 	}

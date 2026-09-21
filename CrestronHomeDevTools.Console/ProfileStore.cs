@@ -164,7 +164,7 @@ internal static class ProfileSetup
 		return !string.IsNullOrWhiteSpace (input) ? input : throw new ArgumentException ($"{title} is required.");
 		}
 
-	private static string ReadPassword ()
+	internal static string ReadPassword ()
 		{
 		var value = new StringBuilder ();
 		while (true)

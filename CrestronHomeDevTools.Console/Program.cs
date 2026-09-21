@@ -46,11 +46,15 @@ static async Task<int> RunSafelyAsync (string[] args, bool interactive = false)
 
 static async Task<int> RunAsync (string[] args, bool interactive = false)
 	{
+	if (args.FirstOrDefault () == "resources")
+		return await ResourceSetupCommand.RunAsync (args[1..], Console.Out, Console.Error, CancellationToken.None);
+	if (args.FirstOrDefault () == "credentials")
+		return CredentialSetupCommand.Run (args[1..], Console.Out, Console.Error);
 	if (args.FirstOrDefault () == "endurance-watch")
 		{
 		if (args.Length == 2 && args[1] == "--help")
 			return await EnduranceWatchCommand.RunAsync (args[1..], Console.In, Console.Out, Console.Error, CancellationToken.None);
-		if (interactive || !Console.IsInputRedirected)
+		if (interactive || (!Console.IsInputRedirected && !args.Contains ("--credentials", StringComparer.Ordinal)))
 			{
 			Console.Error.WriteLine ("Endurance watch requires noninteractive execution and credentials on standard input.");
 			return 2;
@@ -67,9 +71,9 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 		{
 		if (args.Length == 2 && args[1] == "--help")
 			return await EnduranceNotificationCommand.RunAsync (args[1..], Console.In, Console.Out, Console.Error, CancellationToken.None);
-		if (interactive || !Console.IsInputRedirected)
+		if (interactive || (!Console.IsInputRedirected && !args.Contains ("--credentials", StringComparer.Ordinal)))
 			{
-			Console.Error.WriteLine ("Endurance notification requires noninteractive execution and SMTP credentials on standard input.");
+			Console.Error.WriteLine ("Endurance notification requires noninteractive execution and SMTP credentials on standard input or named encrypted bindings.");
 			return 2;
 			}
 		using var deadline = new CancellationTokenSource (TimeSpan.FromSeconds (45));
@@ -105,9 +109,9 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 		}
 	if (args.FirstOrDefault () is "submission-deliver" or "submission-review-request-deliver")
 		{
-		if (interactive || !Console.IsInputRedirected)
+		if (interactive || (!Console.IsInputRedirected && !args.Contains ("--credentials", StringComparer.Ordinal)))
 			{
-			Console.Error.WriteLine ("Submission delivery requires protected noninteractive orchestration and credentials on standard input.");
+			Console.Error.WriteLine ("Submission delivery requires protected noninteractive orchestration and credentials on standard input or named encrypted bindings.");
 			return 2;
 			}
 		using var deadline = new CancellationTokenSource (TimeSpan.FromMinutes (45));
@@ -188,6 +192,8 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
               submission-bundle-check --bundle FILE --bundle-sha256 SHA256
                 --candidate-sha256 SHA256 --scratch DIR
                                        Verify the retained archive against independent trusted pins.
+              credentials --help       Set up reusable encrypted private inputs without connecting or sending.
+              resources --help         Inspect Windows prerequisites or select a named resource without changing it.
               configure                Choose a processor and save encrypted credentials locally.
               plan-update --driver ID --output plan.json
                                        Save update versions and affected device IDs for review.

@@ -31,6 +31,33 @@ public sealed class EnduranceNotificationCommandTests
 		}
 	[TearDown]
 	public void TearDown () => Directory.Delete (_root, true);
+	[TestCase (false)]
+	[TestCase (true)]
+	[Platform ("Win")]
+	[System.Runtime.Versioning.SupportedOSPlatform ("windows")]
+	public async Task StoredSmtpCredentialsPreserveDestinationBindingAndDuplicateSuppression (bool wrongSender)
+		{
+		var store = DevToolsPrivateStore.Create (Path.Combine (_root, "store"));
+		store.SaveCredential ("mail", new (DevToolsCredentialPurpose.Smtp, "smtp.example.test", "synthetic", "PRIVATE-PASSWORD", 587,
+			wrongSender ? "other@example.test" : "from@example.test"));
+		string bindings = Path.Combine (_root, "bindings.json");
+		File.WriteAllText (bindings, JsonSerializer.Serialize (new DevToolsCredentialBindings (store.DirectoryPath, Smtp: "mail")));
+		var session = new Session ();
+		using var output = new StringWriter ();
+		using var error = new StringWriter ();
+		for (int i = 0; i < 2; i++)
+			{
+			int result = await EnduranceNotificationCommand.RunAsync ([.. _args, "--credentials", bindings], new StringReader ("invalid-stdin"), output, error,
+				CancellationToken.None, (s, c, d) =>
+					{
+						Assert.That (c.Password, Is.EqualTo ("PRIVATE-PASSWORD"));
+						return new (s, c, d, () => session);
+					});
+			Assert.That (result, Is.EqualTo (wrongSender ? 3 : 0));
+			}
+		Assert.That (session.Sends, Is.EqualTo (wrongSender ? 0 : 1));
+		Assert.That (output.ToString () + error, Does.Not.Contain ("PRIVATE-PASSWORD"));
+		}
 	[Test]
 	public async Task CommandUsesStdinCredentialsAndRetainsDuplicateSuppression ()
 		{
@@ -54,8 +81,18 @@ public sealed class EnduranceNotificationCommandTests
 	[TestCase ("oversized-credentials")]
 	public async Task InvalidCommandInputsDoNotContactSmtp (string scenario)
 		{
-		var args = scenario switch { "missing-send" => _args[..^2], "duplicate" => [.. _args, "--send", "true"], _ => _args };
-		string input = scenario switch { "bad-json" => "{PRIVATE-PASSWORD", "oversized-credentials" => new string ('x', 8193), _ => CredentialJson };
+		var args = scenario switch
+			{
+				"missing-send" => _args[..^2],
+				"duplicate" => [.. _args, "--send", "true"],
+				_ => _args
+				};
+		string input = scenario switch
+			{
+				"bad-json" => "{PRIVATE-PASSWORD",
+				"oversized-credentials" => new string ('x', 8193),
+				_ => CredentialJson
+				};
 		var output = new StringWriter ();
 		var error = new StringWriter ();
 		int creates = 0;
@@ -73,14 +110,18 @@ public sealed class EnduranceNotificationCommandTests
 		var start = new ProcessStartInfo ("dotnet") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true, WorkingDirectory = _root };
 		start.ArgumentList.Add (Path.Combine (AppContext.BaseDirectory, "CrestronHomeDevTools.Console.dll"));
 		start.ArgumentList.Add ("endurance-notify");
-		foreach (string argument in _args) start.ArgumentList.Add (argument);
+		foreach (string argument in _args)
+			start.ArgumentList.Add (argument);
 		using var process = Process.Start (start)!;
 		await process.StandardInput.WriteAsync (CredentialJson);
 		process.StandardInput.Close ();
 		var output = process.StandardOutput.ReadToEndAsync ();
 		var error = process.StandardError.ReadToEndAsync ();
 		using var deadline = new CancellationTokenSource (TimeSpan.FromSeconds (20));
-		try { await process.WaitForExitAsync (deadline.Token); }
+		try
+			{
+			await process.WaitForExitAsync (deadline.Token);
+			}
 		finally { if (!process.HasExited) { process.Kill (true); await process.WaitForExitAsync (); } }
 		Assert.That (process.ExitCode, Is.Zero, await error);
 		Assert.That (await output, Does.Contain ("Quiet").And.Not.Contain ("PRIVATE-PASSWORD"));
@@ -89,7 +130,13 @@ public sealed class EnduranceNotificationCommandTests
 		{
 		internal int Sends;
 		public Task ConnectAsync (string host, int port, NetworkCredential credential, CancellationToken token) => Task.CompletedTask;
-		public Task<string> SendAsync (MimeMessage message, CancellationToken token) { Sends++; return Task.FromResult ("synthetic acceptance"); }
-		public void Dispose () { }
+		public Task<string> SendAsync (MimeMessage message, CancellationToken token)
+			{
+			Sends++;
+			return Task.FromResult ("synthetic acceptance");
+			}
+		public void Dispose ()
+			{
+			}
 		}
 	}

@@ -22,6 +22,72 @@ Authorize the sender and recipient before enabling sending. Keep settings, crede
 
 ## CLI
 
+### Windows unattended setup
+
+The Windows scripts and named credential bindings below are in development and are not in released DevTools 1.16.3. They provide the protected credential handoff and scheduled invocation, so a developer does not have to write a launcher or secret-store integration. They use the existing `endurance-watch` command and its notification journal. They never start, tick, restart or change the collector. See [reusable private inputs](../PrivateInputs.md) for supported consumers and provisioning limits.
+
+Use a **separate** complete console bundle for the observer; do not replace a bundle pinned by a running collector. Copy its `scripts/endurance` directory to a sibling `scripts` directory as described in [Windows worker setup](WindowsEnduranceWorker.md). The observer can run on the same PC as the collector, or on another Windows PC. For remote monitoring, retain a local copy of the exact existing `worker.json`; do not regenerate its plan. Prepare `observer.json` and `notifications.json` using the formats on this page and the approved SMTP provider details.
+
+In an interactive console, collect named entries in your private user store once:
+
+```powershell
+$base = 'C:\Private\EnduranceObserver\candidate-a'
+& "$base\cli\CrestronHomeDevTools.Console.exe" credentials create
+& "$base\cli\CrestronHomeDevTools.Console.exe" credentials configure --name monitoring-mail --kind Smtp
+& "$base\cli\CrestronHomeDevTools.Console.exe" credentials configure --name monitoring-pc --kind Windows
+```
+
+Skip `create` if the user store already exists. Omit `monitoring-pc` for local observation. Setup prompts privately for the endpoint, username, password and relevant sender/port/trust settings. Stored entries are encrypted with Windows DPAPI; commands use purpose and endpoint checks before resolving them. Setup performs no email or processor operation. Existing entries require explicit replacement.
+
+For an unattended LocalService task, explicitly provision only its required entries into a separate local service store:
+
+```powershell
+& "$base\cli\CrestronHomeDevTools.Console.exe" credentials create --store "$base\service-store" --service-reader S-1-5-19
+& "$base\cli\CrestronHomeDevTools.Console.exe" credentials provision --name monitoring-mail --target-store "$base\service-store"
+& "$base\cli\CrestronHomeDevTools.Console.exe" credentials provision --name monitoring-pc --target-store "$base\service-store"
+```
+
+Again omit the Windows entry for local observation. Granting a service access must be authorized. The new service store uses machine DPAPI with NTFS access limited to its creating user, Administrators, SYSTEM and read/execute for the selected account. Machine DPAPI is not an account boundary by itself; preserve those file permissions. The task cannot rewrite entries. Nothing copies other passwords or signature assets, and copying a user's encrypted store is not a method of provisioning another account or computer.
+
+Create `credential-bindings.json` with names only:
+
+```json
+{
+  "storeDirectory": "C:\\Private\\EnduranceObserver\\candidate-a\\service-store",
+  "smtp": "monitoring-mail",
+  "windows": "monitoring-pc"
+}
+```
+
+Omit `windows` for local observation. Keep the binding file private along with the other configuration. Passwords do not appear in it. The SMTP endpoint, port and sender, and the remote Windows endpoint, port and SSH fingerprint, must match the saved entries. Rotate a password by explicitly replacing and reprovisioning that entry; changing a binding or destination requires review and a new watch configuration.
+
+Create and protect `journal` and `state` as separate persistent directories, giving LocalService modify access there. LocalService needs read/execute access to the console, copied scripts, worker, observer and notification files; only administrators and the owner should be able to modify those inputs. For local observation it also needs read access to the collector's Task Scheduler entry and completed scheduler-state files. For remote observation, the supplied Windows account needs that read access on the monitoring computer. Verify it with `endurance-observe`; do not interpret `Access denied` as a missing or failed collector.
+
+Prepare the pinned watch configuration and register its independent startup/minute task:
+
+```powershell
+& "$base\scripts\New-EnduranceWatchConfiguration.ps1" `
+    -CliDirectory "$base\cli" `
+    -WorkerFile "$base\worker.json" `
+    -ObserverFile "$base\observer.json" `
+    -NotificationsFile "$base\notifications.json" `
+    -CredentialBindingsFile "$base\credential-bindings.json" `
+    -JournalDirectory "$base\journal" `
+    -StateDirectory "$base\state" `
+    -Output "$base\watch.json"
+
+& "$base\scripts\Register-EnduranceScheduledTask.ps1" `
+    -TaskName 'Crestron-Endurance-Watch-CandidateA' `
+    -Configuration "$base\watch.json" `
+    -TickScript "$base\scripts\Invoke-EnduranceScheduledWatch.ps1"
+```
+
+Register only after authorizing the sender/recipient: the task's first invocation can send an attention or completion email. It runs as LocalService without a Windows login and starts after a PC reboot. No task is overwritten. Use one task and one protected journal per run/destination; different runs use different names and directories. The wrapper hashes the entire console and reviewed inputs, passes only the binding-file path, retains each invocation's stdout/stderr and result privately, and updates `state/status.json`. The CLI resolves the encrypted entries; the script never reads a password. Nonzero child exit codes remain nonzero scheduled-task results. It rejects overlapping invocations and bounds the child process; it does not hide a failure behind a previous healthy result. SMTP uncertainty remains governed by the existing journal, including after Windows restarts.
+
+Validate one invocation under the actual service account and an explicitly approved test email to your own address before relying on alerts. Inspect the task result and retained output, not just whether registration succeeded. The offline script tests use a process double and send no mail; actual provider acceptance, inbox delivery and machine startup remain deployment checks. Disable the observer task after reviewing and retaining a completed run and its final notification; keep its journal for audit and duplicate prevention.
+
+A single PC supports collection and local alerts without a second computer. While that PC is off it cannot send an alert about itself. If notification during a PC outage is required, use an independent receiver or another observer; otherwise the retained observation gap is assessed after restart. This limitation does not require a second PC merely to use the workflow.
+
 ### Combined observation and notification
 
 For unattended callers, `endurance-watch` performs one fresh observation and passes its result directly to the notifier. It avoids a success-only command chain accidentally dropping an attention report:
@@ -30,7 +96,7 @@ For unattended callers, `endurance-watch` performs one fresh observation and pas
 CrestronHomeDevTools.Console.exe endurance-watch --worker PRIVATE_WORKER.json --observer PRIVATE_OBSERVER.json --notifications PRIVATE_SETTINGS.json --journal PRIVATE_EXISTING_DIRECTORY --send true
 ```
 
-Use the same worker, observer and notification settings described below. The protected calling process supplies credentials on standard input and closes it:
+Use the same worker, observer and notification settings described below. On Windows, add `--credentials PRIVATE_BINDINGS_JSON` to resolve the saved entries described above. For integration with another secret store, the protected calling process can instead supply credentials on standard input and close it:
 
 ```json
 {

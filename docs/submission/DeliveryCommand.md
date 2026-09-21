@@ -6,7 +6,7 @@ DevTools 1.8.0 adds `submission-deliver` to the console. This optional command u
 CrestronHomeDevTools.Console submission-deliver --settings ABSOLUTE_PRIVATE_JSON --settings-sha256 REVIEWED_SHA256 --execute-approved
 ```
 
-The argument order is exact. Interactive console mode refuses this command. Provide the four credential fields as JSON on redirected standard input, then close the input stream:
+The argument order is exact. Interactive console mode refuses this command. The in-development console can append `--credentials ABSOLUTE_BINDINGS_JSON` to use [named encrypted inputs](../PrivateInputs.md). In released versions, or when integrating another secret store, provide the four credential fields as JSON on redirected standard input, then close the input stream:
 
 ```json
 {"uploadUserName":"AUTHORIZED_UPLOADER_LOGIN","uploadPassword":"PRIVATE_UPLOADER_PASSWORD","smtpUserName":"AUTHORIZED_MAILBOX_LOGIN","smtpPassword":"PRIVATE_MAILBOX_PASSWORD"}

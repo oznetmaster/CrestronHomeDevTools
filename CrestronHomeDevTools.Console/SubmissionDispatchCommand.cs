@@ -15,32 +15,42 @@ internal sealed record SubmissionDispatchSettings (int SchemaVersion, Submission
 	string MailReceiptDirectory, string SmtpHost, int SmtpPort, int MailTimeoutSeconds,
 	SubmissionBundledRevalidationSettings? BundledRevalidation = null);
 
-internal sealed record SubmissionDispatchCredentials (string UploadUserName, string UploadPassword, string SmtpUserName, string SmtpPassword);
+internal sealed record SubmissionDispatchCredentials (string UploadUserName, string UploadPassword, string SmtpUserName, string SmtpPassword)
+	{
+	public override string ToString () => "Submission credentials (values hidden)";
+	}
 
-/// <summary>Protected, noninteractive delivery entry point; credentials arrive only through bounded standard input.</summary>
+/// <summary>Protected delivery with bounded stdin or purpose-bound encrypted credential references.</summary>
 internal static class SubmissionDispatchCommand
 	{
 	private static readonly JsonSerializerOptions Options = new ()
 		{
-			PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-			UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
-			AllowDuplicateProperties = false,
-			RespectNullableAnnotations = true,
-			RespectRequiredConstructorParameters = true,
-			Converters = { new JsonStringEnumConverter (allowIntegerValues: false) }
-			};
+		PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+		UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
+		AllowDuplicateProperties = false,
+		RespectNullableAnnotations = true,
+		RespectRequiredConstructorParameters = true,
+		Converters = { new JsonStringEnumConverter (allowIntegerValues: false) }
+		};
 
 	internal static async Task<int> RunAsync (string[] args, TextReader input, TextWriter output, TextWriter error,
 		CancellationToken token = default,
 		Func<SubmissionDispatchSettings, SubmissionDispatchCredentials, CancellationToken, Task<SubmissionDeliveryReceipt>>? execute = null)
-		=> await RunProtectedAsync (args, input, output, error, Validate, execute ?? ExecuteAsync, token);
+		=> await RunProtectedAsync (args, input, output, error, Validate, execute ?? ExecuteAsync, token,
+			(settings, path) => ResolveCredentials (path, settings.SmtpHost, settings.SmtpPort, settings.Plan.Sender));
 
 	internal static async Task<int> RunProtectedAsync<TSettings> (string[] args, TextReader input, TextWriter output, TextWriter error,
 		Action<TSettings> validate, Func<TSettings, SubmissionDispatchCredentials, CancellationToken, Task<SubmissionDeliveryReceipt>> execute,
-		CancellationToken token) where TSettings : class
+		CancellationToken token, Func<TSettings, string, SubmissionDispatchCredentials> resolve) where TSettings : class
 		{
 		try
 			{
+			string? bindingsPath = null;
+			if (args is ["--settings", _, "--settings-sha256", _, "--execute-approved", "--credentials", var bindings])
+				{
+				bindingsPath = bindings;
+				args = args[..5];
+				}
 			if (args is not ["--settings", var path, "--settings-sha256", var expected, "--execute-approved"] ||
 				!Path.IsPathFullyQualified (path) || !Hash (expected))
 				throw new ArgumentException ("Exact protected delivery arguments are required.");
@@ -48,7 +58,8 @@ internal static class SubmissionDispatchCommand
 				throw new InvalidDataException ("Settings cannot be a redirected file.");
 			// Retain the reviewed file handle for this invocation; a changed configuration needs a new reviewed hash.
 			await using var settingsFile = new FileStream (path, FileMode.Open, FileAccess.Read, FileShare.Read);
-			if (settingsFile.Length is <= 0 or > 1024 * 1024) throw new InvalidDataException ("Settings exceed the supported size.");
+			if (settingsFile.Length is <= 0 or > 1024 * 1024)
+				throw new InvalidDataException ("Settings exceed the supported size.");
 			byte[] bytes = new byte[(int)settingsFile.Length];
 			await settingsFile.ReadExactlyAsync (bytes, token);
 			if (Convert.ToHexString (SHA256.HashData (bytes)).ToLowerInvariant () != expected)
@@ -57,23 +68,37 @@ internal static class SubmissionDispatchCommand
 			validate (settings);
 			using var inputDeadline = CancellationTokenSource.CreateLinkedTokenSource (token);
 			inputDeadline.CancelAfter (TimeSpan.FromSeconds (30));
-			char[] buffer = new char[32769]; int count = 0;
+			char[] buffer = new char[32769];
+			int count = 0;
 			try
 				{
-				while (count < buffer.Length)
+				SubmissionDispatchCredentials credentials;
+				if (bindingsPath != null)
+					credentials = resolve (settings, bindingsPath);
+				else
 					{
-					int read = await input.ReadAsync (buffer.AsMemory (count), inputDeadline.Token);
-					if (read == 0) break;
-					count += read;
+					while (count < buffer.Length)
+						{
+						int read = await input.ReadAsync (buffer.AsMemory (count), inputDeadline.Token);
+						if (read == 0)
+							break;
+						count += read;
+						}
+					if (count == 0 || count == buffer.Length)
+						throw new InvalidDataException ("Missing or oversized private credentials.");
+					credentials = JsonSerializer.Deserialize<SubmissionDispatchCredentials> (buffer.AsSpan (0, count), Options)
+						?? throw new InvalidDataException ("Missing private credentials.");
 					}
-				if (count == 0 || count == buffer.Length) throw new InvalidDataException ("Missing or oversized private credentials.");
-				var credentials = JsonSerializer.Deserialize<SubmissionDispatchCredentials> (new string (buffer, 0, count), Options)
-					?? throw new InvalidDataException ("Missing private credentials.");
 				if (string.IsNullOrWhiteSpace (credentials.UploadUserName) || string.IsNullOrEmpty (credentials.UploadPassword) ||
 					string.IsNullOrWhiteSpace (credentials.SmtpUserName) || string.IsNullOrEmpty (credentials.SmtpPassword))
 					throw new InvalidDataException ("Incomplete private credentials.");
 				var receipt = await execute (settings, credentials, token);
-				await output.WriteLineAsync (JsonSerializer.Serialize (new { SchemaVersion = 1, State = receipt.State.ToString (), Submitted = receipt.State == SubmissionDeliveryState.Submitted }));
+				await output.WriteLineAsync (JsonSerializer.Serialize (new
+					{
+					SchemaVersion = 1,
+					State = receipt.State.ToString (),
+					Submitted = receipt.State == SubmissionDeliveryState.Submitted
+					}));
 				return receipt.State == SubmissionDeliveryState.Submitted ? 0 : 2;
 				}
 			finally { Array.Clear (buffer); }
@@ -84,6 +109,18 @@ internal static class SubmissionDispatchCommand
 			await error.WriteLineAsync ("Submission delivery did not complete. Inspect the private journal and provider receipts before any retry. Error type: " + exception.GetType ().Name);
 			return exception is OperationCanceledException ? 130 : 2;
 			}
+		}
+
+	internal static SubmissionDispatchCredentials ResolveCredentials (string path, string smtpHost, int smtpPort, string sender)
+		{
+		if (!OperatingSystem.IsWindows ())
+			throw new PlatformNotSupportedException ("Saved credentials require Windows.");
+		var bindings = DevToolsCredentialBindings.Read (path);
+		var smtp = bindings.Resolve (DevToolsCredentialPurpose.Smtp, smtpHost, smtpPort, sender);
+		var uploader = bindings.Resolve (DevToolsCredentialPurpose.Uploader, "uploader.crestron.com");
+		if (uploader.Port is not (null or 443))
+			throw new InvalidDataException ("Saved uploader port does not match HTTPS.");
+		return new (uploader.UserName, uploader.Password, smtp.UserName, smtp.Password);
 		}
 
 	private static bool Hash (string value) => value is { Length: 64 } && value.All (c => c is >= '0' and <= '9' or >= 'a' and <= 'f');
