@@ -12,6 +12,8 @@ internal static class ResourceSetupCommand
 		{
 		if (args.FirstOrDefault () is "prepare-ssh" or "apply-ssh")
 			return await WindowsSshSetupCommand.RunAsync (args, output, error, token);
+		if (args.FirstOrDefault () is "prepare-runner" or "apply-runner" or "inspect-runner")
+			return await WindowsRunnerSetupCommand.RunAsync (args, output, error, token);
 		if (args.Length == 0 || args.SequenceEqual (["--help"]))
 			{
 			await output.WriteLineAsync ("""
@@ -27,6 +29,13 @@ internal static class ResourceSetupCommand
 				resources apply-ssh --plan PLAN_JSON --sha256 REVIEWED_DIGEST --state PRIVATE_DIRECTORY --apply-reviewed true [--resume-after-inspection true]
 				  Apply the reviewed plan in an elevated terminal. Exit 3010 means reboot is needed; run the same command afterwards.
 				  Never reboots automatically. Use resume-after-inspection only after investigating an interrupted installation.
+				resources prepare-runner --url GITHUB_URL --name NAME --version A.B.C --archive-sha256 TRUSTED_HASH --directory NEW_DIRECTORY --account WINDOWS_ACCOUNT --labels LABEL,LABEL --output NEW_PLAN_JSON
+				  Prepare a reviewed GitHub runner/service plan for this computer. Does not register or install anything.
+				resources apply-runner --plan PLAN_JSON --sha256 REVIEWED_DIGEST --state PRIVATE_DIRECTORY --apply-reviewed true
+				  Apply in an elevated terminal; prompt for the short-lived registration token or read protected JSON stdin.
+				  Never replaces existing runners or retries registration. Verify GitHub online status and a test job afterwards.
+				resources inspect-runner --plan PLAN_JSON
+				  Read the selected local runner configuration and service without changing anything or contacting GitHub.
 				""");
 			return 0;
 			}
