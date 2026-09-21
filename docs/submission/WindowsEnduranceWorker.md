@@ -1,6 +1,6 @@
 # Windows endurance worker
 
-The DevTools 1.8.0 Windows console ZIP includes the scheduler scripts under `scripts/endurance`. Use that complete release archive; earlier 1.7.0 archives do not contain the scripts. This is optional driver-submission tooling; ordinary CI and library releases do not require an endurance worker.
+DevTools 1.8.0 and later Windows console ZIPs include the scheduler scripts under `scripts/endurance`. Use a complete release archive; earlier 1.7.0 archives do not contain the scripts. This is optional driver-submission tooling; ordinary CI and library releases do not require an endurance worker.
 
 The worker can run on the development PC. A separate Windows computer is optional when development-machine restarts should not interrupt monitoring. See [development configurations](DevelopmentConfigurations.md) for the baseline one-PC, one-processor setup, shared CI scheduling and interruption limits. The self-contained Windows console includes its .NET runtime; Visual Studio, an Android emulator and a separate .NET installation are not required unless the driver's independently reviewed probe needs them. The computer must remain powered, awake and able to reach the processor and any devices the probe reads.
 
@@ -24,6 +24,19 @@ C:\Private\Endurance\candidate-a\
     run\                  Collector journal, ownership and observations
     scheduler-state\      Wrapper attempts and local attention signal
 ```
+
+After extracting the complete console bundle into `cli`, copy its entire `scripts/endurance` directory to the separate `scripts` directory shown above. The archive does not create this sibling directory for you. Run this once, before protecting and pinning the inputs:
+
+```powershell
+$base = 'C:\Private\Endurance\candidate-a'
+if (Test-Path -LiteralPath "$base\scripts") {
+    throw 'The scheduler script directory already exists. Review it before proceeding.'
+}
+Copy-Item -LiteralPath "$base\cli\scripts\endurance" `
+    -Destination "$base\scripts" -Recurse
+```
+
+Use the copied scripts for configuration creation and task registration below. Running configuration creation directly from `cli\scripts\endurance` selects a tick script inside `cli` and is rejected with `Keep inputs and configuration outside CLI, run and scheduler state directories.` Keep the original bundle intact; configuration creation pins the complete CLI bundle and the separate tick script. Do not replace either copy during an active run.
 
 The scheduler runs as Windows **LocalService**, without an interactive desktop or saved Windows login password. Before registration, an administrator must protect these directories: administrators and the owner may administer them; LocalService needs read/execute access to the CLI, scripts, probe and input files, and modify access only to `run` and `scheduler-state`. Remove access for unrelated users. Do not grant the worker permission to rewrite its scripts, candidate, criteria or file manifests. These scripts do not change ACLs or copy credentials automatically.
 
