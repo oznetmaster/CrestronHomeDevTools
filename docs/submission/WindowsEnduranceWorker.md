@@ -42,7 +42,20 @@ If you transfer this layout to another Windows PC, also create the empty `run` a
 
 Keep a probe's inventory or review metadata outside its published directory unless it is itself part of the pinned inventory. If the probe uses a fixed baseline file, acquire it during authorized preparation, include it in the final probe inventory, and then make the probe directory read-only to the worker account. Run the service-account preflight against that final bundle; do not grant the worker permanent write access to its executable directory to capture a baseline.
 
-The scheduler runs as Windows **LocalService**, without an interactive desktop or saved Windows login password. Before registration, an administrator must protect these directories: administrators and the owner may administer them; LocalService needs read/execute access to the CLI, scripts, probe and input files, and modify access only to `run` and `scheduler-state`. Remove access for unrelated users. Do not grant the worker permission to rewrite its scripts, candidate, criteria or file manifests. These scripts do not change ACLs or copy credentials automatically.
+The scheduler runs as Windows **LocalService**, without an interactive desktop or saved Windows login password. Before registration, an administrator must protect these directories: administrators and the owner may administer them; LocalService needs read/execute access to the CLI, scripts, probe and input files, and modify access only to `run` and `scheduler-state`. Remove access for unrelated users. Do not grant the worker permission to rewrite its scripts, candidate, criteria or file manifests.
+
+DevTools 1.17.2 adds an optional preparation helper for this step. Run it on the monitoring PC, after staging the files and baseline but **before** starting a run. First preview the dedicated directory, then explicitly apply the reviewed change from an administrator PowerShell session:
+
+```powershell
+& "$base\scripts\Set-EnduranceDirectoryPermissions.ps1" -RootDirectory $base
+& "$base\scripts\Set-EnduranceDirectoryPermissions.ps1" -RootDirectory $base -Apply
+```
+
+The helper preserves full access for the root directory's owner, Administrators and SYSTEM. It replaces other access rules with LocalService read/execute on inputs and modify access only on the two output directories. Existing files receive file-level rules in the same operation that removes inherited access; they are not left with empty permissions. New files inherit their directory's intended access. The result reports whether it applied and verified the rules. Preview performs no changes.
+
+Use only a dedicated new monitoring directory: both output directories must already exist and be empty. The helper refuses used runs, escaped or overlapping output paths, system/profile roots and reparse points. It neither copies credentials nor changes permissions outside the chosen root, registers a task, or contacts a processor. If connection settings are deliberately stored outside this root, separately authorize and verify their service access. For a separate observer directory, set `-RunDirectory journal -StateDirectory state` to match its empty output folders. Do not apply the helper to a running collector or a directory shared with unrelated applications.
+
+An administrator may instead prepare equivalent permissions using normal Windows tools. Always verify a real invocation under LocalService before relying on collection or alerts; inspecting access rules is not a substitute for testing access to the actual processor and saved inputs. Configuration and registration scripts do not change permissions automatically.
 
 LocalService uses the explicit private connection file; it cannot decrypt another user's saved desktop profile. Ensure that granting this account access to the processor and probe credentials is authorized. Never put passwords in task arguments, source control or public artifacts. The probe must also obey these privacy requirements. The wrapper removes inherited `CRESTRON_HOME_*` environment overrides before invoking the CLI so they cannot silently replace the reviewed connection settings.
 

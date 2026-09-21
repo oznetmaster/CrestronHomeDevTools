@@ -22,6 +22,9 @@ jobs:
       - name: Validate Windows scheduled endurance worker
         shell: pwsh
         run: ./tools/endurance/Test-EnduranceScheduler.ps1 -ResultsDirectory artifacts/scheduler-tests
+      - name: Validate new monitoring directory permissions
+        shell: powershell
+        run: ./tools/endurance/Test-EnduranceDirectoryPermissions.ps1 -ResultsDirectory artifacts/directory-permissions-tests
       - name: Validate scheduled endurance notifications
         shell: pwsh
         run: ./tools/endurance/Test-EnduranceWatchScheduler.ps1 -ResultsDirectory artifacts/watch-scheduler-tests
