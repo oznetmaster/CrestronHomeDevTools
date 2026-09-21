@@ -108,7 +108,11 @@ Processor commands accept `--credentials C:\Private\bindings.json` with a `Proce
 
 Named-credential execution skips the default profile and ignores connection environment variables. Do not combine it with `--profile` or interactive `configure`. Optional `--settings` can supply only the target and connection ports, without login or trust fields. The saved HTTPS port (443 when omitted) must match, and a saved verified certificate is required. Mutations still require the verified SSH fingerprint and processor lease. Missing entries fail without prompting. Existing profiles remain supported when `--credentials` is omitted; no automatic migration occurs.
 
-Signature entries remain available through `LoadSignature`; the signing command's current private image input has not yet been replaced. A signature must only be applied after approval of the exact declaration being signed; saving it is not standing signing authorization. Clear returned signature bytes after use.
+For signing, put the saved entry name in the bindings' `Signature` property. In `submission sign-self-test-form`, replace `--signature-image PRIVATE_FILE` with a final `--credentials C:\Private\bindings.json` pair. Keep all the other arguments, including the exact authorization file and its independently approved SHA-256. The verified bundled tool receives the image through an anonymous pipe; no decrypted temporary image is created. It still checks the image hash, exact form, declared qualifications, signer, date and expiry against that authorization. An unreadable store or missing entry stops signing without prompting. Do not combine the two image sources.
+
+Signature entries also remain available through `LoadSignature` for C# callers; clear returned bytes after use. A signature must only be applied after approval of the exact declaration being signed; saving or provisioning it is not standing signing authorization.
+
+The complete `submission prepare-signed-review` stage accepts the same final `--credentials PRIVATE_BINDINGS` pair. Omit `signatureImage` from its settings when using the store. All review and authorization pins remain required, and the stage still revalidates evidence before signing. It rejects simultaneous stored-image and file-image sources.
 
 ## Inventory and workstation setup
 

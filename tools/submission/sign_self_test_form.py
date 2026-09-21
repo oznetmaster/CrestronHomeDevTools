@@ -51,7 +51,7 @@ def appearance(writer, width, height, image=None, label=None):
     return writer._add_object(stream)
 
 
-def sign(form_path, report_path, inventory_path, authorization_path, authorization_sha256, image_path, output, now=None):
+def sign(form_path, report_path, inventory_path, authorization_path, authorization_sha256, image_path, output, now=None, *, image_bytes=None):
     # The pin must originate from an authorized review/protected workflow, not the evidence worker.
     _, approval = pinned_json(authorization_path, authorization_sha256)
     keys(approval, ("schemaVersion", "formSha256", "formReportSha256", "inventorySha256", "candidateSha256",
@@ -125,8 +125,11 @@ def sign(form_path, report_path, inventory_path, authorization_path, authorizati
     official_start = report.get("officialStartPage", report["companionPages"])
     trailing_pages = report["pages"] - inventory["templatePages"] - official_start
     inspect_form(reader, inventory, values, official_start, trailing_pages=trailing_pages)
-    with Path(image_path).open("rb") as source_image:
-        image_bytes = source_image.read(10 * 1024 * 1024 + 1)
+    if image_bytes is None:
+        with Path(image_path).open("rb") as source_image:
+            image_bytes = source_image.read(10 * 1024 * 1024 + 1)
+    elif image_path is not None:
+        raise ValueError("Choose one private signature source")
     if len(image_bytes) > 10 * 1024 * 1024 or sha(image_bytes) != approval["signatureImageSha256"]:
         raise ValueError("Private signature image changed or is too large")
     with Image.open(io.BytesIO(image_bytes)) as supplied:
@@ -174,14 +177,18 @@ def sign(form_path, report_path, inventory_path, authorization_path, authorizati
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    for field in ("form", "form-report", "inventory", "authorization", "authorization-sha256", "signature-image", "output", "report"):
+    for field in ("form", "form-report", "inventory", "authorization", "authorization-sha256", "output", "report"):
         parser.add_argument("--" + field, required=True)
+    signature = parser.add_mutually_exclusive_group(required=True)
+    signature.add_argument("--signature-image")
+    signature.add_argument("--signature-stdin", action="store_true", help="Read the private image from protected standard input")
     args = parser.parse_args()
     try:
         if Path(args.report).exists():
             raise ValueError("Use a new report path")
+        image_bytes = sys.stdin.buffer.read(10 * 1024 * 1024 + 1) if args.signature_stdin else None
         result = sign(args.form, args.form_report, args.inventory, args.authorization, args.authorization_sha256,
-                      args.signature_image, args.output)
+                      args.signature_image, args.output, image_bytes=image_bytes)
         write_json(args.report, result)
         print(json.dumps(result, indent=2))
         return 0

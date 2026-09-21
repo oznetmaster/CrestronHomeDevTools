@@ -3,6 +3,7 @@
 """Acceptance checks against the actual self-contained Windows download; no delivery."""
 
 import json
+from datetime import datetime, timedelta, timezone
 import os
 from pathlib import Path
 import shutil
@@ -18,6 +19,7 @@ import test_prepare_delivery as delivery
 import test_revalidate_delivery as revalidation
 import test_prepare_review_request as request
 import test_msbuild_help as build
+import test_sign_self_test_form as signing
 from build_help import sha
 
 
@@ -70,6 +72,41 @@ class BundledConsoleTests(unittest.TestCase):
                 output, _ = self.invoke(command, "--help")
                 self.assertIn("CrestronHomeDevTools.Console submission " + command, output)
         self.invoke("not-a-command", success=False)
+
+    def test_encrypted_signature_signs_only_the_approved_form_without_plaintext_file(self):
+        f = signing.SigningTests()
+        f.setUp()
+        self.addCleanup(f.doCleanups)
+        now = datetime.now(timezone.utc)
+        f.approval.update(signingDate=now.date().isoformat(), expiresUtc=(now + timedelta(hours=1)).isoformat())
+        f.fixture.write_json(f.authorization, f.approval)
+        store = f.fixture.root / "private-store"
+
+        def credentials(*arguments):
+            result = subprocess.run([str(self.console), "credentials", *map(str, arguments)],
+                                    env=self.env, cwd=self.hostile, capture_output=True, timeout=30)
+            self.assertEqual(result.returncode, 0, result.stderr.decode(errors="replace"))
+            return result
+
+        credentials("create", "--store", store)
+        credentials("signature", "--store", store, "--name", "synthetic", "--file", f.image)
+        credentials("verify", "--store", store, "--name", "synthetic")
+        f.image.unlink()
+        bindings = f.fixture.root / "bindings.json"
+        bindings.write_text(json.dumps({"StoreDirectory": str(store), "Signature": "synthetic"}))
+        before = set(f.fixture.root.rglob("*"))
+        common = ("--form", f.fixture.output, "--form-report", f.report_path, "--inventory", f.inventory,
+                  "--authorization", f.authorization, "--output", f.output, "--report", f.fixture.root / "signed-report.json")
+        self.invoke("sign-self-test-form", *common, "--authorization-sha256", "0" * 64,
+                    "--credentials", bindings, success=False)
+        self.assertFalse(f.output.exists())
+        output, _ = self.invoke("sign-self-test-form", *common, "--authorization-sha256", sha(f.authorization.read_bytes()),
+                                "--credentials", bindings)
+        result = json.loads(output)
+        self.assertTrue(result["signatureApplied"])
+        self.assertFalse(result["submissionReady"])
+        added = set(f.fixture.root.rglob("*")) - before
+        self.assertEqual(added, {f.output, f.fixture.root / "signed-report.json"})
 
     def test_review_creates_real_form_and_bundle_with_bundled_validator(self):
         f = self.fixture(review.ReviewStageTests)
@@ -132,6 +169,28 @@ class BundledConsoleTests(unittest.TestCase):
                                "--review-sha256", f.review_pin, "--authorization-sha256", f.approval_pin)
         receipt = json.loads(output)
         self.assertEqual(receipt["state"], "SignedReviewPrepared")
+        self.assertFalse(receipt["deliveryAttempted"])
+
+    def test_signed_review_can_use_encrypted_signature_without_image_setting(self):
+        f = self.fixture(signed.SignedReviewStageTests)
+        data = json.loads(f.settings_path.read_text())
+        image = Path(data.pop("signatureImage"))
+        store = image.parent / "encrypted-signature"
+        for command in (["create", "--store", str(store)],
+                        ["signature", "--store", str(store), "--name", "synthetic", "--file", str(image)]):
+            result = subprocess.run([str(self.console), "credentials", *command], env=self.env,
+                                    cwd=self.hostile, capture_output=True, timeout=30)
+            self.assertEqual(result.returncode, 0, result.stderr.decode(errors="replace"))
+        image.unlink()
+        f.settings_path.write_text(json.dumps(data))
+        bindings = image.parent / "signature-bindings.json"
+        bindings.write_text(json.dumps({"StoreDirectory": str(store), "Signature": "synthetic"}))
+        output, _ = self.invoke("prepare-signed-review", "--settings", f.settings_path,
+                               "--review-sha256", f.review_pin, "--authorization-sha256", f.approval_pin,
+                               "--credentials", bindings)
+        receipt = json.loads(output)
+        self.assertEqual(receipt["state"], "SignedReviewPrepared")
+        self.assertTrue(receipt["signatureApplied"])
         self.assertFalse(receipt["deliveryAttempted"])
 
     def test_reviewed_interpretation_signing_uses_bundled_tools(self):

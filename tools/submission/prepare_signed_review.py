@@ -39,12 +39,14 @@ def copy_pinned(source, destination, digest, limit):
         raise ValueError("Retained review input changed")
 
 
-def prepare(settings_path, review_digest, authorization_digest):
+def prepare(settings_path, review_digest, authorization_digest, *, image_bytes=None):
     _, settings = read_json(settings_path)
-    keys(settings, ("schemaVersion", "reviewDirectory", "authorization", "signatureImage", "output"), ("dotnet", "validator"))
+    keys(settings, ("schemaVersion", "reviewDirectory", "authorization", "output"), ("dotnet", "validator", "signatureImage"))
+    if (image_bytes is None) == ("signatureImage" not in settings):
+        raise ValueError("Choose exactly one private signature source")
     if type(settings["schemaVersion"]) is not int or settings["schemaVersion"] != 1:
         raise ValueError("Unsupported signing-stage settings version")
-    for name in ("reviewDirectory", "authorization", "signatureImage", "output"):
+    for name in ("reviewDirectory", "authorization", "output", *(("signatureImage",) if "signatureImage" in settings else ())):
         if not isinstance(settings[name], str) or not Path(settings[name]).is_absolute():
             raise ValueError("Signing-stage settings require absolute private paths")
     validator_args = settings_validator(settings)
@@ -146,7 +148,8 @@ def prepare(settings_path, review_digest, authorization_digest):
             (delivery / filename).write_bytes(package)
         signed_form = delivery / "Driver-Self-Test.signed.pdf"
         signed = signing.sign(staging / "self-test.review.pdf", staging / "form-report.json", staging / "inventory.json",
-                              settings["authorization"], authorization_digest, settings["signatureImage"], signed_form)
+                              settings["authorization"], authorization_digest, settings.get("signatureImage"), signed_form,
+                              image_bytes=image_bytes)
         write_json(completed / "signing-report.json", signed)
         write_json(completed / "validation-report.json", bundle)
         (completed / "review-receipt.json").write_bytes(receipt_bytes)
@@ -181,9 +184,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ("settings", "review-sha256", "authorization-sha256"):
         parser.add_argument("--" + name, required=True)
+    parser.add_argument("--signature-stdin", action="store_true", help="Read the private image from protected standard input instead of settings")
     args = parser.parse_args()
     try:
-        print(json.dumps(prepare(args.settings, args.review_sha256, args.authorization_sha256), indent=2))
+        image_bytes = sys.stdin.buffer.read(10 * 1024 * 1024 + 1) if args.signature_stdin else None
+        print(json.dumps(prepare(args.settings, args.review_sha256, args.authorization_sha256, image_bytes=image_bytes), indent=2))
         return 0
     except (ValueError, OSError, KeyError, TypeError, PdfReadError, zipfile.BadZipFile, subprocess.SubprocessError):
         print("Signed review preparation failed. Inspect private inputs; no delivery was attempted.", file=sys.stderr)

@@ -38,6 +38,8 @@ internal static class SubmissionToolsCommand
                 Append --help to any command for its inputs. Use private output directories.
                 These commands do not certify a driver or send anything to Crestron.
                 Actual delivery uses the separate protected submission-deliver command.
+                Signing can replace --signature-image with a final --credentials PRIVATE_BINDINGS pair.
+                The exact reviewed-form authorization is still required; saving a signature grants no approval.
                 """);
 			return 0;
 			}
@@ -48,29 +50,31 @@ internal static class SubmissionToolsCommand
 			var commands = JsonSerializer.Deserialize<Dictionary<string, string>> (await File.ReadAllTextAsync (Path.Combine (directory, "scripts", "commands.json"), cancellationToken))!;
 			if (args[0] != "runtime-check" && !commands.ContainsKey (args[0]))
 				throw new ArgumentException ("Unknown submission command. Run submission --help.");
+			using var privateInput = SubmissionSignatureInput.Prepare (args);
 			var start = new ProcessStartInfo (Path.Combine (directory, "runtime", "python.exe"))
 				{
 				UseShellExecute = false,
 				CreateNoWindow = true,
 				RedirectStandardInput = true
 				};
-			foreach (var argument in new[] { "-I", "-B", "-X", "utf8", Path.Combine (directory, "scripts", "bundled_entry.py") }.Concat (args))
+			foreach (var argument in new[] { "-I", "-B", "-X", "utf8", Path.Combine (directory, "scripts", "bundled_entry.py") }.Concat (privateInput.Arguments))
 				start.ArgumentList.Add (argument);
 			// Overwrite inherited redirection. Input files cannot substitute a different validator.
 			start.Environment["CRESTRON_DEVTOOLS_BUNDLED_VALIDATOR"] = JsonSerializer.Serialize (ValidatorCommand (assembly));
 			using var process = Process.Start (start) ?? throw new IOException ("Cannot start the bundled submission tools.");
-			process.StandardInput.Close ();
 			try
 				{
+				if (privateInput.Image != null)
+					await process.StandardInput.BaseStream.WriteAsync (privateInput.Image, cancellationToken);
+				process.StandardInput.Close ();
 				await process.WaitForExitAsync (cancellationToken);
 				return process.ExitCode;
 				}
-			catch (OperationCanceledException)
+			finally
 				{
 				if (!process.HasExited)
 					process.Kill (entireProcessTree: true);
 				await process.WaitForExitAsync (CancellationToken.None);
-				throw;
 				}
 			}
 		catch (OperationCanceledException)
@@ -78,7 +82,7 @@ internal static class SubmissionToolsCommand
 			Console.Error.WriteLine ("Submission command stopped. Inspect retained outputs before resuming; no action was retried.");
 			return 130;
 			}
-		catch (Exception exception) when (exception is InvalidDataException or IOException or UnauthorizedAccessException or ArgumentException or JsonException or Win32Exception)
+		catch (Exception exception) when (exception is InvalidDataException or IOException or UnauthorizedAccessException or ArgumentException or JsonException or Win32Exception or CryptographicException or PlatformNotSupportedException or InvalidOperationException)
 			{
 			Console.Error.WriteLine (exception is InvalidDataException or ArgumentException ? exception.Message : "Cannot read or start the submission tools. Extract a complete console download into a new folder and check file access.");
 			return 2;

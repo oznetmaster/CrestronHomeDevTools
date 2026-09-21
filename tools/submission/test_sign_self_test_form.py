@@ -73,6 +73,29 @@ class SigningTests(unittest.TestCase):
         self.assertIn("Checklist notes", result.pages[self.report['notesStartPage']].extract_text())
         self.assertNotIn("UNSIGNED REVIEW", result.pages[0].extract_text())
 
+    def test_in_memory_signature_keeps_authorization_and_image_pins(self):
+        self.fixture.write_json(self.authorization, self.approval)
+        arguments = (self.fixture.output, self.report_path, self.inventory, self.authorization,
+                     forms.sha(self.authorization.read_bytes()), None, self.output, self.now)
+        image_bytes = self.image.read_bytes()
+        self.image.unlink()
+        with self.assertRaises(ValueError):
+            signing.sign(*arguments, image_bytes=b"wrong signature")
+        self.assertFalse(self.output.exists())
+        result = signing.sign(*arguments, image_bytes=image_bytes)
+        self.assertTrue(result["signatureApplied"])
+        self.assertFalse(result["submissionReady"])
+        self.assertEqual(PdfReader(self.output).get_fields()["Signature"]["/V"], self.approval["signer"])
+
+    def test_in_memory_signature_does_not_authorize_signing(self):
+        self.approval["signatureAuthorized"] = False
+        self.fixture.write_json(self.authorization, self.approval)
+        with self.assertRaises(ValueError):
+            signing.sign(self.fixture.output, self.report_path, self.inventory, self.authorization,
+                         forms.sha(self.authorization.read_bytes()), None, self.output, self.now,
+                         image_bytes=self.image.read_bytes())
+        self.assertFalse(self.output.exists())
+
     def test_changed_inputs_are_refused(self):
         for field in ("formSha256", "formReportSha256", "inventorySha256", "candidateSha256", "packageSha256", "signatureImageSha256"):
             with self.subTest(field=field):

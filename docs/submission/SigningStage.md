@@ -10,6 +10,8 @@ Version 1.14.0 and later accept an explicitly reviewed declared-gap signing copy
 
 ## Trust and private inputs
 
+**In development, not in released 1.16.3:** the stage can use a named encrypted signature from the [shared private store](../PrivateInputs.md). Omit `signatureImage` from the settings and append `--credentials PRIVATE_BINDINGS` to `submission prepare-signed-review`. Review and authorization pins are unchanged. The image passes through protected standard input without a decrypted temporary file.
+
 The release/review job supplies the SHA-256 of `review-receipt.json` independently of the worker's settings. The signing authority supplies a separate SHA-256 for the authorization document defined in [FormSigning.md](FormSigning.md). Review the exact unsigned PDF and its form report before granting that authorization. Neither a local JSON file nor matching hashes authenticate who approved it; access controls, the reviewed workflow and the protected job establish that trust.
 
 Keep the signature image and authorization on the signing worker, outside source control and public artifacts. The hardware/evidence worker should not gain access to them. Configure a trusted private orchestration repository and a signing environment with required reviewers and restricted branches. Do not grant this worker to pull requests or untrusted code. A GitHub environment name or runner label alone does not provide isolation or approval; configure and verify those controls before enabling real signing.
