@@ -1,5 +1,11 @@
 # Development history
 
+## 21 September 2026 - Saved private inputs in the CI templates
+
+The signing and delivery workflow examples now accept a protected environment's `CRESTRON_SUBMISSION_CREDENTIAL_BINDINGS` path, using the named encrypted input APIs already released in 1.17.0. Signing can use an encrypted signature without a plaintext image file; delivery can use locally provisioned provider entries without a duplicate GitHub secret. Existing image-file and protected-stdin inputs remain supported. Delivery refuses simultaneous credential sources. Worker access and exact operation approvals remain separate prerequisites.
+
+These are workflow-template and setup-guide changes, with no runtime API or package change. Copy the updated examples from this source revision when using the saved-input option. Synthetic console acceptance checks exercise the actual signing template and delivery process-argument construction without contacting external providers; they do not prove a consuming repository's environment protection or service access.
+
 ## 20 September 2026 - Public submission workflow validation
 
 The published protected console completed a real authorized submission: candidate/evidence revalidation, actual package upload, byte-identical verification download, and SMTP acceptance of the confirmed link with the exact signed checklist. Private driver identity, artifacts, correspondence and provider receipts remain outside this repository. This establishes the actual local console/provider path, not a live GitHub Actions service send or a Crestron acceptance decision.

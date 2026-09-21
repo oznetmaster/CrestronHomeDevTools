@@ -9,7 +9,7 @@ Submission is optional and applies only to actual Crestron drivers. Library, cli
 1. Extract the entire Windows console ZIP from the [release](https://github.com/oznetmaster/CrestronHomeDevTools/releases). Keep its files together. Run the commands below from that directory.
 2. Follow [workflow setup](WorkflowSetup.md) to copy the five templates into your own trusted private orchestration repository, pin an audited tooling commit, and configure the protected worker, environments and private settings. One Windows PC and one processor are sufficient; see [development configurations](DevelopmentConfigurations.md).
 3. Configure the driver-specific verification plan, C# fixtures, actual devices and Android environment where required. Review the complete applicable official requirements. The delivery templates do not create tests or supply missing evidence.
-4. Keep private settings, raw evidence, credentials and the signature outside public source and release assets. Configure access for the account that actually runs the worker. Leave delivery disabled until provider settings and exact authorization are ready.
+4. Keep private settings, raw evidence, credentials and the signature outside public source and release assets. Use [named encrypted inputs](../PrivateInputs.md) when reusing saved credentials and signatures; the [workflow setup](WorkflowSetup.md) describes the optional binding variable for signing and delivery. Configure access for the account that actually runs the worker. Leave delivery disabled until provider settings and exact authorization are ready.
 
 ```powershell
 .\CrestronHomeDevTools.Console.exe submission runtime-check

@@ -185,10 +185,24 @@ class BundledConsoleTests(unittest.TestCase):
         f.settings_path.write_text(json.dumps(data))
         bindings = image.parent / "signature-bindings.json"
         bindings.write_text(json.dumps({"StoreDirectory": str(store), "Signature": "synthetic"}))
-        output, _ = self.invoke("prepare-signed-review", "--settings", f.settings_path,
-                               "--review-sha256", f.review_pin, "--authorization-sha256", f.approval_pin,
-                               "--credentials", bindings)
-        receipt = json.loads(output)
+        installation = self.hostile / "artifacts" / "submission-console"
+        shutil.copytree(self.console.parent, installation)
+        template = Path(__file__).resolve().parents[3] / "docs/submission/submission-signing.yml.example"
+        lines = template.read_text().split("        run: |\n", 1)[1].splitlines()
+        script = self.hostile / "stored-signature-stage.ps1"
+        script.write_text("\n".join(line[10:] for line in lines) + "\n")
+        env = dict(self.env, CRESTRON_SUBMISSION_SIGNING_SETTINGS=str(f.settings_path),
+                   CRESTRON_SUBMISSION_CREDENTIAL_BINDINGS=str(bindings),
+                   SIGNING_REVIEW=f.review_pin, SIGNING_AUTHORIZATION=f.approval_pin,
+                   GITHUB_STEP_SUMMARY=str(self.hostile / "signing-summary.md"))
+        command = [os.environ["SUBMISSION_TEST_PWSH"], "-NoProfile", "-NonInteractive", "-File", str(script)]
+        invalid = subprocess.run(command, cwd=self.hostile, env=dict(env, SIGNING_AUTHORIZATION="0" * 64),
+                                 capture_output=True, timeout=90)
+        self.assertNotEqual(invalid.returncode, 0)
+        self.assertFalse(f.output.exists())
+        result = subprocess.run(command, cwd=self.hostile, env=env, capture_output=True, timeout=90)
+        self.assertEqual(result.returncode, 0, result.stderr.decode(errors="replace"))
+        receipt = json.loads((f.output / "signed-review-receipt.json").read_bytes())
         self.assertEqual(receipt["state"], "SignedReviewPrepared")
         self.assertTrue(receipt["signatureApplied"])
         self.assertFalse(receipt["deliveryAttempted"])
@@ -449,6 +463,29 @@ class BundledConsoleTests(unittest.TestCase):
         template = Path(__file__).resolve().parents[3] / "docs/submission/submission-delivery.yml.example"
         lines = template.read_text().split("        run: |\n", 1)[1].splitlines()
         script = "\n".join(line[10:] for line in lines)
+        # Exercise the real template through process construction, stopping before any provider can run.
+        launch_script = script.split("$process = [Diagnostics.Process]::Start($start)", 1)[0]
+        self.assertNotIn("Process]::Start", launch_script)
+        boundary = self.hostile / "delivery-launch-boundary.ps1"
+        boundary.write_text(launch_script + '\n@{Arguments=@($start.ArgumentList); SecretInherited=$start.Environment.ContainsKey("PRIVATE_DELIVERY_CREDENTIALS")} | ConvertTo-Json\n')
+        boundary_env = dict(self.env, DELIVERY_SETTINGS=str(path), DELIVERY_SETTINGS_SHA256=sha(original),
+                            PRIVATE_DELIVERY_CREDENTIALS="", CRESTRON_SUBMISSION_CREDENTIAL_BINDINGS="")
+        bindings = str(self.hostile / "private-bindings.json")
+        for saved, secret, succeeds in ((bindings, "", True), ("", "synthetic-secret", True),
+                                        (bindings, "synthetic-secret", False), ("", "", False),
+                                        ("relative.json", "", False)):
+            with self.subTest(bindings=saved, secret_present=bool(secret)):
+                result = subprocess.run([os.environ["SUBMISSION_TEST_PWSH"], "-NoProfile", "-NonInteractive", "-File", str(boundary)],
+                    cwd=self.hostile, env=dict(boundary_env, PRIVATE_DELIVERY_CREDENTIALS=secret,
+                    CRESTRON_SUBMISSION_CREDENTIAL_BINDINGS=saved), capture_output=True, timeout=60)
+                self.assertEqual(result.returncode == 0, succeeds, result.stderr.decode(errors="replace"))
+                self.assertNotIn(b"synthetic-secret", result.stdout + result.stderr)
+                if succeeds:
+                    launch = json.loads(result.stdout)
+                    self.assertFalse(launch["SecretInherited"])
+                    self.assertEqual("--credentials" in launch["Arguments"], bool(saved))
+                    if saved:
+                        self.assertEqual(launch["Arguments"][-2:], ["--credentials", bindings])
         # Execute only the actual template's preflight. No credentials or process-launch code is included.
         script = script.split("$credentials = $env:PRIVATE_DELIVERY_CREDENTIALS", 1)[0]
         self.assertNotIn("Process]::Start", script)

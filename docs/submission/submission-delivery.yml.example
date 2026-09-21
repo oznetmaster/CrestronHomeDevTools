@@ -12,7 +12,7 @@ on:
         required: true
     secrets:
       submission_credentials_json:
-        required: true
+        required: false
 permissions:
   contents: read
 concurrency:
@@ -35,6 +35,7 @@ jobs:
           DELIVERY_SETTINGS: ${{ vars.CRESTRON_SUBMISSION_DISPATCH_SETTINGS }}
           DELIVERY_SETTINGS_SHA256: ${{ vars.CRESTRON_SUBMISSION_DISPATCH_SETTINGS_SHA256 }}
           PRIVATE_DELIVERY_CREDENTIALS: ${{ secrets.submission_credentials_json }}
+          CRESTRON_SUBMISSION_CREDENTIAL_BINDINGS: ${{ vars.CRESTRON_SUBMISSION_CREDENTIAL_BINDINGS }}
         run: |
           $ErrorActionPreference = 'Stop'
           if (-not [IO.Path]::IsPathFullyQualified($env:DELIVERY_SETTINGS) -or $env:DELIVERY_SETTINGS_SHA256 -cnotmatch '^[a-f0-9]{64}$') { throw 'Configure independently reviewed delivery settings.' }
@@ -66,8 +67,13 @@ jobs:
           $exe = [IO.Path]::GetFullPath((Join-Path $root $manifest.entrypoint))
           if (-not $seen.Contains($exe) -or [IO.Path]::GetExtension($exe) -cne '.exe') { throw 'Pin the console executable.' }
           $credentials = $env:PRIVATE_DELIVERY_CREDENTIALS
-          Remove-Item Env:\PRIVATE_DELIVERY_CREDENTIALS
-          if ([string]::IsNullOrWhiteSpace($credentials)) { throw 'Private delivery credentials are unavailable.' }
+          Remove-Item Env:\PRIVATE_DELIVERY_CREDENTIALS -ErrorAction SilentlyContinue
+          $bindings = $env:CRESTRON_SUBMISSION_CREDENTIAL_BINDINGS
+          $hasCredentials = -not [string]::IsNullOrWhiteSpace($credentials)
+          if ($bindings) {
+            if ($hasCredentials) { throw 'Select either named private inputs or the protected credentials secret, not both.' }
+            if (-not [IO.Path]::IsPathFullyQualified($bindings)) { throw 'Use an absolute private credential-bindings path.' }
+          } elseif (-not $hasCredentials) { throw 'Private delivery credentials are unavailable.' }
           $start = [Diagnostics.ProcessStartInfo]::new($exe)
           $start.UseShellExecute = $false
           $start.CreateNoWindow = $true
@@ -76,11 +82,12 @@ jobs:
           $start.RedirectStandardError = $true
           $start.Environment.Remove('PRIVATE_DELIVERY_CREDENTIALS') | Out-Null
           foreach ($arg in @($deliveryCommand,'--settings',$env:DELIVERY_SETTINGS,'--settings-sha256',$env:DELIVERY_SETTINGS_SHA256,'--execute-approved')) { $start.ArgumentList.Add($arg) }
+          if ($bindings) { $start.ArgumentList.Add('--credentials'); $start.ArgumentList.Add($bindings) }
           $process = [Diagnostics.Process]::Start($start)
           try {
             $out = $process.StandardOutput.ReadToEndAsync()
             $err = $process.StandardError.ReadToEndAsync()
-            $process.StandardInput.Write($credentials)
+            if (-not $bindings) { $process.StandardInput.Write($credentials) }
             $process.StandardInput.Close()
             $credentials = $null
             $process.WaitForExit()

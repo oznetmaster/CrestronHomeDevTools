@@ -40,10 +40,16 @@ jobs:
         shell: pwsh
         env:
           CRESTRON_SUBMISSION_SIGNING_SETTINGS: ${{ vars.CRESTRON_SUBMISSION_SIGNING_SETTINGS }}
+          CRESTRON_SUBMISSION_CREDENTIAL_BINDINGS: ${{ vars.CRESTRON_SUBMISSION_CREDENTIAL_BINDINGS }}
           SIGNING_REVIEW: ${{ inputs.review_sha256 }}
           SIGNING_AUTHORIZATION: ${{ inputs.authorization_sha256 }}
         run: |
           if (-not $env:CRESTRON_SUBMISSION_SIGNING_SETTINGS) { throw 'Private signing settings are not configured.' }
-          & ./artifacts/submission-console/CrestronHomeDevTools.Console.exe submission prepare-signed-review --settings "$env:CRESTRON_SUBMISSION_SIGNING_SETTINGS" --review-sha256 "$env:SIGNING_REVIEW" --authorization-sha256 "$env:SIGNING_AUTHORIZATION"
+          $arguments = @('submission','prepare-signed-review','--settings',$env:CRESTRON_SUBMISSION_SIGNING_SETTINGS,'--review-sha256',$env:SIGNING_REVIEW,'--authorization-sha256',$env:SIGNING_AUTHORIZATION)
+          if ($env:CRESTRON_SUBMISSION_CREDENTIAL_BINDINGS) {
+            if (-not [IO.Path]::IsPathFullyQualified($env:CRESTRON_SUBMISSION_CREDENTIAL_BINDINGS)) { throw 'Use an absolute private credential-bindings path.' }
+            $arguments += @('--credentials',$env:CRESTRON_SUBMISSION_CREDENTIAL_BINDINGS)
+          }
+          & ./artifacts/submission-console/CrestronHomeDevTools.Console.exe @arguments
           if ($LASTEXITCODE -ne 0) { throw 'Signed review preparation failed; no submission was sent.' }
           'Signed review prepared privately. Final visual review and separately authorized delivery remain pending.' >> $env:GITHUB_STEP_SUMMARY
