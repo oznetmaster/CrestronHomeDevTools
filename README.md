@@ -76,7 +76,7 @@ Version 1.12.0 adds passive local/remote observation and authorized operational 
 
 Version 1.16.0 adds evidence-backed reviewer interpretations and numbered checklist endnotes. Original automatic outcomes remain recorded, and missing, failed or unperformed tests cannot be accepted as interpretations. Version 1.14.0 extends explicit requests with declared gaps to signed forms and approved delivery. Failed, partial and unperformed checks remain disclosed; a signature does not turn them into passes or imply Crestron acceptance. Start with the [submission runbook](docs/submission/Runbook.md); it links each stage's settings, expected outputs and recovery steps. Developers use the bundled console or C# API without editing the bundled document-processing scripts.
 
-Install the library with `dotnet add package CrestronHomeDevTools --version 1.13.0`. Download the self-contained Windows x64 console from [GitHub Releases](https://github.com/oznetmaster/CrestronHomeDevTools/releases/latest), extract the complete ZIP, and run `CrestronHomeDevTools.Console.exe`. Its first run opens processor/profile setup; `--help` lists commands.
+Install the library with `dotnet add package CrestronHomeDevTools`. Download the self-contained Windows x64 console from [GitHub Releases](https://github.com/oznetmaster/CrestronHomeDevTools/releases/latest), extract the complete ZIP, and run `CrestronHomeDevTools.Console.exe`. Its first run opens processor/profile setup; `--help` lists commands.
 
 To build from source with the .NET 10 SDK:
 
