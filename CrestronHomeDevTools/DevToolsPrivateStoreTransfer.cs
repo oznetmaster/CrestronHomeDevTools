@@ -152,6 +152,6 @@ public sealed partial class DevToolsPrivateStore
 			    }
 			}
 			""";
-		return "powershell.exe -NoProfile -NonInteractive -EncodedCommand " + Convert.ToBase64String (Encoding.Unicode.GetBytes (script));
+		return PowerShellRuntime.CommandName + " -NoProfile -NonInteractive -EncodedCommand " + Convert.ToBase64String (Encoding.Unicode.GetBytes (PowerShellRuntime.RequireSupportedVersion (script)));
 		}
 	}

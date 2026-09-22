@@ -1,3 +1,5 @@
+#requires -Version 7.6
+#requires -PSEdition Core
 # Copyright (c) 2026 Neil Colvin.
 # Licensed under the MIT License. See LICENSE in the repository root.
 param([Parameter(Mandatory)][string]$ResultsDirectory)
@@ -28,7 +30,7 @@ function Run([string]$Case,[string]$Pin='', [string]$Destination='') {
 	if (-not $Pin) { $Pin=(Get-FileHash (Join-Path $Case 'schedule.json') -Algorithm SHA256).Hash }
 	if (-not $Destination) { $Destination=Join-Path $Case 'snapshot' }
 	$start=New-Object Diagnostics.ProcessStartInfo
-	$start.FileName="$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
+	$start.FileName=(Join-Path $PSHOME 'pwsh.exe')
 	$start.Arguments='-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "'+$export+'" -Configuration "'+(Join-Path $Case 'schedule.json')+'" -ConfigurationSha256 '+$Pin+' -OutputDirectory "'+$Destination+'"'
 	$start.UseShellExecute=$false; $start.CreateNoWindow=$true
 	$start.RedirectStandardOutput=$true; $start.RedirectStandardError=$true

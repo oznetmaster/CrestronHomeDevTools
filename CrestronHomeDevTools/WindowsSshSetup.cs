@@ -140,7 +140,7 @@ internal sealed class WindowsSshSetupOperations : IWindowsSshSetupOperations
 		using var source = typeof (WindowsSshSetup).Assembly.GetManifestResourceStream ("CrestronHomeDevTools.WindowsSshSetup.ps1") ?? throw new InvalidOperationException ("Setup tool missing.");
 		using var reader = new StreamReader (source);
 		string script = "& {\r\n" + await reader.ReadToEndAsync (token).ConfigureAwait (false) + "\r\n} -Operation '" + operation + "' -RemoteAddress '" + plan.RemoteAddress + "'";
-		var start = new ProcessStartInfo (Path.Combine (Environment.GetFolderPath (Environment.SpecialFolder.System), @"WindowsPowerShell\v1.0\powershell.exe"))
+		var start = new ProcessStartInfo (PowerShellRuntime.LocalExecutable)
 			{
 			UseShellExecute = false,
 			CreateNoWindow = true,
@@ -149,7 +149,7 @@ internal sealed class WindowsSshSetupOperations : IWindowsSshSetupOperations
 			RedirectStandardError = true
 			};
 		start.Environment.Remove ("PSModulePath");
-		foreach (string value in new[] { "-NoProfile", "-NonInteractive", "-EncodedCommand", Convert.ToBase64String (Encoding.Unicode.GetBytes (script)) })
+		foreach (string value in new[] { "-NoProfile", "-NonInteractive", "-EncodedCommand", Convert.ToBase64String (Encoding.Unicode.GetBytes (PowerShellRuntime.RequireSupportedVersion (script))) })
 			start.ArgumentList.Add (value);
 		using var deadline = CancellationTokenSource.CreateLinkedTokenSource (token);
 		deadline.CancelAfter (TimeSpan.FromMinutes (operation == "Install" ? 30 : 2));

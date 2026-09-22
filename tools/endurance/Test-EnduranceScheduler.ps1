@@ -1,3 +1,5 @@
+#requires -Version 7.6
+#requires -PSEdition Core
 # Copyright (c) 2026 Neil Colvin.
 # Licensed under the MIT License. See LICENSE in the repository root.
 param([Parameter(Mandatory)][string]$ResultsDirectory)
@@ -10,7 +12,7 @@ if (Test-Path -LiteralPath $ResultsDirectory) { throw 'Choose a new test output 
 $bundle = Join-Path $ResultsDirectory 'stub'
 & dotnet publish (Join-Path $PSScriptRoot 'CollectorStub/CollectorStub.csproj') -c Release -o $bundle --nologo *> (Join-Path $ResultsDirectory 'build.log')
 if ($LASTEXITCODE -ne 0) { throw 'Test double build failed.' }
-$shell = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
+$shell = (Join-Path $PSHOME 'pwsh.exe')
 $tickScript = Join-Path $root 'Invoke-EnduranceScheduledTick.ps1'
 $passed = New-Object 'System.Collections.Generic.List[string]'
 function Assert($Condition, [string]$Message) { if (-not $Condition) { throw $Message } }
@@ -136,5 +138,5 @@ $calls = @(Get-Content -LiteralPath (Join-Path $case 'run/calls.txt')).Count
 Assert ((Run-Tick $case) -eq 3) 'Killed wrapper was silently resumed.'
 Assert (@(Get-Content -LiteralPath (Join-Path $case 'run/calls.txt')).Count -eq $calls) 'Killed wrapper replayed a collector command.'
 $passed.Add('terminated-wrapper')
-@{Passed=$passed.Count;Cases=@($passed);WindowsPowerShell=$shell;CompletedUtc=[DateTimeOffset]::UtcNow.ToString('O')} | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $ResultsDirectory 'results.json') -Encoding utf8
-Write-Output "$($passed.Count) scheduled-worker scenarios passed using Windows PowerShell 5.1."
+@{Passed=$passed.Count;Cases=@($passed);PowerShell=$shell;CompletedUtc=[DateTimeOffset]::UtcNow.ToString('O')} | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $ResultsDirectory 'results.json') -Encoding utf8
+Write-Output "$($passed.Count) scheduled-worker scenarios passed using PowerShell 7.6 or later."

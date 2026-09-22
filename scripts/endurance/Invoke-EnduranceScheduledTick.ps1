@@ -1,6 +1,8 @@
+#requires -Version 7.6
+#requires -PSEdition Core
 # Copyright (c) 2026 Neil Colvin.
 # Licensed under the MIT License. See LICENSE in the repository root.
-# Compatible with Windows PowerShell 5.1. Run only trusted, locally reviewed programs.
+# Requires PowerShell 7.6 or later. Run only trusted, locally reviewed programs.
 param([Parameter(Mandatory)][string]$Configuration)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest

@@ -73,7 +73,7 @@ public sealed class DevToolsPrivateStoreTransferTests
 		var target = new DevToolsPrivateStoreDestination ("target.example.test", 22, "synthetic-pin", console, _destination.DirectoryPath, "mail");
 		string command = DevToolsPrivateStore.TransferCommand (target);
 		Assert.That (command, Does.Not.Contain ("PRIVATE-TRANSFER-PASSWORD"));
-		var start = new ProcessStartInfo (Path.Combine (Environment.GetFolderPath (Environment.SpecialFolder.System), @"WindowsPowerShell\v1.0\powershell.exe"))
+		var start = new ProcessStartInfo (PowerShellRuntime.LocalExecutable)
 			{
 			UseShellExecute = false,
 			CreateNoWindow = true,
@@ -81,7 +81,7 @@ public sealed class DevToolsPrivateStoreTransferTests
 			RedirectStandardOutput = true,
 			RedirectStandardError = true
 			};
-		foreach (string arg in command["powershell.exe ".Length..].Split (' '))
+		foreach (string arg in command[(PowerShellRuntime.CommandName.Length + 1)..].Split (' '))
 			start.ArgumentList.Add (arg);
 		byte[] bytes = _source.ExportSelectedEntry ("mail", "mail");
 		using var process = Process.Start (start)!;

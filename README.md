@@ -14,6 +14,7 @@ Reviewed V1 removal can preserve other instances sharing the same driver code ac
 
 - [What is included](#what-is-included)
 - [Get started](#get-started)
+- [PowerShell prerequisite for Windows automation](docs/PowerShell.md)
 - [Library example](#library-example)
 - [Driver configuration](docs/DriverConfiguration.md)
 - [Managed-child validation lifecycle](docs/ManagedChildValidation.md)

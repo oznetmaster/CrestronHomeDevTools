@@ -1,5 +1,7 @@
 # Assess and select development computers
 
+DevTools 1.18.0 and later require [PowerShell 7.6 or later installed for all users](PowerShell.md) to inspect a Windows computer.
+
 These commands and APIs require DevTools 1.17.0 or later. The inspection and selection commands are read-only. Separate reviewed [OpenSSH setup](WindowsSetup.md) is available; inspection does not install prerequisites, register runners, log on users or reserve resources.
 
 ## Inspect a Windows computer

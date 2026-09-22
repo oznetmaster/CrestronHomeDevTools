@@ -1,3 +1,5 @@
+#requires -Version 7.6
+#requires -PSEdition Core
 # Copyright (c) 2026 Neil Colvin.
 # Licensed under the MIT License. See LICENSE in the repository root.
 param(
@@ -18,7 +20,8 @@ $config = Get-Content -LiteralPath $Configuration -Raw | ConvertFrom-Json
 if ($config.SchemaVersion -ne 1 -or (Get-FileHash -LiteralPath $TickScript -Algorithm SHA256).Hash -ne $config.ScriptSha256) { throw 'Tick script does not match the reviewed configuration.' }
 # ACL provisioning is separate: LocalService reads protected inputs and writes only private state/run directories.
 $principal = New-ScheduledTaskPrincipal -UserId 'S-1-5-19' -LogonType ServiceAccount -RunLevel Limited
-$action = New-ScheduledTaskAction -Execute "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -Argument (
+$shell = Join-Path $PSHOME 'pwsh.exe'
+$action = New-ScheduledTaskAction -Execute $shell -Argument (
 	'-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + $TickScript + '" -Configuration "' + $Configuration + '"')
 $triggers = @(
 	New-ScheduledTaskTrigger -AtStartup

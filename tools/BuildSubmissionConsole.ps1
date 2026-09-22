@@ -1,3 +1,5 @@
+#requires -Version 7.6
+#requires -PSEdition Core
 # Copyright (c) 2026 Neil Colvin. Licensed under the MIT License; see LICENSE.
 [CmdletBinding()]
 param(

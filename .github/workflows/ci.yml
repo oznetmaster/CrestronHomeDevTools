@@ -11,6 +11,10 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Verify PowerShell prerequisite
+        shell: pwsh
+        run: |
+          if ($PSVersionTable.PSEdition -ne 'Core' -or $PSVersionTable.PSVersion -lt [version]'7.6') { throw 'PowerShell 7.6 or later is required. See docs/PowerShell.md.' }
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
@@ -23,7 +27,7 @@ jobs:
         shell: pwsh
         run: ./tools/endurance/Test-EnduranceScheduler.ps1 -ResultsDirectory artifacts/scheduler-tests
       - name: Validate new monitoring directory permissions
-        shell: powershell
+        shell: pwsh
         run: ./tools/endurance/Test-EnduranceDirectoryPermissions.ps1 -ResultsDirectory artifacts/directory-permissions-tests
       - name: Validate scheduled endurance notifications
         shell: pwsh
@@ -32,6 +36,6 @@ jobs:
         shell: pwsh
         run: ./tools/endurance/Test-EnduranceSnapshot.ps1 -ResultsDirectory artifacts/endurance-snapshot-tests
       - name: Validate passive endurance health snapshots
-        shell: powershell
+        shell: pwsh
         run: ./tools/endurance/Test-EnduranceHealthSnapshot.ps1 -ResultsDirectory artifacts/endurance-health-tests
       - run: dotnet pack CrestronHomeDevTools/CrestronHomeDevTools.csproj -c Release --no-build -o artifacts

@@ -1,6 +1,8 @@
+#requires -Version 7.6
+#requires -PSEdition Core
 # Copyright (c) 2026 Neil Colvin.
 # Licensed under the MIT License. See LICENSE in the repository root.
-# Private completion snapshot; compatible with Windows PowerShell 5.1.
+# Private completion snapshot; requires PowerShell 7.6 or later.
 param(
 	[Parameter(Mandatory)][string]$Configuration,
 	[Parameter(Mandatory)][ValidatePattern('\A[0-9a-fA-F]{64}\z')][string]$ConfigurationSha256,

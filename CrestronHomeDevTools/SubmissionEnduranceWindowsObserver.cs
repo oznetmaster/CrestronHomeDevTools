@@ -76,7 +76,7 @@ public static class SubmissionEnduranceWindowsObserver
 		string bootstrap = "$ProgressPreference='SilentlyContinue';$m=[IO.MemoryStream]::new([Convert]::FromBase64String('" + payload + "'));" +
 			"$g=[IO.Compression.GZipStream]::new($m,[IO.Compression.CompressionMode]::Decompress);" +
 			"$r=[IO.StreamReader]::new($g,[Text.Encoding]::UTF8);try{& ([ScriptBlock]::Create($r.ReadToEnd()))}finally{$r.Dispose();$g.Dispose();$m.Dispose()}";
-		string command = "powershell.exe -NoProfile -NonInteractive -EncodedCommand " + Convert.ToBase64String (Encoding.Unicode.GetBytes (bootstrap));
+		string command = PowerShellRuntime.CommandName + " -NoProfile -NonInteractive -EncodedCommand " + Convert.ToBase64String (Encoding.Unicode.GetBytes (PowerShellRuntime.RequireSupportedVersion (bootstrap)));
 		if (command.Length > 7900)
 			throw new ArgumentException ("Observer arguments exceed the remote Windows command limit.");
 		return command;
@@ -87,17 +87,19 @@ public static class SubmissionEnduranceWindowsObserver
 		{
 		if (!OperatingSystem.IsWindows ())
 			throw new PlatformNotSupportedException ("Local task observation requires Windows.");
-		string command = EncodedCommand (task);
+		// Local process arguments are not subject to the remote cmd.exe limit.
+		// Keep the script readable instead of decompressing executable text at runtime.
+		string script = PowerShellRuntime.RequireSupportedVersion (Script (task));
 		using var deadline = CancellationTokenSource.CreateLinkedTokenSource (token);
 		deadline.CancelAfter (TimeSpan.FromSeconds (30));
-		var start = new ProcessStartInfo (Path.Combine (Environment.GetFolderPath (Environment.SpecialFolder.Windows), "System32", "WindowsPowerShell", "v1.0", "powershell.exe"))
+		var start = new ProcessStartInfo (PowerShellRuntime.LocalExecutable)
 			{
 			UseShellExecute = false,
 			CreateNoWindow = true,
 			RedirectStandardOutput = true,
 			RedirectStandardError = true
 			};
-		foreach (string argument in command["powershell.exe ".Length..].Split (' '))
+		foreach (string argument in new[] { "-NoProfile", "-NonInteractive", "-Command", script })
 			start.ArgumentList.Add (argument);
 		using var process = Process.Start (start) ?? throw new IOException ("The passive Windows observer could not start.");
 		try

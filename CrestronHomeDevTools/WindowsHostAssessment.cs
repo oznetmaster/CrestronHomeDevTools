@@ -85,7 +85,7 @@ public static class WindowsHostAssessment
 			?? throw new InvalidOperationException ("Host assessment script is missing.");
 		using var reader = new StreamReader (resource);
 		string script = "& {\r\n" + await reader.ReadToEndAsync (token) + "\r\n} -WorkDirectory '" + workDirectory.Replace ("'", "''", StringComparison.Ordinal) + "'";
-		var start = new ProcessStartInfo (Path.Combine (Environment.GetFolderPath (Environment.SpecialFolder.System), @"WindowsPowerShell\v1.0\powershell.exe"))
+		var start = new ProcessStartInfo (PowerShellRuntime.LocalExecutable)
 			{
 			UseShellExecute = false,
 			CreateNoWindow = true,
@@ -93,7 +93,7 @@ public static class WindowsHostAssessment
 			RedirectStandardOutput = true,
 			RedirectStandardError = true
 			};
-		foreach (string arg in new[] { "-NoProfile", "-NonInteractive", "-EncodedCommand", Convert.ToBase64String (Encoding.Unicode.GetBytes (script)) })
+		foreach (string arg in new[] { "-NoProfile", "-NonInteractive", "-EncodedCommand", Convert.ToBase64String (Encoding.Unicode.GetBytes (PowerShellRuntime.RequireSupportedVersion (script))) })
 			start.ArgumentList.Add (arg);
 		using var deadline = CancellationTokenSource.CreateLinkedTokenSource (token);
 		deadline.CancelAfter (TimeSpan.FromSeconds (45));

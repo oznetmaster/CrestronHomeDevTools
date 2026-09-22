@@ -1,6 +1,8 @@
+#requires -Version 7.6
+#requires -PSEdition Core
 # Copyright (c) 2026 Neil Colvin.
 # Licensed under the MIT License. See LICENSE in the repository root.
-# Compatible with Windows PowerShell 5.1. Read-only; never opens a collector journal.
+# Requires PowerShell 7.6 or later. Read-only; never opens a collector journal.
 param(
 	[Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$TaskName,
 	[Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$StateDirectory,

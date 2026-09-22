@@ -1,6 +1,8 @@
+#requires -Version 7.6
+#requires -PSEdition Core
 # Copyright (c) 2026 Neil Colvin.
 # Licensed under the MIT License. See LICENSE in the repository root.
-# Windows PowerShell 5.1; passive observation and approved notifications only.
+# PowerShell 7.6 or later; passive observation and approved notifications only.
 param([Parameter(Mandatory)][string]$Configuration)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest

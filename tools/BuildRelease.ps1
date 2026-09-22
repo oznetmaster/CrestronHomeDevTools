@@ -1,3 +1,5 @@
+#requires -Version 7.6
+#requires -PSEdition Core
 # Copyright (c) 2026 Neil Colvin. Licensed under the MIT License; see LICENSE.
 param([Parameter(Mandatory)][string] $Version)
 $ErrorActionPreference = 'Stop'
@@ -6,12 +8,12 @@ Push-Location $root
 try {
     $release = Join-Path $root 'artifacts/release'
     if (Test-Path $release) { throw 'Use fresh release staging.' }
-    & powershell.exe -NoProfile -File ./tools/endurance/Test-EnduranceDirectoryPermissions.ps1 -ResultsDirectory artifacts/directory-permissions-tests
+    & (Join-Path $PSHOME 'pwsh.exe') -NoProfile -File ./tools/endurance/Test-EnduranceDirectoryPermissions.ps1 -ResultsDirectory artifacts/directory-permissions-tests
     if ($LASTEXITCODE -ne 0) { throw 'Monitoring directory permission checks failed.' }
     & ./tools/endurance/Test-EnduranceScheduler.ps1 -ResultsDirectory artifacts/scheduler-tests
     & ./tools/endurance/Test-EnduranceWatchScheduler.ps1 -ResultsDirectory artifacts/watch-scheduler-tests
     & ./tools/endurance/Test-EnduranceSnapshot.ps1 -ResultsDirectory artifacts/endurance-snapshot-tests
-    & powershell.exe -NoProfile -File ./tools/endurance/Test-EnduranceHealthSnapshot.ps1 -ResultsDirectory artifacts/endurance-health-tests
+    & (Join-Path $PSHOME 'pwsh.exe') -NoProfile -File ./tools/endurance/Test-EnduranceHealthSnapshot.ps1 -ResultsDirectory artifacts/endurance-health-tests
     if ($LASTEXITCODE -ne 0) { throw 'Passive health snapshot checks failed.' }
     & ./tools/Test-DiscoveredCoverageGuards.ps1
     & ./tools/Test-DiscoveredCoverage.ps1 -Configuration Release -ResultsDirectory artifacts/tests

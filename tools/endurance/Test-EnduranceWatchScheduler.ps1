@@ -1,3 +1,5 @@
+#requires -Version 7.6
+#requires -PSEdition Core
 # Copyright (c) 2026 Neil Colvin.
 # Licensed under the MIT License. See LICENSE in the repository root.
 param([Parameter(Mandatory)][string]$ResultsDirectory)
@@ -10,7 +12,7 @@ if (Test-Path -LiteralPath $ResultsDirectory) { throw 'Choose a new test output 
 $bundle = Join-Path $ResultsDirectory 'stub'
 & dotnet publish (Join-Path $PSScriptRoot 'WatchStub/WatchStub.csproj') -c Release -o $bundle --nologo *> (Join-Path $ResultsDirectory 'build.log')
 if ($LASTEXITCODE -ne 0) { throw 'Test double build failed.' }
-$shell = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
+$shell = (Join-Path $PSHOME 'pwsh.exe')
 $tick = Join-Path $root 'Invoke-EnduranceScheduledWatch.ps1'
 $utf8 = New-Object Text.UTF8Encoding($false)
 $secret = 'synthetic-' + [char]0xA3 + '-' + [char]0x6E29 + '-secret'

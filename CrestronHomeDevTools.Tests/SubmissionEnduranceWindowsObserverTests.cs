@@ -99,7 +99,7 @@ public sealed class SubmissionEnduranceWindowsObserverTests
 			string mock = "function Get-ScheduledTask { param($TaskPath) [pscustomobject]@{TaskName=" + Quote (name) + ";State='Ready'} };" +
 				"function Get-ScheduledTaskInfo { param([Parameter(ValueFromPipeline)]$InputObject) process { [pscustomobject]@{LastTaskResult=0} } };";
 			string bootstrap = Encoding.Unicode.GetString (Convert.FromBase64String (SubmissionEnduranceWindowsObserver.EncodedCommand (new (name, root)).Split (' ').Last ()));
-			var start = new ProcessStartInfo ("powershell.exe") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+			var start = new ProcessStartInfo (PowerShellRuntime.LocalExecutable) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
 			foreach (string arg in new[] { "-NoProfile", "-NonInteractive", "-EncodedCommand", Convert.ToBase64String (Encoding.Unicode.GetBytes (mock + bootstrap)) })
 				start.ArgumentList.Add (arg);
 			using var process = Process.Start (start)!;

@@ -233,6 +233,9 @@ public sealed class SubmissionEnduranceProcessProbeTests
 		Assert.That (report.RootElement.GetProperty ("State").GetString (), Is.EqualTo ("AttentionRequired"));
 		Assert.That (report.RootElement.GetProperty ("RequiresAttention").GetBoolean (), Is.True);
 		Assert.That (report.RootElement.GetProperty ("PlanSha256").GetString (), Is.EqualTo (SubmissionEndurance.PlanDigest (_plan)));
+		var reasons = report.RootElement.GetProperty ("Reasons").EnumerateArray ().Select (value => value.GetString ()).ToArray ();
+		Assert.That (reasons, Does.Contain ("task-missing").And.Contain ("scheduler-receipt-missing"));
+		Assert.That (reasons, Does.Not.Contain ("observer-query-failed"), "A blocked or failed PowerShell process must not stand in for an observed missing task.");
 		Assert.That (File.Exists (_program.SettingsFile + ".pid"), Is.False);
 		Assert.That (Directory.Exists (Path.Combine (_root, "absent-state")), Is.False);
 		}

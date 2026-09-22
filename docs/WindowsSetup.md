@@ -1,5 +1,7 @@
 # Reviewed Windows prerequisite setup
 
+For new automation using DevTools 1.18.0 or later, install [PowerShell 7.6 or later for all users](PowerShell.md) on the target computer first. Windows PowerShell 5.1 is not supported by these releases.
+
 This feature requires DevTools 1.17.0 or later. This page covers Windows OpenSSH Server. A separate [reviewed GitHub runner setup](WindowsRunnerSetup.md) also requires 1.17.0. Build-tool and emulator installation remain separate steps; these commands do not prepare an entire workstation.
 
 ## Prepare and review

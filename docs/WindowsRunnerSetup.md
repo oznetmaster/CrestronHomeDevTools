@@ -1,5 +1,7 @@
 # Set up a Windows GitHub Actions runner
 
+DevTools 1.18.0 and later require [PowerShell 7.6 or later installed for all users](PowerShell.md) for this setup and the supplied Windows automation. Verify availability under the intended runner account as well as your interactive account.
+
 This helper requires DevTools 1.17.0 or later. It installs a new Windows x64 runner as a service. It does not alter existing runners, grant repository permissions, configure GitHub environments, provision private credentials, or make a desktop session available.
 
 ## Prepare the computer and GitHub destination

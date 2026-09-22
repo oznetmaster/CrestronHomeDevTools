@@ -19,7 +19,7 @@ internal sealed class WindowsRunnerSetupOperations : IWindowsRunnerSetupOperatio
 			throw new PlatformNotSupportedException ();
 		using var source = typeof (WindowsRunnerSetup).Assembly.GetManifestResourceStream ("CrestronHomeDevTools.WindowsRunnerInspection.ps1") ?? throw new IOException ("Runner inspection tool missing.");
 		using var reader = new StreamReader (source);
-		var start = new ProcessStartInfo (Path.Combine (Environment.GetFolderPath (Environment.SpecialFolder.System), @"WindowsPowerShell\v1.0\powershell.exe"))
+		var start = new ProcessStartInfo (PowerShellRuntime.LocalExecutable)
 			{
 			UseShellExecute = false,
 			CreateNoWindow = true,
@@ -28,7 +28,7 @@ internal sealed class WindowsRunnerSetupOperations : IWindowsRunnerSetupOperatio
 			RedirectStandardError = true
 			};
 		start.Environment.Remove ("PSModulePath");
-		foreach (string value in new[] { "-NoProfile", "-NonInteractive", "-EncodedCommand", Convert.ToBase64String (Encoding.Unicode.GetBytes (await reader.ReadToEndAsync (token).ConfigureAwait (false))) })
+		foreach (string value in new[] { "-NoProfile", "-NonInteractive", "-EncodedCommand", Convert.ToBase64String (Encoding.Unicode.GetBytes (PowerShellRuntime.RequireSupportedVersion (await reader.ReadToEndAsync (token).ConfigureAwait (false)))) })
 			start.ArgumentList.Add (value);
 		using var deadline = CancellationTokenSource.CreateLinkedTokenSource (token);
 		deadline.CancelAfter (TimeSpan.FromSeconds (45));
