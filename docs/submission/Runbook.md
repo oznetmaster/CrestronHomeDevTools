@@ -7,7 +7,7 @@ Submission is optional and applies only to actual Crestron drivers. Library, cli
 ## Set up once
 
 1. Extract the entire Windows console ZIP from the [release](https://github.com/oznetmaster/CrestronHomeDevTools/releases). Keep its files together. Run the commands below from that directory.
-2. Follow [workflow setup](WorkflowSetup.md) to copy the five templates into your own trusted private orchestration repository, pin an audited tooling commit, and configure the protected worker, environments and private settings. One Windows PC and one processor are sufficient; see [development configurations](DevelopmentConfigurations.md).
+2. Choose how to run the public commands: directly from the Windows console, or through the optional [CI templates](WorkflowSetup.md). Direct console use requires no GitHub runner or orchestration repository. For the supplied GitHub templates, follow their protected worker, repository and environment setup. Both routes use the same public APIs and artifact checks; neither depends on the author's private CI repository. One Windows PC and one processor are sufficient; see [development configurations](DevelopmentConfigurations.md).
 3. Configure the driver-specific verification plan, C# fixtures, actual devices and Android environment where required. Review the complete applicable official requirements. The delivery templates do not create tests or supply missing evidence.
 4. Keep private settings, raw evidence, credentials and the signature outside public source and release assets. Use [named encrypted inputs](../PrivateInputs.md) when reusing saved credentials and signatures; the [workflow setup](WorkflowSetup.md) describes the optional binding variable for signing and delivery. Configure access for the account that actually runs the worker. Leave delivery disabled until provider settings and exact authorization are ready.
 
@@ -30,7 +30,9 @@ Record exact input hashes and completed stage receipts in a private handoff reco
 
 ## Run the four protected stages
 
-Open **Actions → Crestron submission → Run workflow** in your orchestration repository. Select its configured branch and enable the requested stage. Run only the next stage after checking the preceding result. Repository enablement and environment approvals also apply; a skipped green job is not completion.
+For direct console use, follow the linked command guide for each stage below. Use the released console and private settings, retain its receipts, and advance only after the required artifact review and authorization. No GitHub setup is needed for this route.
+
+If you chose the optional CI templates, open **Actions → Crestron submission → Run workflow** in your own configured repository. Select its configured branch and enable the requested stage. Repository enablement and environment approvals also apply; a skipped green job is not completion. The stage names below are shared descriptions, not a requirement to use GitHub Actions.
 
 | Stage | Inputs to supply | Result to inspect before continuing |
 |---|---|---|
@@ -39,11 +41,11 @@ Open **Actions → Crestron submission → Run workflow** in your orchestration 
 | `delivery-plan` | Signed review receipt hash and separate exact delivery-authorization file hash. | Frozen outgoing package/PDF, delivery plan, receipt and `COMPLETE`. Check sender, recipient, correspondence and expiry. Nothing has been sent. [Preparation details](DeliveryPreparation.md). |
 | `deliver` | Uses protected dispatch settings and their independently retained hash. | Durable upload/email receipts and journal state. Confirm both provider outcomes. Delivery is not Crestron's acceptance decision. [Delivery details](DeliveryCommand.md). |
 
-Before `deliver`, generate and review the private dispatch settings using [delivery setup](DeliverySetup.md), configure the environment's settings path/hash, and supply provider credentials through the protected mechanism. Do not put credentials in workflow inputs. Signing approval does not authorize sending, and an expired approval must not be silently extended.
+Before `deliver`, generate and review the private dispatch settings using [delivery setup](DeliverySetup.md), retain their independently reviewed digest, and supply provider credentials through the documented protected mechanism. For GitHub execution, also configure the protected environment's settings path/hash. Do not put credentials in workflow inputs. Signing approval does not authorize sending, and an expired approval must not be silently extended.
 
-You can also run each underlying public console command locally using its linked settings and command guide. Preparation commands do not send anything. Do not use local dispatch to bypass the configured approvals or journal.
+Preparation commands do not send anything. Direct console execution preserves exact-form and delivery authorization and uses the same durable journal; it is not a way to bypass configured approvals. Keep driver-specific settings, evidence and signatures private, regardless of the execution route. Private inputs do not require private workflow code.
 
-The table describes complete mode. For a signed submission with disclosed gaps, select `review_mode: declared-gaps` and follow the [declared-gap CI sequence](WorkflowSetup.md#signed-submissions-with-declared-gaps). It retains the review/sign/delivery-plan/deliver stages, but uses different delivery-plan settings and verifies an explicitly approved review plan. The final delivery command still revalidates all evidence. Do not feed a declared-gap review into the complete-only preparation command or silently switch modes after a failure.
+The table describes complete mode. For a signed submission with disclosed gaps, use the public [declared-gap commands](DeclaredGaps.md) and [review approval and delivery guide](ReviewApproval.md). If using GitHub, select `review_mode: declared-gaps` and follow the [declared-gap CI sequence](WorkflowSetup.md#signed-submissions-with-declared-gaps). Both routes retain the review/sign/delivery-plan/deliver stages, but use different delivery-plan settings and verify an explicitly approved review plan. The final delivery command still revalidates all evidence. Do not feed a declared-gap review into the complete-only preparation command or silently switch modes after a failure.
 
 ## Resume after an interruption
 
