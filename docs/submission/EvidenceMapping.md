@@ -91,3 +91,6 @@ SubmissionEvidenceMappingReport result = SubmissionEvidenceMapping.MapFiles (
 The API does not write files. `Observations` is null on an evidence-check failure; invalid inputs throw. `MappingChecksPassed` refers only to the requested subset. The original documents are left intact and included in each derived observation's retained-file list, so the existing evidence bundle retains this chain of provenance.
 
 This handoff does not bind executable producers in a draft coverage contract, prove chronology between separate official requirements, perform a performance comparison or manufacture evidence for tests that have not run.
+
+The retained worker can use the console's camelCase format or the PascalCase API format. The mapper verifies and parses the original pinned bytes; do not rewrite the worker merely to change property casing. Mixed or unknown schema properties remain invalid.
+

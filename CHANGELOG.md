@@ -1,11 +1,5 @@
 # Changelog
 
-## Unreleased
-
-- Successful endurance scheduler and notification checks now remove temporary diagnostics automatically after saving current status and a compact history. History rotates at 1 MiB with one previous file retained. Failed and interrupted attempts keep their original output; actual collector samples and evidence criteria are unchanged.
-- Repeated healthy notification observations update their current checkpoint without creating duplicate event files. Delivery transitions and unresolved-send safeguards remain retained.
-- Completed-run retention now documents disabling the exact terminal collector and watcher tasks and waiting for their current invocations to finish before copying evidence.
-
 ## 1.18.1 - 2026-09-23
 
 Completed endurance runs can now be retained when their scheduler history exceeds 20,000 filesystem entries. A normal 24-hour run can reach that limit because scheduler diagnostics are recorded more often than functional samples. The exporter now defaults to 100,000 entries and supports an explicit `-MaximumEntries` bound up to 1,000,000, recorded in its receipts. File-size limits, evidence hashes, source/copy revalidation and refusal to overwrite partial exports remain enforced. No evidence is removed to fit the limit.
@@ -459,3 +453,4 @@ Initial public release: the library is distributed through NuGet and the Windows
 ### V1 hardware validation
 
 A complete unattended V1 driver workflow subsequently passed on the development MC4-R: 116 local tests, 105 processor driver tests, 11 processor SDK lifecycle tests and three read-only installed-driver health checks. It installed a fresh Entity V2 test host, staged the V1 update, received the matching swap-completion event, requested one Home configuration reboot, reconnected and verified lease ownership, verified the new driver version was Loaded, online, ready and configured, then removed the test host and released the lease. Independent checks confirmed the other 19 driver instances retained their identities and versions and were Loaded. The first V1 attempt exposed an incorrect assumption that swap initiates reboot; it required one separately recorded assisted reboot and was not counted as an unattended pass. A second attempt confirmed swap completion but an immediate SSH reboot returned with the previous version; it was stopped, reconciled and retained as a failed validation. The passing run used Home configuration reboot instead. V1 initial-install/removal reboot paths still have simulated coverage only. The SDK lifecycle tests and read-only health checks do not establish playback or device-control behavior.
+

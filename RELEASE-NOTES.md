@@ -1,13 +1,11 @@
-# CrestronHomeDevTools 1.18.1
+# CrestronHomeDevTools 1.18.2
 
-Completed endurance runs can now be retained when their scheduler history exceeds 20,000 filesystem entries. A normal 24-hour run can reach that limit because scheduler diagnostics are recorded more often than functional samples. The exporter now defaults to 100,000 entries and supports an explicit `-MaximumEntries` bound up to 1,000,000, recorded in its receipts. File-size limits, evidence hashes, source/copy revalidation and refusal to overwrite partial exports remain enforced. No evidence is removed to fit the limit.
+Evidence mapping now accepts the camelCase worker files used by the endurance console, as well as retained PascalCase API worker files. Previously, mapping a completed console run could fail with a generic input error. Both forms retain their original bytes and hashes; strict schema, identity, producer and measured-result validation remain enforced. No collector restart or evidence rewrite is needed.
 
-Passive health checks now recognize the scheduler's lock-contention exit code 4 after a completed, released collection. An exporter holding the scheduler lock no longer creates a task-failure alert solely from that code. Completed receipts must still pass the existing identity, duration, sample, freshness and attention checks. Unexpected task failures and contention during collection still require attention.
+Successful endurance scheduler and notification checks now remove temporary diagnostics after saving current status and compact history. History rotates at 1 MiB with one previous file retained. Failed and interrupted attempts keep their original output; actual collector samples and evidence criteria are unchanged. Repeated healthy notification observations update the current checkpoint without creating duplicate event files. Delivery transitions and unresolved-send safeguards remain retained.
 
-This corrects evidence retention and operational monitoring, not driver behavior or test criteria. Use a fresh export directory after inspecting any earlier failure. The exporter can retain an older pinned run using its original tick script and CLI; do not replace those recorded inputs. PowerShell 7.6 or later is required on the exporting Windows computer.
+Completed-run retention documents disabling the exact terminal collector and watcher tasks and waiting for their current invocations to finish before copying evidence. Leave active collectors on their recorded tooling; use the new mapper separately against retained evidence.
 
-Validation covers inventory-budget refusal and successful fresh retention without lost diagnostics, completed-run contention, real failure/identity/freshness rejection and notification regressions. These checks use synthetic inputs and do not contact processors or send email.
-
-See [completed-run retention](docs/submission/WindowsEnduranceWorker.md#retain-a-completed-run) and [PowerShell installation](docs/PowerShell.md).
+Validation covers both worker formats without byte rewriting, original identity and evidence rejection, 1,440 successful diagnostic-retention cycles, interruption recovery and notification transitions. See [evidence mapping](docs/submission/EvidenceMapping.md) and [completed-run retention](docs/submission/WindowsEnduranceWorker.md#retain-a-completed-run).
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.

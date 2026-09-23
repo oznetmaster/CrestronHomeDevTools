@@ -183,20 +183,24 @@ public sealed class SubmissionEvidenceMappingTests
 		return worker;
 		}
 
-	private void SaveWorker (SubmissionEnduranceWorkerPlan worker)
+	private void SaveWorker (SubmissionEnduranceWorkerPlan worker, bool camelCase = false)
 		{
-		var bytes = JsonSerializer.SerializeToUtf8Bytes (worker, new JsonSerializerOptions { Converters = { new JsonStringEnumConverter () } });
+		var bytes = JsonSerializer.SerializeToUtf8Bytes (worker, new JsonSerializerOptions
+			{ PropertyNamingPolicy = camelCase ? JsonNamingPolicy.CamelCase : null, Converters = { new JsonStringEnumConverter () } });
 		File.WriteAllBytes (Path.Combine (_root, "worker.json"), bytes);
 		_plan = _plan with { SourceWorker = new ("worker.json", Convert.ToHexStringLower (SHA256.HashData (bytes))) };
 		Pin ();
 		}
 
-	[Test]
-	public void SeparateReviewedPolicyAndOriginalWorkerAreBothRetained ()
+	[TestCase (false)]
+	[TestCase (true)]
+	public void SeparateReviewedPolicyAndOriginalWorkerAreBothRetained (bool camelCase)
 		{
-		UseSeparateCollectionPolicy ();
+		SaveWorker (UseSeparateCollectionPolicy (), camelCase);
+		var bytes = File.ReadAllBytes (Path.Combine (_root, "worker.json"));
 		var report = Map ();
 		Assert.That (report.MappingChecksPassed, Is.True);
+		Assert.That (File.ReadAllBytes (Path.Combine (_root, "worker.json")), Is.EqualTo (bytes));
 		Assert.That (report.Observations!.Observations[0].Files.Select (file => file.RelativePath),
 			Is.SupersetOf (new[] { "source-policy.json", "worker.json", "source-observations.json" }));
 		Assert.That (File.Exists (Path.Combine (_root, "synthetic.exe")), Is.False, "Producer must never be executed or installed by mapping.");

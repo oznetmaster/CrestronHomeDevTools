@@ -79,7 +79,11 @@ public static class SubmissionEvidenceMapping
 				if (SubmissionValidation.Read<JsonElement> (sourcePolicy.Bytes).ValueKind != JsonValueKind.Object)
 					throw new ArgumentException ("The reviewed collection policy must be a JSON object.");
 				var retainedWorker = Read (workerReference.RelativePath, workerReference.Sha256);
-				var worker = SubmissionValidation.Read<SubmissionEnduranceWorkerPlan> (retainedWorker.Bytes, pascalCase: true);
+				// Console worker files use camelCase; older retained API fixtures use PascalCase.
+				// Select the convention without rewriting the pinned bytes or relaxing schema validation.
+				var workerJson = SubmissionValidation.Read<JsonElement> (retainedWorker.Bytes);
+				var worker = SubmissionValidation.Read<SubmissionEnduranceWorkerPlan> (retainedWorker.Bytes,
+					pascalCase: !workerJson.TryGetProperty ("plan", out _));
 				SubmissionEndurance.ValidatePlan (worker.Plan);
 				var identity = worker.Plan.Identity;
 				if (!identity.PackageSha256.Equals (sourceIdentity.PackageSha256, StringComparison.OrdinalIgnoreCase) ||
