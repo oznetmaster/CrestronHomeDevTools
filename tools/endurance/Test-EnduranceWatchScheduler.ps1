@@ -60,6 +60,13 @@ foreach ($scenario in @('healthy', 'attention')) {
 	$status = Get-Content -LiteralPath (Join-Path $case 'state/status.json') -Raw | ConvertFrom-Json
 	Assert ($status.ObservedUtc -ne $previous) 'Status did not advance.'
 	Assert (@(Get-Content -LiteralPath (Join-Path $case 'journal/calls.txt')).Count -eq 2) 'Unexpected command count.'
+	if ($expected -eq 0) {
+		Assert (@(Get-ChildItem -LiteralPath (Join-Path $case 'state') -Directory).Count -eq 0) 'Healthy watcher attempts accumulated directories.'
+		Assert ([IO.File]::ReadAllLines((Join-Path $case 'state/history.jsonl')).Count -eq 2) 'Healthy watcher lost compact history.'
+	} else {
+		Assert (@(Get-ChildItem -LiteralPath (Join-Path $case 'state') -Directory).Count -eq 2) 'Failure diagnostics were removed.'
+		Assert (@(Get-ChildItem -LiteralPath (Join-Path $case 'state') -Recurse -Filter stderr.txt).Count -eq 2) 'Original failure output was removed.'
+	}
 	foreach ($file in Get-ChildItem -LiteralPath (Join-Path $case 'state') -Recurse -File) {
 		Assert (-not ([IO.File]::ReadAllText($file.FullName)).Contains($secret)) 'Credential leaked to private diagnostic output.'
 	}

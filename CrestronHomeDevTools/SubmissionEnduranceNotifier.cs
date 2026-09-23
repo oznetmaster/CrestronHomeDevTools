@@ -75,14 +75,14 @@ public sealed class SubmissionEnduranceNotifier
 			(report.State == SubmissionEnduranceHealthState.Completed && !_settings.NotifyCompletion);
 		if (quiet)
 			{
-			Save (new (1, _digest, "Quiet", report.State, report.EvaluatedUtc, null, previous?.CompletionMessageId));
+			Save (new (1, _digest, "Quiet", report.State, report.EvaluatedUtc, null, previous?.CompletionMessageId), previous);
 			return new ("Quiet", null, false);
 			}
 		if (report.State == SubmissionEnduranceHealthState.Completed && previous?.CompletionMessageId != null)
 			return new ("AlreadyAccepted", previous.CompletionMessageId, false);
 		if (previous?.State == "Accepted" && previous.Kind == report.State)
 			{
-			Save (previous with { ObservedUtc = report.EvaluatedUtc });
+			Save (previous with { ObservedUtc = report.EvaluatedUtc }, previous);
 			return new ("AlreadyAccepted", previous.MessageId, false);
 			}
 		string messageId = "endurance-" + Guid.NewGuid ().ToString ("N") + "@monitor.local";
@@ -159,12 +159,13 @@ public sealed class SubmissionEnduranceNotifier
 			throw new InvalidDataException ("Notification journal identity or state is invalid.");
 		return value;
 		}
-	private void Save (Journal value)
+	private void Save (Journal value, Journal? previous = null)
 		{
 		string path = CheckedPath ("notification.json");
-		string temporary = Path.Combine (_root, "event-" + Guid.NewGuid ().ToString ("N") + ".json");
-		WriteNew (temporary, value);
-		// Keep every transition as evidence; replace only the small current checkpoint.
+		// A fresh observation time is not a state transition. Preserve actual delivery
+		// transitions, while healthy/repeated observations update only the checkpoint.
+		if (previous == null || (previous with { ObservedUtc = value.ObservedUtc }) != value)
+			WriteNew (Path.Combine (_root, "event-" + Guid.NewGuid ().ToString ("N") + ".json"), value);
 		string replacement = Path.Combine (_root, Guid.NewGuid ().ToString ("N") + ".tmp");
 		try { WriteNew (replacement, value); SubmissionJournalFile.Replace (replacement, path); }
 		finally { if (File.Exists (replacement)) File.Delete (replacement); }

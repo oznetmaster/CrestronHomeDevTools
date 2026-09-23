@@ -70,6 +70,8 @@ foreach ($scenario in @('collecting','first','passing','failure','complete','fai
 		Assert ((Run-Tick $case) -eq 0) 'A second successful invocation failed to replace its status.'
 		$updated = Get-Content -LiteralPath (Join-Path $case 'state/status.json') -Raw | ConvertFrom-Json
 		Assert ($updated.ObservedUtc -ne $previous -and $updated.State -eq $state.State) 'The scheduled status did not advance.'
+		Assert (@(Get-ChildItem -LiteralPath (Join-Path $case 'state/attempts') -Force).Count -eq 0) 'Successful attempts accumulated diagnostics.'
+		Assert ([IO.File]::ReadAllLines((Join-Path $case 'state/history.jsonl')).Count -eq 2) 'Successful checks lost their compact history.'
 		if ($expectedState -eq 'Passed') {
 			Assert (@(Get-Content -LiteralPath (Join-Path $case 'run/calls.txt') | Where-Object {$_ -eq 'endurance-tick'}).Count -eq @($calls | Where-Object {$_ -eq 'endurance-tick'}).Count) 'A completed run executed another tick.'
 		}
@@ -138,5 +140,52 @@ $calls = @(Get-Content -LiteralPath (Join-Path $case 'run/calls.txt')).Count
 Assert ((Run-Tick $case) -eq 3) 'Killed wrapper was silently resumed.'
 Assert (@(Get-Content -LiteralPath (Join-Path $case 'run/calls.txt')).Count -eq $calls) 'Killed wrapper replayed a collector command.'
 $passed.Add('terminated-wrapper')
+# Exercise a full day's one-minute diagnostic cadence without launching 1,440
+# child processes. The earlier cases exercise the actual process wrapper.
+foreach ($wrapper in @('Invoke-EnduranceScheduledTick.ps1','Invoke-EnduranceScheduledWatch.ps1')) {
+	$syntaxErrors=$null; $tokens=$null
+	$ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $root $wrapper),[ref]$tokens,[ref]$syntaxErrors)
+	Assert ($syntaxErrors.Count -eq 0) 'Wrapper has parse errors.'
+	foreach ($functionName in @('Clear-CompletedDiagnostics','Retire-SuccessfulDiagnostics')) {
+		$definition=$ast.Find({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $functionName},$false)
+		. ([scriptblock]::Create($definition.Extent.Text))
+	}
+	$utf8=New-Object Text.UTF8Encoding($false)
+	$volume=Join-Path $ResultsDirectory ('volume-'+$wrapper)
+	[void][IO.Directory]::CreateDirectory($volume)
+	for($i=0;$i -lt 1440;$i++) {
+		$attempt=Join-Path $volume ([Guid]::NewGuid().ToString('N'))
+		[void][IO.Directory]::CreateDirectory($attempt)
+		[IO.File]::WriteAllText((Join-Path $attempt 'result.json'),'{"ExitCode":0}')
+		[IO.File]::WriteAllText((Join-Path $attempt 'stdout.json'),('x'*225197))
+		Retire-SuccessfulDiagnostics $volume $attempt @{ObservedUtc=[DateTimeOffset]::UtcNow.ToString('O');State='Collecting';ExitCode=0}
+	}
+	Assert (@(Get-ChildItem -LiteralPath $volume -Directory).Count -eq 0) 'A daily cadence accumulated attempt directories.'
+	Assert (@(Get-ChildItem -LiteralPath $volume -File).Count -eq 1) 'A daily cadence accumulated diagnostic files.'
+	Assert ((Get-Item (Join-Path $volume 'history.jsonl')).Length -lt 256KB) 'Daily compact history is oversized.'
+	Assert ([IO.File]::ReadAllLines((Join-Path $volume 'history.jsonl')).Count -eq 1440) 'Compact daily history lost successful checks.'
+	# Simulate interruption after retirement and before removal, then recover it.
+	$leftover=Join-Path $volume ('completed-'+[Guid]::NewGuid().ToString('N'))
+	[void][IO.Directory]::CreateDirectory($leftover)
+	[IO.File]::WriteAllText((Join-Path $leftover 'result.json'),'{"ExitCode":0}')
+	[IO.File]::WriteAllText((Join-Path $leftover 'stdout.json'),'retired diagnostic')
+	Clear-CompletedDiagnostics $volume
+	Assert (-not (Test-Path -LiteralPath $leftover)) 'Interrupted successful cleanup was not resumed.'
+	[IO.File]::WriteAllText((Join-Path $volume 'history.jsonl'),('x'*1MB))
+	$attempt=Join-Path $volume 'active'
+	[void][IO.Directory]::CreateDirectory($attempt)
+	[IO.File]::WriteAllText((Join-Path $attempt 'result.json'),'{"ExitCode":0}')
+	Retire-SuccessfulDiagnostics $volume $attempt @{ExitCode=0}
+	Assert ((Get-Item (Join-Path $volume 'history.previous.jsonl')).Length -eq 1MB) 'History did not rotate at its bound.'
+	Assert ((Get-Item (Join-Path $volume 'history.jsonl')).Length -lt 1KB) 'Rotated current history is oversized.'
+	# A misnamed failure must be preserved, never treated as disposable success.
+	$failed=Join-Path $volume ('completed-'+[Guid]::NewGuid().ToString('N'))
+	[void][IO.Directory]::CreateDirectory($failed)
+	[IO.File]::WriteAllText((Join-Path $failed 'result.json'),'{"ExitCode":3}')
+	$refused=$false
+	try { Clear-CompletedDiagnostics $volume } catch { $refused=$true }
+	Assert ($refused -and (Test-Path (Join-Path $failed 'result.json'))) 'Cleanup discarded failure evidence.'
+	$passed.Add('daily-volume-and-cleanup-'+$wrapper)
+}
 @{Passed=$passed.Count;Cases=@($passed);PowerShell=$shell;CompletedUtc=[DateTimeOffset]::UtcNow.ToString('O')} | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $ResultsDirectory 'results.json') -Encoding utf8
 Write-Output "$($passed.Count) scheduled-worker scenarios passed using PowerShell 7.6 or later."

@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Successful endurance scheduler and notification checks now remove temporary diagnostics automatically after saving current status and a compact history. History rotates at 1 MiB with one previous file retained. Failed and interrupted attempts keep their original output; actual collector samples and evidence criteria are unchanged.
+- Repeated healthy notification observations update their current checkpoint without creating duplicate event files. Delivery transitions and unresolved-send safeguards remain retained.
+- Completed-run retention now documents disabling the exact terminal collector and watcher tasks and waiting for their current invocations to finish before copying evidence.
+
 ## 1.18.1 - 2026-09-23
 
 Completed endurance runs can now be retained when their scheduler history exceeds 20,000 filesystem entries. A normal 24-hour run can reach that limit because scheduler diagnostics are recorded more often than functional samples. The exporter now defaults to 100,000 entries and supports an explicit `-MaximumEntries` bound up to 1,000,000, recorded in its receipts. File-size limits, evidence hashes, source/copy revalidation and refusal to overwrite partial exports remain enforced. No evidence is removed to fit the limit.

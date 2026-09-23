@@ -24,6 +24,27 @@ public sealed class SubmissionEnduranceNotifierTests
 		new (state, state == SubmissionEnduranceHealthState.AttentionRequired ? ["worker-unreachable"] : [], DateTimeOffset.UtcNow, null, _settings.RunId);
 
 	[Test]
+	public async Task OneDayOfHealthyObservationsRetainsOneTransitionAndLatestCheckpoint ()
+		{
+		var session = new Session ();
+		var notifier = Notifier (session);
+		var start = DateTimeOffset.UtcNow.AddSeconds (-2);
+		for (int i = 0; i < 1440; i++)
+			await notifier.NotifyAsync (Report (SubmissionEnduranceHealthState.Collecting) with { EvaluatedUtc = start.AddTicks (i) });
+		Assert.That (session.Connects, Is.Zero);
+		Assert.That (Directory.GetFiles (_root, "event-*.json"), Has.Length.EqualTo (1));
+		Assert.That (Directory.GetFiles (_root), Has.Length.EqualTo (3));
+		Assert.That (Directory.GetFiles (_root).Sum (f => new FileInfo (f).Length), Is.LessThan (4096));
+		using var checkpoint = System.Text.Json.JsonDocument.Parse (File.ReadAllText (Path.Combine (_root, "notification.json")));
+		Assert.That (checkpoint.RootElement.GetProperty ("ObservedUtc").GetDateTimeOffset (), Is.EqualTo (start.AddTicks (1439)));
+		await notifier.NotifyAsync (Report ());
+		Assert.That (Directory.GetFiles (_root, "event-*.json"), Has.Length.EqualTo (3));
+		await notifier.NotifyAsync (Report ());
+		Assert.That (Directory.GetFiles (_root, "event-*.json"), Has.Length.EqualTo (3));
+		Assert.That (session.Sends, Is.EqualTo (1));
+		}
+
+	[Test]
 	public async Task HealthyObservationsSendNothingAndIncidentIsDeduplicatedAcrossRestart ()
 		{
 		var first = new Session ();

@@ -163,6 +163,8 @@ Exit 0 means quiet, previously accepted or accepted by SMTP. Exit 2 means invali
 
 The journal has an exclusive local/file-share lock and flushed state before sending. Process restart preserves suppression. If the process stops during delivery, or the acceptance cannot be retained, the next invocation does not send again. A healthy observation cannot silently clear that unresolved attempt. Preserve the entire journal; deleting its checkpoint does not authorize replay. Do not create a new journal merely to bypass uncertainty.
 
+Current source records notification events when state or delivery identity changes. Repeated healthy observations update the current checkpoint without creating another event file; actual send, acceptance, uncertainty and reconciliation records remain retained. The updated scheduled watcher also removes successful temporary diagnostics after retaining current status and a compact rotating history. Failed watcher attempts retain their original output. These reductions apply after upgrading and configuring new runs; do not replace pinned tools in a running collection.
+
 ## C# integration and explicit reconciliation
 
 ```csharp
