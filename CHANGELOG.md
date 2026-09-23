@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+A Windows form app saves editable developer, driver and submission inputs in the encrypted private store, including named credentials and a reusable signature image. Frozen snapshots retain the chosen profile revisions. Existing processor, signing, delivery and endurance credential consumers can read a snapshot directly, and preparation generates help/release-note drafts with public support contacts and the repository link.
+
+Drafts retain unresolved review items; saved inputs are not test results or signing/delivery authorization. This is available from source and has not yet been validated through a complete submission. See [setup and workflow integration](docs/submission/SetupApp.md). No public package release is associated with this entry.
+
 Self-test forms mark entirely non-applicable items simply N/A, without an appended note or link. Notes for checked and qualified items remain consecutively numbered and linked. Applicability evidence and checkbox decisions are unchanged.
 
 ## 1.18.2 - 2026-09-23
@@ -469,4 +473,5 @@ Initial public release: the library is distributed through NuGet and the Windows
 ### V1 hardware validation
 
 A complete unattended V1 driver workflow subsequently passed on the development MC4-R: 116 local tests, 105 processor driver tests, 11 processor SDK lifecycle tests and three read-only installed-driver health checks. It installed a fresh Entity V2 test host, staged the V1 update, received the matching swap-completion event, requested one Home configuration reboot, reconnected and verified lease ownership, verified the new driver version was Loaded, online, ready and configured, then removed the test host and released the lease. Independent checks confirmed the other 19 driver instances retained their identities and versions and were Loaded. The first V1 attempt exposed an incorrect assumption that swap initiates reboot; it required one separately recorded assisted reboot and was not counted as an unattended pass. A second attempt confirmed swap completion but an immediate SSH reboot returned with the previous version; it was stopped, reconciled and retained as a failed validation. The passing run used Home configuration reboot instead. V1 initial-install/removal reboot paths still have simulated coverage only. The SDK lifecycle tests and read-only health checks do not establish playback or device-control behavior.
+
 

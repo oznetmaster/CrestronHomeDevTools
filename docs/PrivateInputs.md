@@ -121,3 +121,9 @@ The complete `submission prepare-signed-review` stage accepts the same final `--
 The public `DevToolsResourceInventory` API represents any number of processors and Windows computers with permitted roles, named credential references and capability evidence. A planned resource cannot be selected. Selecting among several matching resources requires a name. Inventory selection does not acquire an execution lease or authorize an operation.
 
 Use [Windows resource assessment](WindowsResources.md) for the new read-only inspection and selection commands. Separate reviewed [OpenSSH setup](WindowsSetup.md) and [GitHub runner setup](WindowsRunnerSetup.md) require 1.17.0; other prerequisite installers remain pending. A logged-in Windows desktop must not be confused with an unlocked, usable desktop. Desktop automation needs verification after remote-control disconnects and Windows restarts; background monitoring and builds do not establish that capability. A physical monitor and the full Visual Studio IDE are not prerequisites in the inventory model. Emulator acceleration and actual workload suitability still require checks on the chosen computer.
+
+## Editable submission setup
+
+The [Windows setup app](submission/SetupApp.md) collects reusable developer and driver profiles, version-specific submission inputs, and references to this encrypted store. Profiles can be edited; frozen snapshots preserve earlier input revisions. This source feature is not yet in a published release.
+
+The same `--credentials` argument can take the absolute encrypted `snapshot-NAME.setup` file created by the app. The existing processor, signing, delivery and endurance commands resolve its named entries on demand with their normal endpoint checks. No plaintext credential export or environment variable is required. The app's prepared operation defaults are private factual inputs; they contain no passwords or signature bytes.

@@ -165,3 +165,7 @@ Development management operations were verified on MC4-R and CP4-R / Crestron Ho
 Copyright (c) 2026 Neil Colvin. Original project code is licensed under the [MIT License](LICENSE). Dependencies retain their own licenses; see [third-party notices](THIRD-PARTY-NOTICES.md).
 
 Crestron and Crestron Home are trademarks or registered trademarks of Crestron Electronics, Inc. This project is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc. It uses an independently implemented, unofficial configuration interface. The MIT license does not grant rights to Crestron's software or documentation. Software is provided as-is, without warranty, as specified in LICENSE.
+
+## Submission input setup (source preview)
+
+The [Windows setup app](docs/submission/SetupApp.md) collects editable developer, driver and submission profiles in the encrypted private store. A submission uses a frozen input snapshot so subsequent edits do not alter earlier records. This new source feature is not yet part of a published release.

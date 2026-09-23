@@ -57,6 +57,8 @@ static async Task<int> RunSafelyAsync (string[] args, bool interactive = false)
 
 static async Task<int> RunAsync (string[] args, bool interactive = false)
 	{
+	if (args.FirstOrDefault () == "submission-setup")
+		return SubmissionSetupCommand.Run (args[1..], Console.Out, Console.Error);
 	if (args.FirstOrDefault () == "resources")
 		return await ResourceSetupCommand.RunAsync (args[1..], Console.Out, Console.Error, CancellationToken.None);
 	if (args.FirstOrDefault () == "credentials")

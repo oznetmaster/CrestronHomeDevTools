@@ -61,3 +61,7 @@ The table describes complete mode. For a signed submission with disclosed gaps, 
 If a required test or document cannot be supplied, the normal path stops. A developer can deliberately choose the separate [declared-gaps route](DeclaredGaps.md), with each unmet requirement and reason disclosed. Do not substitute that route without their decision, mark missing tests as passed, or assume Crestron will accept the request.
 
 For a useful handoff, record the selected driver and candidate identity, tooling version/commit, private settings locations, last completed stage and receipt hashes, any active run handle, unresolved failures, and the exact next action. Keep secrets out of that summary. No step should depend on remembering a prior chat.
+
+## Collecting reusable inputs
+
+For the source version that includes it, the [Windows setup app](SetupApp.md) captures editable developer, driver and submission profiles before execution. Read the supplied encrypted snapshot through the public APIs rather than asking for those facts again. Snapshot data is not test evidence or signing/delivery authorization.
