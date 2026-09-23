@@ -152,6 +152,10 @@ For a built-in local or remote Windows observation path, use `endurance-observe`
 
 DevTools 1.11.0 and later include `scripts/endurance/Export-EnduranceScheduledRun.ps1` in the complete console archive. It can consume an existing pinned scheduler configuration without changing the scheduled script, task, CLI or worker plan. Supply the original tick script explicitly if its bytes differ from the script beside the exporter. Do not replace pinned files during collection.
 
+Before exporting a terminal run, retire its recurring activity from scheduling. First retain and review the terminal `Passed` checkpoint and `Released` reservation for the expected plan. Save the exact collector and notification-watch task registrations with `Export-ScheduledTask`, then use `Disable-ScheduledTask` for those named tasks only. Disabling a task prevents future triggers; it does not terminate an invocation already running. Allow existing invocations and their child processes to finish naturally, and verify they have exited before starting the export. If an invocation does not finish, inspect it rather than force-stopping it or starting another exporter. Preserve the task definitions, source journals and previous incomplete exports. Do not apply this procedure to an active collection or a run whose terminal result or reservation release is uncertain.
+
+This step matters because the collector guard is not a global lock for every diagnostic producer. A notification watcher may continue writing beneath the scheduler evidence directory independently. Copying that directory while it changes correctly fails inventory verification. The exporter does not disable tasks itself; the completion workflow must do so before calling it. Leave the completed run's tasks disabled after retention, or unregister the exact reviewed tasks as described below. Do not resume routine monitoring of a completed run merely to keep its status timestamp fresh.
+
 ```powershell
 & 'C:\Tools\Export-EnduranceScheduledRun.ps1' `
     -Configuration 'C:\Private\Endurance\candidate-a\schedule.json' `
