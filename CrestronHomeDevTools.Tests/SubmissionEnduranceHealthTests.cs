@@ -91,8 +91,21 @@ public sealed class SubmissionEnduranceHealthTests
 	[TestCase ("Ready", 267009)]
 	[TestCase ("Running", 1)]
 	[TestCase ("Ready", 3)]
+	[TestCase ("Ready", 4)]
 	public void FailedOrInconsistentTaskResultIsNotHealthy (string state, long result) =>
 		Assert.That (Evaluate (Snapshot () with { TaskState = state, LastTaskResult = result }).Reasons, Does.Contain ("task-result-failed"));
+
+	[Test]
+	public void ExportGuardContentionAfterCompletionDoesNotInventATestFailure ()
+		{
+		var completed = Completed () with { LastTaskResult = 4 };
+		Assert.That (Evaluate (completed).State, Is.EqualTo (SubmissionEnduranceHealthState.Completed));
+		Assert.That (Evaluate (completed with { LastTaskResult = 3 }).Reasons, Does.Contain ("task-result-failed"));
+		Assert.That (Evaluate (completed with { AttentionPresent = true }).Reasons, Does.Contain ("attention-latched"));
+		Assert.That (Evaluate (completed, Now.AddMinutes (2)).Reasons, Does.Contain ("scheduler-stale"));
+		Assert.That (Evaluate (WithCheckpoint (completed, c => c with { PlanSha256 = new ('f', 64) })).Reasons, Does.Contain ("checkpoint-identity-mismatch"));
+		Assert.That (Evaluate (WithCheckpoint (completed, c => c with { Samples = [Sample (-120) with { Outcome = SubmissionEvidenceOutcome.Failed }, Sample (0)] })).Reasons, Does.Contain ("sample-not-passed"));
+		}
 
 	[Test]
 	public void CompletionRequiresReleasedOwnershipAndCompleteDuration ()

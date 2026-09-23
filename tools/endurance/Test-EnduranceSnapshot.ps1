@@ -26,12 +26,13 @@ function Prepare([string]$Name,[string]$Scenario='complete') {
 	& (Join-Path $scripts 'New-EnduranceScheduleConfiguration.ps1') -CliDirectory $bundle -CliExecutable 'SnapshotStub.exe' -WorkerFile (Join-Path $case 'worker.json') -RunDirectory (Join-Path $case 'run') -SettingsFile (Join-Path $case 'settings.json') -StateDirectory (Join-Path $case 'state') -Output (Join-Path $case 'schedule.json') | Out-Null
 	return $case
 }
-function Run([string]$Case,[string]$Pin='', [string]$Destination='') {
+function Run([string]$Case,[string]$Pin='', [string]$Destination='', [int]$MaximumEntries=0) {
 	if (-not $Pin) { $Pin=(Get-FileHash (Join-Path $Case 'schedule.json') -Algorithm SHA256).Hash }
 	if (-not $Destination) { $Destination=Join-Path $Case 'snapshot' }
 	$start=New-Object Diagnostics.ProcessStartInfo
 	$start.FileName=(Join-Path $PSHOME 'pwsh.exe')
 	$start.Arguments='-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "'+$export+'" -Configuration "'+(Join-Path $Case 'schedule.json')+'" -ConfigurationSha256 '+$Pin+' -OutputDirectory "'+$Destination+'"'
+	if ($MaximumEntries -ne 0) { $start.Arguments += ' -MaximumEntries ' + $MaximumEntries }
 	$start.UseShellExecute=$false; $start.CreateNoWindow=$true
 	$start.RedirectStandardOutput=$true; $start.RedirectStandardError=$true
 	$start.EnvironmentVariables.Remove('PSModulePath')
@@ -87,5 +88,21 @@ foreach ($scenario in @('wrong-pin','worker-changed','extra-cli','attention','bu
 	}
 	$passed.Add($scenario)
 }
+# A scheduler journals every wake-up, not just each collected sample. Exercise a
+# bounded refusal and recovery to a fresh destination, retaining every source file.
+$case=Prepare 'inventory-budget'
+for($index=0;$index -lt 250;$index++) {
+	[IO.File]::WriteAllText((Join-Path $case ('state/reconciliation/entry-'+$index+'.json')), '{"Synthetic":true}')
+}
+Assert ((Run $case -MaximumEntries 200) -eq 3) 'Explicit inventory limit was ignored.'
+Assert (Test-Path (Join-Path $case 'snapshot/failure.json')) 'Inventory-limit failure was not retained.'
+Assert (-not (Test-Path (Join-Path $case 'snapshot/complete.json'))) 'Partial export claimed completion.'
+$destination=Join-Path $case 'snapshot-with-default-budget'
+Assert ((Run $case -Destination $destination) -eq 0) 'Default inventory budget did not retain the completed run.'
+$receipt=Get-Content (Join-Path $destination 'complete.json') -Raw | ConvertFrom-Json
+Assert ($receipt.MaximumEntries -eq 100000) 'Completion receipt did not retain its actual budget.'
+Assert (@($receipt.Files | Where-Object {$_.Path -like 'scheduler-state/reconciliation/entry-*'}).Count -eq 250) 'Scheduler evidence was dropped to fit the budget.'
+Assert (Test-Path (Join-Path $case 'snapshot/failure.json')) 'A new export removed the original failure.'
+$passed.Add('inventory-budget')
 @{Passed=$passed.Count; Scenarios=@($passed); HardwareContacted=$false; SubmissionEvidence=$false} | ConvertTo-Json | Set-Content (Join-Path $ResultsDirectory 'results.json')
 Write-Output "$($passed.Count) synthetic snapshot scenarios passed. No processor was contacted."

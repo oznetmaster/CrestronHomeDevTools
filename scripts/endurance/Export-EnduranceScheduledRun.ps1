@@ -7,7 +7,8 @@ param(
 	[Parameter(Mandatory)][string]$Configuration,
 	[Parameter(Mandatory)][ValidatePattern('\A[0-9a-fA-F]{64}\z')][string]$ConfigurationSha256,
 	[Parameter(Mandatory)][string]$OutputDirectory,
-	[string]$TickScript
+	[string]$TickScript,
+	[ValidateRange(1,1000000)][int]$MaximumEntries = 100000
 )
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
@@ -42,7 +43,7 @@ function Inventory([string]$Root, [string[]]$Exclude = @()) {
 	[int]$entries = 0
 	while ($queue.Count -gt 0) {
 		foreach ($item in @(Get-ChildItem -LiteralPath $queue.Dequeue() -Force)) {
-			if (++$entries -gt 20000) { throw 'Snapshot tree exceeds its entry limit.' }
+			if (++$entries -gt $MaximumEntries) { throw 'Snapshot tree exceeds its entry limit.' }
 			if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Linked evidence is not accepted.' }
 			if ($item.PSIsContainer) { $queue.Enqueue($item.FullName); continue }
 			$relative = $item.FullName.Substring($Root.Length + 1).Replace('\','/')
@@ -132,7 +133,7 @@ try {
 	if ($pins.Count -ne $cli.Count -or -not $pins.ContainsKey($config.CliExecutable)) { throw 'CLI inventory is incomplete.' }
 	foreach ($entry in $cli) { if (-not $pins.ContainsKey($entry.Path) -or $pins[$entry.Path] -ne $entry.Sha256) { throw 'CLI inventory changed.' } }
 	[void][IO.Directory]::CreateDirectory($OutputDirectory); $created=$true
-	Save-Json 'intent.json' @{SchemaVersion=1; StartedUtc=[DateTimeOffset]::UtcNow.ToString('O'); ConfigurationSha256=$ConfigurationSha256; ExportScriptSha256=(Digest $PSCommandPath)}
+	Save-Json 'intent.json' @{SchemaVersion=1; StartedUtc=[DateTimeOffset]::UtcNow.ToString('O'); ConfigurationSha256=$ConfigurationSha256; ExportScriptSha256=(Digest $PSCommandPath); MaximumEntries=$MaximumEntries}
 	Require-Complete (Invoke-Offline 'endurance-status' $config.RunDirectory $config.WorkerFile 'source-status')
 	$export=Invoke-Offline 'endurance-export' $config.RunDirectory $config.WorkerFile 'source-export'
 	if ($export.Value.Outcome -cne 'Passed') { throw 'Export did not report a passed observation.' }
@@ -153,7 +154,7 @@ try {
 		(Digest $config.WorkerFile) -ne $config.WorkerSha256 -or (Digest (Join-Path $OutputDirectory 'worker.json')) -ne $config.WorkerSha256 -or
 		(Digest $TickScript) -ne $config.ScriptSha256 -or (Digest (Join-Path $OutputDirectory 'Invoke-EnduranceScheduledTick.ps1')) -ne $config.ScriptSha256) { throw 'Source or copied evidence changed during retention.' }
 	$files=@(Inventory $OutputDirectory @('run/monitor.lock','run/observations/collector.lock'))
-	Save-Json 'complete.json' @{SchemaVersion=1; CompletedUtc=[DateTimeOffset]::UtcNow.ToString('O'); CollectionPassed=$true; ReservationReleased=$true; SubmissionReady=$false; ConfigurationSha256=$ConfigurationSha256; Files=$files}
+	Save-Json 'complete.json' @{SchemaVersion=1; CompletedUtc=[DateTimeOffset]::UtcNow.ToString('O'); CollectionPassed=$true; ReservationReleased=$true; SubmissionReady=$false; ConfigurationSha256=$ConfigurationSha256; MaximumEntries=$MaximumEntries; Files=$files}
 	Write-Output 'Retained and revalidated the completed collection. This private snapshot is not a completed submission bundle. The scheduled task was not changed.'
 	exit 0
 } catch {

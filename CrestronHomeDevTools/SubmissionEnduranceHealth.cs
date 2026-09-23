@@ -58,7 +58,12 @@ public static class SubmissionEnduranceHealth
 		if (snapshot.TaskState is not ("Ready" or "Running") && !(completed && snapshot.TaskState == "Disabled"))
 			reasons.Add ("task-state-unconfirmed");
 		// SCHED_S_TASK_RUNNING is an in-progress result, not a completed task failure.
-		if (snapshot.LastTaskResult != 0 && !(snapshot.TaskState == "Running" && snapshot.LastTaskResult == 267009))
+		// The scheduler exits 4 without touching the collector when an exporter holds
+		// its guard. A previously completed collection still has to pass every receipt,
+		// identity, duration and freshness check below. While collecting, keep alerting
+		// on contention so a blocked sampler cannot silently stop making progress.
+		bool completedExportContention = completed && snapshot.LastTaskResult == 4;
+		if (snapshot.LastTaskResult != 0 && !completedExportContention && !(snapshot.TaskState == "Running" && snapshot.LastTaskResult == 267009))
 			reasons.Add ("task-result-failed");
 		if (receipt == null) reasons.Add ("scheduler-receipt-missing");
 		else

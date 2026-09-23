@@ -1,13 +1,13 @@
-# CrestronHomeDevTools 1.18.0
+# CrestronHomeDevTools 1.18.1
 
-Windows automation now requires PowerShell 7.6 or later. Resource assessment, OpenSSH and runner setup, remote Windows credential transfer and endurance observation use PowerShell 7 and reject older engines before performing their operation. New endurance scheduled tasks use the PowerShell 7 executable that registers them.
+Completed endurance runs can now be retained when their scheduler history exceeds 20,000 filesystem entries. A normal 24-hour run can reach that limit because scheduler diagnostics are recorded more often than functional samples. The exporter now defaults to 100,000 entries and supports an explicit `-MaximumEntries` bound up to 1,000,000, recorded in its receipts. File-size limits, evidence hashes, source/copy revalidation and refusal to overwrite partial exports remain enforced. No evidence is removed to fit the limit.
 
-Install PowerShell for all users on each Windows automation host before upgrading. The standard MSI installation places it in `C:\Program Files\PowerShell\7\pwsh.exe`; remote Windows accounts also need `pwsh.exe` on their command path. See [installation and migration](docs/PowerShell.md). Windows PowerShell 5.1 is no longer a supported automation engine for this release. Processor configuration APIs themselves do not require PowerShell.
+Passive health checks now recognize the scheduler's lock-contention exit code 4 after a completed, released collection. An exporter holding the scheduler lock no longer creates a task-failure alert solely from that code. Completed receipts must still pass the existing identity, duration, sample, freshness and attention checks. Unexpected task failures and contention during collection still require attention.
 
-Local endurance observation now passes its readable script directly to PowerShell instead of using the compressed remote-command wrapper. Its integration test requires an actual task-status result, so a blocked process cannot satisfy a missing-task check.
+This corrects evidence retention and operational monitoring, not driver behavior or test criteria. Use a fresh export directory after inspecting any earlier failure. The exporter can retain an older pinned run using its original tick script and CLI; do not replace those recorded inputs. PowerShell 7.6 or later is required on the exporting Windows computer.
 
-Leave active endurance runs on their recorded tooling and task configuration until they finish. Installing the prerequisite does not migrate a running task, and this release does not require repeating earlier validated endurance evidence.
+Validation covers inventory-budget refusal and successful fresh retention without lost diagnostics, completed-run contention, real failure/identity/freshness rejection and notification regressions. These checks use synthetic inputs and do not contact processors or send email.
 
-Validation covers version refusal before execution, Windows setup/observation/credential-transfer regressions and the scheduler, notification, export, health and directory-permission scenarios on PowerShell 7.6. These checks use synthetic inputs and do not operate processors or send email.
+See [completed-run retention](docs/submission/WindowsEnduranceWorker.md#retain-a-completed-run) and [PowerShell installation](docs/PowerShell.md).
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
