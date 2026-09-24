@@ -82,8 +82,11 @@ public sealed class SubmissionSmtpMailer
 		ArgumentNullException.ThrowIfNull (upload);
 		string digest = SubmissionDelivery.ReviewPlanDigest (plan);
 		var correspondence = SubmissionDelivery.ReviewCorrespondence (plan);
+		string body = plan.CorrespondenceOverride == null
+			? correspondence.Body + "\r\nConfirmed package download link:\r\n" + upload.DownloadUrl + "\r\n"
+			: correspondence.Body.Replace ("{{PACKAGE_DOWNLOAD_URL}}", upload.DownloadUrl, StringComparison.Ordinal);
 		return SendCoreAsync (digest, plan.Sender, plan.Recipient, plan.AttachmentFileName, plan.AttachmentSha256,
-			correspondence.Subject, correspondence.Body + "\r\nConfirmed package download link:\r\n" + upload.DownloadUrl + "\r\n",
+			correspondence.Subject, body,
 			upload, attachment, messageId, cancellationToken);
 		}
 
