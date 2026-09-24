@@ -63,6 +63,8 @@ The controller retains the observations, masked hierarchies, screenshots and
 allowlisted API display comparisons automatically. It does not retain all
 configuration properties, which could contain provider credentials.
 
+The Home capture also needs a visual icon/arrow review before the complete Home
+placement requirement can be asserted; this fixture does not auto-check that item.
 This fixture does **not** supply configuration-dialog, changed-setting feedback,
 outage, power, multiple-instance, removal or endurance observations. Those need
 their own producers and applicability decisions. It cannot by itself complete

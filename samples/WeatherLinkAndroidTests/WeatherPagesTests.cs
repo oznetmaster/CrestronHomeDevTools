@@ -78,7 +78,7 @@ public sealed class WeatherPagesTests
    // Only these navigation/page requirements are asserted. Outage, changed-setting feedback,
    // configuration, power, multiple instances and endurance need their own producers.
    var requirements=new List<(string Id,string Target)> {
-    ("extension.views.01.home.weather.tile","weather/tile"),("extension.views.03.navigation.weather.tile","weather/tile"),
+    ("extension.views.03.navigation.weather.tile","weather/tile"),
     ("extension.views.04.close.weather.layout.CurrentConditionsPage","weather/layout/CurrentConditionsPage"),
     ("extension.views.04.close.weather.layout.WeeklyForecastPage","weather/layout/WeeklyForecastPage"),
     ("extension.controls.07.forecast-button.weather.CurrentConditionsPage.ForecastNavigationButton","weather/CurrentConditionsPage/ForecastNavigationButton"),
