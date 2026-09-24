@@ -57,6 +57,11 @@ static async Task<int> RunSafelyAsync (string[] args, bool interactive = false)
 
 static async Task<int> RunAsync (string[] args, bool interactive = false)
 	{
+	if (args.FirstOrDefault () == "submission-release-intake")
+		{
+		using var deadline = new CancellationTokenSource (TimeSpan.FromMinutes (5));
+		return await SubmissionReleaseIntakeCommand.RunAsync (args[1..], Console.In, Console.Out, Console.Error, deadline.Token);
+		}
 	if (args.FirstOrDefault () == "submission-setup")
 		return SubmissionSetupCommand.Run (args[1..], Console.Out, Console.Error);
 	if (args.FirstOrDefault () == "resources")

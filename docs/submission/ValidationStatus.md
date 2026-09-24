@@ -1,6 +1,12 @@
 # Submission workflow validation
 
-This page records the shared tooling's verified scope as of 21 September 2026. It contains no driver-specific submission files or progress details. Use the [normal-path runbook](Runbook.md) to configure your own workflow.
+This page records the shared tooling's verified scope, with source-preview updates through 24 September 2026. It contains no driver-specific submission files or progress details. Use the [normal-path runbook](Runbook.md) to configure your own workflow.
+
+## Release automation source preview
+
+Verified release intake and persistent stage sequencing now have offline tests for duplicate events, waiting for an unfinished asset upload, package/commit identity, frozen-input changes, interrupted stages, unchanged waiting ticks and uncertain delivery outcomes. The console intake retains the candidate but starts no tests or delivery. The stage tests use synthetic adapters; they are not a real release-to-submission demonstration. See [implementation and remaining integrations](ReleaseAutomation.md).
+
+Two real driver packets have now reached verified upload and SMTP acceptance through public APIs. The second exercised approved correspondence from a source fix after 1.18.2 and a C# consumer of the public delivery API. It was not an unmodified released CLI route or a complete GitHub-triggered pipeline. The [single starting document](START-DRIVER-SUBMISSION.md) captures the operator procedure, but still needs an independent run without supervisor intervention.
 
 ## Released capabilities
 

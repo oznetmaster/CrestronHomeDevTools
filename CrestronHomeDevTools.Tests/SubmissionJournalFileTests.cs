@@ -7,6 +7,22 @@ namespace CrestronHomeDevTools.Tests;
 
 public sealed class SubmissionJournalFileTests
 	{
+	[Test]
+	public void CreateOnlyWriteDoesNotOverwriteAnExistingSnapshot ()
+		{
+		string directory = Path.Combine (TestContext.CurrentContext.WorkDirectory, "journal-create-" + Guid.NewGuid ().ToString ("N"));
+		Directory.CreateDirectory (directory);
+		try
+			{
+			string temporary = Path.Combine (directory, "next.tmp"), destination = Path.Combine (directory, "snapshot.json");
+			File.WriteAllText (temporary, "new"); File.WriteAllText (destination, "original");
+			Assert.Throws<IOException> (() => SubmissionJournalFile.Replace (temporary, destination, overwrite: false));
+			Assert.That (File.ReadAllText (destination), Is.EqualTo ("original"));
+			Assert.That (File.ReadAllText (temporary), Is.EqualTo ("new"));
+			}
+		finally { Directory.Delete (directory, true); }
+		}
+
 	[TestCase (5)]
 	[TestCase (32)]
 	[TestCase (33)]

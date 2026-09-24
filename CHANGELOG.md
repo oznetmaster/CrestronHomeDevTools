@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+Source-preview release intake verifies a GitHub release's exact package and commit before retaining a candidate. A persistent controller sequences submission stages, resumes interrupted operations and rejects changed frozen inputs without repeating completed steps. Unchanged waiting observations do not create additional history. The production stage adapters and automatic release routing are still pending; this is not yet unattended release-to-submission support. See [release automation](docs/submission/ReleaseAutomation.md) and the [single starting document](docs/submission/START-DRIVER-SUBMISSION.md).
+
+Workflow checkpoints, endurance ownership journals and saved setup/connection profiles now use the existing bounded Windows file-replacement handling. Temporary sharing/access refusals retry only the same local rename, retaining the original state until it succeeds; no processor operation, upload or email is replayed. Permanent denial still fails without changing permissions.
+
 A Windows form app saves editable developer, driver and submission inputs in the encrypted private store, including named credentials and a reusable signature image. Frozen snapshots retain the chosen profile revisions. Existing processor, signing, delivery and endurance credential consumers can read a snapshot directly, and preparation generates help/release-note drafts with public support contacts and the repository link.
 
 Drafts retain unresolved review items; saved inputs are not test results or signing/delivery authorization. This is available from source and has not yet been validated through a complete submission. See [setup and workflow integration](docs/submission/SetupApp.md). No public package release is associated with this entry.

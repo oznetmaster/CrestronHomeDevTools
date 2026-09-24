@@ -153,7 +153,7 @@ public static class SubmissionEnduranceMonitor
 				JsonSerializer.Serialize (output, new MonitorRecord (1, _digest, _processor, state));
 				output.Flush (true);
 				}
-			File.Move (temporary, path, true);
+			SubmissionJournalFile.Replace (temporary, path);
 			}
 		public void Dispose () => _lock.Dispose ();
 		}

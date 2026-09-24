@@ -63,7 +63,7 @@ public sealed partial class DevToolsPrivateStore
   try
   {
    using (var stream = new FileStream (temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None)) { stream.Write (encrypted); stream.Flush (true); }
-   File.Move (temporary, path, revision != 0);
+   SubmissionJournalFile.Replace (temporary, path, overwrite: revision != 0);
   }
   finally { if (File.Exists (temporary)) File.Delete (temporary); }
   return LoadSetupProfile<T> (name); // Fresh detached copy, never a live reference to the editor.
