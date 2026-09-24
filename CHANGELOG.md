@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+Reviewed submission emails can preserve independently approved wording through an optional correspondence override. The package download URL is inserted only from the confirmed upload receipt; changes to the body invalidate approval. Existing generated correspondence remains the default. See [review delivery](docs/submission/ReviewDelivery.md).
+
 Self-test forms mark entirely non-applicable items simply N/A, without an appended note or link. Notes for checked and qualified items remain consecutively numbered and linked. Applicability evidence and checkbox decisions are unchanged.
 
 ## 1.18.2 - 2026-09-23

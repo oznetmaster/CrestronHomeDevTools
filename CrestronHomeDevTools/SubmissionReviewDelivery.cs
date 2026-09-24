@@ -12,7 +12,13 @@ public enum SubmissionReviewAttachmentKind { SignedSelfTest, UnsignedSelfTest, D
 public sealed record SubmissionReviewDeliveryPlan (string CandidateSha256, string ReviewSha256, string AuthorizationSha256,
 	string PackageSha256, string AttachmentSha256, string PackageFileName, string AttachmentFileName, string Sender, string Recipient,
 	SubmissionReviewMode ReviewMode, SubmissionVerificationStatus VerificationStatus, SubmissionReviewAttachmentKind AttachmentKind,
-	string? DeclarationsSha256, string? GapSummary, string? DocumentOmissions);
+	string? DeclarationsSha256, string? GapSummary, string? DocumentOmissions)
+	{
+	/// <summary>Optional independently reviewed correspondence. Its body must contain exactly one
+	/// {{PACKAGE_DOWNLOAD_URL}} token. The caller must review all disclosures; changing this text invalidates approval.</summary>
+	[System.Text.Json.Serialization.JsonIgnore (Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+	public SubmissionReviewCorrespondence? CorrespondenceOverride { get; init; }
+	}
 
 /// <summary>Reviewable correspondence. The confirmed provider download URL is appended only after upload.</summary>
 public sealed record SubmissionReviewCorrespondence (string Subject, string Body);
@@ -80,6 +86,7 @@ public static partial class SubmissionDelivery
 
 	private static SubmissionReviewCorrespondence ReviewCorrespondenceCore (SubmissionReviewDeliveryPlan plan)
 		{
+		if (plan.CorrespondenceOverride is { } reviewed) return reviewed;
 		string verification = plan.VerificationStatus == SubmissionVerificationStatus.GapsDeclared
 			? "Request for review with declared gaps. This submission does not meet all requirements as we interpret Crestron's published submission requirements.\r\n\r\n" +
 				"Declared gaps: " + plan.GapSummary + "\r\nDeclaration SHA-256: " + plan.DeclarationsSha256 + "\r\n"
@@ -100,6 +107,15 @@ public static partial class SubmissionDelivery
 	private static void ValidateReviewPlan (SubmissionReviewDeliveryPlan plan)
 		{
 		ArgumentNullException.ThrowIfNull (plan);
+		if (plan.CorrespondenceOverride is { } correspondence)
+			{
+			const string token = "{{PACKAGE_DOWNLOAD_URL}}";
+			if (correspondence.Subject != "Driver Submission Package" || string.IsNullOrWhiteSpace (correspondence.Body) ||
+				correspondence.Body.Length > 32000 || correspondence.Body.Any (c => char.IsControl (c) && c is not ('\r' or '\n' or '\t')) ||
+				correspondence.Body.IndexOf (token, StringComparison.Ordinal) < 0 ||
+				correspondence.Body.IndexOf (token, StringComparison.Ordinal) != correspondence.Body.LastIndexOf (token, StringComparison.Ordinal))
+				throw new ArgumentException ("Reviewed correspondence requires the submission subject and one package download URL token.");
+			}
 		// Reuse only common byte/name/address syntax validation, not the old signed-form semantics or plan digest.
 		_ = PlanDigest (new (plan.CandidateSha256, plan.ReviewSha256, plan.AuthorizationSha256, plan.PackageSha256,
 			plan.AttachmentSha256, plan.PackageFileName, plan.AttachmentFileName, plan.Sender, plan.Recipient));
