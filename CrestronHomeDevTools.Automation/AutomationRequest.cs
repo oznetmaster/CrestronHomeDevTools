@@ -27,7 +27,8 @@ internal sealed record AutomationRequest(SubmissionAutomationSettings Settings,s
    throw new InvalidDataException("The dispatch differs from the frozen release or mode.");
   return request;
  }
- private static AutomationRequest Read(string path,string digest)
+ internal static AutomationRequest ReadForCheck(string path,string digest)=>Read(path,digest,validateReservation:false);
+ private static AutomationRequest Read(string path,string digest,bool validateReservation=true)
  {
   if(!Path.IsPathFullyQualified(path) || digest.Length!=64 || digest.Any(c=>!(char.IsAsciiDigit(c)||c is >= 'a' and <= 'f')))
    throw new InvalidDataException("Select absolute private settings and their recorded lowercase digest.");
@@ -39,6 +40,7 @@ internal sealed record AutomationRequest(SubmissionAutomationSettings Settings,s
   var settings=System.Text.Json.JsonSerializer.Deserialize<SubmissionAutomationSettings>(bytes,AutomationFiles.Json)
    ??throw new InvalidDataException("Empty automation settings.");
   if(settings.SchemaVersion!=1 || !Enum.IsDefined(settings.Mode))throw new InvalidDataException("Invalid automation mode or schema.");
+  if(validateReservation)AutomationEndurance.ValidateReservation(settings.Endurance);
   return new(settings,digest);
  }
 }

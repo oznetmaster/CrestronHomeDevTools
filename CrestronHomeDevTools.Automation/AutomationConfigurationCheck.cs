@@ -16,6 +16,7 @@ public static class SubmissionAutomationConfiguration
   if(settings.InstalledAppTests==null && (settings.NUnit.AndroidTests==null || settings.NUnit.ActualDriver==null || settings.NUnit.ReleaseCandidate==null))
    missing.Add("InstalledAppTests or NUnit.AndroidTests with ActualDriver and ReleaseCandidate");
   if(settings.Endurance==null)missing.Add("Endurance");
+  else if(!Guid.TryParseExact(settings.Endurance.Plan.ReservationId,"N",out _))missing.Add("Endurance.Plan.ReservationId (GUID in N format)");
   if(settings.Review==null)missing.Add("Review");
   if(settings.Mode==SubmissionAutomationMode.Submit) {
    if(settings.Protected==null)missing.Add("Protected");

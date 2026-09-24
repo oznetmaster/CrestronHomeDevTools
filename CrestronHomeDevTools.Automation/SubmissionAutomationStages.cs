@@ -87,6 +87,7 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
  }
  private async Task<SubmissionWorkflowStepResult> Candidate(SubmissionWorkflowStepContext c,CancellationToken token)
  {
+  AutomationEndurance.ValidateReservation(settings.Endurance);
   // Intake's persisted receipt uses the API's numeric enum contract, unlike CLI settings.
   var inspection=JsonSerializer.Deserialize<SubmissionReleaseInspection>(File.ReadAllBytes(Path.Combine(c.RunDirectory,"release.json")))
    ?? throw new InvalidDataException("Missing release receipt.");

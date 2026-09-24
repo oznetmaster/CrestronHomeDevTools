@@ -18,7 +18,7 @@ try
   return prepared.Configuration.AllStageBindingsPresent?0:3;
  }
  if(args is ["--check-settings",var checkPath,"--settings-sha256",var checkDigest]) {
-  var check=AutomationRequest.Load(["--settings",checkPath,"--settings-sha256",checkDigest]);
+  var check=AutomationRequest.ReadForCheck(checkPath,checkDigest);
   var report=SubmissionAutomationConfiguration.Check(check.Settings);
   Console.WriteLine(JsonSerializer.Serialize(report,AutomationFiles.Json));
   return report.AllStageBindingsPresent?0:3;

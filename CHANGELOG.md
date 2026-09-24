@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+Release templates can use `${reservationId}` for a stable, per-release endurance reservation GUID. Invalid descriptive reservation names now fail before hardware tests instead of after Windows, processor and app checks. Windows-worker instructions also cover long-path support and the shorter paths needed by the Framework test host.
+
 Explicitly reviewed nonpassing records can travel through the controller with their original limitations and supporting files. They remain nonpassing and need separately pinned gap declarations; the handoff cannot import passing results. Prior-evidence validation now permits unused reuse permissions elsewhere in an original policy, while still rejecting carried-forward observations and changed selected scopes.
 
 The controller can retain candidate-specific N/A decisions and their source evidence through an explicit applicability input. It verifies policy permission, rationale and candidate identity before hardware tests, and includes the unchanged decisions in review composition. This input accepts no test passes and cannot hide conflicting producer results.

@@ -48,7 +48,7 @@ public sealed class AutomationReleaseDiscoveryTests
   var probe=new SubmissionEnduranceProbeProgram(bundle,"probe.exe",[new("probe.exe",AutomationFiles.Hash(Path.Combine(bundle,"probe.exe")))]);
   var plan=new SubmissionEndurancePlan(new("${packageSha256}","${commit}",new('c',64),new('d',64)),
    new("endurance",TimeSpan.FromHours(24),Execution:new("gateway","endurance",SubmissionEvidenceOutcome.Passed,null,false,600)),
-   "processor:fixture","instance","reservation","prepared-at-intake",TimeSpan.FromMinutes(5),TimeSpan.FromMinutes(1));
+   "processor:fixture","instance","${reservationId}","prepared-at-intake",TimeSpan.FromMinutes(5),TimeSpan.FromMinutes(1));
   string input=Path.Combine(root,"probe-settings-template.json");
   File.WriteAllText(input,"{\"packagePath\":\"${package}\",\"sourceCommit\":\"${commit}\",\"baselineFile\":\"${run}/baseline.json\"}");
   var settings=AutomationFiles.Read<SubmissionAutomationSettings>(profile.SettingsTemplate.Path) with {
@@ -71,6 +71,32 @@ public sealed class AutomationReleaseDiscoveryTests
   Assert.That(File.Exists(Path.Combine(run,"baseline.json")),Is.False,"Intake must not observe hardware or create a lifetime baseline.");
   var repeated=ExpandProbe(run);
   Assert.That(repeated.Endurance!.Plan.ProducerId,Is.EqualTo(worker.Plan.ProducerId));
+  Assert.That(Guid.TryParseExact(worker.Plan.ReservationId,"N",out _),Is.True);
+  Assert.That(repeated.Endurance.Plan.ReservationId,Is.EqualTo(worker.Plan.ReservationId));
+ }
+ [Test]public void ReservationIdentityChangesWithReleaseOrFrozenProfile() {
+  WithProbeTemplate();
+  var release=new SubmissionWorkflowRelease(profile.Repository,91,"v1.2.3",new('a',40),Sha,new('c',64),new('d',64));
+  string Expand(SubmissionWorkflowRelease r,string suffix) {
+   string run=Path.Combine(root,suffix);
+   return AutomationReleaseDiscovery.Expand(profile,r,run,Path.Combine(run,"source"),"1.2.3").Endurance!.Plan.ReservationId;
+  }
+  var first=Expand(release,"first");
+  Assert.That(Expand(release with{ReleaseId=92},"next-release"),Is.Not.EqualTo(first));
+  Assert.That(Expand(release with{ProfileSnapshotSha256=new('e',64)},"next-profile"),Is.Not.EqualTo(first));
+ }
+ [Test]public void InvalidReservationStopsExpansionAndExplicitSettingsBeforeHardwareOrProducerCopy() {
+  WithProbeTemplate();
+  var template=AutomationFiles.Read<SubmissionAutomationSettings>(profile.SettingsTemplate.Path);
+  var invalid=template with{Endurance=template.Endurance! with{Plan=template.Endurance.Plan with{ReservationId="weatherlink-rehearsal"}}};
+  File.WriteAllBytes(profile.SettingsTemplate.Path,JsonSerializer.SerializeToUtf8Bytes(invalid,AutomationFiles.Json));
+  profile=profile with{SettingsTemplate=new(profile.SettingsTemplate.Path,AutomationFiles.Hash(profile.SettingsTemplate.Path))};
+  string run=Path.Combine(root,"invalid-run");
+  Assert.Throws<InvalidDataException>(()=>ExpandProbe(run));Assert.That(Directory.Exists(run),Is.False);
+  Assert.Throws<InvalidDataException>(()=>AutomationRequest.Load(["--settings",profile.SettingsTemplate.Path,"--settings-sha256",profile.SettingsTemplate.Sha256]));
+  var checkedSettings=AutomationRequest.ReadForCheck(profile.SettingsTemplate.Path,profile.SettingsTemplate.Sha256);
+  Assert.That(SubmissionAutomationConfiguration.Check(checkedSettings.Settings).MissingBindings,Does.Contain("Endurance.Plan.ReservationId (GUID in N format)"));
+  Assert.Throws<InvalidDataException>(()=>AutomationRequest.ReadForCheck(profile.SettingsTemplate.Path,new string('0',64)));
  }
  [Test]public void ModifiedGeneratedProducerSettingsStopRecoveryWithoutReplacingThem() {
   WithProbeTemplate();string run=Path.Combine(root,"new-run");var settings=ExpandProbe(run);

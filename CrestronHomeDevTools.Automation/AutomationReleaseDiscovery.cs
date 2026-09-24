@@ -79,10 +79,14 @@ internal static class AutomationReleaseDiscovery
  internal static SubmissionAutomationSettings Expand(SubmissionAutomationReleaseProfile p,SubmissionWorkflowRelease release,string run,string source,string version) {
   Verify(p.SettingsTemplate);
   var node=JsonNode.Parse(File.ReadAllText(p.SettingsTemplate.Path)) as JsonObject??throw new InvalidDataException("Settings template must be an object.");
+  // Stable across intake retries, distinct across releases and independently frozen profiles.
+  string reservationId=Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(
+   JsonSerializer.SerializeToUtf8Bytes(new{Purpose="endurance-reservation-v1",Release=release},AutomationFiles.Json)))[..32];
   var replacements=new Dictionary<string,string> {
    ["${run}"]=run,["${source}"]=source,["${package}"]=Path.Combine(run,"candidate.pkg"),["${version}"]=version,
    ["${version4}"]=version.Split('.').Length==3?version+".0":version,["${commit}"]=release.SourceCommit,
-   ["${packageSha256}"]=release.PackageSha256,["${releaseId}"]=release.ReleaseId.ToString(CultureInfo.InvariantCulture)
+   ["${packageSha256}"]=release.PackageSha256,["${releaseId}"]=release.ReleaseId.ToString(CultureInfo.InvariantCulture),
+   ["${reservationId}"]=reservationId
   };
   JsonNode? Replace(JsonNode? value) {
    if(value is JsonValue v && v.TryGetValue<string>(out var text)) {
@@ -99,6 +103,7 @@ internal static class AutomationReleaseDiscovery
   node["SchemaVersion"]=1;node["PrivateRoot"]=p.PrivateRoot;node["Release"]=JsonSerializer.SerializeToNode(release,AutomationFiles.Json);node["Mode"]=p.Mode.ToString();
   var settings=Replace(node)!.Deserialize<SubmissionAutomationSettings>(AutomationFiles.Json)??throw new InvalidDataException("Empty settings template.");
   if(!Path.GetFullPath(settings.SourceRepository).Equals(Path.GetFullPath(source),StringComparison.OrdinalIgnoreCase))throw new InvalidDataException("The driver source must use ${source}.");
+  AutomationEndurance.ValidateReservation(settings.Endurance);
   return AutomationProbePreparation.Prepare(settings,run,value=>Replace(value));
  }
  internal static void Register(string path,SubmissionAutomationRegistration entry) {

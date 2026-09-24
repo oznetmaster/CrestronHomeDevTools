@@ -258,7 +258,16 @@ Add `-ReleaseProfiles C:/CI/Private/release-profiles.json` to the **evidence** i
 }
 ```
 
-The settings template uses the settings model above. Its `Release`, `PrivateRoot`, `SchemaVersion` and `Mode` are filled from verified intake and the private profile. String values can use `${run}`, `${source}`, `${package}`, `${version}`, `${version4}`, `${commit}`, `${packageSha256}` and `${releaseId}`. Set `SourceRepository` to `${source}` and use it in the NUnit source/project paths. Other required source/tool roots must be provisioned in the saved plan. Unknown placeholders fail. Package names may use `${version}`. Automatic version expansion currently supports numeric three- or four-component tags, optionally prefixed with `v`; other tagging conventions use explicit intake.
+The settings template uses the settings model above. Its `Release`, `PrivateRoot`, `SchemaVersion` and `Mode` are filled from verified intake and the private profile. String values can use `${run}`, `${source}`, `${package}`, `${version}`, `${version4}`, `${commit}`, `${packageSha256}`, `${releaseId}` and `${reservationId}`. Set `SourceRepository` to `${source}` and use it in the NUnit source/project paths. Other required source/tool roots must be provisioned in the saved plan. Unknown placeholders fail. Package names may use `${version}`. Automatic version expansion currently supports numeric three- or four-component tags, optionally prefixed with `v`; other tagging conventions use explicit intake.
+
+Set `Endurance.Plan.ReservationId` to `${reservationId}` in a release template.
+Intake derives a stable GUID in N format from the frozen release identity,
+including the profile and tooling digests. Retrying the same intake keeps the
+same ID; another release or reviewed profile gets a different one. Explicit
+settings require a unique 32-hexadecimal-character GUID, without hyphens.
+Descriptive names are invalid. Intake, settings loading and candidate validation
+reject an invalid ID before hardware tests; the read-only completeness check
+also reports it. Never change this value in an existing frozen run.
 
 An `EnduranceProbeSettingsTemplate` uses those same placeholders. Its file path
 and SHA-256 are pinned in the settings template. The source `Endurance.Probe`
