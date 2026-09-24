@@ -6,6 +6,21 @@ This source-preview worker connects release discovery, the public Crestron NUnit
 
 Use Windows, .NET 10, PowerShell 7.6 or later, Git and the documented driver-build prerequisites. The build machine needs the .NET Framework 4.7.2 targeting assemblies and Crestron packaging tools. Visual Studio's full editor is optional. Configure tool paths using the public [processor-test workflow](https://github.com/oznetmaster/CrestronHomeNUnit/blob/main/docs/ProcessorTestWorkflow.md). Paths and SDK overrides are build configuration, not credentials.
 
+Use a short private work root and enable Windows long-path support before starting
+the build worker. Intake adds a 64-character run directory, then the repository,
+project and build-output paths. With long paths disabled, MSBuild can report
+`MSB3030` for a DLL that the compiler has actually written once its absolute path
+reaches 260 characters. Inspect `LongPathsEnabled` under
+`HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem`; an administrator can set
+that DWORD to `1`. Start a fresh worker process after changing it, and verify the
+real project under its service account. Individual vendor tools can still have
+shorter path limits, so this setting does not replace the build rehearsal.
+
+If a run has already failed, retain its result. Correct the machine prerequisite
+and register a reviewed new attempt with a new private root and updated tooling
+manifest; do not erase the failed checkpoint or turn a diagnostic rerun into its
+passing result.
+
 ```powershell
 dotnet publish CrestronHomeDevTools.Automation/CrestronHomeDevTools.Automation.csproj -c Release -o artifacts/automation
 dotnet artifacts/automation/CrestronHomeDevTools.Automation.dll --settings C:/CI/Private/automation.json --settings-sha256 RECORDED_LOWERCASE_SHA256
