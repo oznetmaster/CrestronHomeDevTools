@@ -15,13 +15,16 @@ public sealed record FixtureSettings(string ProcessorHost,int DeviceId,string Ti
  public static FixtureSettings Read(AndroidRunContext context) {
   string evidence=Path.GetFullPath(context.EvidenceDirectory);
   var parent=Directory.GetParent(evidence);
-  if(Path.GetFileName(evidence)!="AndroidUI" || parent?.Name!="installed-app" || parent.Parent==null)
-   throw new InvalidDataException("Use the public controller's separate installed-app stage.");
+  if(Path.GetFileName(evidence)!="AndroidUI" || (parent?.Name is not ("installed-app" or "nunit")) || parent.Parent==null)
+   throw new InvalidDataException("Use the public controller's installed-app or deployment Android stage.");
   string root=parent.Parent.FullName;
   if(!SubmissionEvidence.SafeEvidencePath(root,"app-fixture-settings.json",out var path) || new FileInfo(path).Length>65536)
    throw new InvalidDataException("Missing or unsafe pinned app fixture settings.");
   var settings=JsonSerializer.Deserialize<FixtureSettings>(File.ReadAllBytes(path),Json)
    ??throw new InvalidDataException("Missing app fixture settings.");
+  // Only the deployment coordinator can supply a not-yet-known instance ID.
+  // Existing-instance tests still require an explicit positive ID.
+  if(parent.Name=="nunit" && settings.DeviceId==0)settings=settings with{DeviceId=context.InstalledDriverId};
   settings.Validate(context);return settings;
  }
  public void Validate(AndroidRunContext context) {

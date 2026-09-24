@@ -88,6 +88,7 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
  private async Task<SubmissionWorkflowStepResult> Candidate(SubmissionWorkflowStepContext c,CancellationToken token)
  {
   AutomationEndurance.ValidateReservation(settings.Endurance);
+  AutomationAppFixture.Validate(settings);
   // Intake's persisted receipt uses the API's numeric enum contract, unlike CLI settings.
   var inspection=JsonSerializer.Deserialize<SubmissionReleaseInspection>(File.ReadAllBytes(Path.Combine(c.RunDirectory,"release.json")))
    ?? throw new InvalidDataException("Missing release receipt.");
@@ -139,6 +140,8 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
  private async Task<SubmissionWorkflowStepResult> NUnit(SubmissionWorkflowStepContext c,bool recover,CancellationToken token)
  {
   string folder=Path.Combine(c.RunDirectory,"nunit");string intent=Path.Combine(c.RunDirectory,"nunit-intent.json");
+  bool combinedApp=settings.NUnit.AndroidTests!=null;
+  if(combinedApp)AutomationAppFixture.Check(c.RunDirectory,settings,!File.Exists(intent));
   if(recover && File.Exists(intent)) {
    using var recorded=JsonDocument.Parse(File.ReadAllBytes(intent));
    if(recorded.RootElement.GetProperty("OperationId").GetString()!=c.Checkpoint.OperationId ||
@@ -156,6 +159,7 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
   // The public NUnit runner owns Windows + processor sequencing, the processor lease and cleanup.
   // Never invoke it a second time after an interrupted recorded attempt.
   var result=await runNUnit(settings.NUnit,credential(settings.NUnit.Host),folder,token);
+  if(combinedApp)AutomationAppFixture.Check(c.RunDirectory,settings,false);
   if(!result.Passed) return new(SubmissionWorkflowStatus.Failed,ReasonCode:"nunit-workflow-failed");
   // Public NUnit permits the generated Debug revision/date while checking all other source bytes.
   await VerifySource(token,sourceDigest);
@@ -185,7 +189,12 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
    !result.Stages.Any(s=>s.Stage=="Remove temporary test package" && s.Outcome=="Passed") ||
    lease.RootElement.GetProperty("State").GetString()!="Released")
    return new(SubmissionWorkflowStatus.Failed,ReasonCode:"nunit-results-or-cleanup-incomplete");
-  var files=Directory.GetFiles(folder,"*",SearchOption.AllDirectories).Order(StringComparer.Ordinal)
+  var paths=Directory.GetFiles(folder,"*",SearchOption.AllDirectories).AsEnumerable();
+  if(settings.NUnit.AndroidTests!=null && settings.InstalledAppFixtureSettings!=null) {
+   AutomationAppFixture.Check(c.RunDirectory,settings,false);
+   paths=paths.Append(Path.Combine(c.RunDirectory,AutomationAppFixture.FileName));
+  }
+  var files=paths.Order(StringComparer.Ordinal)
    .Select(p=>new SubmissionWorkflowReceipt(Path.GetRelativePath(c.RunDirectory,p),AutomationFiles.Hash(p))).ToArray();
   return AutomationFiles.Complete(c,receiptName??(requiredStage=="Local"?"windows-tests.json":"processor-tests.json"),
    new NUnitReceipt(c.Checkpoint.InputSha256,requiredStage,files));

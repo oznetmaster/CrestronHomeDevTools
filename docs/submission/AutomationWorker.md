@@ -44,7 +44,7 @@ Run [release intake](ReleaseAutomation.md#try-intake-from-the-source-build) firs
 | `CredentialBindings` | Absolute path to saved credential bindings or an encrypted setup snapshot. The named processor credential's host and HTTPS/SSH pins must match the NUnit plan. |
 | `NUnit` | The public `WorkflowPlan` object. Declare source roots, Windows tests, processor test package/suites, test-room scope and cleanup. For actual-driver/app tests, include the exact release candidate and the approved Android fixture/profile. |
 | `InstalledAppTests` | Optional public `InstalledDriverTestPlan` for a separate app phase against an already-installed exact candidate. Leave `NUnit.AndroidTests` empty when using this route. The release package/commit, processor and trust pins must match this attempt. |
-| `InstalledAppFixtureSettings` | Optional JSON object of driver-specific factual inputs for that separate app phase. Release placeholders are expanded and the frozen settings bind its bytes. The controller retains it as `app-fixture-settings.json` at the run root before invocation, verifies it after execution and during recovery, and includes it in the completed app inventory. Store credential references, never raw passwords or signing material. |
+| `InstalledAppFixtureSettings` | Optional JSON object of driver-specific factual inputs for the separate installed-app phase or combined `NUnit.AndroidTests` deployment route. Release placeholders are expanded and the frozen settings bind its bytes. The controller retains it as `app-fixture-settings.json` at the run root before invocation, verifies it after execution and during recovery, and includes it in the owning producer inventory (NUnit for combined deployment, installed-app for the separate route). Store credential references, never raw passwords or signing material. |
 | `Endurance` | Optional public `SubmissionEnduranceWorkerPlan`, including the fully pinned read-only producer. Its candidate/source and processor must match this attempt. Missing settings stop at the corresponding stage. |
 | `EnduranceProbeSettingsTemplate` | Optional pinned JSON settings template for release discovery. Intake copies the declared producer publication into the new run, expands candidate/path placeholders, includes the generated settings in its file inventory and binds the resulting producer ID. Leave the source probe's `SettingsFile` null. Explicit prebuilt settings continue to use the existing probe contract. |
 | `Review` | `SubmissionAutomationReviewPlan`: pinned policy, official template, inventory, mapping, complete bundled console, title/author and retained observation paths. Optional declarations and Android pins follow the public review contract. |
@@ -67,6 +67,31 @@ verified. This is a completeness check, not a substitute for each stage's file,
 credential, equipment and evidence validation. It does not create missing evidence or
 turn omitted tests into passes. Deliberately partial component rehearsals remain
 possible, but do not describe them as full-route validation.
+
+### Deployment followed by app tests
+
+For a newly published candidate, configure `NUnit.ActualDriver` and
+`NUnit.ReleaseCandidate` to the frozen `${package}`, `${packageSha256}` and
+`${commit}`. Include the public runner's required live suites, deployed checks,
+room and explicit replacement/configuration policy. Set `NUnit.AndroidTests` and
+leave `InstalledAppTests` null to run the app fixture against the instance returned
+by that deployment. The runner retains import/activation receipts and passes the
+actual instance ID, candidate hash and source commit to the Android context.
+Do not obtain that ID by selecting the first similarly named device.
+
+The WeatherLink sample now accepts this route. Use `DeviceId: 0` in
+`InstalledAppFixtureSettings` to bind it to the deployment context; an explicit
+positive ID instead requires that exact instance. Its observation source is
+`nunit/AndroidUI/weather-observations.json`. The controller creates and retains the
+fixture settings before NUnit starts, detects changes during execution and includes
+them in the Windows/processor producer receipt. Recovery does not regenerate changed
+inputs or replay an uncertain deployment. This route has offline regression coverage;
+its new WeatherLink integration still needs a fresh hardware deployment run.
+
+Endurance also needs a candidate-bound installation/probe configuration. A fixture
+receiving the new ID does not by itself bind the later endurance producer to it.
+Finish that binding before describing a fresh-deployment profile as unattended end
+to end. An installed-candidate rehearsal remains useful but does not prove deployment.
 
 ### Separate app phase
 

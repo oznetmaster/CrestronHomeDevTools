@@ -31,12 +31,39 @@ public sealed class SubmissionAutomationTests
   context=new(run,new(1,new('e',64),release,SubmissionWorkflowStage.WindowsTests,SubmissionWorkflowStatus.Running,Guid.NewGuid().ToString("N"),null,[],DateTimeOffset.UtcNow));
  }
  [TearDown]public void Cleanup(){foreach(string file in Directory.GetFiles(root,"*",SearchOption.AllDirectories))File.SetAttributes(file,FileAttributes.Normal);Directory.Delete(root,true);}
- private SubmissionAutomationStages Stages(string cleanup="Passed",string lease="Released")=>new(settings,new('f',64),(_,_,folder,_)=> {
-  executions++;Directory.CreateDirectory(folder);
+ private SubmissionAutomationStages Stages(string cleanup="Passed",string lease="Released",Action? duringRun=null)=>new(settings,new('f',64),(_,_,folder,_)=> {
+  executions++;Directory.CreateDirectory(folder);duringRun?.Invoke();
   var result=new ProcessorWorkflowResult([new("Local","Passed",new(2,0,0,true)),new("Processor","Passed",new(2,0,0,true)),new("Remove test instance",cleanup),new("Remove temporary test package","Passed")],false,false);
   File.WriteAllText(Path.Combine(folder,"Workflow.json"),JsonSerializer.Serialize(result));File.WriteAllText(Path.Combine(folder,"Lease.json"),JsonSerializer.Serialize(new{State=lease}));
   File.WriteAllText(Path.Combine(folder,"individual-results.xml"),"synthetic retained raw result");return Task.FromResult(result);
  },_=>new NetworkCredential("synthetic","synthetic"));
+ [Test]public async Task DeploymentAppInputsArePreparedRetainedAndRecoveredWithoutRepeatingTests() {
+  settings=settings with{NUnit=settings.NUnit with{AndroidTests=new("unused","unused")},
+   InstalledAppFixtureSettings=JsonSerializer.SerializeToElement(new{DeviceId=0,TileName="New station"})};
+  string fixture=Path.Combine(context.RunDirectory,AutomationAppFixture.FileName);
+  var adapter=Stages(duringRun:()=> {
+   using var data=JsonDocument.Parse(File.ReadAllBytes(fixture));
+   Assert.That(data.RootElement.GetProperty("DeviceId").GetInt32(),Is.Zero);
+  });
+  var completed=await adapter.ExecuteAsync(context,default);
+  Assert.That((await adapter.RecoverAsync(context,default)).Receipt,Is.EqualTo(completed.Receipt));
+  using var receipt=JsonDocument.Parse(File.ReadAllBytes(Path.Combine(context.RunDirectory,completed.Receipt!.RelativePath)));
+  Assert.That(receipt.RootElement.GetProperty("Files").EnumerateArray().Any(f=>f.GetProperty("RelativePath").GetString()==AutomationAppFixture.FileName),Is.True);
+  File.AppendAllText(fixture," ");
+  Assert.ThrowsAsync<InvalidDataException>(async()=>await adapter.RecoverAsync(context,default));
+  Assert.That(executions,Is.EqualTo(1));
+ }
+ [Test]public void DeploymentFixtureMutationCannotProduceAPassingReceipt() {
+  settings=settings with{NUnit=settings.NUnit with{AndroidTests=new("unused","unused")},
+   InstalledAppFixtureSettings=JsonSerializer.SerializeToElement(new{DeviceId=0})};
+  var adapter=Stages(duringRun:()=>File.WriteAllText(Path.Combine(context.RunDirectory,AutomationAppFixture.FileName),"{}"));
+  Assert.ThrowsAsync<InvalidDataException>(async()=>await adapter.ExecuteAsync(context,default));
+  Assert.That(File.Exists(Path.Combine(context.RunDirectory,"windows-tests.json")),Is.False);
+ }
+ [Test]public void FixtureInputsWithoutAnAppRouteAreRejected() {
+  settings=settings with{InstalledAppFixtureSettings=JsonSerializer.SerializeToElement(new{DeviceId=0})};
+  Assert.Throws<InvalidDataException>(()=>AutomationAppFixture.Validate(settings));
+ }
  [TestCase(SubmissionWorkflowStage.SignReview)]
  [TestCase(SubmissionWorkflowStage.Deliver)]
  [TestCase(SubmissionWorkflowStage.Retain)]

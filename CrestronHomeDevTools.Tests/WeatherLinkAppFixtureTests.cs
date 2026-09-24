@@ -1,5 +1,6 @@
 // Copyright (c) 2026 Neil Colvin. MIT licensed.
 using System.Text;
+using System.Text.Json;
 using System.Xml.Linq;
 using CrestronHomeNUnit.Android;
 using NUnit.Framework;
@@ -50,6 +51,21 @@ public sealed class WeatherLinkAppFixtureTests
   Assert.DoesNotThrow(()=>settings.Validate(context));
   Assert.Throws<InvalidDataException>(()=>(settings with{DeviceId=3}).Validate(context));
   Assert.Throws<InvalidDataException>(()=>settings.Validate(context with{ReleaseSourceCommit=new('f',40)}));
+ }
+ [TestCase("nunit",0,true)][TestCase("nunit",2,true)]
+ [TestCase("installed-app",2,true)][TestCase("installed-app",0,false)]
+ [TestCase("nunit",3,false)][TestCase("unrelated",0,false)]
+ public void DeploymentUsesCoordinatorInstanceAndExistingRouteStillRequiresExactId(string stage,int configuredId,bool succeeds) {
+  string root=Path.Combine(TestContext.CurrentContext.WorkDirectory,"app-input-"+Guid.NewGuid().ToString("N"));
+  Directory.CreateDirectory(root);
+  try {
+   var context=new AndroidRunContext(1,"run","machine",1,1,"processor",2,Guid.NewGuid().ToString(),"1.0.0.0",new('a',64),new('b',64),
+    new("unused","emulator","app","Home","unused"),Path.Combine(root,stage,"AndroidUI")){ReleaseSourceCommit=new('c',40)};
+   var settings=new FixtureSettings("processor",configuredId,"Station",Path.GetFullPath("bindings.json"),new(new('a',64),new('c',40),new('d',64),new('e',64)));
+   File.WriteAllText(Path.Combine(root,"app-fixture-settings.json"),JsonSerializer.Serialize(settings,FixtureSettings.Json));
+   if(succeeds)Assert.That(FixtureSettings.Read(context).DeviceId,Is.EqualTo(2));
+   else Assert.Throws<InvalidDataException>(()=>FixtureSettings.Read(context));
+  } finally {Directory.Delete(root,true);}
  }
  private sealed class FakeTransport:IAndroidCommandTransport {
   public int Taps;public bool After;

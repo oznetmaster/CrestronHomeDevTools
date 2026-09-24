@@ -13,8 +13,7 @@ internal static class AutomationInstalledApp
  internal static void Validate(SubmissionAutomationSettings settings) {
   var plan=settings.InstalledAppTests??throw new InvalidDataException("Missing installed-app plan.");
   plan.Validate();
-  if(settings.InstalledAppFixtureSettings is { ValueKind: not JsonValueKind.Object })
-   throw new InvalidDataException("Installed-app fixture settings must be an object.");
+  AutomationAppFixture.Validate(settings);
   if(settings.NUnit.AndroidTests!=null || plan.Host!=settings.NUnit.Host ||
    plan.CertificateSha256!=settings.NUnit.CertificateSha256 || plan.SshFingerprint!=settings.NUnit.SshFingerprint ||
    !plan.PackageSha256.Equals(settings.Release.PackageSha256,StringComparison.OrdinalIgnoreCase) ||
@@ -33,20 +32,7 @@ internal static class AutomationInstalledApp
   string intentPath=Path.Combine(context.RunDirectory,"installed-app-intent.json");
   string folder=Path.Combine(context.RunDirectory,"installed-app");
   string resultPath=Path.Combine(folder,"InstalledDriverTests.json");
-  string fixturePath=Path.Combine(context.RunDirectory,"app-fixture-settings.json");
-  void CheckFixture(bool create) {
-   if(settings.InstalledAppFixtureSettings is not {} fixture) {
-    if(File.Exists(fixturePath))throw new InvalidDataException("Unexpected installed-app fixture settings.");
-    return;
-   }
-   if(File.Exists(fixturePath)) {
-    if(!SubmissionEvidence.SafeEvidencePath(context.RunDirectory,"app-fixture-settings.json",out _))
-     throw new InvalidDataException("Unsafe installed-app fixture settings path.");
-    if(!File.ReadAllBytes(fixturePath).AsSpan().SequenceEqual(JsonSerializer.SerializeToUtf8Bytes(fixture,AutomationFiles.Json)))
-     throw new InvalidDataException("Installed-app fixture settings changed.");
-   } else if(create) AutomationFiles.Write(fixturePath,fixture);
-   else throw new InvalidDataException("Installed-app fixture settings disappeared.");
-  }
+  void CheckFixture(bool create)=>AutomationAppFixture.Check(context.RunDirectory,settings,create);
   // A recorded invocation is never repeated, even if the caller mistakenly uses execute rather than recover.
   if(File.Exists(intentPath)) {
    CheckFixture(false);
