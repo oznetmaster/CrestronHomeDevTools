@@ -6,10 +6,17 @@ using CrestronHomeDevTools.Automation;
 if(args is ["--help"])
 {
  Console.WriteLine("Read-only stage-binding check: --check-settings PRIVATE_JSON --settings-sha256 PIN. Exit zero means all stage bindings are present, not that tests passed or credentials/equipment were validated.");
+ Console.WriteLine("Prepare from encrypted setup: --prepare-rehearsal --store PRIVATE_DIRECTORY --snapshot NAME. Creates fresh private inputs only; no worker starts. Exit 3 lists missing stage bindings.");
  Console.WriteLine("submission automation: --settings PRIVATE_JSON --settings-sha256 PIN; or --registry PRIVATE_JSON --profile NAME --release-id ID --mode rehearsal|submit. Background: --watch-registry PRIVATE_JSON --status-directory PRIVATE_DIRECTORY --poll-seconds 60 [--release-profiles PRIVATE_JSON]. One-time intake: --intake-releases PRIVATE_PROFILES --registry PRIVATE_JSON. Default role is evidence. For the protected role append --protected-worker PRIVATE_JSON --protected-worker-sha256 INDEPENDENT_PIN --role protected. Rehearsal stops before signing/delivery. Submit requires exact authorizations. The ordinary background worker resumes waits without AI prompts.");return 0;
 }
 try
 {
+ if(args is ["--prepare-rehearsal","--store",var setupStore,"--snapshot",var snapshot]) {
+  if(!OperatingSystem.IsWindows())throw new PlatformNotSupportedException("Encrypted setup requires Windows.");
+  var prepared=SubmissionAutomationSetup.PrepareRehearsal(DevToolsPrivateStore.Open(setupStore),snapshot);
+  Console.WriteLine(JsonSerializer.Serialize(prepared,AutomationFiles.Json));
+  return prepared.Configuration.AllStageBindingsPresent?0:3;
+ }
  if(args is ["--check-settings",var checkPath,"--settings-sha256",var checkDigest]) {
   var check=AutomationRequest.Load(["--settings",checkPath,"--settings-sha256",checkDigest]);
   var report=SubmissionAutomationConfiguration.Check(check.Settings);

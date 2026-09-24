@@ -20,6 +20,10 @@ the controller.
    endurance producer/policy, document templates, evidence mapping and review
    tools. Use `--check-settings` to list omissions before reserving equipment.
    Binding presence alone does not establish that the configuration is correct.
+   The [setup app](SetupApp.md#prepare-a-controller-rehearsal) can combine a
+   frozen factual snapshot with a reviewed settings template and tooling
+   manifest to prepare pinned release profiles and an empty registry. It lists
+   missing bindings without starting work or exporting saved secrets.
 3. Verify the actual worker account can use its named processor credentials and
    the selected emulator. Source/test workers must not have signing or mail
    secrets. Record existing machine and driver state before permitted changes.

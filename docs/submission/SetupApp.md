@@ -16,6 +16,7 @@ The default storage location is `%LOCALAPPDATA%\CrestronHomeDevTools\PrivateStor
 4. **Submission:** select saved developer/driver profile names and enter the release version, exact four-component manifest version, release notes, source reference, private workspace and test/worker/app targets for the specific attempt.
 5. **Readiness & snapshots:** check all saved input fields and named credentials, fix omissions, then create a uniquely named encrypted snapshot. The check does not connect to hardware or email providers, prove machine suitability, or validate a built package.
 6. **Prepare review drafts:** generate help content, release notes and operation defaults from the chosen snapshot. The app displays the paths. These draft files contain readable selected facts, inherit the store's restricted access and are kept inside it. Passwords and signature images stay encrypted. Each preparation creates a fresh directory so reviewed edits are never overwritten.
+7. **Prepare rehearsal profile:** optionally fill the Submission tab's automation fields before creating the snapshot: the reviewed settings template, tooling manifest, package asset filename and earliest release publication in UTC. This button captures the selected files, pins their bytes and prepares a fresh release profile and empty registry for the public automation worker. It does not start that worker or operate equipment. Its report lists missing stage bindings; resolve those before claiming a full rehearsal.
 
 Save incomplete drafts at any time. To edit later, select the profile name, click **Load / reload**, make changes and **Save**. A changed name saves a separate profile. Existing names require loading their current revision before overwriting; another editor's newer revision cannot silently be lost. Unsaved profile changes prompt before replacement/exit.
 
@@ -56,6 +57,42 @@ The draft retains pending items for model/support verification, actual test envi
 `operation-defaults.json` provides the form title/author, sender/SMTP endpoint, processor address, Android target and encrypted credentials path. The public `GetSubmissionSetupOperationDefaults` method returns the same typed values without a file. Use these when composing the existing stage settings; do not publish this private defaults file. Package hashes, evidence mapping, generated-document identities and provider receipts must still come from the actual workflow. The app does not invent those values, approvals or checklist results. The standalone submission starting document should receive the store/run or snapshot name alongside the driver repository URL.
 
 User-scoped stores cannot simply be copied to another computer or runner account. Use the existing explicit credential provisioning mechanisms for selected secrets; provision factual profiles separately under the intended account using the public save/load APIs. Do not switch to shared plaintext files or broaden access automatically. Inventory selection and hardware leases remain the responsibility of the executing workflow.
+
+## Prepare a controller rehearsal
+
+The automation worker exposes the same preparation as the form:
+
+```powershell
+CrestronHomeDevTools.Automation.exe --prepare-rehearsal --store C:\Private\SubmissionSetup --snapshot example-release-attempt1
+```
+
+Or call `SubmissionAutomationSetup.PrepareRehearsal(store, snapshotName)` from the
+public automation assembly. Exit 0 means stage bindings are present; exit 3
+returns the prepared paths and lists omissions. Neither result proves that the
+equipment, credentials, tests or evidence have been validated.
+
+The prepared profile derives its repository, private run workspace, review
+title and author from the frozen facts. Release discovery supplies the actual
+version in the title. The executable template must already select the same
+processor and `${source}` checkout; preparation refuses a mismatch instead of
+silently retargeting equipment. Test fixtures, device IDs, trust pins, endurance
+criteria, evidence mappings and package support-metadata requirements remain
+explicit reviewed template inputs. They cannot be inferred from contact details.
+
+Preparation always selects **Rehearsal** and omits protected signing/delivery
+settings. It preserves the template's selected evidence-worker credential
+binding; it never substitutes the setup snapshot containing all credentials.
+The saved snapshot freezes factual revisions and file selections; preparation
+captures the current selected file bytes and records their hashes in
+`setup-provenance.json`. Later edits do not modify an already prepared profile.
+
+Outputs stay in a fresh restricted child of the setup store. Do not grant an
+evidence service access to the entire store to read these files. When running
+under another account or machine, provision only the prepared configuration and
+its selected test credentials through the worker setup procedure, with paths
+reviewed for that destination. The form does not install or provision a worker.
+Follow [Rehearsal](Rehearsal.md) and [AutomationWorker](AutomationWorker.md) for
+intake, execution and recording interventions.
 
 ## Validation
 

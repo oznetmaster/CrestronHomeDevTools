@@ -168,6 +168,14 @@ public sealed class SubmissionRunProfile
 	[Category("Equipment"), DisplayName("Android app test target"), Description("Emulator/device identifier or describe why app testing is not applicable.")]
 	[Required]
 	public string AndroidTarget { get; set; } = "";
+	[Category("Automation rehearsal"), DisplayName("Reviewed workflow settings template"), Description("Optional absolute path to the private automation settings template. It supplies executable test, equipment, endurance and review bindings; preparation does not invent them.")]
+	public string AutomationSettingsTemplate { get; set; } = "";
+	[Category("Automation rehearsal"), DisplayName("Reviewed tooling manifest"), Description("Absolute path to the public workflow's tooling manifest. Preparation captures and pins its current bytes.")]
+	public string AutomationToolingManifest { get; set; } = "";
+	[Category("Automation rehearsal"), DisplayName("Release package asset name"), Description("Exact .pkg asset filename; may include ${version}. No directory path.")]
+	public string AutomationPackageName { get; set; } = "";
+	[Category("Automation rehearsal"), DisplayName("Earliest release publication (UTC)"), Description("Explicit cutoff, for example 2026-09-24T00:00:00Z. Older releases are excluded. Preparation does not start discovery.")]
+	public string AutomationNotBeforeUtc { get; set; } = "";
 	[Category("Review"), DisplayName("Submission-specific notes"), Description("Changes since previous submissions, known gaps and review context. No test results are inferred.")]
 	public string SubmissionNotes { get; set; } = "";
 	public override string ToString () => "Private submission setup (values hidden)";

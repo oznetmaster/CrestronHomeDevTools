@@ -4,6 +4,8 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using NUnit.Framework;
+using CrestronHomeDevTools.Automation;
+using CrestronHomeNUnit.Workflow;
 
 namespace CrestronHomeDevTools.Tests;
 
@@ -59,6 +61,82 @@ public sealed class SubmissionSetupTests
   _store.SaveSetupProfile ("developer", new SubmissionDeveloperProfile { DeveloperName = "Test Person", ContactEmail = "sender@example.invalid", SupportWebsite = "https://example.invalid/support/", SmtpHost = "smtp.example.invalid", SenderEmail = "sender@example.invalid", SmtpCredential = "mail", UploaderCredential = "uploader", SignatureEntry = "signature" });
   _store.SaveSetupProfile ("driver", new SubmissionDriverProfile { DriverName = "Test Driver", RepositoryUrl = "https://example.invalid/repo", Manufacturer = "Test", Models = "Test model", DeviceCategory = "Test", Connection = "IP", Description = "Description", Installation = "Installation", Configuration = "Settings", Usage = "Usage", Limitations = "None known", Troubleshooting = "Help", TestDeviceModels = "Test fixture", RealUseRestrictions = "Test only", PermittedTestChanges = "Reversible with restoration" });
   _store.SaveSetupProfile ("run", new SubmissionRunProfile { DeveloperProfile = "developer", DriverProfile = "driver", Version = "1.0.0", ManifestVersion = "1.0.0.0", SourceReference = "test-commit", PrivateWorkspace = _path, ProcessorResource = "test", ProcessorHost = "processor.invalid", ProcessorCredential = "processor", WindowsResource = "local", AndroidTarget = "test-emulator" });
+ }
+ private SubmissionAutomationSettings RehearsalTemplate(string host="processor.invalid")
+ {
+  Ready();
+  var driver=_store.LoadSetupProfile<SubmissionDriverProfile>("driver");
+  driver.Value.RepositoryUrl="https://github.com/example/driver";
+  _store.SaveSetupProfile("driver",driver.Value,driver.Revision);
+  var run=_store.LoadSetupProfile<SubmissionRunProfile>("run");
+  run.Value.AutomationSettingsTemplate=Path.Combine(_path,"template.json");
+  run.Value.AutomationToolingManifest=Path.Combine(_path,"tools.json");
+  run.Value.AutomationPackageName="Driver_${version}.pkg";
+  run.Value.AutomationNotBeforeUtc="2026-09-24T00:00:00Z";
+  _store.SaveSetupProfile("run",run.Value,run.Revision);
+  var input=new SubmissionAutomationInput(Path.Combine(_path,"review-input.json"),new('a',64));
+  var settings=new SubmissionAutomationSettings(1,_path,new("old/repository",1,"old",new('a',40),new('b',64),new('c',64),new('d',64)),"${source}",
+   new SubmissionPackageRequirements(Guid.NewGuid().ToString(),"${version4}",PortalSubmissionKind.NewDriver,"Fixture"){PublicSupportWebsite="https://example.invalid/repo"},Path.Combine(_path,"worker-bindings.json"),
+   new WorkflowPlan{Host=host,CertificateSha256=new('e',64),SshFingerprint="fixture",SourceRoots=["${source}"],LocalTests=[],TestPackage=new("${source}/tests.csproj","${run}/tests.pkg","fixture",1),ProcessorSuites=[]},
+   Mode:SubmissionAutomationMode.Submit,Review:new(input,input,input,input,new(_path,[]),"Old title","Old author",[]),
+   Protected:new("PRIVATE-PROTECTED-STORE",new("sign","sign-pin"),new("send","send-pin")));
+  AutomationFiles.Write(run.Value.AutomationSettingsTemplate,settings);
+  File.WriteAllText(run.Value.AutomationToolingManifest,"{}");
+  _store.CreateSubmissionSetupSnapshot("run","rehearsal");
+  return settings;
+ }
+ [Test] public void SavedSetupPreparesPinnedRehearsalConsumedByReleaseExpansionWithoutSecrets()
+ {
+  var original=RehearsalTemplate();
+  var prepared=SubmissionAutomationSetup.PrepareRehearsal(_store,"rehearsal");
+  var profile=AutomationFiles.Read<SubmissionAutomationReleaseProfiles>(prepared.ProfilesPath).Profiles.Single();
+  string run=Path.Combine(_path,"actual-run"),source=Path.Combine(run,"source");
+  var release=original.Release with{Repository="example/driver",Tag="v1.2.3"};
+  var expanded=AutomationReleaseDiscovery.Expand(profile,release,run,source,"1.2.3");
+  Assert.Multiple(()=> {
+   Assert.That(profile.Repository,Is.EqualTo("example/driver"));
+   Assert.That(expanded.Mode,Is.EqualTo(SubmissionAutomationMode.Rehearsal));
+   Assert.That(expanded.Protected,Is.Null);
+   Assert.That(expanded.Review!.Title,Is.EqualTo("Test Driver 1.2.3 - Crestron Home driver"));
+   Assert.That(expanded.Review.Author,Is.EqualTo("Test Person"));
+   Assert.That(expanded.CredentialBindings,Is.EqualTo(original.CredentialBindings));
+   Assert.That(expanded.NUnit.Host,Is.EqualTo(original.NUnit.Host));
+   Assert.That(expanded.PackageRequirements.PublicSupportWebsite,Is.EqualTo(original.PackageRequirements.PublicSupportWebsite));
+   Assert.That(prepared.Configuration.AllStageBindingsPresent,Is.False);
+   Assert.That(prepared.Configuration.MissingBindings,Does.Contain("Endurance"));
+   Assert.That(AutomationFiles.Read<SubmissionAutomationRegistry>(prepared.RegistryPath).Entries,Is.Empty);
+  });
+  string exported=string.Join("\n",Directory.GetFiles(Path.GetDirectoryName(prepared.ProfilesPath)!).Select(File.ReadAllText));
+  Assert.That(exported,Does.Not.Contain("SYNTHETIC-SECRET").And.Not.Contain("PRIVATE-PROTECTED-STORE"));
+  Assert.That(File.Exists(Path.Combine(_path,"worker-bindings.json")),Is.False,"Preparation does not provision credentials.");
+ }
+ [Test] public void PreparedRehearsalRetainsCapturedBytesAndSnapshotFactsAfterEdits()
+ {
+  RehearsalTemplate();
+  var first=SubmissionAutomationSetup.PrepareRehearsal(_store,"rehearsal");
+  var profile=AutomationFiles.Read<SubmissionAutomationReleaseProfiles>(first.ProfilesPath).Profiles.Single();
+  var developer=_store.LoadSetupProfile<SubmissionDeveloperProfile>("developer");developer.Value.DeveloperName="Edited";
+  _store.SaveSetupProfile("developer",developer.Value,developer.Revision);
+  File.WriteAllText(Path.Combine(_path,"tools.json"),"{\"changed\":true}");
+  var second=SubmissionAutomationSetup.PrepareRehearsal(_store,"rehearsal");
+  Assert.That(first.ProfilesPath,Is.Not.EqualTo(second.ProfilesPath));
+  Assert.That(AutomationFiles.Hash(profile.ToolingManifest.Path),Is.EqualTo(profile.ToolingManifest.Sha256));
+  Assert.That(AutomationFiles.Read<SubmissionAutomationSettings>(profile.SettingsTemplate.Path).Review!.Author,Is.EqualTo("Test Person"));
+  Assert.That(File.ReadAllText(profile.ToolingManifest.Path),Is.EqualTo("{}"));
+ }
+ [Test] public void MismatchedProcessorTemplateRejectsBeforeCreatingRehearsalOutputs()
+ {
+  RehearsalTemplate("different-processor.invalid");
+  Assert.Throws<InvalidDataException>(()=>SubmissionAutomationSetup.PrepareRehearsal(_store,"rehearsal"));
+  Assert.That(Directory.GetDirectories(_path,"rehearsal-*"),Is.Empty);
+ }
+ [Test] public void RehearsalRequiresAnExplicitPublicationCutoff()
+ {
+  RehearsalTemplate();
+  var run=_store.LoadSetupProfile<SubmissionRunProfile>("run");run.Value.AutomationNotBeforeUtc="2026-09-24";
+  _store.SaveSetupProfile("run",run.Value,run.Revision);_store.CreateSubmissionSetupSnapshot("run","no-timezone");
+  Assert.Throws<InvalidDataException>(()=>SubmissionAutomationSetup.PrepareRehearsal(_store,"no-timezone"));
+  Assert.That(Directory.GetDirectories(_path,"rehearsal-*"),Is.Empty);
  }
  [Test] public void SnapshotRemainsUnchangedAfterEditingAllSourceProfiles ()
  {

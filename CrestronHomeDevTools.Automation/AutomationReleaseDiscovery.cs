@@ -112,7 +112,7 @@ internal static class AutomationReleaseDiscovery
   string temp=path+".tmp";using(var stream=new FileStream(temp,FileMode.Create,FileAccess.Write,FileShare.None)){stream.Write(data);stream.Flush(true);}
   File.Move(temp,path,true);
  }
- private static void Validate(SubmissionAutomationReleaseProfile p) {
+ internal static void Validate(SubmissionAutomationReleaseProfile p) {
   if(!Regex.IsMatch(p.Name,"\\A[A-Za-z0-9_-]{1,64}\\z") || !Enum.IsDefined(p.Mode) || !Path.IsPathFullyQualified(p.PrivateRoot) ||
    p.NotBeforeUtc==default || !p.PackageNameTemplate.EndsWith(".pkg",StringComparison.Ordinal) || p.PackageNameTemplate.IndexOfAny(['/', '\\', ':'])>=0 || p.PackageNameTemplate.Any(char.IsControl) ||
    p.PackageNameTemplate.Replace("${version}","",StringComparison.Ordinal).Contains("${",StringComparison.Ordinal))throw new InvalidDataException("Invalid opted-in release profile.");
