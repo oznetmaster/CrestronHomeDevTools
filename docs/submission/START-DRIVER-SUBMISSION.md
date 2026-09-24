@@ -82,6 +82,12 @@ Record:
 - Existing private credential/profile locations and the execution account that can read them. Use a secure interactive setup procedure when inputs are absent. A service account cannot be assumed to decrypt another user's saved inputs.
 - Intended release and submission permissions, sender account and delivery provider, signature availability, and who authorizes final declarations and delivery.
 
+Keep the development and submission resource assignments explicit. Verify the
+selected processor, emulator Home, credential endpoint and actual worker account
+agree before a rehearsal. A working development setup does not authorize moving
+submission tests to that processor. Record the approved service identity with
+the saved setup so later stages reuse that decision rather than asking again.
+
 Use [development configurations](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/DevelopmentConfigurations.md). One Windows PC and one suitable processor are enough; extra PCs, runners and processors are optional. Assess prerequisites before installation. Reuse authorized setup rather than reprovisioning it merely because a candidate version changes. An emulator needs the Crestron Home app installed and connected to the intended processor, not just a working emulator process.
 
 For new runs using current tools, follow their [PowerShell prerequisite](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/PowerShell.md), including PowerShell 7.6 or later where required. Keep existing active collectors on their recorded shell and scripts. Check the selected processor supports the required DevTools commands; processor generation is separate from driver SDK/version. Use the published Android emulator setup as the normal fixture, rather than assuming an old alternative emulator setup remains validated. Install the build toolchain required by the actual projects; a full Visual Studio installation is not automatically a prerequisite.

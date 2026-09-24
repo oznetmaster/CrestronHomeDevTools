@@ -12,6 +12,16 @@ and [UI testing](https://github.com/oznetmaster/CrestronHomeNUnit/blob/main/docs
 instructions. The workflow uses ADB; it does not need the operator's Windows mouse
 or keyboard. A working emulator is not proof of a working Home connection.
 
+Record the processor's permitted role in the private setup. An emulator used for
+development may still remember the development Home: before a submission
+rehearsal, explicitly select the submission Home and verify its processor address.
+Do not retarget the test plan to whichever Home is currently open. First-use Home
+selection and authentication are planned workstation setup, not evidence that
+the submission controller can complete app tests unattended. Retain that setup
+separately from the subsequent controller run and test its saved connection under
+the real worker identity. The app's Home UI password is separate from the
+configuration API login stored in the evidence worker's processor binding.
+
 After completing app setup, add
 `-ApplicationActivity com.crestron.phoenix.app/.host.MainActivity` to installation
 to open that installed app after Android reports boot complete. This is an app

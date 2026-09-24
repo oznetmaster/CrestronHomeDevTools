@@ -110,6 +110,29 @@ Processor commands accept `--credentials C:\Private\bindings.json` with a `Proce
 
 Named-credential execution skips the default profile and ignores connection environment variables. Do not combine it with `--profile` or interactive `configure`. Optional `--settings` can supply only the target and connection ports, without login or trust fields. The saved HTTPS port (443 when omitted) must match, and a saved verified certificate is required. Mutations still require the verified SSH fingerprint and processor lease. Missing entries fail without prompting. Existing profiles remain supported when `--credentials` is omitted; no automatic migration occurs.
 
+### A saved certificate suddenly fails
+
+Check from the computer that will actually execute the workflow. Configuration
+login uses secure WebSocket port 49000 by default, followed by HTTPS requests
+(443 by default, or the port reported by the authenticated processor). Both
+connections must satisfy the saved certificate pin. A successful login does not
+establish that the subsequent HTTPS connection has the same certificate.
+
+Local HTTPS-inspection software can substitute a certificate on one connection
+while leaving the other unchanged. In worker setup testing, the operator's PC
+received a replacement HTTPS certificate while the dedicated worker received the
+original, previously pinned processor certificate on both ports. No processor
+trust change was necessary. This is one observed cause, not a diagnosis of every
+TLS failure.
+
+Do not replace the saved pin with a newly observed certificate or disable
+validation just to continue. Compare public certificate fingerprints without
+sending credentials, corroborate the processor's identity through an already
+trusted path, and inspect the selected worker's network/security configuration.
+Keep diagnostics free of passwords and authentication tokens. Verify both
+credential decryption and processor connectivity under the actual worker account;
+success under the interactive owner account proves only that account works.
+
 For signing, put the saved entry name in the bindings' `Signature` property. In `submission sign-self-test-form`, replace `--signature-image PRIVATE_FILE` with a final `--credentials C:\Private\bindings.json` pair. Keep all the other arguments, including the exact authorization file and its independently approved SHA-256. The verified bundled tool receives the image through an anonymous pipe; no decrypted temporary image is created. It still checks the image hash, exact form, declared qualifications, signer, date and expiry against that authorization. An unreadable store or missing entry stops signing without prompting. Do not combine the two image sources.
 
 Signature entries also remain available through `LoadSignature` for C# callers; clear returned bytes after use. A signature must only be applied after approval of the exact declaration being signed; saving or provisioning it is not standing signing authorization.
