@@ -142,6 +142,23 @@ the developer's review of those limitations.
 
 The worker reads a processor login directly from the encrypted store into memory. It does not write a plaintext credential file or pass passwords in process arguments or environment variables. A worker that builds repository code must not have unrelated signing or email credentials. A store created under an interactive user's identity does not automatically become readable by a Windows service; provision the intended service identity through the public private-store tools during setup.
 
+Build-tool setup must also work under that actual service account. A successful
+interactive build is insufficient if its shell temporarily supplied SDK paths.
+For projects using the NUnit processor-package targets, configure the applicable
+`ProcessorTestSdkRoot`, `CrestronDriverSdkRoot`, `ManifestUtilExe`,
+`CompactJsonPath` and `IlRepackToolDirectory` paths persistently on a dedicated
+worker, and verify them in a fresh process under its service identity. These are
+tool locations, not credential variables. Record their versions and file hashes
+in the tooling manifest. On a shared machine, preserve existing settings and
+resolve incompatible toolchains before installing the worker.
+
+Keep build tools in a directory the evidence account can read and execute. Do
+not grant it access to a private CI or signing directory merely to reach a tool
+inside that directory. Prepare public source checkouts under the account that
+will build them, with write access for build output; this also avoids Git
+ownership errors. Never disable Git ownership checking globally. Release intake
+creates the candidate checkout under the executing worker account itself.
+
 ## GitHub rehearsal option
 
 The source-preview [release workflow template](submission-automation.yml.example) supplies a **rehearsal / submit** choice in GitHub Actions **Run workflow**, defaulting to rehearsal. This is a workflow option, not an extra field in GitHub's standard Publish release page. Copy it into a trusted **private orchestration repository**, not a public driver repository. It advances an already registered release. The optional Windows release watcher below detects new published releases without requiring submission files in the public driver repository.
