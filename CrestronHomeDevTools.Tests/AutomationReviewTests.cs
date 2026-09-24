@@ -171,6 +171,42 @@ public sealed class AutomationReviewTests
   File.Delete(P("applicability/ui.xml"));
   Assert.Throws<InvalidDataException>(()=>AutomationReview.PrepareInputs(context,settings,settings.Review!,default));
  }
+ private void ConfigureQualification(SubmissionEvidenceOutcome outcome) {
+  Directory.CreateDirectory(P("qualification-source"));
+  File.WriteAllText(P("qualification-source/outage.txt"),"Synthetic retained outage: restoration exceeded policy deadline");
+  Write("qualification-policy.json",new SubmissionEvidencePolicy(1,[new("power",TimeSpan.Zero)]));
+  settings=settings with{Review=settings.Review! with{Policy=Input("qualification-policy.json"),ObservationSources=[]}};
+  var now=DateTimeOffset.UtcNow.AddMinutes(-1);
+  Write("qualification-source/observations.json",new SubmissionEvidenceDocument(1,[new("power",ReviewedIdentity(),outcome,now,now,
+   [new("qualifications/outage.txt",Hash("qualification-source/outage.txt"))],"Original limitation remains disclosed.")]));
+  settings=settings with{Review=settings.Review! with{Qualifications=new(P("qualification-source"),[
+   new("outage.txt",Hash("qualification-source/outage.txt")),new("observations.json",Hash("qualification-source/observations.json"))],"observations.json")}};
+ }
+ [TestCase(SubmissionEvidenceOutcome.Partial)]
+ [TestCase(SubmissionEvidenceOutcome.Failed)]
+ public void QualificationRetainsOutcomeAndStillRequiresExplicitReview(SubmissionEvidenceOutcome outcome) {
+  ConfigureQualification(outcome);AutomationQualifications.Prepare(root,ReviewedIdentity(),settings.Review!,default);
+  Directory.Delete(P("qualification-source"),true);
+  AutomationReview.PrepareInputs(context,settings,settings.Review!,default);
+  var report=AutomationFiles.Read<SubmissionEvidenceCompositionReport>(P("review-inputs/composition-report.json"));
+  Assert.That(report.CompositionChecksPassed,Is.False);
+  Assert.That(report.Observations.Observations.Single().Outcome,Is.EqualTo(outcome));
+  var rules=AutomationFiles.Read<SubmissionEvidencePolicy>(settings.Review!.Policy.Path).Requirements;
+  var unapproved=SubmissionReviewAssessment.Assess(ReviewedIdentity(),rules,report.Observations.Observations,root,
+   SubmissionReviewMode.DeclaredGaps,[],DateTimeOffset.UtcNow);
+  Assert.That(unapproved.ReadyForReview,Is.False);
+ }
+ [TestCase(SubmissionEvidenceOutcome.Passed)]
+ [TestCase(SubmissionEvidenceOutcome.NotApplicable)]
+ [TestCase(SubmissionEvidenceOutcome.ReviewedPriorPass)]
+ public void QualificationCannotImportSatisfactoryOutcomes(SubmissionEvidenceOutcome outcome) {
+  ConfigureQualification(outcome);
+  Assert.Throws<InvalidDataException>(()=>AutomationReview.PrepareInputs(context,settings,settings.Review!,default));
+ }
+ [Test]public void QualificationRejectsChangedOriginalEvidence() {
+  ConfigureQualification(SubmissionEvidenceOutcome.Partial);File.AppendAllText(P("qualification-source/outage.txt"),"changed");
+  Assert.Throws<InvalidDataException>(()=>AutomationReview.PrepareInputs(context,settings,settings.Review!,default));
+ }
  private void ConfigurePrior(SubmissionEvidenceOutcome originalOutcome=SubmissionEvidenceOutcome.Passed) {
   Directory.CreateDirectory(P("originals/source"));
   File.WriteAllText(P("originals/source/raw.txt"),"Synthetic original observation; not hardware evidence");

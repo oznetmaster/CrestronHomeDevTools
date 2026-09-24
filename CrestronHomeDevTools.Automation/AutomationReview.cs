@@ -11,7 +11,8 @@ public sealed record SubmissionAutomationReviewPlan(SubmissionAutomationInput Po
  SubmissionAutomationInput Inventory,SubmissionAutomationInput Mapping,SubmissionAutomationConsole Console,
  string Title,string Author,string[] ObservationSources,SubmissionAutomationInput? Declarations=null,
  SubmissionAutomationInput? AndroidPins=null,JsonElement? AndroidEvidence=null,
- SubmissionAutomationPriorEvidence? PriorEvidence=null,SubmissionAutomationApplicability? Applicability=null);
+ SubmissionAutomationPriorEvidence? PriorEvidence=null,SubmissionAutomationApplicability? Applicability=null,
+ SubmissionAutomationQualifications? Qualifications=null);
 
 internal static class AutomationReview
 {
@@ -85,6 +86,8 @@ internal static class AutomationReview
   var sources=new List<SubmissionEvidenceFile>();
   if(plan.Applicability is not null)
    sources.Add(AutomationApplicability.Prepare(root,identity,plan,token));
+  if(plan.Qualifications is not null)
+   sources.Add(AutomationQualifications.Prepare(root,identity,plan,token));
   if(plan.PriorEvidence is not null) {
    var prior=AutomationPriorEvidence.Prepare(root,identity,plan,token);
    string priorPath=Path.Combine(folder,"prior-observations.json");WriteDocument(priorPath,prior);

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+Explicitly reviewed nonpassing records can travel through the controller with their original limitations and supporting files. They remain nonpassing and need separately pinned gap declarations; the handoff cannot import passing results. Prior-evidence validation now permits unused reuse permissions elsewhere in an original policy, while still rejecting carried-forward observations and changed selected scopes.
+
 The controller can retain candidate-specific N/A decisions and their source evidence through an explicit applicability input. It verifies policy permission, rationale and candidate identity before hardware tests, and includes the unchanged decisions in review composition. This input accepts no test passes and cannot hide conflicting producer results.
 
 The automatic review workflow can retain a pinned inventory of original evidence and scoped change-impact decisions during candidate validation, then import it through the public prior-evidence API. Earlier passes remain `ReviewedPriorPass`; original records and unrelated failures are preserved. Missing or changed retained files stop continuation, and conflicting fresh results cannot be replaced by an older pass. This closes a manual handoff for updated candidates; full hardware rehearsal remains pending.

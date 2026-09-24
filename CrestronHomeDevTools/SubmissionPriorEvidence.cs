@@ -150,7 +150,9 @@ public static class SubmissionPriorEvidence
 			var document = SubmissionValidation.Read<SubmissionEvidenceDocument> (Read (prior.Observations));
 			var review = SubmissionValidation.Read<SubmissionChangeImpactReview> (Read (prior.ChangeReview));
 			if (policy.SchemaVersion != 1 || document.SchemaVersion != 1 || review.SchemaVersion != 1 ||
-				policy.Requirements.Any (item => item.PriorEvidence != null) ||
+				// Unused permissions on other policy scopes do not make these original
+				// observations nested. Selected scopes still require an identical native
+				// rule below; any actual carried-forward observation remains prohibited.
 				document.Observations.Any (item => item.Outcome == SubmissionEvidenceOutcome.ReviewedPriorPass) ||
 				review.SourceIdentity != prior.Identity || !Same (review.TargetPackageSha256, target.PackageSha256) ||
 				!Same (review.TargetSourceCommit, target.SourceCommit) || string.IsNullOrWhiteSpace (review.Reviewer) ||

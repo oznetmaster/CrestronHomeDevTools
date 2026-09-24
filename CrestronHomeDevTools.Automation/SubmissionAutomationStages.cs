@@ -107,6 +107,9 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
   if(settings.Review is {Applicability:not null} applicability)
    _=AutomationApplicability.Prepare(c.RunDirectory,new(settings.Release.PackageSha256,settings.Release.SourceCommit,
     applicability.Policy.Sha256,applicability.Template.Sha256),applicability,token);
+  if(settings.Review is {Qualifications:not null} qualifications)
+   _=AutomationQualifications.Prepare(c.RunDirectory,new(settings.Release.PackageSha256,settings.Release.SourceCommit,
+    qualifications.Policy.Sha256,qualifications.Template.Sha256),qualifications,token);
   if(!settings.NUnit.SourceRoots.Any(p=>Path.GetFullPath(p).Equals(Path.GetFullPath(settings.SourceRepository),StringComparison.OrdinalIgnoreCase)) ||
    !settings.NUnit.RemoveTestInstanceAfterRun || !settings.NUnit.RemoveTestPackageAfterSuccessfulRun)
    throw new InvalidDataException("Declare the candidate source root and owned test cleanup in the NUnit plan.");

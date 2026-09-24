@@ -122,6 +122,24 @@ Ordinary composition and the unsigned review bundle include these decisions and
 their source files. This input records a reviewed decision; it does not itself
 analyze source code or establish whether Crestron agrees with that interpretation.
 
+### Retained qualifications
+
+For an explicitly reviewed partial, inconclusive, failed or untested item,
+`Review.Qualifications` accepts the same `Directory`, `Files` and `Observations`
+shape, using the `qualifications/` destination prefix. It requires a rationale,
+retained supporting files and the exact current candidate/policy identity. It
+accepts no passing or N/A outcome. A review of historical evidence must preserve
+the original records, identify it as a current review, and disclose that no fresh
+execution occurred; do not change an old test's identity or dates.
+
+The records are retained before testing and composed without altering their
+outcome. They still fail ordinary completeness checks: the separate pinned
+`Review.Declarations` must explicitly account for the exact gaps. The existing
+interpretation-review rules continue to apply and cannot accept a failed or
+unperformed test. This handoff neither grants signing authority nor suppresses
+conflicting fresh results. It replaces manual mid-workflow file copying, not
+the developer's review of those limitations.
+
 The worker reads a processor login directly from the encrypted store into memory. It does not write a plaintext credential file or pass passwords in process arguments or environment variables. A worker that builds repository code must not have unrelated signing or email credentials. A store created under an interactive user's identity does not automatically become readable by a Windows service; provision the intended service identity through the public private-store tools during setup.
 
 ## GitHub rehearsal option
