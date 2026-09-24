@@ -8,11 +8,39 @@ namespace CrestronHomeDevTools;
 public enum SubmissionReleaseAvailability { Ready, AwaitingPackage, NotEligible }
 public sealed record SubmissionReleaseInspection(SubmissionReleaseAvailability Availability, string Repository, long ReleaseId,
  string Tag, string? SourceCommit, long? AssetId, string? PackageName, string? PackageSha256, long? PackageBytes, string ReasonCode);
+public sealed record SubmissionPublishedRelease(long ReleaseId,string Tag,DateTimeOffset PublishedUtc,bool Prerelease);
 
 /// <summary>Read published release identity from GitHub. It never treats target_commitish (which may be a branch)
 /// as a frozen commit, downloads code, schedules tests or grants submission authority.</summary>
 public sealed class GitHubSubmissionRelease(HttpClient client)
 {
+ /// <summary>Discover opted-in published releases. The caller supplies an explicit start time so installing
+ /// a worker never submits the repository's old releases. No assets are downloaded or code executed.</summary>
+ public async Task<SubmissionPublishedRelease[]> ListPublishedAsync(string repository,DateTimeOffset notBefore,
+  bool allowPrerelease=false,CancellationToken cancellationToken=default)
+ {
+  var parts=repository.Split('/');
+  if(parts.Length!=2 || parts.Any(p=>string.IsNullOrWhiteSpace(p)||p is "." or ".." || p.Any(c=>!(char.IsAsciiLetterOrDigit(c)||c is '-' or '_' or '.'))))
+   throw new ArgumentException("Supply the configured GitHub repository.");
+  var result=new Dictionary<long,SubmissionPublishedRelease>();
+  // GitHub release order is not publication-time order; inspect every bounded page, not an early date cutoff.
+  for(int page=1;page<=10;page++) {
+   using var data=await GetAsync($"repos/{repository}/releases?per_page=100&page={page}",cancellationToken).ConfigureAwait(false);
+   var releases=data.RootElement.EnumerateArray().ToArray();
+   foreach(var r in releases) {
+    if(r.GetProperty("draft").GetBoolean() || r.GetProperty("published_at").ValueKind==JsonValueKind.Null)continue;
+    bool prerelease=r.GetProperty("prerelease").GetBoolean();var published=r.GetProperty("published_at").GetDateTimeOffset();
+    if(published<notBefore || (prerelease&&!allowPrerelease))continue;
+    long id=r.GetProperty("id").GetInt64();string tag=r.GetProperty("tag_name").GetString()??"";
+    if(id<=0 || tag.Length is <1 or >256 || tag.Any(char.IsControl))throw new InvalidDataException("Invalid published release identity.");
+    var item=new SubmissionPublishedRelease(id,tag,published.ToUniversalTime(),prerelease);
+    if(result.TryGetValue(id,out var existing)&&existing!=item)throw new InvalidDataException("Release listing changed during discovery.");
+    result[id]=item;
+   }
+   if(releases.Length<100)return result.Values.OrderBy(r=>r.PublishedUtc).ThenBy(r=>r.ReleaseId).ToArray();
+  }
+  throw new InvalidDataException("Release listing exceeds the bounded discovery limit; select an explicit release through intake.");
+ }
  /// <summary>The private profile supplies the exact repository and package name. Authentication, if needed,
  /// belongs on the caller's HTTP client; token formats and lengths are not inferred or logged.</summary>
  public async Task<SubmissionReleaseInspection> InspectAsync(string repository, long releaseId, string packageName,

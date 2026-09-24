@@ -3,6 +3,10 @@
 
 using System.Text.Json.Nodes;
 
+if (args is ["--automation-review",var fixtureRoot,var bundledConsole])
+ return await SyntheticAutomationReview.Run(fixtureRoot,bundledConsole);
+if (args is ["--automation-protected",var protectedRoot,var protectedConsole,var phase])
+ return await SyntheticAutomationReview.Run(protectedRoot,protectedConsole,phase);
 if (args is ["--review-request-delivery", var requestDirectory, var workDirectory, var change])
 	return await SyntheticReviewRequestDelivery.Run (requestDirectory, workDirectory, change);
 if (args.Contains ("--delivery-review-sha256")) return await SyntheticDeliveryRevalidation.Run (args);

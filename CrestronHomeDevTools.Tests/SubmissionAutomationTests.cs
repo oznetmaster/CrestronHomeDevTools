@@ -53,7 +53,7 @@ public sealed class SubmissionAutomationTests
   settings=settings with{Mode=SubmissionAutomationMode.Submit};
   context=context with{Checkpoint=context.Checkpoint with{Stage=SubmissionWorkflowStage.SignReview}};
   var result=await Stages().ExecuteAsync(context,default);
-  Assert.That(result.Status,Is.EqualTo(SubmissionWorkflowStatus.NeedsInput));Assert.That(result.ReasonCode,Is.EqualTo("review-delivery-binding-required"));
+  Assert.That(result.Status,Is.EqualTo(SubmissionWorkflowStatus.Waiting));Assert.That(result.ReasonCode,Is.EqualTo("worker-role-handoff"));
  }
  [Test]public void GitHubDispatchCanOnlySelectAPinnedRegistrationWithTheSameReleaseAndMode() {
   string path=Path.Combine(root,"settings.json"),registry=Path.Combine(root,"registry.json");

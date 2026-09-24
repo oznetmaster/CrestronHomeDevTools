@@ -1,6 +1,6 @@
 # Copyright (c) 2026 Neil Colvin. MIT licensed.
 # Source preview: private orchestration repository only. See AutomationWorker.md.
-# Invokes an already registered release; automatic intake/registration is still pending.
+# Invokes an already registered release. The optional private Windows watcher discovers/registers published releases.
 name: Crestron release workflow
 on:
   workflow_dispatch:

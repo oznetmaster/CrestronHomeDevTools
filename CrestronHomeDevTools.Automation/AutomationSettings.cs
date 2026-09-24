@@ -9,11 +9,20 @@ namespace CrestronHomeDevTools.Automation;
 
 /// <summary>Rehearsal runs real permitted tests and prepares documents, but cannot sign or contact delivery providers.</summary>
 public enum SubmissionAutomationMode { Rehearsal, Submit }
+public enum SubmissionAutomationWorkerRole { Evidence, Protected }
+public sealed record SubmissionAutomationApprovalChannel(string DocumentPath,string PinPath);
+public sealed record SubmissionAutomationProtectedPlan(string CredentialBindings,
+ SubmissionAutomationApprovalChannel SigningApproval,SubmissionAutomationApprovalChannel DeliveryApproval,
+ SubmissionAutomationDeliverySettings? Delivery=null);
+public sealed record SubmissionAutomationDeliverySettings(string Sender,string SmtpHost,int SmtpPort,
+ string ReviewedUploadFormSha256,string AcceptedUploadTermsSha256,string? GapSummary=null,
+ SubmissionReviewCorrespondence? Correspondence=null);
 
 public sealed record SubmissionAutomationSettings(int SchemaVersion, string PrivateRoot, SubmissionWorkflowRelease Release,
  string SourceRepository, SubmissionPackageRequirements PackageRequirements, string CredentialBindings,
  WorkflowPlan NUnit, SubmissionEnduranceWorkerPlan? Endurance = null,
- SubmissionAutomationMode Mode = SubmissionAutomationMode.Rehearsal);
+ SubmissionAutomationMode Mode = SubmissionAutomationMode.Rehearsal,
+ SubmissionAutomationReviewPlan? Review = null,SubmissionAutomationProtectedPlan? Protected = null);
 
 internal static class AutomationFiles
 {

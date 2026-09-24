@@ -17,17 +17,26 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
  private readonly Func<WorkflowPlan,NetworkCredential,string,CancellationToken,Task<ProcessorWorkflowResult>> runNUnit;
  private readonly Func<string,NetworkCredential> credential;
  private readonly string settingsDigest;
- public SubmissionAutomationStages(SubmissionAutomationSettings settings,string settingsSha256)
+ private readonly SubmissionAutomationWorkerRole role;
+ private string? protectedDigest;
+ /// <summary>Create a protected adapter only from an independently pinned installed configuration,
+ /// outside build-writable run storage. Per-run settings cannot choose its tools or authority.</summary>
+ public static SubmissionAutomationStages CreateProtected(SubmissionAutomationSettings settings,string settingsSha256,string installedPath,string installedSha256)=>
+  new(settings,settingsSha256,SubmissionAutomationWorkerRole.Protected,AutomationProtectedWorker.Load(installedPath,installedSha256));
+ public SubmissionAutomationStages(SubmissionAutomationSettings settings,string settingsSha256,SubmissionAutomationWorkerRole role=SubmissionAutomationWorkerRole.Evidence)
   :this(settings,settingsSha256,(p,c,r,t)=>WorkflowRunner.RunAsync(p,c,r,token:t),host=> {
    if(!OperatingSystem.IsWindows())throw new PlatformNotSupportedException();
    var saved=DevToolsCredentialBindings.Read(settings.CredentialBindings).Resolve(DevToolsCredentialPurpose.Processor,host);
    if(saved.CertificateSha256!=settings.NUnit.CertificateSha256 || saved.SshFingerprint!=settings.NUnit.SshFingerprint)
     throw new InvalidDataException("The saved processor trust pins differ from the reviewed plan.");
    return new(saved.UserName,saved.Password);
-  }) { }
+  },role) { }
+ internal SubmissionAutomationStages(SubmissionAutomationSettings settings,string digest,SubmissionAutomationWorkerRole role,AutomationProtectedWorker? installed)
+  :this(role==SubmissionAutomationWorkerRole.Protected?(installed??throw new InvalidDataException("Protected role requires its independently pinned installed configuration.")).Bind(settings):settings,digest,role)
+  {protectedDigest=installed?.Sha256;}
  internal SubmissionAutomationStages(SubmissionAutomationSettings settings,string digest,
   Func<WorkflowPlan,NetworkCredential,string,CancellationToken,Task<ProcessorWorkflowResult>> run,
-  Func<string,NetworkCredential> credentials) { this.settings=settings;settingsDigest=digest;runNUnit=run;credential=credentials; }
+  Func<string,NetworkCredential> credentials,SubmissionAutomationWorkerRole role=SubmissionAutomationWorkerRole.Evidence) { this.settings=settings;settingsDigest=digest;runNUnit=run;credential=credentials;this.role=role; }
 
  public Task<SubmissionWorkflowStepResult> ExecuteAsync(SubmissionWorkflowStepContext c,CancellationToken t)=>Advance(c,false,t);
  public Task<SubmissionWorkflowStepResult> RecoverAsync(SubmissionWorkflowStepContext c,CancellationToken t)=>Advance(c,true,t);
@@ -35,8 +44,14 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
  {
   if(settings.SchemaVersion!=1 || !Enum.IsDefined(settings.Mode) || c.Checkpoint.Release!=settings.Release || settingsDigest.Length!=64 || !settingsDigest.All(char.IsAsciiHexDigit))
    throw new InvalidDataException("Automation settings do not match the workflow.");
+  if(role==SubmissionAutomationWorkerRole.Protected) {
+   if(protectedDigest==null)throw new InvalidDataException("Protected role requires its independently pinned installed configuration.");
+   AutomationFiles.Write(Path.Combine(c.RunDirectory,"protected-worker-binding.json"),new{Sha256=protectedDigest});
+  }
   AutomationFiles.Write(Path.Combine(c.RunDirectory,"automation-binding.json"),new { SettingsSha256=settingsDigest, c.Checkpoint.InputSha256 });
   if(c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.WindowsTests)) VerifyRetainedNUnit(c.RunDirectory);
+  if(c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.PrepareReview)) AutomationReview.VerifyRetained(c.RunDirectory);
+  if(c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.SignReview)) AutomationSigning.VerifyRetained(c.RunDirectory);
   if(c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.Endurance)) {
    var plan=settings.Endurance?.Plan??throw new InvalidDataException("Completed endurance plan is missing.");
    var observation=SubmissionEndurance.Export(Path.Combine(c.RunDirectory,"endurance","observations"),plan,DateTimeOffset.UtcNow);
@@ -45,6 +60,9 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
   // Enforced inside both execute and recovery, before any signing/provider adapter is selected.
   if(settings.Mode==SubmissionAutomationMode.Rehearsal && c.Checkpoint.Stage>=SubmissionWorkflowStage.SignReview)
    return new(SubmissionWorkflowStatus.NeedsInput,ReasonCode:"rehearsal-ready-for-review");
+  if(!Enum.IsDefined(role))throw new InvalidDataException("Unknown worker role.");
+  if((c.Checkpoint.Stage>=SubmissionWorkflowStage.SignReview)!=(role==SubmissionAutomationWorkerRole.Protected))
+   return new(SubmissionWorkflowStatus.Waiting,ReasonCode:"worker-role-handoff");
   switch(c.Checkpoint.Stage)
   {
    case SubmissionWorkflowStage.ValidateCandidate: return await Candidate(c,token);
@@ -53,6 +71,10 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
    case SubmissionWorkflowStage.AppTests:
     return VerifyApp(c);
    case SubmissionWorkflowStage.Endurance: return await Endurance(c,recover,token);
+   case SubmissionWorkflowStage.PrepareReview: return await AutomationReview.Advance(c,settings,recover,token);
+   case SubmissionWorkflowStage.SignReview: return await AutomationSigning.Advance(c,settings,recover,token);
+   case SubmissionWorkflowStage.Deliver: return await AutomationDelivery.Advance(c,settings,recover,token);
+   case SubmissionWorkflowStage.Retain: return AutomationDelivery.Retain(c);
    default: return new(SubmissionWorkflowStatus.NeedsInput,ReasonCode:"review-delivery-binding-required");
   }
  }
