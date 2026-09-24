@@ -62,6 +62,37 @@ public sealed class AutomationReviewTests
   var plan=settings.Review! with{ObservationSources=["untrusted.json"]};
   Assert.Throws<InvalidDataException>(()=>AutomationReview.PrepareInputs(context,settings,plan,default));
  }
+ private SubmissionAutomationReviewPlan InstalledObservations(bool completed=true,string? inputSha256=null) {
+  Directory.CreateDirectory(P("installed-app"));
+  File.Copy(P("nunit/trace.txt"),P("installed-app/trace.txt"));
+  var observations=AutomationFiles.Read<SubmissionEvidenceDocument>(P("nunit/observations.json"));
+  Write("installed-app/observations.json",observations with {Observations=observations.Observations.Select(o=>o with {
+   Files=[new("installed-app/trace.txt",Hash("installed-app/trace.txt"))]}).ToArray()});
+  AutomationFiles.Write(P("installed-app-tests.json"),new{InputSha256=inputSha256??context.Checkpoint.InputSha256,Files=new[]{
+   new SubmissionWorkflowReceipt(Path.Combine("installed-app","observations.json"),Hash("installed-app/observations.json")),
+   new SubmissionWorkflowReceipt(Path.Combine("installed-app","trace.txt"),Hash("installed-app/trace.txt"))}});
+  if(completed)context.Checkpoint.CompletedStages.Add(SubmissionWorkflowStage.AppTests,new("installed-app-tests.json",Hash("installed-app-tests.json")));
+  return settings.Review! with{ObservationSources=["installed-app/observations.json"]};
+ }
+ [Test]public async Task CompletedSeparateAppObservationsReachReviewAndBundle() {
+  settings=settings with{Review=InstalledObservations()};
+  var result=await AutomationReview.Advance(context,settings,false,default,Prepare);
+  Assert.That(result.Status,Is.EqualTo(SubmissionWorkflowStatus.Completed));
+  var combined=AutomationFiles.Read<SubmissionEvidenceDocument>(P("review-inputs/observations.json"));
+  Assert.That(combined.Observations.Single().Files.Any(f=>f.RelativePath=="installed-app/trace.txt"),Is.True);
+ }
+ [Test]public void UncompletedSeparateAppReceiptDoesNotAuthorizeObservations() {
+  var plan=InstalledObservations(completed:false);
+  Assert.Throws<InvalidDataException>(()=>AutomationReview.PrepareInputs(context,settings,plan,default));
+ }
+ [Test]public void ChangedSeparateAppEvidenceBlocksReview() {
+  var plan=InstalledObservations();File.AppendAllText(P("installed-app/trace.txt"),"changed");
+  Assert.Throws<InvalidDataException>(()=>AutomationReview.PrepareInputs(context,settings,plan,default));
+ }
+ [Test]public void SeparateAppReceiptFromAnotherWorkflowBlocksReview() {
+  var plan=InstalledObservations(inputSha256:new('f',64));
+  Assert.Throws<InvalidDataException>(()=>AutomationReview.PrepareInputs(context,settings,plan,default));
+ }
  [Test]public void ChangedProducerOutputIsNotRehashedIntoTrustedEvidence() {
   File.AppendAllText(P("nunit/observations.json")," ");
   Assert.Throws<InvalidDataException>(()=>AutomationReview.PrepareInputs(context,settings,settings.Review!,default));

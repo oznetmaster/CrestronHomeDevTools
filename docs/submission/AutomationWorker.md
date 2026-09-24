@@ -30,6 +30,22 @@ Run [release intake](ReleaseAutomation.md#try-intake-from-the-source-build) firs
 
 Freeze settings and their digest after accepting the plan. Do not recalculate the expected digest to bypass a changed configuration on an existing run. The current setup form does not yet generate all these bindings; that integration is still required. The tooling manifest is retained by intake, but complete service-account tool-inventory enforcement is also unfinished.
 
+Before a full rehearsal, list missing stage bindings together:
+
+```powershell
+CrestronHomeDevTools.Automation.exe --check-settings C:/CI/Private/automation.json --settings-sha256 RECORDED_LOWERCASE_SHA256
+```
+
+This read-only command verifies the saved settings digest and reports missing Windows,
+processor, app, endurance and review bindings. Submit additionally requires protected
+signing/delivery configuration; rehearsal does not. It neither opens a run nor starts
+tests, reads secret values or contacts equipment/providers. Exit `0` means all stage
+bindings are present; `3` lists omissions; `2` means the settings could not be read or
+verified. This is a completeness check, not a substitute for each stage's file,
+credential, equipment and evidence validation. It does not create missing evidence or
+turn omitted tests into passes. Deliberately partial component rehearsals remain
+possible, but do not describe them as full-route validation.
+
 ### Separate app phase
 
 Use `InstalledAppTests` when the candidate is already installed and the Windows/processor
@@ -51,6 +67,12 @@ fixtures and results private where they contain household information. An old
 checkpoint's frozen settings cannot be edited to retrofit this new binding; create
 a reviewed new attempt rather than relabelling an earlier pass.
 
+Review preparation can consume observations from either the combined NUnit producer
+or a completed separate app producer. Its source must be listed in that producer's
+retained receipt; the app receipt, workflow identity and complete app inventory are
+rechecked before composition. A JSON file placed in the run directory later is not
+accepted as completed test evidence.
+
 The worker reads a processor login directly from the encrypted store into memory. It does not write a plaintext credential file or pass passwords in process arguments or environment variables. A worker that builds repository code must not have unrelated signing or email credentials. A store created under an interactive user's identity does not automatically become readable by a Windows service; provision the intended service identity through the public private-store tools during setup.
 
 ## GitHub rehearsal option
@@ -58,6 +80,10 @@ The worker reads a processor login directly from the encrypted store into memory
 The source-preview [release workflow template](submission-automation.yml.example) supplies a **rehearsal / submit** choice in GitHub Actions **Run workflow**, defaulting to rehearsal. This is a workflow option, not an extra field in GitHub's standard Publish release page. Copy it into a trusted **private orchestration repository**, not a public driver repository. It advances an already registered release. The optional Windows release watcher below detects new published releases without requiring submission files in the public driver repository.
 
 Rehearsal uses the same real tests, endurance requirements and document preparation as submission. It is **not** a hardware dry run: equipment permissions and household-device restrictions still apply. The worker stops before signing, uploading or sending a submission email, including after a restart. A prepared rehearsal is reported as `RehearsalPrepared`, not `Submitted` or Crestron acceptance. Missing earlier bindings or failed tests remain explicit failures/attention states. It cannot currently be promoted in place by changing a dispatch selector or editing its frozen settings; promotion with verified evidence reuse is a remaining integration task.
+
+Follow the [complete rehearsal procedure](Rehearsal.md) and retain every manual
+intervention. A successfully assisted submission is not evidence that these
+automatic handoffs have been validated.
 
 Submit mode selects the delivery path but does not provide signature or delivery authority. Independently reviewed exact artifact authorizations remain necessary. Keep source-build access separate from protected signing and delivery identities.
 

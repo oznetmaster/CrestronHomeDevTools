@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+Review preparation now includes retained observations from the separate installed-app stage, with its completed receipt, workflow identity and file inventory verified. Previously that handoff accepted only the earlier combined NUnit inventory. A read-only `--check-settings` command lists missing stage bindings before a full rehearsal; it performs no tests or provider operations.
+
 The automation worker can run a separate app-test phase through the public installed-driver NUnit API, without redeploying the existing candidate or repeating Windows/processor tests. The phase pins the release and processor, preserves raw results, requires restoration and cleanup, and stops for inspection after an uncertain interruption. Actual LocalService Android capture passed on the headless Windows worker; app restart recovery exposed a nonresponse dialog, so full unattended app reliability remains under validation.
 
 Android startup now starts ADB before opening emulator logs. Previously, ADB could inherit a log handle and prevent log rotation on the next emulator launch. Startup retains failure diagnostics, and the installer accepts explicit CPU and memory allocations for the assessed worker.

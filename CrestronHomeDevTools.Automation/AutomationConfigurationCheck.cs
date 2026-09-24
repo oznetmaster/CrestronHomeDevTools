@@ -1,0 +1,31 @@
+// Copyright (c) 2026 Neil Colvin. MIT licensed.
+namespace CrestronHomeDevTools.Automation;
+
+public sealed record SubmissionAutomationConfigurationReport(bool AllStageBindingsPresent,string[] MissingBindings);
+
+/// <summary>Read-only completeness check before reserving equipment or running tests.
+/// Does not connect to providers, decrypt credentials, validate evidence or grant approval.</summary>
+public static class SubmissionAutomationConfiguration
+{
+ public static SubmissionAutomationConfigurationReport Check(SubmissionAutomationSettings settings) {
+  ArgumentNullException.ThrowIfNull(settings);
+  var missing=new List<string>();
+  if(string.IsNullOrWhiteSpace(settings.CredentialBindings))missing.Add("CredentialBindings");
+  if(settings.NUnit.LocalTests.Length==0)missing.Add("NUnit.LocalTests");
+  if(settings.NUnit.ProcessorSuites.Length==0)missing.Add("NUnit.ProcessorSuites");
+  if(settings.InstalledAppTests==null && (settings.NUnit.AndroidTests==null || settings.NUnit.ActualDriver==null || settings.NUnit.ReleaseCandidate==null))
+   missing.Add("InstalledAppTests or NUnit.AndroidTests with ActualDriver and ReleaseCandidate");
+  if(settings.Endurance==null)missing.Add("Endurance");
+  if(settings.Review==null)missing.Add("Review");
+  if(settings.Mode==SubmissionAutomationMode.Submit) {
+   if(settings.Protected==null)missing.Add("Protected");
+   else {
+    if(string.IsNullOrWhiteSpace(settings.Protected.CredentialBindings))missing.Add("Protected.CredentialBindings");
+    if(string.IsNullOrWhiteSpace(settings.Protected.SigningApproval.DocumentPath) || string.IsNullOrWhiteSpace(settings.Protected.SigningApproval.PinPath))missing.Add("Protected.SigningApproval");
+    if(string.IsNullOrWhiteSpace(settings.Protected.DeliveryApproval.DocumentPath) || string.IsNullOrWhiteSpace(settings.Protected.DeliveryApproval.PinPath))missing.Add("Protected.DeliveryApproval");
+    if(settings.Protected.Delivery==null)missing.Add("Protected.Delivery");
+   }
+  }
+  return new(missing.Count==0,missing.ToArray());
+ }
+}

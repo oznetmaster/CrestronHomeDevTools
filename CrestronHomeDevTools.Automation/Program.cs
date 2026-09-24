@@ -5,10 +5,17 @@ using CrestronHomeDevTools.Automation;
 
 if(args is ["--help"])
 {
+ Console.WriteLine("Read-only stage-binding check: --check-settings PRIVATE_JSON --settings-sha256 PIN. Exit zero means all stage bindings are present, not that tests passed or credentials/equipment were validated.");
  Console.WriteLine("submission automation: --settings PRIVATE_JSON --settings-sha256 PIN; or --registry PRIVATE_JSON --profile NAME --release-id ID --mode rehearsal|submit. Background: --watch-registry PRIVATE_JSON --status-directory PRIVATE_DIRECTORY --poll-seconds 60 [--release-profiles PRIVATE_JSON]. One-time intake: --intake-releases PRIVATE_PROFILES --registry PRIVATE_JSON. Default role is evidence. For the protected role append --protected-worker PRIVATE_JSON --protected-worker-sha256 INDEPENDENT_PIN --role protected. Rehearsal stops before signing/delivery. Submit requires exact authorizations. The ordinary background worker resumes waits without AI prompts.");return 0;
 }
 try
 {
+ if(args is ["--check-settings",var checkPath,"--settings-sha256",var checkDigest]) {
+  var check=AutomationRequest.Load(["--settings",checkPath,"--settings-sha256",checkDigest]);
+  var report=SubmissionAutomationConfiguration.Check(check.Settings);
+  Console.WriteLine(JsonSerializer.Serialize(report,AutomationFiles.Json));
+  return report.AllStageBindingsPresent?0:3;
+ }
  var role=SubmissionAutomationWorkerRole.Evidence;
  if(args.Length>=2 && args[^2]=="--role") {
   role=args[^1] switch{"evidence"=>SubmissionAutomationWorkerRole.Evidence,"protected"=>SubmissionAutomationWorkerRole.Protected,_=>throw new InvalidDataException("Select an installed worker role.")};args=args[..^2];

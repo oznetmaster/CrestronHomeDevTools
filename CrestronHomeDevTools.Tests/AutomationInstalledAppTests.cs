@@ -77,4 +77,16 @@ public sealed class AutomationInstalledAppTests
   var stages=new SubmissionAutomationStages(settings,new('f',64),(_,_,_,_)=>throw new AssertionException("NUnit must not run here"),_=>new(),installedApp:Run);
   Assert.That((await stages.ExecuteAsync(context,default)).Status,Is.EqualTo(SubmissionWorkflowStatus.Completed));Assert.That(calls,Is.EqualTo(1));
  }
+ [Test] public void ConfigurationCheckListsLaterGapsWithoutCallingTestsOrReadingCredentials() {
+  var report=SubmissionAutomationConfiguration.Check(settings with{CredentialBindings="private-store-not-opened"});
+  Assert.That(report.AllStageBindingsPresent,Is.False);
+  Assert.That(report.MissingBindings,Is.EquivalentTo(new[]{"Endurance","Review"}));
+  Assert.That(calls,Is.Zero);
+  Assert.That(JsonSerializer.Serialize(report),Does.Not.Contain("private-store-not-opened").And.Not.Contain(settings.NUnit.Host));
+ }
+ [Test] public void SubmitConfigurationRequiresProtectedBindingsThatRehearsalDoesNot() {
+  var report=SubmissionAutomationConfiguration.Check(settings with{Mode=SubmissionAutomationMode.Submit});
+  Assert.That(report.MissingBindings,Does.Contain("Protected"));
+  Assert.That(SubmissionAutomationConfiguration.Check(settings).MissingBindings,Does.Not.Contain("Protected"));
+ }
 }

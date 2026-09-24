@@ -65,9 +65,22 @@ internal static class AutomationReview
   if(Path.GetFileName(name)!=name || name.Contains('/') || name.Contains('\\'))throw new InvalidDataException("Unsafe package name.");
   WriteBytes(Path.Combine(folder,name),File.ReadAllBytes(Path.Combine(root,"candidate.pkg")),settings.Release.PackageSha256);
 
-  // Sources must have been retained by the completed test producer, not dropped into the directory later.
+  // Sources must have been retained by a completed test producer, not dropped into the directory later.
   using var producer=JsonDocument.Parse(File.ReadAllBytes(Path.Combine(root,"windows-tests.json")));
   var retained=producer.RootElement.GetProperty("Files").EnumerateArray().ToDictionary(x=>x.GetProperty("RelativePath").GetString()!.Replace('\\','/'),x=>x.GetProperty("Sha256").GetString()!,StringComparer.Ordinal);
+  // Installed-app tests run after the Windows/processor producer has closed its
+  // inventory. Accept their independent receipt only after that stage completed.
+  if(c.Checkpoint.CompletedStages.TryGetValue(SubmissionWorkflowStage.AppTests,out var app) && app.RelativePath=="installed-app-tests.json") {
+   string receipt=Path.Combine(root,app.RelativePath);
+   if(AutomationFiles.Hash(receipt)!=app.Sha256)throw new InvalidDataException("Completed app receipt changed.");
+   AutomationInstalledApp.VerifyRetained(root);
+   using var installed=JsonDocument.Parse(File.ReadAllBytes(receipt));
+   if(installed.RootElement.GetProperty("InputSha256").GetString()!=c.Checkpoint.InputSha256)
+    throw new InvalidDataException("App observations belong to another workflow.");
+   foreach(var file in installed.RootElement.GetProperty("Files").EnumerateArray())
+    if(!retained.TryAdd(file.GetProperty("RelativePath").GetString()!.Replace('\\','/'),file.GetProperty("Sha256").GetString()!))
+     throw new InvalidDataException("Producer evidence paths overlap.");
+  }
   var sources=new List<SubmissionEvidenceFile>();
   if(plan.ObservationSources.Distinct(StringComparer.Ordinal).Count()!=plan.ObservationSources.Length)throw new InvalidDataException("Duplicate observation source.");
   foreach(string relative in plan.ObservationSources) {
