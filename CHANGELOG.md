@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+The controller can retain candidate-specific N/A decisions and their source evidence through an explicit applicability input. It verifies policy permission, rationale and candidate identity before hardware tests, and includes the unchanged decisions in review composition. This input accepts no test passes and cannot hide conflicting producer results.
+
 The automatic review workflow can retain a pinned inventory of original evidence and scoped change-impact decisions during candidate validation, then import it through the public prior-evidence API. Earlier passes remain `ReviewedPriorPass`; original records and unrelated failures are preserved. Missing or changed retained files stop continuation, and conflicting fresh results cannot be replaced by an older pass. This closes a manual handoff for updated candidates; full hardware rehearsal remains pending.
 
 Separate installed-app tests can receive a frozen `InstalledAppFixtureSettings` object, retained before invocation and verified on completion and recovery. The public C# WeatherLink Android fixture consumes those inputs, checks visible values against their named UI rows, exercises forecast navigation and both close transitions, and retains standard scoped observations. It preserves uncertain input outcomes without repeating taps. Fresh generalized hardware validation is still pending.

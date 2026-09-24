@@ -126,6 +126,51 @@ public sealed class AutomationReviewTests
   var result=await AutomationReview.Advance(context,settings with{Review=null},false,default,Prepare);
   Assert.That(result.ReasonCode,Is.EqualTo("review-plan-required"));Assert.That(executions,Is.Zero);
  }
+ private void ConfigureApplicability(SubmissionEvidenceOutcome outcome=SubmissionEvidenceOutcome.NotApplicable,
+  bool allowed=true,bool correctCandidate=true,string rationale="Source has no slider") {
+  Directory.CreateDirectory(P("applicability-source"));
+  File.WriteAllText(P("applicability-source/ui.xml"),"<page><button /></page>");
+  Write("applicability-policy.json",new SubmissionEvidencePolicy(1,[new("ui.slider",TimeSpan.Zero,allowed)]));
+  settings=settings with{Review=settings.Review! with{Policy=Input("applicability-policy.json"),ObservationSources=[]}};
+  var identity=ReviewedIdentity();if(!correctCandidate)identity=identity with{PackageSha256=new('f',64)};
+  var now=DateTimeOffset.UtcNow.AddMinutes(-1);
+  Write("applicability-source/observations.json",new SubmissionEvidenceDocument(1,[new("ui.slider",identity,outcome,now,now,
+   [new("applicability/ui.xml",Hash("applicability-source/ui.xml"))],rationale)]));
+  settings=settings with{Review=settings.Review! with{Applicability=new(P("applicability-source"),[
+   new("ui.xml",Hash("applicability-source/ui.xml")),new("observations.json",Hash("applicability-source/observations.json"))],"observations.json")}};
+ }
+ [Test]public async Task ReviewedApplicabilityTravelsWithPortableBundleAndNeedsNoSourceOnRecovery() {
+  ConfigureApplicability();AutomationApplicability.Prepare(root,ReviewedIdentity(),settings.Review!,default);
+  Directory.Delete(P("applicability-source"),true);
+  var result=await AutomationReview.Advance(context,settings,false,default,Prepare);
+  Assert.That(result.Status,Is.EqualTo(SubmissionWorkflowStatus.Completed));
+  var combined=AutomationFiles.Read<SubmissionEvidenceDocument>(P("review-inputs/observations.json"));
+  Assert.That(combined.Observations.Single().Outcome,Is.EqualTo(SubmissionEvidenceOutcome.NotApplicable));
+  Assert.That(combined.Observations.Single().Files.Any(f=>f.RelativePath=="applicability/ui.xml"),Is.True);
+ }
+ [TestCase(SubmissionEvidenceOutcome.Passed)]
+ [TestCase(SubmissionEvidenceOutcome.Failed)]
+ [TestCase(SubmissionEvidenceOutcome.ReviewedPriorPass)]
+ public void ApplicabilityCannotImportTestResults(SubmissionEvidenceOutcome outcome) {
+  ConfigureApplicability(outcome);
+  Assert.Throws<InvalidDataException>(()=>AutomationReview.PrepareInputs(context,settings,settings.Review!,default));
+ }
+ [TestCase(false,true,"Has no slider")]
+ [TestCase(true,false,"Has no slider")]
+ [TestCase(true,true,"")]
+ public void ApplicabilityRequiresPermissionCandidateAndReason(bool allowed,bool correctCandidate,string rationale) {
+  ConfigureApplicability(allowed:allowed,correctCandidate:correctCandidate,rationale:rationale);
+  Assert.Throws<InvalidDataException>(()=>AutomationReview.PrepareInputs(context,settings,settings.Review!,default));
+ }
+ [Test]public void ApplicabilitySourceChangesCannotBeRehashedIntoEvidence() {
+  ConfigureApplicability();File.AppendAllText(P("applicability-source/ui.xml"),"<slider />");
+  Assert.Throws<InvalidDataException>(()=>AutomationReview.PrepareInputs(context,settings,settings.Review!,default));
+ }
+ [Test]public void MissingRetainedApplicabilityIsNotSilentlyRestored() {
+  ConfigureApplicability();AutomationApplicability.Prepare(root,ReviewedIdentity(),settings.Review!,default);
+  File.Delete(P("applicability/ui.xml"));
+  Assert.Throws<InvalidDataException>(()=>AutomationReview.PrepareInputs(context,settings,settings.Review!,default));
+ }
  private void ConfigurePrior(SubmissionEvidenceOutcome originalOutcome=SubmissionEvidenceOutcome.Passed) {
   Directory.CreateDirectory(P("originals/source"));
   File.WriteAllText(P("originals/source/raw.txt"),"Synthetic original observation; not hardware evidence");

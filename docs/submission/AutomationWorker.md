@@ -103,6 +103,25 @@ of choosing the older pass. Omit prior permission for scopes intentionally being
 tested again. This handoff does not supply N/A decisions, waive missing tests,
 change an endurance duration or establish Crestron acceptance.
 
+### Reviewed non-applicability
+
+The optional `Review.Applicability` object retains candidate-specific N/A decisions
+without presenting them as executed tests. Supply a private `Directory`, a pinned
+`Files` inventory and `Observations` (the relative path of the standard observation
+document within that inventory). Supporting references inside that document use
+the destination `applicability/` prefix; inventory paths do not.
+
+Every observation must be `NotApplicable`, identify the exact candidate and policy,
+have a rationale, and reference retained source evidence. The reviewed policy must
+permit N/A for that scope. The controller validates these inputs before hardware
+testing and retains them using the same bounds and recovery rules as prior evidence.
+It cannot import passes or failures through this input, infer N/A from an absent
+test, or resolve a conflict with a test producer. A changed candidate requires a new
+applicability review; the worker never rewrites identities to reuse old decisions.
+Ordinary composition and the unsigned review bundle include these decisions and
+their source files. This input records a reviewed decision; it does not itself
+analyze source code or establish whether Crestron agrees with that interpretation.
+
 The worker reads a processor login directly from the encrypted store into memory. It does not write a plaintext credential file or pass passwords in process arguments or environment variables. A worker that builds repository code must not have unrelated signing or email credentials. A store created under an interactive user's identity does not automatically become readable by a Windows service; provision the intended service identity through the public private-store tools during setup.
 
 ## GitHub rehearsal option
