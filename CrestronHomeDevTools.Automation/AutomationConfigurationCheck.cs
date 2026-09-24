@@ -7,7 +7,8 @@ public sealed record SubmissionAutomationConfigurationReport(bool AllStageBindin
 /// Does not connect to providers, decrypt credentials, validate evidence or grant approval.</summary>
 public static class SubmissionAutomationConfiguration
 {
- public static SubmissionAutomationConfigurationReport Check(SubmissionAutomationSettings settings) {
+ public static SubmissionAutomationConfigurationReport Check(SubmissionAutomationSettings settings)=>Check(settings,false);
+ public static SubmissionAutomationConfigurationReport Check(SubmissionAutomationSettings settings, bool releaseTemplate) {
   ArgumentNullException.ThrowIfNull(settings);
   var missing=new List<string>();
   if(string.IsNullOrWhiteSpace(settings.CredentialBindings))missing.Add("CredentialBindings");
@@ -16,7 +17,7 @@ public static class SubmissionAutomationConfiguration
   if(settings.InstalledAppTests==null && (settings.NUnit.AndroidTests==null || settings.NUnit.ActualDriver==null || settings.NUnit.ReleaseCandidate==null))
    missing.Add("InstalledAppTests or NUnit.AndroidTests with ActualDriver and ReleaseCandidate");
   if(settings.Endurance==null)missing.Add("Endurance");
-  else if(!Guid.TryParseExact(settings.Endurance.Plan.ReservationId,"N",out _))missing.Add("Endurance.Plan.ReservationId (GUID in N format)");
+  else if(!(releaseTemplate && settings.Endurance.Plan.ReservationId=="${reservationId}") && !Guid.TryParseExact(settings.Endurance.Plan.ReservationId,"N",out _))missing.Add("Endurance.Plan.ReservationId (GUID in N format)");
   if(settings.Review==null)missing.Add("Review");
   if(settings.Mode==SubmissionAutomationMode.Submit) {
    if(settings.Protected==null)missing.Add("Protected");

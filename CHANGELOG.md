@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+Saved setup now has an explicit rehearsal purpose in the Windows form, console and public APIs. Rehearsals can prepare unsigned testing/review inputs without mail, uploader or signature credentials; their snapshots expose only testing credential bindings. Full submission readiness remains the default, and existing public method signatures are preserved.
+
 Release templates can use `${reservationId}` for a stable, per-release endurance reservation GUID. Invalid descriptive reservation names now fail before hardware tests instead of after Windows, processor and app checks. Windows-worker instructions also cover long-path support and the shorter paths needed by the Framework test host.
 
 Explicitly reviewed nonpassing records can travel through the controller with their original limitations and supporting files. They remain nonpassing and need separately pinned gap declarations; the handoff cannot import passing results. Prior-evidence validation now permits unused reuse permissions elsewhere in an original policy, while still rejecting carried-forward observations and changed selected scopes.

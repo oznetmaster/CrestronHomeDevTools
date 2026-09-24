@@ -69,16 +69,17 @@ public sealed partial class DevToolsPrivateStore
   return LoadSetupProfile<T> (name); // Fresh detached copy, never a live reference to the editor.
  }
  /// <summary>Resolve all reusable inputs and verify named entries before a workflow starts. No external operation is performed.</summary>
- public IReadOnlyList<string> CheckSubmissionSetup (string runName)
+ public IReadOnlyList<string> CheckSubmissionSetup (string runName) => CheckSubmissionSetup(runName, SubmissionSetupPurpose.Submission);
+ public IReadOnlyList<string> CheckSubmissionSetup (string runName, SubmissionSetupPurpose purpose)
  {
   var run = LoadSetupProfile<SubmissionRunProfile> (runName);
-  var errors = SubmissionSetupValidation.Check (run.Value).Select (e => "Submission: " + e).ToList ();
+  var errors = SubmissionSetupValidation.Check (run.Value, purpose).Select (e => "Submission: " + e).ToList ();
   SubmissionDeveloperProfile? developer = null;
-  try { developer = LoadSetupProfile<SubmissionDeveloperProfile> (run.Value.DeveloperProfile).Value; errors.AddRange (SubmissionSetupValidation.Check (developer).Select (e => "Developer: " + e)); }
+  try { developer = LoadSetupProfile<SubmissionDeveloperProfile> (run.Value.DeveloperProfile).Value; errors.AddRange (SubmissionSetupValidation.Check (developer, purpose).Select (e => "Developer: " + e)); }
   catch (Exception e) when (e is ArgumentException or IOException or CryptographicException) { errors.Add ("Developer profile is missing or unreadable."); }
   try { var driver = LoadSetupProfile<SubmissionDriverProfile> (run.Value.DriverProfile).Value; errors.AddRange (SubmissionSetupValidation.Check (driver).Select (e => "Driver: " + e)); }
   catch (Exception e) when (e is ArgumentException or IOException or CryptographicException) { errors.Add ("Driver profile is missing or unreadable."); }
-  if (developer != null)
+  if (developer != null && purpose == SubmissionSetupPurpose.Submission)
   {
    try
    {
@@ -104,19 +105,24 @@ public sealed partial class DevToolsPrivateStore
   return errors;
  }
  /// <summary>Freeze private inputs after the input-readiness check. This is not approval, evidence or acceptance.</summary>
- public SubmissionSetupProfile<SubmissionSetupSnapshot> CreateSubmissionSetupSnapshot (string runName, string snapshotName)
+ public SubmissionSetupProfile<SubmissionSetupSnapshot> CreateSubmissionSetupSnapshot (string runName, string snapshotName) =>
+  CreateSubmissionSetupSnapshot(runName, snapshotName, SubmissionSetupPurpose.Submission);
+ public SubmissionSetupProfile<SubmissionSetupSnapshot> CreateSubmissionSetupSnapshot (string runName, string snapshotName, SubmissionSetupPurpose purpose)
  {
-  var errors = CheckSubmissionSetup (runName);
+  var errors = CheckSubmissionSetup (runName, purpose);
   if (errors.Count != 0) throw new InvalidOperationException ("Complete the input-readiness check before creating a snapshot.");
   var run = LoadSetupProfile<SubmissionRunProfile> (runName);
   return SaveSetupProfile (snapshotName, new SubmissionSetupSnapshot (
    LoadSetupProfile<SubmissionDeveloperProfile> (run.Value.DeveloperProfile),
-   LoadSetupProfile<SubmissionDriverProfile> (run.Value.DriverProfile), run));
+   LoadSetupProfile<SubmissionDriverProfile> (run.Value.DriverProfile), run) { Purpose = purpose });
  }
  /// <summary>Build bindings for existing public processor, signing and delivery APIs; no passwords are returned.</summary>
  public DevToolsCredentialBindings GetSubmissionSetupBindings (string snapshotName)
  {
   var snapshot = LoadSetupProfile<SubmissionSetupSnapshot> (snapshotName).Value;
+  if (!Enum.IsDefined(snapshot.Purpose)) throw new InvalidDataException("Unknown setup snapshot purpose.");
+  if (snapshot.Purpose == SubmissionSetupPurpose.Rehearsal)
+   return new (DirectoryPath, Windows: snapshot.Run.Value.WindowsCredential, Processor: snapshot.Run.Value.ProcessorCredential);
   return new (DirectoryPath, snapshot.Developer.Value.SmtpCredential, snapshot.Run.Value.WindowsCredential,
    snapshot.Developer.Value.UploaderCredential, snapshot.Run.Value.ProcessorCredential, snapshot.Developer.Value.SignatureEntry);
  }

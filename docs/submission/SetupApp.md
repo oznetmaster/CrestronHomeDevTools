@@ -14,13 +14,23 @@ The default storage location is `%LOCALAPPDATA%\CrestronHomeDevTools\PrivateStor
 2. **Driver:** save repository identity, manufacturer/models, help content and known limitations, test equipment and real-use restrictions. Empty support overrides inherit shared defaults. These are factual inputs, not assertions that tests passed.
 3. **Credentials & signature:** save named SMTP, uploader, processor or Windows logins and a signature image using the existing encrypted store. Load a credential using its name, purpose and endpoint to edit it. Passwords are masked and cleared from the editor after saving. Endpoint/trust fields must be obtained and verified through the normal setup procedure; do not guess them.
 4. **Submission:** select saved developer/driver profile names and enter the release version, exact four-component manifest version, release notes, source reference, private workspace and test/worker/app targets for the specific attempt.
-5. **Readiness & snapshots:** check all saved input fields and named credentials, fix omissions, then create a uniquely named encrypted snapshot. The check does not connect to hardware or email providers, prove machine suitability, or validate a built package.
+5. **Readiness & snapshots:** select Submission or Rehearsal, check the selected inputs, fix omissions, then create a uniquely named encrypted snapshot. Rehearsal does not require delivery credentials or a signature. The check does not connect to hardware or email providers, prove machine suitability, or validate a built package.
 6. **Prepare review drafts:** generate help content, release notes and operation defaults from the chosen snapshot. The app displays the paths. These draft files contain readable selected facts, inherit the store's restricted access and are kept inside it. Passwords and signature images stay encrypted. Each preparation creates a fresh directory so reviewed edits are never overwritten.
 7. **Prepare rehearsal profile:** optionally fill the Submission tab's automation fields before creating the snapshot: the reviewed settings template, tooling manifest, package asset filename and earliest release publication in UTC. This button captures the selected files, pins their bytes and prepares a fresh release profile and empty registry for the public automation worker. It does not start that worker or operate equipment. Its report lists missing stage bindings; resolve those before claiming a full rehearsal.
 
 Save incomplete drafts at any time. To edit later, select the profile name, click **Load / reload**, make changes and **Save**. A changed name saves a separate profile. Existing names require loading their current revision before overwriting; another editor's newer revision cannot silently be lost. Unsaved profile changes prompt before replacement/exit.
 
 Snapshots cannot be edited or overwritten. Later profile changes affect a new snapshot, not a previous submission. Saved credential references remain names: credential rotation does not copy old passwords into snapshots. Exact signing and delivery approvals remain separate and bind the final artifacts.
+
+Choose **Rehearsal** in Readiness & snapshots to prepare unsigned testing and
+review documents without provisioning SMTP, uploader or signature entries.
+Developer identity, public support details, driver facts, processor credentials
+and trust pins are still checked. A rehearsal snapshot exposes only processor
+and optional Windows credential bindings, even if delivery entries are added to
+the same store later. Its delivery defaults are empty (SMTP port `0` means not
+configured). It cannot be promoted by changing the dropdown: create a new
+**Submission** snapshot after completing the delivery inputs. Existing snapshots
+and calls without an explicit purpose retain the full submission checks.
 
 ## Public workflow access
 
@@ -65,6 +75,17 @@ The automation worker exposes the same preparation as the form:
 ```powershell
 CrestronHomeDevTools.Automation.exe --prepare-rehearsal --store C:\Private\SubmissionSetup --snapshot example-release-attempt1
 ```
+
+For rehearsal-only setup, use `--purpose rehearsal` on both `check` and `snapshot`:
+
+```powershell
+CrestronHomeDevTools.Console.exe submission-setup check --run example-release --purpose rehearsal
+CrestronHomeDevTools.Console.exe submission-setup snapshot --run example-release --name example-rehearsal1 --purpose rehearsal
+```
+
+The corresponding public API overloads take `SubmissionSetupPurpose.Rehearsal`.
+The saved purpose is immutable with the snapshot; it is not permission to sign,
+upload or send email.
 
 Or call `SubmissionAutomationSetup.PrepareRehearsal(store, snapshotName)` from the
 public automation assembly. Exit 0 means stage bindings are present; exit 3

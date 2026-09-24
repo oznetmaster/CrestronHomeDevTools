@@ -48,7 +48,7 @@ public static class SubmissionAutomationSetup
   // Parse before creating outputs; do not accept arbitrary non-JSON as a tooling manifest.
   using var toolingDocument=JsonDocument.Parse(toolingBytes);
   if(toolingDocument.RootElement.ValueKind!=JsonValueKind.Object)throw new InvalidDataException("Tooling manifest must be an object.");
-  var check=SubmissionAutomationConfiguration.Check(settings);
+  var check=SubmissionAutomationConfiguration.Check(settings,releaseTemplate:true);
   Directory.CreateDirectory(directory); // inherits the private store's restricted permissions
   AutomationFiles.Write(template,settings);File.WriteAllBytes(tooling,toolingBytes);
   profile=profile with {SettingsTemplate=new(template,AutomationFiles.Hash(template)),ToolingManifest=new(tooling,AutomationFiles.Hash(tooling))};

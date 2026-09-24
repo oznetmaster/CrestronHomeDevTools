@@ -52,19 +52,60 @@ public sealed class SubmissionSetupTests
   Assert.Throws<InvalidOperationException> (() => _store.CreateSubmissionSetupSnapshot ("attempt", "snapshot"));
   Assert.That (_store.ListSetupProfiles<SubmissionSetupSnapshot> (), Is.Empty);
  }
- private void Ready ()
+ private void Ready (bool delivery = true)
  {
+  if (delivery) {
   _store.SaveCredential ("mail", new (DevToolsCredentialPurpose.Smtp, "smtp.example.invalid", "user", "SYNTHETIC-SECRET", 587, "sender@example.invalid"));
   _store.SaveCredential ("uploader", new (DevToolsCredentialPurpose.Uploader, "uploader.crestron.com", "user", "SYNTHETIC-SECRET"));
-  _store.SaveCredential ("processor", new (DevToolsCredentialPurpose.Processor, "processor.invalid", "user", "SYNTHETIC-SECRET", CertificateSha256: new string ('A', 64), SshFingerprint: "SHA256:synthetic-test-fingerprint"));
   _store.SaveSignature ("signature", [1, 2, 3], ".png");
+  }
+  _store.SaveCredential ("processor", new (DevToolsCredentialPurpose.Processor, "processor.invalid", "user", "SYNTHETIC-SECRET", CertificateSha256: new string ('A', 64), SshFingerprint: "SHA256:synthetic-test-fingerprint"));
   _store.SaveSetupProfile ("developer", new SubmissionDeveloperProfile { DeveloperName = "Test Person", ContactEmail = "sender@example.invalid", SupportWebsite = "https://example.invalid/support/", SmtpHost = "smtp.example.invalid", SenderEmail = "sender@example.invalid", SmtpCredential = "mail", UploaderCredential = "uploader", SignatureEntry = "signature" });
   _store.SaveSetupProfile ("driver", new SubmissionDriverProfile { DriverName = "Test Driver", RepositoryUrl = "https://example.invalid/repo", Manufacturer = "Test", Models = "Test model", DeviceCategory = "Test", Connection = "IP", Description = "Description", Installation = "Installation", Configuration = "Settings", Usage = "Usage", Limitations = "None known", Troubleshooting = "Help", TestDeviceModels = "Test fixture", RealUseRestrictions = "Test only", PermittedTestChanges = "Reversible with restoration" });
   _store.SaveSetupProfile ("run", new SubmissionRunProfile { DeveloperProfile = "developer", DriverProfile = "driver", Version = "1.0.0", ManifestVersion = "1.0.0.0", SourceReference = "test-commit", PrivateWorkspace = _path, ProcessorResource = "test", ProcessorHost = "processor.invalid", ProcessorCredential = "processor", WindowsResource = "local", AndroidTarget = "test-emulator" });
  }
- private SubmissionAutomationSettings RehearsalTemplate(string host="processor.invalid")
+ [Test] public void RehearsalSnapshotNeedsNoDeliverySecretsAndCannotResolveThemEvenAfterTheyAreAdded()
  {
-  Ready();
+  Ready(delivery:false);
+  var developer=_store.LoadSetupProfile<SubmissionDeveloperProfile>("developer");
+  developer.Value.SmtpHost="";developer.Value.SmtpPort="";developer.Value.SenderEmail="";
+  _store.SaveSetupProfile("developer",developer.Value,developer.Revision);
+  Assert.That(_store.ListNames(),Is.EquivalentTo(new[]{"processor"}));
+  Assert.That(_store.CheckSubmissionSetup("run",SubmissionSetupPurpose.Rehearsal),Is.Empty);
+  Assert.That(_store.CheckSubmissionSetup("run"),Is.Not.Empty);
+  Assert.Throws<InvalidOperationException>(()=>_store.CreateSubmissionSetupSnapshot("run","delivery"));
+  var saved=_store.CreateSubmissionSetupSnapshot("run","practice",SubmissionSetupPurpose.Rehearsal);
+  Assert.That(saved.Value.Purpose,Is.EqualTo(SubmissionSetupPurpose.Rehearsal));
+  _store.SaveCredential("mail",new(DevToolsCredentialPurpose.Smtp,"smtp.example.invalid","user","secret",587,"sender@example.invalid"));
+  _store.SaveCredential("uploader",new(DevToolsCredentialPurpose.Uploader,"uploader.crestron.com","user","secret"));
+  _store.SaveSignature("signature",[1,2,3],".png");
+  var bindings=DevToolsCredentialBindings.Read(_store.GetSubmissionSetupSnapshotPath("practice"));
+  Assert.That(bindings.Processor,Is.EqualTo("processor"));
+  Assert.That(bindings.Smtp,Is.Null);Assert.That(bindings.Uploader,Is.Null);Assert.That(bindings.Signature,Is.Null);
+  Assert.Throws<InvalidOperationException>(()=>bindings.Resolve(DevToolsCredentialPurpose.Smtp,"smtp.example.invalid"));
+  var drafts=_store.PrepareSubmissionSetupInputs("practice");
+  var defaults=_store.GetSubmissionSetupOperationDefaults("practice");
+  Assert.That(defaults.SmtpPort,Is.Zero);Assert.That(defaults.Sender,Is.Empty);
+  Assert.That(File.Exists(drafts.HelpContentPath),Is.True);
+ }
+ [Test] public void RehearsalStillRequiresProcessorCredentialsAndTrustPins()
+ {
+  Ready(delivery:false);
+  _store.SaveCredential("processor",new(DevToolsCredentialPurpose.Processor,"processor.invalid","user","secret"),replace:true);
+  Assert.That(_store.CheckSubmissionSetup("run",SubmissionSetupPurpose.Rehearsal),Has.Some.Contains("trust pins"));
+  Assert.Throws<InvalidOperationException>(()=>_store.CreateSubmissionSetupSnapshot("run","practice",SubmissionSetupPurpose.Rehearsal));
+ }
+ [Test] public void ConsoleRehearsalSelectionCreatesRestrictedSnapshotButDefaultSubmissionStillChecksDelivery()
+ {
+  Ready(delivery:false);using var output=new StringWriter();using var error=new StringWriter();
+  Assert.That(SubmissionSetupCommand.Run(["check","--run","run","--purpose","rehearsal","--store",_path],output,error),Is.Zero);
+  Assert.That(SubmissionSetupCommand.Run(["snapshot","--run","run","--name","practice","--purpose","rehearsal","--store",_path],output,error),Is.Zero);
+  Assert.That(SubmissionSetupCommand.Run(["check","--run","run","--store",_path],output,error),Is.EqualTo(2));
+  Assert.That(_store.LoadSetupProfile<SubmissionSetupSnapshot>("practice").Value.Purpose,Is.EqualTo(SubmissionSetupPurpose.Rehearsal));
+ }
+ private SubmissionAutomationSettings RehearsalTemplate(string host="processor.invalid",bool delivery=true)
+ {
+  Ready(delivery);
   var driver=_store.LoadSetupProfile<SubmissionDriverProfile>("driver");
   driver.Value.RepositoryUrl="https://github.com/example/driver";
   _store.SaveSetupProfile("driver",driver.Value,driver.Revision);
@@ -82,7 +123,7 @@ public sealed class SubmissionSetupTests
    Protected:new("PRIVATE-PROTECTED-STORE",new("sign","sign-pin"),new("send","send-pin")));
   AutomationFiles.Write(run.Value.AutomationSettingsTemplate,settings);
   File.WriteAllText(run.Value.AutomationToolingManifest,"{}");
-  _store.CreateSubmissionSetupSnapshot("run","rehearsal");
+  _store.CreateSubmissionSetupSnapshot("run","rehearsal",delivery?SubmissionSetupPurpose.Submission:SubmissionSetupPurpose.Rehearsal);
   return settings;
  }
  [Test] public void SavedSetupPreparesPinnedRehearsalConsumedByReleaseExpansionWithoutSecrets()
@@ -109,6 +150,15 @@ public sealed class SubmissionSetupTests
   string exported=string.Join("\n",Directory.GetFiles(Path.GetDirectoryName(prepared.ProfilesPath)!).Select(File.ReadAllText));
   Assert.That(exported,Does.Not.Contain("SYNTHETIC-SECRET").And.Not.Contain("PRIVATE-PROTECTED-STORE"));
   Assert.That(File.Exists(Path.Combine(_path,"worker-bindings.json")),Is.False,"Preparation does not provision credentials.");
+ }
+ [Test] public void SavedRehearsalOnlySetupPreparesPublicReleaseProfileWithoutDeliveryProvisioning()
+ {
+  RehearsalTemplate(delivery:false);
+  var prepared=SubmissionAutomationSetup.PrepareRehearsal(_store,"rehearsal");
+  var profile=AutomationFiles.Read<SubmissionAutomationReleaseProfiles>(prepared.ProfilesPath).Profiles.Single();
+  Assert.That(_store.ListNames(),Is.EquivalentTo(new[]{"processor"}));
+  Assert.That(AutomationFiles.Read<SubmissionAutomationSettings>(profile.SettingsTemplate.Path).Protected,Is.Null);
+  Assert.That(profile.Mode,Is.EqualTo(SubmissionAutomationMode.Rehearsal));
  }
  [Test] public void PreparedRehearsalRetainsCapturedBytesAndSnapshotFactsAfterEdits()
  {

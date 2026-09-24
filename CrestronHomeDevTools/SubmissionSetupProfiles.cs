@@ -188,11 +188,14 @@ public sealed record SubmissionSetupProfile<T> (string Name, int Revision, DateT
 }
 
 /// <summary>Frozen setup inputs for one attempt, not signed approval or a test result.</summary>
+public enum SubmissionSetupPurpose { Submission, Rehearsal }
+
 public sealed record SubmissionSetupSnapshot (
  SubmissionSetupProfile<SubmissionDeveloperProfile> Developer,
  SubmissionSetupProfile<SubmissionDriverProfile> Driver,
  SubmissionSetupProfile<SubmissionRunProfile> Run)
 {
+ public SubmissionSetupPurpose Purpose { get; init; } = SubmissionSetupPurpose.Submission;
  public override string ToString () => "Private submission snapshot (values hidden)";
  public string SupportWebsite => string.IsNullOrWhiteSpace (Driver.Value.SupportWebsite) ? Developer.Value.SupportWebsite : Driver.Value.SupportWebsite;
  public string SupportEmail => string.IsNullOrWhiteSpace (Driver.Value.SupportEmail) ? Developer.Value.SupportEmail : Driver.Value.SupportEmail;
@@ -202,11 +205,15 @@ public sealed record SubmissionSetupSnapshot (
 public static class SubmissionSetupValidation
 {
  /// <summary>Return missing/invalid field labels only, never the entered private values. Drafts can still be saved.</summary>
- public static IReadOnlyList<string> Check (object profile)
+ public static IReadOnlyList<string> Check (object profile) => Check(profile, SubmissionSetupPurpose.Submission);
+ public static IReadOnlyList<string> Check (object profile, SubmissionSetupPurpose purpose)
  {
+  if (!Enum.IsDefined(purpose)) throw new ArgumentOutOfRangeException(nameof(purpose));
   var errors = new List<string> ();
   foreach (var property in profile.GetType ().GetProperties ())
   {
+   if (purpose == SubmissionSetupPurpose.Rehearsal && profile is SubmissionDeveloperProfile &&
+    property.GetCustomAttributes(typeof(CategoryAttribute), false).Cast<CategoryAttribute>().Any(a => a.Category is "Delivery" or "Signing")) continue;
    string? value = property.GetValue (profile) as string;
    string label = property.GetCustomAttributes (typeof (DisplayNameAttribute), false).Cast<DisplayNameAttribute> ().FirstOrDefault ()?.DisplayName ?? property.Name;
    bool required = property.IsDefined (typeof (RequiredAttribute), false);
@@ -220,7 +227,7 @@ public static class SubmissionSetupValidation
   if (profile is SubmissionDeveloperProfile d)
   {
    if (string.IsNullOrWhiteSpace (d.SupportWebsite) && string.IsNullOrWhiteSpace (d.SupportEmail) && string.IsNullOrWhiteSpace (d.SupportPhone)) errors.Add ("At least one public support contact is required.");
-   if (!int.TryParse (d.SmtpPort, out int port) || port is not (465 or 587)) errors.Add ("Outgoing mail port must be 465 or 587 for TLS.");
+   if (purpose == SubmissionSetupPurpose.Submission && (!int.TryParse (d.SmtpPort, out int port) || port is not (465 or 587))) errors.Add ("Outgoing mail port must be 465 or 587 for TLS.");
   }
   if (profile is SubmissionRunProfile r && !string.IsNullOrWhiteSpace (r.PrivateWorkspace) && !Path.IsPathFullyQualified (r.PrivateWorkspace)) errors.Add ("Private workspace must be an absolute path.");
   if (profile is SubmissionRunProfile versioned && !string.IsNullOrWhiteSpace (versioned.ManifestVersion) &&

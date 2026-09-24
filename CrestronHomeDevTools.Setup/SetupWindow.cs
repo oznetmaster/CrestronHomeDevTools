@@ -151,13 +151,16 @@ internal sealed class SetupWindow : Form
   var top = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true };
   var run = new TextBox { Width = 200, PlaceholderText = "Saved submission profile", AccessibleName = "Submission profile to check" };
   var snapshot = new TextBox { Width = 200, PlaceholderText = "New snapshot name", AccessibleName = "New snapshot name" };
+  var purpose = new ComboBox { Width = 140, DropDownStyle = ComboBoxStyle.DropDownList, AccessibleName = "Snapshot purpose" };
+  purpose.Items.AddRange(["Submission", "Rehearsal"]); purpose.SelectedIndex = 0;
+  SubmissionSetupPurpose SelectedPurpose() => purpose.SelectedIndex == 1 ? SubmissionSetupPurpose.Rehearsal : SubmissionSetupPurpose.Submission;
   var results = new TextBox { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Dock = DockStyle.Fill, Text = "Save your Developer, Driver and Submission profiles first.\r\n\r\nThis checks reusable input data, not test completion or Crestron acceptance. Snapshots retain the chosen revisions; later profile edits do not change existing snapshots.\r\n\r\nThe workflow reads saved profiles through the public DevTools APIs. It still collects actual evidence and obtains exact signing/delivery authorization." };
-  top.Controls.Add (run); top.Controls.Add (Button ("Check all inputs", () => Safe (() => {
-   var errors = Store ().CheckSubmissionSetup (run.Text.Trim ());
+  top.Controls.Add (run); top.Controls.Add(purpose); top.Controls.Add (Button ("Check selected inputs", () => Safe (() => {
+   var errors = Store ().CheckSubmissionSetup (run.Text.Trim (), SelectedPurpose());
    results.Text = errors.Count == 0 ? "Saved inputs are ready. No external operation has been performed. You may create a snapshot for the workflow." : string.Join (Environment.NewLine, errors);
   })));
   top.Controls.Add (snapshot); top.Controls.Add (Button ("Create snapshot", () => Safe (() => {
-   _ = Store ().CreateSubmissionSetupSnapshot (run.Text.Trim (), snapshot.Text.Trim ());
+   _ = Store ().CreateSubmissionSetupSnapshot (run.Text.Trim (), snapshot.Text.Trim (), SelectedPurpose());
    results.Text = "Encrypted snapshot saved. Existing snapshots cannot be overwritten.\r\n\r\nExisting commands accept this file with --credentials:\r\n" + Store ().GetSubmissionSetupSnapshotPath (snapshot.Text.Trim ()) + "\r\n\r\nPrepare review drafts to reuse the saved help content and operation defaults.";
   })));
   top.Controls.Add (Button ("Prepare review drafts", () => Safe (() => {

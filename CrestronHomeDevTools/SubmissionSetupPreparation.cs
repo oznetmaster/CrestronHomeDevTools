@@ -31,8 +31,10 @@ public sealed partial class DevToolsPrivateStore
  {
   var snapshot = LoadSetupProfile<SubmissionSetupSnapshot> (snapshotName).Value;
   var d = snapshot.Developer.Value; var r = snapshot.Run.Value;
+  if (!Enum.IsDefined(snapshot.Purpose)) throw new InvalidDataException("Unknown setup snapshot purpose.");
+  bool rehearsal = snapshot.Purpose == SubmissionSetupPurpose.Rehearsal;
   return new ($"{snapshot.Driver.Value.DriverName} {r.Version} - Crestron Home driver", d.DeveloperName,
-   d.SenderEmail, d.SmtpHost, int.Parse (d.SmtpPort, System.Globalization.CultureInfo.InvariantCulture),
+   rehearsal ? "" : d.SenderEmail, rehearsal ? "" : d.SmtpHost, rehearsal ? 0 : int.Parse (d.SmtpPort, System.Globalization.CultureInfo.InvariantCulture),
    r.ProcessorHost, r.AndroidTarget, SetupPath<SubmissionSetupSnapshot> (snapshotName));
  }
 

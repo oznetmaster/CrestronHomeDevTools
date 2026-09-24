@@ -60,6 +60,9 @@ public sealed class AutomationReleaseDiscoveryTests
   new(profile.Repository,91,"v1.2.3",new('a',40),Sha,new('c',64),new('d',64)),run,Path.Combine(run,"source"),"1.2.3");
  [Test]public void ReleaseExpansionPreparesImmutablePerReleaseProducerAndSettingsBeforeRegistration() {
   WithProbeTemplate();string run=Path.Combine(root,"new-run");
+  var template=AutomationFiles.Read<SubmissionAutomationSettings>(profile.SettingsTemplate.Path);
+  Assert.That(SubmissionAutomationConfiguration.Check(template,releaseTemplate:true).MissingBindings,Does.Not.Contain("Endurance.Plan.ReservationId (GUID in N format)"));
+  Assert.That(SubmissionAutomationConfiguration.Check(template).MissingBindings,Does.Contain("Endurance.Plan.ReservationId (GUID in N format)"));
   var settings=ExpandProbe(run);var worker=settings.Endurance!;
   Assert.That(worker.Probe.Directory,Is.EqualTo(Path.Combine(run,"endurance-producer")));
   Assert.That(worker.Plan.Identity.PackageSha256,Is.EqualTo(Sha));
