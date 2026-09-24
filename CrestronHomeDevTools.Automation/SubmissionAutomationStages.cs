@@ -60,7 +60,7 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
   if(c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.PrepareReview)) AutomationReview.VerifyRetained(c.RunDirectory);
   if(c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.SignReview)) AutomationSigning.VerifyRetained(c.RunDirectory);
   if(c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.Endurance)) {
-   var plan=settings.Endurance?.Plan??throw new InvalidDataException("Completed endurance plan is missing.");
+   var plan=AutomationDeploymentEndurance.Resolve(c,settings)?.Plan??throw new InvalidDataException("Completed endurance plan is missing.");
    var observation=SubmissionEndurance.Export(Path.Combine(c.RunDirectory,"endurance","observations"),plan,DateTimeOffset.UtcNow);
    AutomationFiles.Write(Path.Combine(c.RunDirectory,"endurance-evidence.json"),new{EvidenceDirectory="endurance/observations",Observation=observation});
   }
@@ -88,6 +88,7 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
  private async Task<SubmissionWorkflowStepResult> Candidate(SubmissionWorkflowStepContext c,CancellationToken token)
  {
   AutomationEndurance.ValidateReservation(settings.Endurance);
+  AutomationDeploymentEndurance.ValidateConfiguration(settings);
   AutomationAppFixture.Validate(settings);
   // Intake's persisted receipt uses the API's numeric enum contract, unlike CLI settings.
   var inspection=JsonSerializer.Deserialize<SubmissionReleaseInspection>(File.ReadAllBytes(Path.Combine(c.RunDirectory,"release.json")))
@@ -211,7 +212,7 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
  }
  private async Task<SubmissionWorkflowStepResult> Endurance(SubmissionWorkflowStepContext c,bool recover,CancellationToken token)
  {
-  var worker=settings.Endurance;
+  var worker=AutomationDeploymentEndurance.Resolve(c,settings);
   if(worker==null)return new(SubmissionWorkflowStatus.NeedsInput,ReasonCode:"endurance-plan-required");
   SubmissionEnduranceProcessProbe.Validate(worker.Probe,worker.Plan);
   if(worker.Plan.Identity.PackageSha256!=settings.Release.PackageSha256 || worker.Plan.Identity.SourceCommit!=settings.Release.SourceCommit ||

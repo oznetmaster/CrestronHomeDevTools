@@ -152,6 +152,13 @@ Freeze the actual candidate package, declaration, source and policy hashes befor
 
 ## 4. Run functional, configuration and app tests
 
+For unattended release deployment, configure the controller's actual-driver release
+route rather than treating an already-installed candidate as deployment evidence.
+Use its [deployment-to-app and endurance bindings](AutomationWorker.md#deployment-followed-by-app-tests)
+to carry the verified new instance into later stages without a manual device-ID edit.
+The currently documented hardware rehearsal of an installed candidate does not prove
+this fresh-deployment route; retain that validation distinction.
+
 Run the coverage plan through released tools. Acquire shared resources before use. Verify the actual installed package and target identity before changing settings. Record raw results, screenshots/hierarchy evidence when appropriate, timestamps, restoration and cleanup outcomes, including failures.
 
 Bind each UI observation to the correct Home or Room tile and actual page. Inspect repeated controls within their labelled rows. Give navigation and execution their own appropriate deadlines. Ensure failures still run restoration and record its observed result. Do not report failed restoration merely because the main assertion threw, or claim restoration without observing it.

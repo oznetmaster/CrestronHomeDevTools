@@ -19,13 +19,19 @@ internal static class AutomationProbePreparation
   // The source plan's producer ID is replaced only after validating the complete source inventory.
   SubmissionEnduranceProcessProbe.Validate(source,worker.Plan with{ProducerId=SubmissionEnduranceProcessProbe.GetProducerId(source)});
   var node=JsonNode.Parse(File.ReadAllBytes(input.Path)) as JsonObject??throw new InvalidDataException("Probe settings template must be an object.");
-  byte[] generated=JsonSerializer.SerializeToUtf8Bytes(expand(node),AutomationFiles.Json);
-  string output=Path.Combine(run,"endurance-producer"),generatedName="settings.generated.json";
-  if(source.Files.Any(f=>f.RelativePath.Equals(generatedName,StringComparison.OrdinalIgnoreCase)))
-   throw new InvalidDataException("Published producer already contains the reserved generated settings name.");
-  // Inputs remain outside the destination; generated files cannot become their own source on recovery.
+  var expanded=expand(node) as JsonObject??throw new InvalidDataException("Probe settings must remain an object.");
+  if(settings.EnduranceFromDeployment)_=AutomationDeploymentEndurance.RenderTemplate((JsonObject)expanded.DeepClone(),1,"validation-only");
+  byte[] generated=JsonSerializer.SerializeToUtf8Bytes(expanded,AutomationFiles.Json);
+  string output=Path.Combine(run,settings.EnduranceFromDeployment?"endurance-producer-template":"endurance-producer");
   if(Path.GetFullPath(source.Directory).StartsWith(Path.GetFullPath(run)+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase))
    throw new InvalidDataException("The published source producer must be outside this run.");
+  return settings with{Endurance=Publish(worker,output,generated)};
+ }
+ internal static SubmissionEnduranceWorkerPlan Publish(SubmissionEnduranceWorkerPlan worker,string output,byte[] generated) {
+  var source=worker.Probe;
+  const string generatedName="settings.generated.json";
+  if(source.Files.Any(f=>f.RelativePath.Equals(generatedName,StringComparison.OrdinalIgnoreCase)))
+   throw new InvalidDataException("Published producer already contains the reserved generated settings name.");
   Directory.CreateDirectory(output);
   string Target(string relative) {
    string parent=output;
@@ -56,6 +62,6 @@ internal static class AutomationProbePreparation
   worker=worker with{Probe=probe,Plan=worker.Plan with{ProducerId=SubmissionEnduranceProcessProbe.GetProducerId(probe)}};
   // Detect foreign files, links and incomplete/interrupted copies before registration.
   SubmissionEnduranceProcessProbe.Validate(worker.Probe,worker.Plan);
-  return settings with{Endurance=worker};
+  return worker;
  }
 }

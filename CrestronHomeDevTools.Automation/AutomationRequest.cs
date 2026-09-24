@@ -40,7 +40,10 @@ internal sealed record AutomationRequest(SubmissionAutomationSettings Settings,s
   var settings=System.Text.Json.JsonSerializer.Deserialize<SubmissionAutomationSettings>(bytes,AutomationFiles.Json)
    ??throw new InvalidDataException("Empty automation settings.");
   if(settings.SchemaVersion!=1 || !Enum.IsDefined(settings.Mode))throw new InvalidDataException("Invalid automation mode or schema.");
-  if(validateReservation)AutomationEndurance.ValidateReservation(settings.Endurance);
+  if(validateReservation) {
+   AutomationEndurance.ValidateReservation(settings.Endurance);
+   AutomationDeploymentEndurance.ValidateConfiguration(settings);
+  }
   return new(settings,digest);
  }
 }

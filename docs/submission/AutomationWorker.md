@@ -46,6 +46,7 @@ Run [release intake](ReleaseAutomation.md#try-intake-from-the-source-build) firs
 | `InstalledAppTests` | Optional public `InstalledDriverTestPlan` for a separate app phase against an already-installed exact candidate. Leave `NUnit.AndroidTests` empty when using this route. The release package/commit, processor and trust pins must match this attempt. |
 | `InstalledAppFixtureSettings` | Optional JSON object of driver-specific factual inputs for the separate installed-app phase or combined `NUnit.AndroidTests` deployment route. Release placeholders are expanded and the frozen settings bind its bytes. The controller retains it as `app-fixture-settings.json` at the run root before invocation, verifies it after execution and during recovery, and includes it in the owning producer inventory (NUnit for combined deployment, installed-app for the separate route). Store credential references, never raw passwords or signing material. |
 | `Endurance` | Optional public `SubmissionEnduranceWorkerPlan`, including the fully pinned read-only producer. Its candidate/source and processor must match this attempt. Missing settings stop at the corresponding stage. |
+| `EnduranceFromDeployment` | Optional boolean (default false). Bind the final probe settings to the verified actual-driver deployment before collection. Requires `NUnit.ActualDriver`, `NUnit.ReleaseCandidate` and a pinned probe settings template; see deployment below. |
 | `EnduranceProbeSettingsTemplate` | Optional pinned JSON settings template for release discovery. Intake copies the declared producer publication into the new run, expands candidate/path placeholders, includes the generated settings in its file inventory and binds the resulting producer ID. Leave the source probe's `SettingsFile` null. Explicit prebuilt settings continue to use the existing probe contract. |
 | `Review` | `SubmissionAutomationReviewPlan`: pinned policy, official template, inventory, mapping, complete bundled console, title/author and retained observation paths. Optional declarations and Android pins follow the public review contract. |
 | `Protected` | Separate signing/delivery credential bindings and exact approval channels. Each channel has an approval document path and an independently recorded digest-file path outside the evidence run. Delivery includes the approved sender, SMTP endpoint and reviewed uploader form/terms digests. |
@@ -88,10 +89,38 @@ them in the Windows/processor producer receipt. Recovery does not regenerate cha
 inputs or replay an uncertain deployment. This route has offline regression coverage;
 its new WeatherLink integration still needs a fresh hardware deployment run.
 
-Endurance also needs a candidate-bound installation/probe configuration. A fixture
-receiving the new ID does not by itself bind the later endurance producer to it.
-Finish that binding before describing a fresh-deployment profile as unattended end
-to end. An installed-candidate rehearsal remains useful but does not prove deployment.
+For endurance after this deployment, set `EnduranceFromDeployment: true` and use
+the two deployment placeholders in the pinned `EnduranceProbeSettingsTemplate`:
+
+```json
+{
+  "DeviceId": "${deployedDeviceId}",
+  "CatalogueId": "${deployedCatalogueId}"
+}
+```
+
+These are the target fields within the producer's complete settings, not a complete
+producer configuration. The device placeholder must occupy the entire JSON string;
+it becomes an integer. Normal release placeholders still expand at intake.
+Both deployment placeholders are required, and they are allowed only in this
+probe template. The frozen `Endurance.Plan.InstallationIdentity` can be a unique
+per-release string such as `release:${releaseId}`; it must match the producer's
+installation-identity input. Do not use an unknown device ID in that string.
+
+Intake pins a template publication in `endurance-producer-template`. Once Windows,
+processor and app tests have completed, the controller verifies the retained
+`actual-import.json`, `actual-activation.json` and `ReleaseCandidate.json` against
+the completed NUnit inventory and frozen package/commit. It creates the final
+`endurance-producer` publication, records `endurance-deployment-binding.json` and
+uses the resulting producer ID when starting collection. The candidate, policy,
+reservation, duration and sampling criteria are unchanged. Frozen release settings
+are not rewritten. Recovery verifies the same binding and final files; it never
+retargets an existing collection or silently replaces missing final files.
+
+The flag defaults to false, preserving the existing installed-candidate route.
+The new handoff has offline integration/regression coverage; fresh deployment
+through endurance still needs a hardware rehearsal. An installed-candidate
+rehearsal remains useful but does not prove deployment.
 
 ### Separate app phase
 

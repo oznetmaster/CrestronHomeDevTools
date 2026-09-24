@@ -18,6 +18,8 @@ public static class SubmissionAutomationConfiguration
    missing.Add("InstalledAppTests or NUnit.AndroidTests with ActualDriver and ReleaseCandidate");
   if(settings.Endurance==null)missing.Add("Endurance");
   else if(!(releaseTemplate && settings.Endurance.Plan.ReservationId=="${reservationId}") && !Guid.TryParseExact(settings.Endurance.Plan.ReservationId,"N",out _))missing.Add("Endurance.Plan.ReservationId (GUID in N format)");
+  if(settings.EnduranceFromDeployment && (settings.NUnit.ActualDriver==null || settings.NUnit.ReleaseCandidate==null || settings.EnduranceProbeSettingsTemplate==null))
+   missing.Add("EnduranceFromDeployment requires NUnit.ActualDriver, NUnit.ReleaseCandidate and EnduranceProbeSettingsTemplate");
   if(settings.Review==null)missing.Add("Review");
   if(settings.Mode==SubmissionAutomationMode.Submit) {
    if(settings.Protected==null)missing.Add("Protected");

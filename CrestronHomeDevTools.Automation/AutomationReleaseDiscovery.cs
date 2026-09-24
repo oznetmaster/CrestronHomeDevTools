@@ -88,14 +88,15 @@ internal static class AutomationReleaseDiscovery
    ["${packageSha256}"]=release.PackageSha256,["${releaseId}"]=release.ReleaseId.ToString(CultureInfo.InvariantCulture),
    ["${reservationId}"]=reservationId
   };
-  JsonNode? Replace(JsonNode? value) {
+  JsonNode? Replace(JsonNode? value,bool deploymentTokens=false) {
    if(value is JsonValue v && v.TryGetValue<string>(out var text)) {
     foreach(var replacement in replacements)text=text.Replace(replacement.Key,replacement.Value,StringComparison.Ordinal);
-    if(text.Contains("${",StringComparison.Ordinal))throw new InvalidDataException("Unknown settings placeholder.");
+    string unresolved=deploymentTokens?text.Replace("${deployedDeviceId}","").Replace("${deployedCatalogueId}",""):text;
+    if(unresolved.Contains("${",StringComparison.Ordinal))throw new InvalidDataException("Unknown settings placeholder.");
     return JsonValue.Create(text);
    }
-   if(value is JsonObject o)foreach(var key in o.Select(k=>k.Key).ToArray())o[key]=Replace(o[key]?.DeepClone());
-   if(value is JsonArray a)for(int i=0;i<a.Count;i++)a[i]=Replace(a[i]?.DeepClone());
+   if(value is JsonObject o)foreach(var key in o.Select(k=>k.Key).ToArray())o[key]=Replace(o[key]?.DeepClone(),deploymentTokens);
+   if(value is JsonArray a)for(int i=0;i<a.Count;i++)a[i]=Replace(a[i]?.DeepClone(),deploymentTokens);
    return value;
   }
   // These values come only from verified intake and the private profile, never from template defaults.
@@ -104,7 +105,8 @@ internal static class AutomationReleaseDiscovery
   var settings=Replace(node)!.Deserialize<SubmissionAutomationSettings>(AutomationFiles.Json)??throw new InvalidDataException("Empty settings template.");
   if(!Path.GetFullPath(settings.SourceRepository).Equals(Path.GetFullPath(source),StringComparison.OrdinalIgnoreCase))throw new InvalidDataException("The driver source must use ${source}.");
   AutomationEndurance.ValidateReservation(settings.Endurance);
-  return AutomationProbePreparation.Prepare(settings,run,value=>Replace(value));
+  AutomationDeploymentEndurance.ValidateConfiguration(settings);
+  return AutomationProbePreparation.Prepare(settings,run,value=>Replace(value,settings.EnduranceFromDeployment));
  }
  internal static void Register(string path,SubmissionAutomationRegistration entry) {
   using var gate=new FileStream(path+".lock",FileMode.OpenOrCreate,FileAccess.Write,FileShare.None);

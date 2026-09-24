@@ -45,8 +45,9 @@ to use the instance ID passed by the deployment coordinator. A positive ID must
 still match exactly. Zero is rejected by the separate installed-app route. The
 controller writes the same fixture-settings file before starting the combined
 workflow and retains it with the NUnit evidence; no manual ID edit is needed.
-The new deployment-to-app binding does not yet automate the later endurance
-producer's installation binding.
+To bind later endurance to that same deployment, use the controller's
+`EnduranceFromDeployment` option and the WeatherLink producer's deployment
+placeholders. See the [worker guide](../../docs/submission/AutomationWorker.md).
 
 The initial implementation targets the English WeatherLink two-page UI with a
 configured forecast. It checks the Home tile, all current display fields, the

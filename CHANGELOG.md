@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+An optional deployment-to-endurance binding now derives the probe's device and catalogue IDs from retained, verified NUnit release-deployment receipts. Intake preserves a pinned template; the final producer is prepared before collection and reused on recovery without rewriting frozen settings or changing the test criteria. Existing installed-candidate runs keep their current behavior. Fresh hardware validation of this route remains pending.
+
 The combined release-deployment route now supplies retained fixture inputs before NUnit starts. The WeatherLink app sample can use the newly deployed instance ID from the public Android context, without a manual settings edit. Existing-instance tests still require an exact ID. Changes or loss of fixture inputs prevent recovery from reporting a pass. Fresh hardware validation of this new route remains pending.
 
 Saved setup now has an explicit rehearsal purpose in the Windows form, console and public APIs. Rehearsals can prepare unsigned testing/review inputs without mail, uploader or signature credentials; their snapshots expose only testing credential bindings. Full submission readiness remains the default, and existing public method signatures are preserved.

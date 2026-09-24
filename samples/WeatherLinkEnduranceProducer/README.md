@@ -86,3 +86,19 @@ valid weather readings. Baseline tests cover restart reuse, changed inputs and
 interrupted acquisition. Hardware evidence is recorded separately.
 
 Copyright (c) 2026 Neil Colvin. MIT licensed.
+
+## Binding a newly deployed release
+
+With the public automation controller, opt into `EnduranceFromDeployment` and set
+`DeviceId` to `"${deployedDeviceId}"` and `CatalogueId` to
+`"${deployedCatalogueId}"` in `EnduranceProbeSettingsTemplate`. Keep every other
+required producer field, including the same candidate/policy and installation
+identity as the endurance plan. The controller fills the two target fields from
+verified NUnit deployment receipts and pins the final publication before collection.
+The producer itself still receives a positive integer device ID and a concrete
+catalogue ID; it does not search for devices or change targets during collection.
+
+This optional route has offline controller tests. It has not yet completed a fresh
+hardware deployment-to-endurance rehearsal. Existing installed-instance profiles
+continue to specify their exact known IDs without this option. See the
+[worker guide](../../docs/submission/AutomationWorker.md#deployment-followed-by-app-tests).

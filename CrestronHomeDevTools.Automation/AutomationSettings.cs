@@ -25,7 +25,11 @@ public sealed record SubmissionAutomationSettings(int SchemaVersion, string Priv
  SubmissionAutomationReviewPlan? Review = null,SubmissionAutomationProtectedPlan? Protected = null,
  InstalledDriverTestPlan? InstalledAppTests = null,
  SubmissionAutomationInput? EnduranceProbeSettingsTemplate = null,
- JsonElement? InstalledAppFixtureSettings = null);
+ JsonElement? InstalledAppFixtureSettings = null)
+{
+ /// <summary>Resolve the endurance probe target from retained actual-driver deployment receipts before collection.</summary>
+ public bool EnduranceFromDeployment { get; init; }
+}
 
 internal static class AutomationFiles
 {

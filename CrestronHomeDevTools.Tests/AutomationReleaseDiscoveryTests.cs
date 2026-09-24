@@ -77,6 +77,25 @@ public sealed class AutomationReleaseDiscoveryTests
   Assert.That(Guid.TryParseExact(worker.Plan.ReservationId,"N",out _),Is.True);
   Assert.That(repeated.Endurance.Plan.ReservationId,Is.EqualTo(worker.Plan.ReservationId));
  }
+ [TestCase(true)][TestCase(false)]public void DeploymentTemplateIsPinnedAtIntakeAndMissingTargetTokensAreRejected(bool valid) {
+  WithProbeTemplate();
+  string input=Path.Combine(root,"probe-settings-template.json");
+  File.WriteAllText(input,valid?"{\"DeviceId\":\"${deployedDeviceId}\",\"CatalogueId\":\"${deployedCatalogueId}\",\"Package\":\"${package}\"}":"{\"DeviceId\":123}");
+  var original=AutomationFiles.Read<SubmissionAutomationSettings>(profile.SettingsTemplate.Path);
+  var template=original with{EnduranceFromDeployment=true,EnduranceProbeSettingsTemplate=new(input,AutomationFiles.Hash(input)),
+   NUnit=original.NUnit with{ActualDriver=new("${source}/driver.csproj","${package}","Station",1),
+    ReleaseCandidate=new("${packageSha256}",Guid.NewGuid().ToString(),"${version4}","${source}","${commit}")}};
+  File.WriteAllBytes(profile.SettingsTemplate.Path,JsonSerializer.SerializeToUtf8Bytes(template,AutomationFiles.Json));
+  profile=profile with{SettingsTemplate=new(profile.SettingsTemplate.Path,AutomationFiles.Hash(profile.SettingsTemplate.Path))};
+  string run=Path.Combine(root,"deployment-run");
+  if(!valid) {Assert.Throws<InvalidDataException>(()=>ExpandProbe(run));Assert.That(Directory.Exists(run),Is.False);return;}
+  var result=ExpandProbe(run);
+  Assert.That(result.Endurance!.Probe.Directory,Is.EqualTo(Path.Combine(run,"endurance-producer-template")));
+  using var data=JsonDocument.Parse(File.ReadAllBytes(result.Endurance.Probe.SettingsFile!));
+  Assert.That(data.RootElement.GetProperty("DeviceId").GetString(),Is.EqualTo("${deployedDeviceId}"));
+  Assert.That(data.RootElement.GetProperty("Package").GetString(),Is.EqualTo(Path.Combine(run,"candidate.pkg")));
+  Assert.That(Directory.Exists(Path.Combine(run,"endurance-producer")),Is.False);
+ }
  [Test]public void ReservationIdentityChangesWithReleaseOrFrozenProfile() {
   WithProbeTemplate();
   var release=new SubmissionWorkflowRelease(profile.Repository,91,"v1.2.3",new('a',40),Sha,new('c',64),new('d',64));
