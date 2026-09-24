@@ -12,6 +12,17 @@ and [UI testing](https://github.com/oznetmaster/CrestronHomeNUnit/blob/main/docs
 instructions. The workflow uses ADB; it does not need the operator's Windows mouse
 or keyboard. A working emulator is not proof of a working Home connection.
 
+After completing app setup, add
+`-ApplicationActivity com.crestron.phoenix.app/.host.MainActivity` to installation
+to open that installed app after Android reports boot complete. This is an app
+launch only: it does not enter passwords, select a Home or dismiss dialogs. The
+launcher allows up to three minutes for Android boot and records app launch
+separately from Home readiness. The test fixtures must still verify the saved
+endpoint, expected Home and required device feedback.
+If automatic app launch fails, the launcher retains the private ADB startup
+diagnostic and stops its own emulator process tree. It does not leave a QEMU
+child running behind a failed Windows task or retry app controls.
+
 ## Automatic startup
 
 In a built source-preview console archive the scripts are under
@@ -37,12 +48,26 @@ For additional emulators, use a different AVD, task name, log directory and even
 The launcher uses two virtual CPU cores, 2 GiB of guest memory, software graphics,
 no emulator window and a cold boot. Verify the hardware's capacity before running
 multiple emulators or builds concurrently.
+The installer also accepts `-Cores` and `-MemoryMb` to match an assessed worker's
+capacity; the defaults are a starting configuration, not a performance guarantee.
+ADB defaults to `platform-tools/adb.exe` in the same Android SDK as the emulator;
+use `-Adb` if it is installed elsewhere. The launcher starts the shared ADB server
+before redirecting emulator logs, so the server does not inherit handles to those
+files and block log rotation after an emulator-only restart.
+Log rotation also allows a bounded ten-second retry while closing child-process
+handles are released. Only the file rename is retried; the app launch is not.
 
 The task prevents overlapping instances and allows three process restarts, one
 minute apart. It does not dismiss Android error dialogs or reset a failing AVD.
 It retains current emulator stdout/stderr and one previous pair, plus
 `process.json`. These diagnostic logs are private and require normal disk-space
 monitoring; rotation occurs at launch, not during a long-running emulator session.
+Launcher failures retain a small `launcher-error.json` with the failing stage,
+error type and timestamp. Compare its timestamp with the current `process.json`;
+an older failure remains historical evidence. Startup does not automatically kill
+a shared ADB server. When upgrading an earlier launcher that already left ADB
+holding its log open, first establish that every emulator and ADB job on that
+computer is stopped, then restart ADB during that maintenance window.
 
 ## Readiness and recovery
 
@@ -75,5 +100,22 @@ seconds, and Home again opened its first-use agreement screen without a crash.
 App setup, reliable connected-Home readiness and the full
 release-bound Android stage must be verified before relying on this worker for
 unattended submissions.
+
+Subsequent setup reused the saved Home UI password and displayed populated Home
+tiles. The public NUnit `AndroidDevice` capture and `CrestronHomePages` assertions
+also passed under the actual LocalService identity, including a populated weather
+tile and release of the Android reservation. The public assembly had to be placed
+in a service-readable tools location; the earlier interactive-only rehearsal folder
+was not readable by that account. Provision tools separately from private credentials
+rather than widening permissions on an old working directory.
+
+This service capture is an access/readiness check, not a completed release-bound
+fixture run or evidence that every UI behavior passed. Allow bounded startup time:
+the initial saved-Home card briefly said offline and the Home heading appeared
+before its data. A heading alone does not establish a connected, populated app.
+An app-only restart subsequently produced a Crestron Home nonresponse dialog.
+That failed recovery remains part of the validation record: the worker must not
+silently dismiss repeated dialogs or turn a setup capture into an unattended-test
+pass. Rendering-capacity and restart recovery checks remain in progress.
 
 Copyright (c) 2026 Neil Colvin. MIT licensed.

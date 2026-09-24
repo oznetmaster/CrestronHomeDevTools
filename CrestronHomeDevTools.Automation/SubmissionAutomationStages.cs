@@ -18,6 +18,7 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
  private readonly Func<string,NetworkCredential> credential;
  private readonly string settingsDigest;
  private readonly SubmissionAutomationWorkerRole role;
+ private readonly Func<InstalledDriverTestPlan,NetworkCredential,string,CancellationToken,Task<InstalledDriverTestResult>> runInstalledApp;
  private string? protectedDigest;
  /// <summary>Create a protected adapter only from an independently pinned installed configuration,
  /// outside build-writable run storage. Per-run settings cannot choose its tools or authority.</summary>
@@ -36,7 +37,11 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
   {protectedDigest=installed?.Sha256;}
  internal SubmissionAutomationStages(SubmissionAutomationSettings settings,string digest,
   Func<WorkflowPlan,NetworkCredential,string,CancellationToken,Task<ProcessorWorkflowResult>> run,
-  Func<string,NetworkCredential> credentials,SubmissionAutomationWorkerRole role=SubmissionAutomationWorkerRole.Evidence) { this.settings=settings;settingsDigest=digest;runNUnit=run;credential=credentials;this.role=role; }
+  Func<string,NetworkCredential> credentials,SubmissionAutomationWorkerRole role=SubmissionAutomationWorkerRole.Evidence,
+  Func<InstalledDriverTestPlan,NetworkCredential,string,CancellationToken,Task<InstalledDriverTestResult>>? installedApp=null) {
+   this.settings=settings;settingsDigest=digest;runNUnit=run;credential=credentials;this.role=role;
+   runInstalledApp=installedApp??((p,c,r,t)=>InstalledDriverTests.RunAsync(p,c,r,t));
+  }
 
  public Task<SubmissionWorkflowStepResult> ExecuteAsync(SubmissionWorkflowStepContext c,CancellationToken t)=>Advance(c,false,t);
  public Task<SubmissionWorkflowStepResult> RecoverAsync(SubmissionWorkflowStepContext c,CancellationToken t)=>Advance(c,true,t);
@@ -50,6 +55,8 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
   }
   AutomationFiles.Write(Path.Combine(c.RunDirectory,"automation-binding.json"),new { SettingsSha256=settingsDigest, c.Checkpoint.InputSha256 });
   if(c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.WindowsTests)) VerifyRetainedNUnit(c.RunDirectory);
+  if(settings.InstalledAppTests!=null && c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.AppTests))
+   AutomationInstalledApp.VerifyRetained(c.RunDirectory);
   if(c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.PrepareReview)) AutomationReview.VerifyRetained(c.RunDirectory);
   if(c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.SignReview)) AutomationSigning.VerifyRetained(c.RunDirectory);
   if(c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.Endurance)) {
@@ -69,7 +76,7 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
    case SubmissionWorkflowStage.WindowsTests: return await NUnit(c,recover,token);
    case SubmissionWorkflowStage.ProcessorTests: return VerifyNUnit(c,"Processor");
    case SubmissionWorkflowStage.AppTests:
-    return VerifyApp(c);
+    return settings.InstalledAppTests==null ? VerifyApp(c) : await AutomationInstalledApp.Advance(c,settings,recover,runInstalledApp,credential,token);
    case SubmissionWorkflowStage.Endurance: return await Endurance(c,recover,token);
    case SubmissionWorkflowStage.PrepareReview: return await AutomationReview.Advance(c,settings,recover,token);
    case SubmissionWorkflowStage.SignReview: return await AutomationSigning.Advance(c,settings,recover,token);
@@ -93,6 +100,7 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
    return new(SubmissionWorkflowStatus.Failed,ReasonCode:"candidate-package-check-failed");
   await VerifySource(token);
   settings.NUnit.Validate();
+  if(settings.InstalledAppTests!=null) AutomationInstalledApp.Validate(settings);
   if(!settings.NUnit.SourceRoots.Any(p=>Path.GetFullPath(p).Equals(Path.GetFullPath(settings.SourceRepository),StringComparison.OrdinalIgnoreCase)) ||
    !settings.NUnit.RemoveTestInstanceAfterRun || !settings.NUnit.RemoveTestPackageAfterSuccessfulRun)
    throw new InvalidDataException("Declare the candidate source root and owned test cleanup in the NUnit plan.");

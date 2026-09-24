@@ -23,11 +23,33 @@ Run [release intake](ReleaseAutomation.md#try-intake-from-the-source-build) firs
 | `PackageRequirements` | `SubmissionPackageRequirements`: expected driver GUID, four-component version, portal kind, developer filename token and actual approved package contact metadata. |
 | `CredentialBindings` | Absolute path to saved credential bindings or an encrypted setup snapshot. The named processor credential's host and HTTPS/SSH pins must match the NUnit plan. |
 | `NUnit` | The public `WorkflowPlan` object. Declare source roots, Windows tests, processor test package/suites, test-room scope and cleanup. For actual-driver/app tests, include the exact release candidate and the approved Android fixture/profile. |
+| `InstalledAppTests` | Optional public `InstalledDriverTestPlan` for a separate app phase against an already-installed exact candidate. Leave `NUnit.AndroidTests` empty when using this route. The release package/commit, processor and trust pins must match this attempt. |
 | `Endurance` | Optional public `SubmissionEnduranceWorkerPlan`, including the fully pinned read-only producer. Its candidate/source and processor must match this attempt. Missing settings stop at the corresponding stage. |
 | `Review` | `SubmissionAutomationReviewPlan`: pinned policy, official template, inventory, mapping, complete bundled console, title/author and retained observation paths. Optional declarations and Android pins follow the public review contract. |
 | `Protected` | Separate signing/delivery credential bindings and exact approval channels. Each channel has an approval document path and an independently recorded digest-file path outside the evidence run. Delivery includes the approved sender, SMTP endpoint and reviewed uploader form/terms digests. |
 
 Freeze settings and their digest after accepting the plan. Do not recalculate the expected digest to bypass a changed configuration on an existing run. The current setup form does not yet generate all these bindings; that integration is still required. The tooling manifest is retained by intake, but complete service-account tool-inventory enforcement is also unfinished.
+
+### Separate app phase
+
+Use `InstalledAppTests` when the candidate is already installed and the Windows/processor
+test phase should not redeploy it merely to run app fixtures. This invokes the public
+[installed-driver test API](https://github.com/oznetmaster/CrestronHomeNUnit/blob/main/docs/InstalledDriverTests.md)
+at the AppTests stage. It verifies installed identity and package files before and
+after the fixtures, and requires passing tests, physical-state restoration,
+temporary-child cleanup and released processor/Android reservations. The setup
+selects the exact existing instance; it does not authorize a replacement or infer
+identity from a similar tile name. A Home-readiness sample proves only its own
+assertions and cannot supply missing driver-specific checklist coverage.
+
+The worker retains the invocation identity, fixture-source digest and private Android
+profile digest before execution. Recovery consumes an existing terminal result;
+it never repeats an interrupted app operation. Preparing, missing or failed-to-record
+results require inspection of the public phase and reservation journals. Completed
+raw app evidence is inventoried and checked before later stages. Keep the profile,
+fixtures and results private where they contain household information. An old
+checkpoint's frozen settings cannot be edited to retrofit this new binding; create
+a reviewed new attempt rather than relabelling an earlier pass.
 
 The worker reads a processor login directly from the encrypted store into memory. It does not write a plaintext credential file or pass passwords in process arguments or environment variables. A worker that builds repository code must not have unrelated signing or email credentials. A store created under an interactive user's identity does not automatically become readable by a Windows service; provision the intended service identity through the public private-store tools during setup.
 

@@ -22,7 +22,8 @@ public sealed record SubmissionAutomationSettings(int SchemaVersion, string Priv
  string SourceRepository, SubmissionPackageRequirements PackageRequirements, string CredentialBindings,
  WorkflowPlan NUnit, SubmissionEnduranceWorkerPlan? Endurance = null,
  SubmissionAutomationMode Mode = SubmissionAutomationMode.Rehearsal,
- SubmissionAutomationReviewPlan? Review = null,SubmissionAutomationProtectedPlan? Protected = null);
+ SubmissionAutomationReviewPlan? Review = null,SubmissionAutomationProtectedPlan? Protected = null,
+ InstalledDriverTestPlan? InstalledAppTests = null);
 
 internal static class AutomationFiles
 {

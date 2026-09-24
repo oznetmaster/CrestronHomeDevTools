@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+The automation worker can run a separate app-test phase through the public installed-driver NUnit API, without redeploying the existing candidate or repeating Windows/processor tests. The phase pins the release and processor, preserves raw results, requires restoration and cleanup, and stops for inspection after an uncertain interruption. Actual LocalService Android capture passed on the headless Windows worker; app restart recovery exposed a nonresponse dialog, so full unattended app reliability remains under validation.
+
+Android startup now starts ADB before opening emulator logs. Previously, ADB could inherit a log handle and prevent log rotation on the next emulator launch. Startup retains failure diagnostics, and the installer accepts explicit CPU and memory allocations for the assessed worker.
+An optional configured app activity opens after Android boot. Startup failure stops the launcher's own emulator process tree, preventing an orphan QEMU process behind a failed Windows task. A bounded local log-rename retry handles closing process handles without replaying app or device commands.
+
 The source-preview console archive now includes the self-contained automation worker and Windows startup installers. An existing Google Android emulator can start headlessly at boot under its owning account without a saved Windows password. Initial Home agreement/connection setup remains explicit; a running emulator does not count as passing app tests. See [unattended Android setup](docs/submission/AndroidWorkerSetup.md).
 
 Successful console builds remove their temporary runtime staging directory after smoke checks, retaining failed staging for diagnosis. Signed-review failures now report the error category and code location without disclosing exception text, private paths or signature contents.
