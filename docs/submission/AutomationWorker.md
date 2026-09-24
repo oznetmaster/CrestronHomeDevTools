@@ -14,7 +14,12 @@ reaches 260 characters. Inspect `LongPathsEnabled` under
 `HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem`; an administrator can set
 that DWORD to `1`. Start a fresh worker process after changing it, and verify the
 real project under its service account. Individual vendor tools can still have
-shorter path limits, so this setting does not replace the build rehearsal.
+shorter path limits, so this setting does not replace the build rehearsal. In
+the hardware rehearsal, a longer directory also caused the .NET Framework test
+host to report no matching tests with unchanged filters; the same source and
+filters passed all 86 Windows tests from a short directory. Keep the complete
+build and test paths below 260 characters even with the Windows setting enabled.
+Do not remove a filter or lower the minimum test count to get past this symptom.
 
 If a run has already failed, retain its result. Correct the machine prerequisite
 and register a reviewed new attempt with a new private root and updated tooling
