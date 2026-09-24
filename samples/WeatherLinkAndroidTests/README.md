@@ -75,6 +75,10 @@ WeatherLink coverage mapping. Review those IDs against the actual pinned policy.
 The controller retains the observations, masked hierarchies, screenshots and
 allowlisted API display comparisons automatically. It does not retain all
 configuration properties, which could contain provider credentials.
+The fixture writes the public camel-case observation schema and derives capture
+and restoration references from the coordinator's actual evidence directory.
+Composition regression tests cover both output layouts and retain nonpassing
+outcomes rather than converting them to passes.
 
 The Home capture also needs a visual icon/arrow review before the complete Home
 placement requirement can be asserted; this fixture does not auto-check that item.

@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-The WeatherLink Android fixture now writes the camel-case evidence schema required by the public composer. An integration regression covers both passing and failing observations without rewriting their results. Background-worker exception status identifies the affected stage; observers must inspect worker attention status even when the durable operation checkpoint remains Running for recovery.
+The WeatherLink Android fixture now writes the camel-case evidence schema required by the public composer and references captures under the actual combined-deployment or separate-app output directory. Integration regressions cover both routes and passing/failing observations without rewriting their results. Background-worker exception status identifies the affected stage; observers must inspect worker attention status even when the durable operation checkpoint remains Running for recovery.
 
 An explicit `endurance-stop` command and public monitor API can end an idle collection and release its reservation while retaining its original plan and samples. An incomplete interval is recorded as `operator-stopped`, never converted to a pass. Pending probes and uncertain ownership still require inspection.
 

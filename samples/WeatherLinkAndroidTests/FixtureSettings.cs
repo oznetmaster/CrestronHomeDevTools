@@ -27,6 +27,15 @@ public sealed record FixtureSettings(string ProcessorHost,int DeviceId,string Ti
   if(parent.Name=="nunit" && settings.DeviceId==0)settings=settings with{DeviceId=context.InstalledDriverId};
   settings.Validate(context);return settings;
  }
+ public static string EvidenceReference(AndroidRunContext context,string file) {
+  string evidence=Path.GetFullPath(context.EvidenceDirectory);
+  var parent=Directory.GetParent(evidence);
+  if(Path.GetFileName(evidence)!="AndroidUI" || parent?.Name is not ("installed-app" or "nunit") || parent.Parent==null)
+   throw new InvalidDataException("Use the public controller's Android evidence directory.");
+  string relative=Path.GetRelativePath(evidence,Path.GetFullPath(file)).Replace('\\','/');
+  if(!SubmissionEvidence.SafeEvidencePath(evidence,relative,out _))throw new InvalidDataException("Capture is outside the Android evidence directory.");
+  return parent.Name+"/AndroidUI/"+relative;
+ }
  public void Validate(AndroidRunContext context) {
   if(ProcessorHost!=context.ProcessorAddress || DeviceId!=context.InstalledDriverId || DeviceId<=0 ||
    string.IsNullOrWhiteSpace(TileName) || !Path.IsPathFullyQualified(CredentialBindings) ||

@@ -72,9 +72,10 @@ public sealed class WeatherPagesTests
    var finished=DateTimeOffset.UtcNow;
    var files=Directory.EnumerateFiles(session.Context.EvidenceDirectory,"*",SearchOption.AllDirectories)
     .Where(f=>Path.GetFileName(Path.GetDirectoryName(f)!).StartsWith("weather-",StringComparison.Ordinal))
-    .Select(f=>new SubmissionEvidenceFile("installed-app/AndroidUI/"+Path.GetRelativePath(session.Context.EvidenceDirectory,f).Replace('\\','/'),Hash(f))).ToArray();
+    .Select(f=>new SubmissionEvidenceFile(FixtureSettings.EvidenceReference(session.Context,f),Hash(f))).ToArray();
    var restoration=new SubmissionRestorationObservation(original,action,restoredAt,finished,true,
-    "installed-app/AndroidUI/weather-home-before/observation.json","installed-app/AndroidUI/weather-home-restored/observation.json");
+    FixtureSettings.EvidenceReference(session.Context,Path.Combine(session.Context.EvidenceDirectory,"weather-home-before","observation.json")),
+    FixtureSettings.EvidenceReference(session.Context,Path.Combine(session.Context.EvidenceDirectory,"weather-home-restored","observation.json")));
    // Only these navigation/page requirements are asserted. Outage, changed-setting feedback,
    // configuration, power, multiple instances and endurance need their own producers.
    var requirements=new List<(string Id,string Target)> {
