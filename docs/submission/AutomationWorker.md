@@ -25,6 +25,7 @@ Run [release intake](ReleaseAutomation.md#try-intake-from-the-source-build) firs
 | `NUnit` | The public `WorkflowPlan` object. Declare source roots, Windows tests, processor test package/suites, test-room scope and cleanup. For actual-driver/app tests, include the exact release candidate and the approved Android fixture/profile. |
 | `InstalledAppTests` | Optional public `InstalledDriverTestPlan` for a separate app phase against an already-installed exact candidate. Leave `NUnit.AndroidTests` empty when using this route. The release package/commit, processor and trust pins must match this attempt. |
 | `Endurance` | Optional public `SubmissionEnduranceWorkerPlan`, including the fully pinned read-only producer. Its candidate/source and processor must match this attempt. Missing settings stop at the corresponding stage. |
+| `EnduranceProbeSettingsTemplate` | Optional pinned JSON settings template for release discovery. Intake copies the declared producer publication into the new run, expands candidate/path placeholders, includes the generated settings in its file inventory and binds the resulting producer ID. Leave the source probe's `SettingsFile` null. Explicit prebuilt settings continue to use the existing probe contract. |
 | `Review` | `SubmissionAutomationReviewPlan`: pinned policy, official template, inventory, mapping, complete bundled console, title/author and retained observation paths. Optional declarations and Android pins follow the public review contract. |
 | `Protected` | Separate signing/delivery credential bindings and exact approval channels. Each channel has an approval document path and an independently recorded digest-file path outside the evidence run. Delivery includes the approved sender, SMTP endpoint and reviewed uploader form/terms digests. |
 
@@ -155,6 +156,24 @@ Add `-ReleaseProfiles C:/CI/Private/release-profiles.json` to the **evidence** i
 ```
 
 The settings template uses the settings model above. Its `Release`, `PrivateRoot`, `SchemaVersion` and `Mode` are filled from verified intake and the private profile. String values can use `${run}`, `${source}`, `${package}`, `${version}`, `${version4}`, `${commit}`, `${packageSha256}` and `${releaseId}`. Set `SourceRepository` to `${source}` and use it in the NUnit source/project paths. Other required source/tool roots must be provisioned in the saved plan. Unknown placeholders fail. Package names may use `${version}`. Automatic version expansion currently supports numeric three- or four-component tags, optionally prefixed with `v`; other tagging conventions use explicit intake.
+
+An `EnduranceProbeSettingsTemplate` uses those same placeholders. Its file path
+and SHA-256 are pinned in the settings template. The source `Endurance.Probe`
+declares an already published executable directory and complete file inventory,
+with `SettingsFile: null`. Intake verifies that inventory, copies it into
+`${run}/endurance-producer`, writes `settings.generated.json`, and computes the
+per-release inventory and producer ID before registering the run. It never runs
+the producer during intake. Existing generated copies must match on recovery;
+changed source or retained bytes stop registration instead of being overwritten.
+
+For the [WeatherLink sample](../../samples/WeatherLinkEnduranceProducer/README.md),
+set `packagePath` to `${package}`, identity package/source values to
+`${packageSha256}` and `${commit}`, and `baselineFile` to `${run}/weather-lifetime.json`.
+Equipment IDs, driver manifest version, credential binding, policy/form hashes
+and applicability remain reviewed inputs. `${version4}` adds `.0` to a three-part
+tag; use an explicit manifest version if the published package has another build
+component. Explicit `--settings` execution consumes an already prepared probe;
+this template expansion belongs to release discovery, not each scheduler tick.
 
 Discovery waits for the exact package asset and digest, freezes the full private profile, downloads verified bytes, checks out the resolved public commit without hooks or submodules, expands and pins the per-release settings, then atomically registers the attempt. The ordinary worker advances it. Duplicate detection preserves an existing registration and checkpoint; it never overwrites completed evidence or resends an old submission. Workers sharing a registry must also share its storage and run locks; independent copies are not a distributed queue.
 

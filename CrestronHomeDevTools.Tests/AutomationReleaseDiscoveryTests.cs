@@ -42,6 +42,49 @@ public sealed class AutomationReleaseDiscoveryTests
   handler=new();http=new(handler);
  }
  [TearDown]public void Cleanup(){http.Dispose();Directory.Delete(root,true);}
+ private void WithProbeTemplate() {
+  string bundle=Path.Combine(root,"published-producer");Directory.CreateDirectory(bundle);
+  File.WriteAllText(Path.Combine(bundle,"probe.exe"),"Synthetic executable inventory; never executed");
+  var probe=new SubmissionEnduranceProbeProgram(bundle,"probe.exe",[new("probe.exe",AutomationFiles.Hash(Path.Combine(bundle,"probe.exe")))]);
+  var plan=new SubmissionEndurancePlan(new("${packageSha256}","${commit}",new('c',64),new('d',64)),
+   new("endurance",TimeSpan.FromHours(24),Execution:new("gateway","endurance",SubmissionEvidenceOutcome.Passed,null,false,600)),
+   "processor:fixture","instance","reservation","prepared-at-intake",TimeSpan.FromMinutes(5),TimeSpan.FromMinutes(1));
+  string input=Path.Combine(root,"probe-settings-template.json");
+  File.WriteAllText(input,"{\"packagePath\":\"${package}\",\"sourceCommit\":\"${commit}\",\"baselineFile\":\"${run}/baseline.json\"}");
+  var settings=AutomationFiles.Read<SubmissionAutomationSettings>(profile.SettingsTemplate.Path) with {
+   Endurance=new(plan,new("fixture","fixture"),probe),EnduranceProbeSettingsTemplate=new(input,AutomationFiles.Hash(input))};
+  File.WriteAllBytes(profile.SettingsTemplate.Path,JsonSerializer.SerializeToUtf8Bytes(settings,AutomationFiles.Json));
+  profile=profile with{SettingsTemplate=new(profile.SettingsTemplate.Path,AutomationFiles.Hash(profile.SettingsTemplate.Path))};
+ }
+ private SubmissionAutomationSettings ExpandProbe(string run)=>AutomationReleaseDiscovery.Expand(profile,
+  new(profile.Repository,91,"v1.2.3",new('a',40),Sha,new('c',64),new('d',64)),run,Path.Combine(run,"source"),"1.2.3");
+ [Test]public void ReleaseExpansionPreparesImmutablePerReleaseProducerAndSettingsBeforeRegistration() {
+  WithProbeTemplate();string run=Path.Combine(root,"new-run");
+  var settings=ExpandProbe(run);var worker=settings.Endurance!;
+  Assert.That(worker.Probe.Directory,Is.EqualTo(Path.Combine(run,"endurance-producer")));
+  Assert.That(worker.Plan.Identity.PackageSha256,Is.EqualTo(Sha));
+  Assert.That(worker.Plan.ProducerId,Is.EqualTo(SubmissionEnduranceProcessProbe.GetProducerId(worker.Probe)));
+  using var generated=JsonDocument.Parse(File.ReadAllBytes(worker.Probe.SettingsFile!));
+  Assert.That(generated.RootElement.GetProperty("packagePath").GetString(),Is.EqualTo(Path.Combine(run,"candidate.pkg")));
+  Assert.That(generated.RootElement.GetProperty("sourceCommit").GetString(),Is.EqualTo(new string('a',40)));
+  Assert.That(Directory.GetFiles(Path.Combine(root,"published-producer")),Has.Length.EqualTo(1));
+  Assert.That(File.Exists(Path.Combine(run,"baseline.json")),Is.False,"Intake must not observe hardware or create a lifetime baseline.");
+  var repeated=ExpandProbe(run);
+  Assert.That(repeated.Endurance!.Plan.ProducerId,Is.EqualTo(worker.Plan.ProducerId));
+ }
+ [Test]public void ModifiedGeneratedProducerSettingsStopRecoveryWithoutReplacingThem() {
+  WithProbeTemplate();string run=Path.Combine(root,"new-run");var settings=ExpandProbe(run);
+  File.AppendAllText(settings.Endurance!.Probe.SettingsFile!," ");
+  byte[] changed=File.ReadAllBytes(settings.Endurance.Probe.SettingsFile!);
+  Assert.Throws<InvalidDataException>(()=>ExpandProbe(run));
+  Assert.That(File.ReadAllBytes(settings.Endurance.Probe.SettingsFile!),Is.EqualTo(changed));
+ }
+ [Test]public void ModifiedProbeTemplateFailsBeforeCreatingAReleaseProducer() {
+  WithProbeTemplate();string run=Path.Combine(root,"new-run");
+  File.AppendAllText(Path.Combine(root,"probe-settings-template.json")," ");
+  Assert.Throws<InvalidDataException>(()=>ExpandProbe(run));
+  Assert.That(Directory.Exists(run),Is.False);
+ }
  [Test]public async Task PublishedReleaseAutomaticallyRegistersPinnedSettingsAndRepeatedDiscoveryDoesNotRestartIt() {
   int checkouts=0;
   Task Checkout(string repo,string commit,string directory,CancellationToken t){checkouts++;Assert.That(repo,Is.EqualTo(profile.Repository));Assert.That(commit,Is.EqualTo(new string('a',40)));Directory.CreateDirectory(directory);return Task.CompletedTask;}

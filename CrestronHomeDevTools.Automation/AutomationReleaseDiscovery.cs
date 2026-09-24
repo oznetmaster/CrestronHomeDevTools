@@ -99,7 +99,7 @@ internal static class AutomationReleaseDiscovery
   node["SchemaVersion"]=1;node["PrivateRoot"]=p.PrivateRoot;node["Release"]=JsonSerializer.SerializeToNode(release,AutomationFiles.Json);node["Mode"]=p.Mode.ToString();
   var settings=Replace(node)!.Deserialize<SubmissionAutomationSettings>(AutomationFiles.Json)??throw new InvalidDataException("Empty settings template.");
   if(!Path.GetFullPath(settings.SourceRepository).Equals(Path.GetFullPath(source),StringComparison.OrdinalIgnoreCase))throw new InvalidDataException("The driver source must use ${source}.");
-  return settings;
+  return AutomationProbePreparation.Prepare(settings,run,value=>Replace(value));
  }
  internal static void Register(string path,SubmissionAutomationRegistration entry) {
   using var gate=new FileStream(path+".lock",FileMode.OpenOrCreate,FileAccess.Write,FileShare.None);

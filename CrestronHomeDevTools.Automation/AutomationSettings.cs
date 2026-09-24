@@ -23,7 +23,8 @@ public sealed record SubmissionAutomationSettings(int SchemaVersion, string Priv
  WorkflowPlan NUnit, SubmissionEnduranceWorkerPlan? Endurance = null,
  SubmissionAutomationMode Mode = SubmissionAutomationMode.Rehearsal,
  SubmissionAutomationReviewPlan? Review = null,SubmissionAutomationProtectedPlan? Protected = null,
- InstalledDriverTestPlan? InstalledAppTests = null);
+ InstalledDriverTestPlan? InstalledAppTests = null,
+ SubmissionAutomationInput? EnduranceProbeSettingsTemplate = null);
 
 internal static class AutomationFiles
 {

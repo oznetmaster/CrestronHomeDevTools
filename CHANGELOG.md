@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-A public C# WeatherLink endurance-producer sample replaces embedded equipment/version constants with pinned settings and named encrypted processor credentials. It acquires and retains its lifetime baseline automatically outside the immutable program bundle, refuses changed/interrupted baseline reuse, and includes standalone synthetic checks. Its generalized hardware rehearsal and controller preparation binding remain pending.
+A public C# WeatherLink endurance-producer sample replaces embedded equipment/version constants with pinned settings and named encrypted processor credentials. It acquires and retains its lifetime baseline automatically outside the immutable program bundle, refuses changed/interrupted baseline reuse, and includes standalone synthetic checks. Release discovery can render a pinned producer-settings template into a new per-release publication, verify its complete inventory and bind its producer ID without manual copying. The generalized hardware rehearsal remains pending.
 
 The saved-setup app and public automation API can prepare a fresh rehearsal release profile and registry from a frozen snapshot and reviewed executable template. Preparation captures template/tooling hashes, reuses saved review identity, rejects processor mismatches, and lists incomplete stage bindings. It neither starts tests nor exports credentials; rehearsal profiles omit protected signing/delivery settings.
 

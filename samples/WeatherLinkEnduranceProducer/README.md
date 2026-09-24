@@ -49,10 +49,16 @@ changed input, or invalid baseline fails instead of replacing it. Retain the
 baseline with the run's evidence; never delete it to repair a running attempt.
 The mutable file is outside the immutable program inventory.
 
-The controller's per-release preparation must produce these instance-specific
-settings before freezing the producer inventory. This sample supplies the
-functional implementation; it does not itself deploy a driver, generate a
-complete release profile, or reserve equipment when invoked directly.
+For automatic release intake, supply a pinned `EnduranceProbeSettingsTemplate`
+and the published executable inventory in the public controller's settings.
+Keep the source probe's `SettingsFile` null. The controller copies the publication
+into the new run, expands `${package}`, `${packageSha256}`, `${commit}` and other
+documented placeholders, writes the generated settings, and computes the final
+producer inventory/ID before registration. Set `baselineFile` to
+`${run}/weather-lifetime.json`. This removes per-release manual copying or
+baseline acquisition. See [automation worker](../../docs/submission/AutomationWorker.md).
+This sample does not itself deploy a driver, generate the other stages of a
+release profile, or reserve equipment when invoked directly.
 
 ## What it establishes
 
