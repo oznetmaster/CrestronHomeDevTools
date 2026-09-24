@@ -179,10 +179,21 @@ class SelfTestFormTests(unittest.TestCase):
         self.assertEqual(reader.get_fields()['First']['/V'], '/Off')
         notes = [a.get_object() for page in reader.pages for a in page.get('/Annots', [])
                  if a.get_object().get('/NM', '').startswith('submission-note:')]
-        self.assertEqual([a['/Contents'] for a in notes], ['N/A 1', '[2]'])
-        self.assertEqual(notes[0]['/NM'], 'submission-note:First')
-        self.assertIn(b'(N/A 1) Tj', notes[0]['/AP']['/N'].get_object().get_data())
-        self.assertEqual(notes[0]['/F'], 4)  # Printed as well as displayed.
+        self.assertEqual([a['/Contents'] for a in notes], ['[1]'])
+        statuses = [a.get_object() for page in reader.pages for a in page.get('/Annots', [])
+                    if a.get_object().get('/NM', '').startswith('submission-status:')]
+        self.assertEqual(len(statuses), 1)
+        self.assertEqual(statuses[0]['/NM'], 'submission-status:First')
+        self.assertEqual(statuses[0]['/Contents'], 'N/A')
+        self.assertIn(b'(N/A) Tj', statuses[0]['/AP']['/N'].get_object().get_data())
+        self.assertEqual(statuses[0]['/F'], 4)  # Printed as well as displayed.
+        self.assertEqual(report['numberedNotes'], 1)
+        appendix = '\n'.join(page.extract_text() for page in reader.pages[report['notesStartPage']:])
+        self.assertNotIn('This entire synthetic control family is absent.', appendix)
+        self.assertNotIn('Not applicable', appendix)
+        links = [a.get_object() for page in reader.pages for a in page.get('/Annots', [])
+                 if a.get_object().get('/Subtype') == '/Link']
+        self.assertEqual(len(links), 2)  # One remaining note, forward and return links.
         for i, page in enumerate(PdfReader(self.template).pages):
             self.assertEqual(page.get_contents().get_data(),
                              reader.pages[i + report['officialStartPage']].get_contents().get_data())

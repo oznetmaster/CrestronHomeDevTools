@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+Self-test forms mark entirely non-applicable items simply N/A, without an appended note or link. Notes for checked and qualified items remain consecutively numbered and linked. Applicability evidence and checkbox decisions are unchanged.
+
 ## 1.18.2 - 2026-09-23
 
 Evidence mapping now accepts the camelCase worker files used by the endurance console, as well as retained PascalCase API worker files. Previously, mapping a completed console run could fail with a generic input error. Both forms retain their original bytes and hashes; strict schema, identity, producer and measured-result validation remain enforced. No collector restart or evidence rewrite is needed.

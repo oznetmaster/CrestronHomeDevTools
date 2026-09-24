@@ -50,7 +50,7 @@ def notes_document(title, author, rows, identity, draft, signing_copy=False, dec
         story.append(paragraph('Disclosed limitations remain identified below. An unchecked item with a numbered note is not represented as a full pass.'))
     statuses = {'Passed':'Checked', 'NotApplicable':'Not applicable',
                 'NotTested':'Not evaluated', 'GapDeclared':'Unchecked - see qualification'}
-    for number, row in enumerate(rows, 1):
+    for number, row in enumerate((row for row in rows if row['state'] != 'NotApplicable'), 1):
         story.append(KeepTogether([NoteAnchor(number), paragraph(f'{number}. {row["label"]}', subheading),
                                   paragraph('Checked - reviewed interpretation' if row['state']=='Passed' and row.get('interpretationReviewed') else statuses[row['state']]),
                                   paragraph(row['rationale'] or 'The mapped evidence supports the recorded checklist result.'),
@@ -71,7 +71,9 @@ def notes_document(title, author, rows, identity, draft, signing_copy=False, dec
 
 
 def link_notes(writer, rows, positions, notes_start):
-    by_field = {row['field']:(number,row) for number,row in enumerate(rows,1)}
+    numbered = {row['field']: number for number, row in
+                enumerate((row for row in rows if row['state'] != 'NotApplicable'), 1)}
+    by_field = {row['field']:(numbered.get(row['field']),row) for row in rows}
     font = DictionaryObject({NameObject('/Type'):NameObject('/Font'),
                              NameObject('/Subtype'):NameObject('/Type1'),
                              NameObject('/BaseFont'):NameObject('/Helvetica')})
@@ -88,7 +90,7 @@ def link_notes(writer, rows, positions, notes_start):
             x,y = left-width-3,(bottom+top-height)/2
             if x<float(page.mediabox.left):
                 raise ValueError('No space for a numbered checklist reference')
-            label = f'N/A {number}' if row['state']=='NotApplicable' else f'[{number}]'
+            label = 'N/A' if row['state']=='NotApplicable' else f'[{number}]'
             appearance = DecodedStreamObject()
             appearance.update({NameObject('/Type'):NameObject('/XObject'),
                 NameObject('/Subtype'):NameObject('/Form'),
@@ -98,9 +100,12 @@ def link_notes(writer, rows, positions, notes_start):
             rectangle = [x,y,x+width,y+height]
             writer.add_annotation(index, DictionaryObject({NameObject('/Type'):NameObject('/Annot'),
                 NameObject('/Subtype'):NameObject('/FreeText'),NameObject('/Rect'):ArrayObject(map(FloatObject,rectangle)),
-                NameObject('/Contents'):TextStringObject(label),NameObject('/NM'):TextStringObject('submission-note:'+widget['/T']),
+                NameObject('/Contents'):TextStringObject(label),NameObject('/NM'):TextStringObject(
+                    ('submission-status:' if number is None else 'submission-note:')+widget['/T']),
                 NameObject('/DA'):TextStringObject('/Helv 7 Tf 0 g'),NameObject('/F'):NumberObject(4),
                 NameObject('/AP'):DictionaryObject({NameObject('/N'):writer._add_object(appearance)})}))
+            if number is None:
+                continue
             note_page,note_x,note_y = positions[number]
             destination = notes_start+note_page
             forward = writer.add_annotation(index,Link(rect=rectangle, target_page_index=destination,

@@ -421,7 +421,7 @@ def write_form(source_bytes, inventory, output, title, author, rows, identity, d
         destination.write(data.getvalue())
     report = {"schemaVersion": 1, "formSha256": sha(data.getvalue()), "templateSha256": sha(source_bytes),
             "identity": identity, "pages": len(result.pages), "companionPages": len(cover.pages),
-            "officialStartPage": 0, "notesStartPage": len(source.pages), "numberedNotes": len(rows),
+            "officialStartPage": 0, "notesStartPage": len(source.pages), "numberedNotes": len(note_positions),
             "checkedRequirements": [row["id"] for row in rows if row["state"] == "Passed"],
             "notApplicableRequirements": [row["id"] for row in rows if row["state"] == "NotApplicable"],
             "signatureBlank": True, "dateBlank": True, "visualReviewRequired": True,
