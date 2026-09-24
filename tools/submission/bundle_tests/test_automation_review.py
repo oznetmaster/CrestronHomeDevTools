@@ -11,6 +11,7 @@ from PIL import Image, ImageDraw
 
 from pypdf import PdfReader
 import test_self_test_form as fixtures
+import test_audit_android as android_fixtures
 from build_help import sha
 
 
@@ -55,6 +56,38 @@ class AutomationReviewIntegration(unittest.TestCase):
         self.assertEqual("/Yes", form.get_fields()["Second"]["/V"])
         self.assertFalse((root / "signed-review").exists())
         self.assertFalse((root / "delivery").exists())
+
+    def test_coordinator_android_handoff_reaches_real_audit_and_pdf(self):
+        f = self.fixture()
+        android = android_fixtures.AndroidEvidenceTests()
+        android.setUp()
+        self.addCleanup(android.doCleanups)
+        android.context.update(PackageSha256=sha((f.root / "candidate.pkg").read_bytes()),
+                               ReleaseSourceCommit="a" * 40, DriverGuid=f.driver_id,
+                               DriverVersion="1.0.000.0000")
+        android.write("context.json", android.context)
+        android.write("completion.json", {"SchemaVersion": 1, "RunId": android.run,
+                      "PackageSha256": android.context["PackageSha256"], "RestorationConfirmed": True})
+        android.pin["PackageSha256"] = android.context["PackageSha256"]
+        android.write("producer-pin.json", android.pin)
+        android.coverage.update(PackageSha256=android.context["PackageSha256"], ReleaseSourceCommit="a" * 40)
+        android.write("coverage.json", android.coverage)
+        android.capture.update(android.context)
+        android.write("check/observation.json", android.capture)
+        shutil.copytree(android.root, f.root / "nunit/AndroidUI")
+        f.write_json(f.root / "windows-tests.json", {"InputSha256": "e" * 64, "Stage": "Local", "Files": [
+            {"RelativePath": p.relative_to(f.root).as_posix(), "Sha256": sha(p.read_bytes())}
+            for p in (f.root / "nunit").rglob("*") if p.is_file()]})
+        command = [os.environ["SUBMISSION_TEST_DOTNET"], os.environ["SUBMISSION_TEST_PROBE"],
+                   "--automation-review", str(f.root), str(Path(os.environ["SUBMISSION_TEST_BUNDLE"]).parent)]
+        result = subprocess.run(command, capture_output=True, text=True, timeout=120)
+        diagnostics = f.root / "review-process/stderr.txt"
+        self.assertEqual(result.returncode, 0, result.stderr + (diagnostics.read_text() if diagnostics.exists() else ""))
+        audit = json.loads((f.root / "review/android-audit.json").read_text())
+        self.assertEqual(audit["runs"][0]["runId"], android.run)
+        self.assertFalse(audit["producerAuthenticated"])
+        self.assertTrue((f.root / "review/self-test.review.pdf").is_file())
+        self.assertFalse((f.root / "signed-review").exists())
 
     def test_review_sign_delivery_retention_chain_waits_for_exact_authority_and_does_not_resend(self):
         f = self.fixture()

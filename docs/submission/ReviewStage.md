@@ -12,6 +12,8 @@ Use this only after testing an immutable actual-driver Release candidate. Ordina
 
 The source [Android evidence audit](AndroidEvidence.md) checks the Android workflow's retained run before scoped observations are prepared. Version 1.9.0 connects it to this review stage. The stage re-audits raw results before form generation and again before completing the review. It does not authenticate a producer, and an audit receipt alone cannot fill missing official requirements.
 
+In the automation controller, configured combined Android tests and separate installed-app tests automatically supply this handoff from their completed coordinator receipts. The controller verifies the receipt, release identity, retained files and pre-execution producer/discovery/selection pins before writing candidate-bound review inputs. Developers do not need to copy run IDs or hashes after testing. Explicit `Review.AndroidPins` and `Review.AndroidEvidence` remain supported as a pair and are never silently replaced. A missing or changed coordinator receipt stops review; it cannot be repaired by recalculating hashes from untrusted output.
+
 When different phases supply separate scoped observation documents, the [evidence composition API and CLI](EvidenceComposition.md), available in 1.13.0, can assemble them with the full policy checked and failures preserved. It does not create observations from raw test output or replace trusted producer review.
 
 When a later candidate retains relevant earlier passing tests, use the explicit [prior-evidence review](PriorEvidence.md). It requires a scoped change-impact decision and retains the original outcomes and identities; it does not relabel those tests as fresh executions.

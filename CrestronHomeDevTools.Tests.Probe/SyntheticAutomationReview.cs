@@ -19,6 +19,8 @@ internal static class SyntheticAutomationReview
    "SYNTHETIC AUTOMATION REHEARSAL - NEVER SUBMITTED","Synthetic Developer",["nunit/observations.json"]);
   var nunit=new WorkflowPlan {Host="synthetic.invalid",CertificateSha256=new('d',64),SshFingerprint="not-used",SourceRoots=[root],LocalTests=[],
    TestPackage=new("unused.csproj","unused.pkg","Synthetic",1),ProcessorSuites=[]};
+  bool android=Directory.Exists(P("nunit/AndroidUI"));
+  if(android)nunit=nunit with{AndroidTests=new("unused.csproj","unused.json")};
   var settings=new SubmissionAutomationSettings(1,root,release,root,new("75b3457d-70f3-4c02-940e-22fbd970ef94","1.0.000.0000",PortalSubmissionKind.NewDriver,"Example","support@example.org"),
    "no-credentials-in-this-test",nunit,Review:review);
   if(phase!=null) {
@@ -28,6 +30,7 @@ internal static class SyntheticAutomationReview
     new("fixture@example.org","smtp.example.invalid",587,new('a',64),new('b',64)))};
   }
   var context=new SubmissionWorkflowStepContext(root,new(1,new('e',64),release,SubmissionWorkflowStage.PrepareReview,SubmissionWorkflowStatus.Running,"synthetic-document-operation",null,[],DateTimeOffset.UtcNow));
+  if(android)context.Checkpoint.CompletedStages.Add(SubmissionWorkflowStage.WindowsTests,new("windows-tests.json",Hash(P("windows-tests.json"))));
   var stages=new SubmissionAutomationStages(settings,new('f',64));
   if(phase is "sign" or "deliver") {
    context=context with{Checkpoint=context.Checkpoint with{Stage=phase=="sign"?SubmissionWorkflowStage.SignReview:SubmissionWorkflowStage.Deliver,OperationId="synthetic-"+phase}};

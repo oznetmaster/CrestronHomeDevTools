@@ -115,13 +115,19 @@ internal static class AutomationReview
   string observations=Path.Combine(folder,"observations.json");WriteDocument(observations,report.Observations);
   string? declarations=plan.Declarations==null?null:Copy(plan.Declarations,"declarations.json");
   string? android=plan.AndroidPins==null?null:Copy(plan.AndroidPins,"android-pins.json");
+  JsonElement? androidEvidence=plan.AndroidEvidence;
+  if((android==null)!=(androidEvidence==null))throw new InvalidDataException("Explicit Android review bindings require both pins and evidence locations.");
+  if(android==null && (settings.NUnit.AndroidTests!=null || settings.InstalledAppTests!=null)) {
+   var binding=AutomationAndroidReview.Bind(c,settings.Release,settings.InstalledAppTests!=null,Path.Combine(folder,"candidate.json"),token);
+   android=binding.PinsPath;androidEvidence=binding.Evidence;
+  }
   var values=new Dictionary<string,object>{["schemaVersion"]=1,["candidate"]=Path.Combine(folder,"candidate.json"),["policy"]=policy,
    ["template"]=template,["inventory"]=inventory,["mapping"]=mapping,["observations"]=observations,["package"]=Path.Combine(folder,name),
    ["evidence"]=root,["output"]=Path.Combine(root,"review"),["title"]=plan.Title,["author"]=plan.Author};
-  if(plan.AndroidEvidence is {} androidEvidence)values.Add("androidEvidence",androidEvidence);
+  if(androidEvidence is {} locations)values.Add("androidEvidence",locations);
   string settingsPath=Path.Combine(folder,"settings.json");WriteDocument(settingsPath,values);
   var prepared=new Prepared(settingsPath,AutomationFiles.Hash(Path.Combine(folder,"candidate.json")),plan.Inventory.Sha256,plan.Mapping.Sha256,
-   declarations,plan.Declarations?.Sha256,android,plan.AndroidPins?.Sha256);
+   declarations,plan.Declarations?.Sha256,android,android==null?null:AutomationFiles.Hash(android));
   AutomationFiles.Write(Path.Combine(folder,"prepared.json"),prepared);return prepared;
  }
  private static SubmissionObservation Rebase(SubmissionObservation o,string root) {
