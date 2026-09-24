@@ -66,6 +66,13 @@ The template invokes the controller once and ends when an operation is waiting. 
 
 ## Background continuation and release discovery
 
+The source-preview console archive build includes the self-contained worker in
+`automation/` and installers in `scripts/automation/`. Extract the complete archive;
+keep both directory trees. Building drivers still requires the documented .NET
+SDK and Crestron tools, but starting this worker does not require compiling it.
+The examples below use source-checkout installer paths; in the archive substitute
+`scripts/automation/` for `tools/`.
+
 Provision the trusted executable, protected registry and service-writable status directory first. Use a dedicated evidence-worker identity that can build the chosen sources and access only its test credentials. Provision signing/delivery under a separate protected identity with its own credential store and approval directory. `--role` routes work; it is **not** a substitute for Windows permissions or isolation between these accounts. The protected worker must not execute driver source code.
 
 Run the installer from administrator PowerShell 7.6 or later:
@@ -112,6 +119,11 @@ CrestronHomeDevTools.Automation.exe --intake-releases C:/CI/Private/release-prof
 This only performs discovery, intake, source checkout and registration. The installed watcher will execute registered tests, so use an isolated unwatched registry when checking setup alone. A source-preview profile must be reviewed against the actual driver tests and device restrictions; filling placeholders does not manufacture coverage.
 
 ## Execution and recovery
+
+For an existing Google Android emulator on a dedicated Windows test worker, see
+[unattended Android setup](AndroidWorkerSetup.md). Its startup task is separate
+from the evidence worker. Complete and verify the Home connection once; emulator
+startup alone does not satisfy the app-test stage.
 
 Candidate validation checks the package bytes against their **original published filename**, verifies the release metadata and requires the clean frozen source revision. The package report is retained even when validation fails. Package contact metadata and the Contact Information section of the help PDF are distinct checks; configure each against the correct artifact.
 

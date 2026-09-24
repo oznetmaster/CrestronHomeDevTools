@@ -22,12 +22,6 @@ try {
     $console = Join-Path $root ('artifacts/console-' + [Guid]::NewGuid().ToString('N'))
     & ./tools/BuildSubmissionConsole.ps1 -OutputDirectory $console -Version $Version
     & ./tools/TestSubmissionConsole.ps1 -ConsoleDirectory $console
-    $assets = Get-Content CrestronHomeDevTools.Console/obj/project.assets.json -Raw | ConvertFrom-Json -AsHashtable
-    $pack = @($assets.packageFolders.Keys | ForEach-Object { Join-Path $_ 'microsoft.netcore.app.runtime.win-x64/10.0.12' } | Where-Object { Test-Path $_ }) | Select-Object -First 1
-    if (-not $pack) { throw 'Runtime pack not found.' }
-    $notices = Join-Path $console 'licenses/bundled-runtime'
-    New-Item -ItemType Directory -Path $notices -Force | Out-Null
-    foreach ($file in @('LICENSE.TXT','THIRD-PARTY-NOTICES.TXT')) { Copy-Item (Join-Path $pack $file) $notices }
     & (Join-Path $console 'CrestronHomeDevTools.Console.exe') --help
     if ($LASTEXITCODE -ne 0) { throw 'Console smoke test failed.' }
     [IO.Compression.ZipFile]::CreateFromDirectory($console, (Join-Path $release 'CrestronHomeDevTools.Console-win-x64.zip'))
@@ -43,6 +37,9 @@ try {
                 if (@($zip.Entries | Where-Object FullName -CEQ $relative).Count -ne 1) { throw "Missing or duplicated document $relative in $($file.Name)." }
             }
             if ($file.Extension -eq '.zip') {
+                foreach ($name in @('automation/CrestronHomeDevTools.Automation.exe','scripts/automation/InstallSubmissionAutomationWorker.ps1','scripts/automation/InstallSubmissionAndroidFixture.ps1','scripts/automation/RunAndroidFixture.ps1')) {
+                    if (@($zip.Entries | Where-Object FullName -CEQ $name).Count -ne 1) { throw "Missing automation component $name." }
+                }
                 foreach ($name in @('Set-EnduranceDirectoryPermissions.ps1','Invoke-EnduranceScheduledTick.ps1','New-EnduranceScheduleConfiguration.ps1','Register-EnduranceScheduledTask.ps1','Export-EnduranceScheduledRun.ps1','Get-EnduranceHealthSnapshot.ps1','New-EnduranceWatchConfiguration.ps1','Invoke-EnduranceScheduledWatch.ps1')) {
                     if (@($zip.Entries | Where-Object FullName -CEQ ('scripts/endurance/' + $name)).Count -ne 1) { throw "Missing scheduled-worker script $name." }
                 }
