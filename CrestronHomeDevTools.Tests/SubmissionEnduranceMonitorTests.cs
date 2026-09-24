@@ -84,6 +84,43 @@ public sealed class SubmissionEnduranceMonitorTests
 		}
 
 	[Test]
+	public async Task OperatorStopRetainsPassingSamplesWithoutClaimingCompletedInterval ()
+		{
+		await Start (); await Collect ();
+		var before = SubmissionEndurance.ReadCheckpoint (SubmissionEnduranceMonitor.GetEvidenceDirectory (_directory), _plan)!;
+		await SubmissionEnduranceMonitor.StopCoreAsync (_directory, _plan, _processor, Resume);
+		var after = SubmissionEnduranceMonitor.ReadStatus (_directory, _plan, _processor);
+		Assert.That (after.ReservationState, Is.EqualTo ("Released"));
+		Assert.That (after.Checkpoint!.State, Is.EqualTo (SubmissionEnduranceState.Failed));
+		Assert.That (after.Checkpoint.Reason, Is.EqualTo ("operator-stopped"));
+		Assert.That (after.Checkpoint.Samples, Is.EqualTo (before.Samples));
+		Assert.That (after.Checkpoint.PlanSha256, Is.EqualTo (before.PlanSha256));
+		await SubmissionEnduranceMonitor.StopCoreAsync (_directory, _plan, _processor, Resume);
+		await Collect ();
+		Assert.That (_releases, Is.EqualTo (1));
+		Assert.That (_probes, Is.EqualTo (1));
+		Assert.Throws<InvalidOperationException> (() => SubmissionEndurance.Export (SubmissionEnduranceMonitor.GetEvidenceDirectory (_directory), _plan, _clock.GetUtcNow ()));
+		}
+
+	[Test]
+	public async Task OperatorStopPreservesAlreadyCompletedOutcome ()
+		{
+		await Start (); await Complete ();
+		await SubmissionEnduranceMonitor.StopCoreAsync (_directory, _plan, _processor, Resume);
+		Assert.That (SubmissionEnduranceMonitor.ReadStatus (_directory, _plan, _processor).Checkpoint!.State, Is.EqualTo (SubmissionEnduranceState.Passed));
+		Assert.That (_releases, Is.EqualTo (1));
+		}
+
+	[Test]
+	public async Task OperatorStopRefusesInterruptedProbeWithoutReleasing ()
+		{
+		await Start ();
+		await Collect (_ => throw new OperationCanceledException ());
+		Assert.ThrowsAsync<InvalidOperationException> (async () => await SubmissionEnduranceMonitor.StopCoreAsync (_directory, _plan, _processor, Resume));
+		Assert.That (_releases, Is.Zero);
+		}
+
+	[Test]
 	public async Task OfflineStatusDistinguishesPassedObservationFromReservationCleanup ()
 		{
 		Assert.That (SubmissionEnduranceMonitor.ReadStatus (_directory, _plan, _processor).ReservationState, Is.EqualTo ("NotStarted"));

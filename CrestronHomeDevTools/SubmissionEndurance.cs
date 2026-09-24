@@ -131,6 +131,20 @@ public static class SubmissionEndurance
 		return checkpoint;
 		}
 
+	/// <summary>Explicitly stop an idle collection without changing its plan or samples. Failed/operator-stopped
+	/// means the planned interval was not completed, not that a device observation failed.</summary>
+	public static SubmissionEnduranceCheckpoint Stop (string privateRunDirectory, SubmissionEndurancePlan plan)
+		{
+		using var journal = new Journal (privateRunDirectory);
+		var checkpoint = journal.Read (PlanDigest (plan)) ?? throw new InvalidOperationException ("Collection has not started.");
+		if (checkpoint.State is SubmissionEnduranceState.Passed or SubmissionEnduranceState.Failed) return checkpoint;
+		if (checkpoint.State != SubmissionEnduranceState.Collecting)
+			throw new InvalidOperationException ("Pending or interrupted probes require inspection before stopping.");
+		checkpoint = checkpoint with { State = SubmissionEnduranceState.Failed, Reason = "operator-stopped", UpdatedUtc = DateTimeOffset.UtcNow };
+		journal.Write (checkpoint);
+		return checkpoint;
+		}
+
 	/// <summary>Exports only a completed, revalidated run; partial time never becomes a passing observation.</summary>
 	public static SubmissionObservation Export (string privateRunDirectory, SubmissionEndurancePlan plan, DateTimeOffset now)
 		{

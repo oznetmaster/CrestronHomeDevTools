@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+An explicit `endurance-stop` command and public monitor API can end an idle collection and release its reservation while retaining its original plan and samples. An incomplete interval is recorded as `operator-stopped`, never converted to a pass. Pending probes and uncertain ownership still require inspection.
+
 An optional deployment-to-endurance binding now derives the probe's device and catalogue IDs from retained, verified NUnit release-deployment receipts. Intake preserves a pinned template; the final producer is prepared before collection and reused on recovery without rewriting frozen settings or changing the test criteria. Existing installed-candidate runs keep their current behavior. Fresh hardware validation of this route remains pending.
 
 The combined release-deployment route now supplies retained fixture inputs before NUnit starts. The WeatherLink app sample can use the newly deployed instance ID from the public Android context, without a manual settings edit. Existing-instance tests still require an exact ID. Changes or loss of fixture inputs prevent recovery from reporting a pass. Fresh hardware validation of this new route remains pending.

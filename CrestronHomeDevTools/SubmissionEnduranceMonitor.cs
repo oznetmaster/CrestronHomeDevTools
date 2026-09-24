@@ -54,6 +54,29 @@ public static class SubmissionEnduranceMonitor
 		// Disposing closes the transport only. The remote reservation intentionally remains.
 		}
 
+	/// <summary>Explicit operator stop between probes. Preserves all observations and the original requirement,
+	/// records operator-stopped for an incomplete collection, and releases only its verified reservation.</summary>
+	public static Task StopAsync (string directory, SubmissionEndurancePlan plan, SubmissionEnduranceProcessor processor,
+		NetworkCredential credential, CancellationToken token = default) => StopCoreAsync (directory, plan, processor,
+		async ct => await ProcessorOperationLease.ResumeAsync (processor.Host, credential, processor.SshFingerprint, plan.ReservationId, ct).ConfigureAwait (false), token);
+
+	internal static async Task StopCoreAsync (string directory, SubmissionEndurancePlan plan, SubmissionEnduranceProcessor processor,
+		Func<CancellationToken, Task<IProcessorOperationLease>> resume, CancellationToken token = default)
+		{
+		using var journal = new MonitorJournal (directory, plan, processor);
+		var checkpoint = SubmissionEndurance.ReadCheckpoint (GetEvidenceDirectory (directory), plan);
+		string? state = journal.Read ();
+		if (state == "Released" && checkpoint?.State is SubmissionEnduranceState.Passed or SubmissionEnduranceState.Failed) return;
+		if (state != "Held" || checkpoint?.State is not (SubmissionEnduranceState.Collecting or SubmissionEnduranceState.Passed or SubmissionEnduranceState.Failed))
+			throw new InvalidOperationException ("Inspect pending probes or uncertain ownership before stopping.");
+		using var lease = await resume (token).ConfigureAwait (false);
+		RequireOwner (lease, plan);
+		_ = SubmissionEndurance.Stop (GetEvidenceDirectory (directory), plan);
+		journal.Write ("Releasing");
+		await lease.ReleaseAsync (token).ConfigureAwait (false);
+		journal.Write ("Released");
+		}
+
 	internal static async Task<SubmissionEnduranceCheckpoint> CollectCoreAsync (string directory, SubmissionEndurancePlan plan,
 		SubmissionEnduranceProcessor processor, Func<CancellationToken, Task<IProcessorOperationLease>> resume,
 		Func<CancellationToken, Task<SubmissionEnduranceProbeResult>> probe, TimeProvider clock, CancellationToken token = default)
