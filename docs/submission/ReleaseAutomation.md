@@ -2,7 +2,7 @@
 
 The intended entry point is publishing an opted-in **driver** release. One-time private setup supplies the developer, driver, equipment, test plan, credentials and permitted operations. A persistent controller should advance the work; an assistant should be needed for exceptions and product decisions, not to carry files between stages or remember when endurance finishes.
 
-**Source preview, not complete automation.** This branch implements verified release intake and persistent stage sequencing. The production stage adapters and automatic release-event routing are still pending. The existing [manual workflow](WorkflowSetup.md) remains the supported GitHub stage route. Use the [single starting document](START-DRIVER-SUBMISSION.md) for an assistant-led submission. Neither route has yet demonstrated the fully automatic GitHub-release-to-delivery goal.
+**Source preview, not complete automation.** This branch implements verified release intake, persistent sequencing and a [Windows automation worker](AutomationWorker.md) using the public NUnit and endurance APIs. Release intake through Windows tests, processor tests and owned-instance cleanup has been exercised on real hardware. App/endurance handoffs have deterministic adapter tests; their complete real route, review/delivery adapters and automatic release-event routing remain pending. The existing [manual workflow](WorkflowSetup.md) remains the supported GitHub stage route. Use the [single starting document](START-DRIVER-SUBMISSION.md) for an assistant-led submission. Neither route has yet demonstrated the fully automatic GitHub-release-to-delivery goal.
 
 ## What is implemented
 
@@ -59,7 +59,7 @@ The run contains `candidate.pkg`, `release.json`, `state.json` and small lock fi
 
 | Work | Done when |
 |---|---|
-| Stage adapters | Existing public NUnit, resource, app, endurance, review and delivery APIs are bound to these stages; they validate actual receipts and recover recorded operations without hand-written per-submission glue. |
+| Stage adapters | Exercise the configured Android and endurance handoffs on real hardware, bind review/signing/delivery/retention, and validate their actual receipts and recovery. The Windows/processor NUnit adapter has passed a real hardware rehearsal. |
 | Automatic handoff | A trusted private release listener routes opted-in repo/release IDs to the configured worker; retries reuse the same run. The public driver repository needs no submission files or secrets. |
 | Setup integration | The form saves equipment roles, test bindings, release selection and named GitHub access alongside existing developer/driver/credential profiles; validates these under the actual service account. |
 | Durable continuation | A Windows service/scheduled task resumes the controller at startup and after external completion; waits require no AI heartbeat. Shared resources use the existing leases, even across repositories or PCs. |

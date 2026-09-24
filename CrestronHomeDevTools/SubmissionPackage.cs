@@ -39,7 +39,8 @@ public static class SubmissionPackage
 		return Inspect (input, Path.GetFileName (path), requirements);
 		}
 
-	internal static SubmissionPackageReport Inspect (Stream input, string fileName, SubmissionPackageRequirements requirements)
+	/// <summary>Inspect retained package bytes using their original published filename.</summary>
+	public static SubmissionPackageReport Inspect (Stream input, string fileName, SubmissionPackageRequirements requirements)
 		{
 		ArgumentNullException.ThrowIfNull (requirements);
 		if (!Guid.TryParse (requirements.DriverId, out var expectedId))

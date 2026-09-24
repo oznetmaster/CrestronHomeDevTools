@@ -241,7 +241,7 @@ public static class SubmissionEndurance
 				output.Write (JsonSerializer.SerializeToUtf8Bytes (checkpoint, JsonOptions));
 				output.Flush (true);
 				}
-			File.Move (temporary, Path.Combine (Root, "checkpoint.json"), true);
+			SubmissionJournalFile.Replace (temporary, Path.Combine (Root, "checkpoint.json"));
 			}
 		public void Dispose () => _lock.Dispose ();
 		}
