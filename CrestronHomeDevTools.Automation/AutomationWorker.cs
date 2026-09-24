@@ -17,8 +17,10 @@ internal static class AutomationWorker
   var statuses=new List<Status>();
   foreach(var entry in registry.Entries) {
    token.ThrowIfCancellationRequested();
+   AutomationRequest? currentRequest=null;
    try {
     var request=AutomationRequest.Load(["--registry",registryPath,"--profile",entry.Profile,"--release-id",entry.ReleaseId.ToString(System.Globalization.CultureInfo.InvariantCulture),"--mode",entry.Mode==SubmissionAutomationMode.Rehearsal?"rehearsal":"submit"]);
+    currentRequest=request;
     var s=request.Settings;
     var checkpoint=SubmissionWorkflow.Read(s.PrivateRoot,s.Release);
     if(Owns(checkpoint.Stage,role) && checkpoint.Status is SubmissionWorkflowStatus.Ready or SubmissionWorkflowStatus.Running or SubmissionWorkflowStatus.Waiting) {
@@ -30,7 +32,12 @@ internal static class AutomationWorker
    catch(Exception error) when(error is not OutOfMemoryException) {
     // Another process holding the workflow lock is not a failed device test. Preserve all domain journals.
     bool busy=error is IOException && (error.HResult&0xffff) is 32 or 33;
-    statuses.Add(new(entry.Profile,entry.ReleaseId,entry.Mode,busy?"Busy":"AttentionRequired",null,busy?"workflow-in-use":error.GetType().Name));
+    string? stage=null;
+    if(!busy && currentRequest is {} failed) {
+     try {stage=SubmissionWorkflow.Read(failed.Settings.PrivateRoot,failed.Settings.Release).Stage.ToString();}
+     catch(Exception inspectionError) when(inspectionError is not OutOfMemoryException) { }
+    }
+    statuses.Add(new(entry.Profile,entry.ReleaseId,entry.Mode,busy?"Busy":"AttentionRequired",stage,busy?"workflow-in-use":error.GetType().Name));
    }
   }
   return statuses.ToArray();

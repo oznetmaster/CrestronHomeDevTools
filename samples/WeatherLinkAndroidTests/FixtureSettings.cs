@@ -9,7 +9,7 @@ namespace WeatherLinkAndroidTests;
 public sealed record FixtureSettings(string ProcessorHost,int DeviceId,string TileName,
  string CredentialBindings,SubmissionEvidenceIdentity Identity)
 {
- public static readonly JsonSerializerOptions Json=new() {PropertyNameCaseInsensitive=true,WriteIndented=true,
+ public static readonly JsonSerializerOptions Json=new() {PropertyNameCaseInsensitive=true,PropertyNamingPolicy=JsonNamingPolicy.CamelCase,WriteIndented=true,
   UnmappedMemberHandling=JsonUnmappedMemberHandling.Disallow,RespectRequiredConstructorParameters=true,
   RespectNullableAnnotations=true,AllowDuplicateProperties=false,Converters={new JsonStringEnumConverter()}};
  public static FixtureSettings Read(AndroidRunContext context) {

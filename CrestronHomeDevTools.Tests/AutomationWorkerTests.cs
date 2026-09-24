@@ -36,6 +36,18 @@ public sealed class AutomationWorkerTests
   public Task<SubmissionWorkflowStepResult> ExecuteAsync(SubmissionWorkflowStepContext c,CancellationToken t)=>Task.FromResult(new SubmissionWorkflowStepResult(SubmissionWorkflowStatus.NeedsInput,ReasonCode:"fixture-missing-input"));
   public Task<SubmissionWorkflowStepResult> RecoverAsync(SubmissionWorkflowStepContext c,CancellationToken t)=>throw new Exception("No implicit recovery");
  }
+ private sealed class JsonFailureSteps:ISubmissionWorkflowSteps {
+  public Task<SubmissionWorkflowStepResult> ExecuteAsync(SubmissionWorkflowStepContext c,CancellationToken t)=>throw new System.Text.Json.JsonException("Synthetic private diagnostic must not enter public status");
+  public Task<SubmissionWorkflowStepResult> RecoverAsync(SubmissionWorkflowStepContext c,CancellationToken t)=>throw new InvalidOperationException("No recovery in this test");
+ }
+ [Test]public async Task AdapterExceptionReportsAttentionAndExactStageEvenWithRunningCheckpoint() {
+  var states=await AutomationWorker.Tick(registry,SubmissionAutomationWorkerRole.Evidence,default,
+   (request,t)=>SubmissionWorkflow.AdvanceAsync(root,settings.Release,new JsonFailureSteps(),t));
+  Assert.That(SubmissionWorkflow.Read(root,settings.Release).Status,Is.EqualTo(SubmissionWorkflowStatus.Running));
+  Assert.That(states.Single().State,Is.EqualTo("AttentionRequired"));
+  Assert.That(states.Single().Stage,Is.EqualTo("ValidateCandidate"));
+  Assert.That(states.Single().Reason,Is.EqualTo("JsonException"));
+ }
  [Test]public async Task WorkerDoesNotResetAnAttentionState() {
   await SubmissionWorkflow.AdvanceAsync(root,settings.Release,new StopSteps());
   int calls=0;var states=await AutomationWorker.Tick(registry,SubmissionAutomationWorkerRole.Evidence,default,(_,_)=>{calls++;throw new Exception("must not execute");});

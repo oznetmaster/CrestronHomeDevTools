@@ -55,6 +55,20 @@ public sealed class SubmissionEvidenceCompositionTests
 	private SubmissionEvidenceCompositionReport Combine () => SubmissionEvidenceComposition.CombineFiles (_root, "plan.json", _pin, "policy.json", Now);
 	private string[] Arguments (string output) => ["--evidence", _root, "--plan", "plan.json", "--plan-sha256", _pin, "--policy", "policy.json", "--output", output];
 
+	[TestCase (SubmissionEvidenceOutcome.Passed), TestCase (SubmissionEvidenceOutcome.Failed)]
+	public void AndroidFixtureOutputCanBeComposedWithoutRewritingEvidence (SubmissionEvidenceOutcome outcome)
+		{
+		var observation = _first.Observations[0] with { Outcome = outcome };
+		var bytes = JsonSerializer.SerializeToUtf8Bytes (new SubmissionEvidenceDocument (1, [observation]), WeatherLinkAndroidTests.FixtureSettings.Json);
+		File.WriteAllBytes (Path.Combine (_root, "first.json"), bytes);
+		_plan = _plan with { Sources = [_plan.Sources[0] with { Sha256 = Convert.ToHexStringLower (SHA256.HashData (bytes)) }, _plan.Sources[1]] };
+		Pin ();
+		var result = Combine ();
+		Assert.That (result.Observations.Observations[0] with { Files = observation.Files }, Is.EqualTo (observation));
+		Assert.That (result.CompositionChecksPassed, Is.EqualTo (outcome == SubmissionEvidenceOutcome.Passed));
+		Assert.That (File.ReadAllBytes (Path.Combine (_root, "first.json")), Is.EqualTo (bytes));
+		}
+
 	[Test]
 	public void ConsoleRejectsChangedPlanWithoutUnhandledException ()
 		{

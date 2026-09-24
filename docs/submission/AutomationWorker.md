@@ -2,6 +2,18 @@
 
 This source-preview worker connects release discovery, the public Crestron NUnit and endurance APIs, document preparation, authorized signing and delivery, and final retention. The adapters are implemented; the full route still needs a fresh real end-to-end rehearsal. No additional NuGet release is required to test this branch.
 
+Observers must check `worker-status.json` as well as the workflow checkpoint and
+the actual scheduled-task/process state. An adapter exception produces worker
+`AttentionRequired` even though its durable checkpoint remains `Running` to
+preserve the original operation for recovery. A live watcher process alone does
+not mean its submission is progressing. Inspect the reported stage and retained
+input/process diagnostics; do not reset the run or mark it passed.
+
+Create release checkouts under the account that will execute the worker. During
+preflight, verify Git source identity and encrypted credential access under that
+same account. Checkouts created by an administrator can be rejected by Git when
+the service subsequently reads them; do not bypass this with a global trust rule.
+
 ## Build and run
 
 Use Windows, .NET 10, PowerShell 7.6 or later, Git and the documented driver-build prerequisites. The build machine needs the .NET Framework 4.7.2 targeting assemblies and Crestron packaging tools. Visual Studio's full editor is optional. Configure tool paths using the public [processor-test workflow](https://github.com/oznetmaster/CrestronHomeNUnit/blob/main/docs/ProcessorTestWorkflow.md). Paths and SDK overrides are build configuration, not credentials.
