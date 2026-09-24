@@ -101,6 +101,9 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
   await VerifySource(token);
   settings.NUnit.Validate();
   if(settings.InstalledAppTests!=null) AutomationInstalledApp.Validate(settings);
+  if(settings.Review is {PriorEvidence:not null} review)
+   _=AutomationPriorEvidence.Prepare(c.RunDirectory,new(settings.Release.PackageSha256,settings.Release.SourceCommit,
+    review.Policy.Sha256,review.Template.Sha256),review,token);
   if(!settings.NUnit.SourceRoots.Any(p=>Path.GetFullPath(p).Equals(Path.GetFullPath(settings.SourceRepository),StringComparison.OrdinalIgnoreCase)) ||
    !settings.NUnit.RemoveTestInstanceAfterRun || !settings.NUnit.RemoveTestPackageAfterSuccessfulRun)
    throw new InvalidDataException("Declare the candidate source root and owned test cleanup in the NUnit plan.");

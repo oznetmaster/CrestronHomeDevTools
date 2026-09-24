@@ -126,4 +126,83 @@ public sealed class AutomationReviewTests
   var result=await AutomationReview.Advance(context,settings with{Review=null},false,default,Prepare);
   Assert.That(result.ReasonCode,Is.EqualTo("review-plan-required"));Assert.That(executions,Is.Zero);
  }
+ private void ConfigurePrior(SubmissionEvidenceOutcome originalOutcome=SubmissionEvidenceOutcome.Passed) {
+  Directory.CreateDirectory(P("originals/source"));
+  File.WriteAllText(P("originals/source/raw.txt"),"Synthetic original observation; not hardware evidence");
+  var rule=new SubmissionRequirement("ui.navigation",TimeSpan.Zero);
+  Write("originals/source/policy.json",new SubmissionEvidencePolicy(1,[rule,new("other",TimeSpan.Zero)]));
+  var originalIdentity=new SubmissionEvidenceIdentity(new('f',64),new('b',40),Hash("originals/source/policy.json"),Hash("template.pdf"));
+  var observed=DateTimeOffset.UtcNow.AddHours(-2);
+  var files=new[]{new SubmissionEvidenceFile("raw.txt",Hash("originals/source/raw.txt"))};
+  Write("originals/source/observations.json",new SubmissionEvidenceDocument(1,[
+   new("ui.navigation",originalIdentity,originalOutcome,observed,observed,files),
+   new("other",originalIdentity,SubmissionEvidenceOutcome.Failed,observed,observed,files,"Original unrelated failure") ]));
+  Write("originals/analysis.json",new{Rationale="Synthetic reviewed code comparison"});
+  Write("originals/change-review.json",new SubmissionChangeImpactReview(1,originalIdentity,settings.Release.PackageSha256,
+   settings.Release.SourceCommit,DateTimeOffset.UtcNow.AddMinutes(-1),"Test reviewer",[
+    new("ui.navigation","Synthetic unchanged navigation decision",[new("prior-evidence/analysis.json",Hash("originals/analysis.json"))]) ]));
+  var prior=new SubmissionPriorEvidenceRequirements(originalIdentity,
+   new("prior-evidence/source/policy.json",Hash("originals/source/policy.json")),
+   new("prior-evidence/source/observations.json",Hash("originals/source/observations.json")),"prior-evidence/source",
+   new("prior-evidence/change-review.json",Hash("originals/change-review.json")));
+  Write("prior-policy.json",new SubmissionEvidencePolicy(1,[rule with{PriorEvidence=prior}]));
+  var inventory=Directory.GetFiles(P("originals"),"*",SearchOption.AllDirectories)
+   .Select(f=>new SubmissionEvidenceFile(Path.GetRelativePath(P("originals"),f).Replace('\\','/'),AutomationFiles.Hash(f))).ToArray();
+  settings=settings with{Review=settings.Review! with{Policy=Input("prior-policy.json"),ObservationSources=[],PriorEvidence=new(P("originals"),inventory)}};
+ }
+ private SubmissionEvidenceIdentity ReviewedIdentity()=>new(settings.Release.PackageSha256,settings.Release.SourceCommit,
+  settings.Review!.Policy.Sha256,settings.Review.Template.Sha256);
+ [Test]public async Task PriorHandoffProducesPortableReviewWithoutRelabellingOriginalTests() {
+  ConfigurePrior();byte[] original=File.ReadAllBytes(P("originals/source/observations.json"));
+  // Candidate preparation retains inputs before a potentially long hardware run.
+  AutomationPriorEvidence.Prepare(root,ReviewedIdentity(),settings.Review!,default);
+  Directory.Delete(P("originals"),true);
+  var result=await AutomationReview.Advance(context,settings,false,default,Prepare);
+  Assert.That(result.Status,Is.EqualTo(SubmissionWorkflowStatus.Completed));
+  var combined=AutomationFiles.Read<SubmissionEvidenceDocument>(P("review-inputs/observations.json"));
+  Assert.Multiple(()=>{
+   Assert.That(combined.Observations.Single().Outcome,Is.EqualTo(SubmissionEvidenceOutcome.ReviewedPriorPass));
+   Assert.That(combined.Observations.Single().Execution,Is.Null);
+   Assert.That(File.ReadAllBytes(P("prior-evidence/source/observations.json")),Is.EqualTo(original));
+   Assert.That(AutomationFiles.Read<SubmissionEvidenceDocument>(P("prior-evidence/source/observations.json")).Observations[1].Outcome,
+    Is.EqualTo(SubmissionEvidenceOutcome.Failed));
+  });
+  var recovered=await AutomationReview.Advance(context,settings,true,default,Prepare);
+  Assert.That(recovered.Receipt,Is.EqualTo(result.Receipt));Assert.That(executions,Is.EqualTo(1));
+ }
+ [Test]public void ChangedOriginalCannotBeRepinnedDuringAutomaticHandoff() {
+  ConfigurePrior();File.AppendAllText(P("originals/source/raw.txt"),"changed");
+  Assert.Throws<InvalidDataException>(()=>AutomationReview.PrepareInputs(context,settings,settings.Review!,default));
+ }
+ [Test]public void DeletedRetainedEvidenceIsNotSilentlyRestoredFromSource() {
+  ConfigurePrior();AutomationPriorEvidence.Prepare(root,ReviewedIdentity(),settings.Review!,default);
+  File.Delete(P("prior-evidence/source/raw.txt"));
+  Assert.Throws<InvalidDataException>(()=>AutomationReview.PrepareInputs(context,settings,settings.Review!,default));
+  Assert.That(File.Exists(P("prior-evidence/source/raw.txt")),Is.False);
+ }
+ [Test]public void FailedOriginalCannotBecomeReviewedPassThroughController() {
+  ConfigurePrior(SubmissionEvidenceOutcome.Failed);
+  Assert.Throws<InvalidDataException>(()=>AutomationReview.PrepareInputs(context,settings,settings.Review!,default));
+  Assert.That(File.Exists(P("prior-evidence-receipt.json")),Is.False);
+ }
+ [Test]public void PriorInventoryCannotWriteOutsideItsDedicatedFolder() {
+  ConfigurePrior();settings=settings with{Review=settings.Review! with{PriorEvidence=new(P("originals"),[
+   new("../candidate.pkg",Hash("candidate.pkg"))])}};
+  Assert.Throws<InvalidDataException>(()=>AutomationReview.PrepareInputs(context,settings,settings.Review!,default));
+  Assert.That(File.Exists(P("prior-evidence-receipt.json")),Is.False);
+ }
+ [Test]public void FreshFailureAndPriorPassRemainAConflictInsteadOfChoosingThePass() {
+  ConfigurePrior();
+  var now=DateTimeOffset.UtcNow.AddSeconds(-1);
+  Write("nunit/conflict.json",new SubmissionEvidenceDocument(1,[new("ui.navigation",ReviewedIdentity(),SubmissionEvidenceOutcome.Failed,
+   now,now,[new("nunit/trace.txt",Hash("nunit/trace.txt"))],"Synthetic new failure must remain visible")]));
+  File.WriteAllBytes(P("windows-tests.json"),JsonSerializer.SerializeToUtf8Bytes(new{Files=new[]{
+   new SubmissionWorkflowReceipt("nunit/conflict.json",Hash("nunit/conflict.json")),new("nunit/trace.txt",Hash("nunit/trace.txt"))}},AutomationFiles.Json));
+  settings=settings with{Review=settings.Review! with{ObservationSources=["nunit/conflict.json"]}};
+  AutomationReview.PrepareInputs(context,settings,settings.Review!,default);
+  using var report=JsonDocument.Parse(File.ReadAllBytes(P("review-inputs/composition-report.json")));
+  Assert.That(report.RootElement.GetProperty("compositionChecksPassed").GetBoolean(),Is.False);
+  var combined=AutomationFiles.Read<SubmissionEvidenceDocument>(P("review-inputs/observations.json"));
+  Assert.That(combined.Observations.Select(o=>o.Outcome),Is.EquivalentTo(new[]{SubmissionEvidenceOutcome.Failed,SubmissionEvidenceOutcome.ReviewedPriorPass}));
+ }
 }

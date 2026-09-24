@@ -10,7 +10,8 @@ public sealed record SubmissionAutomationConsole(string Directory,SubmissionEvid
 public sealed record SubmissionAutomationReviewPlan(SubmissionAutomationInput Policy,SubmissionAutomationInput Template,
  SubmissionAutomationInput Inventory,SubmissionAutomationInput Mapping,SubmissionAutomationConsole Console,
  string Title,string Author,string[] ObservationSources,SubmissionAutomationInput? Declarations=null,
- SubmissionAutomationInput? AndroidPins=null,JsonElement? AndroidEvidence=null);
+ SubmissionAutomationInput? AndroidPins=null,JsonElement? AndroidEvidence=null,
+ SubmissionAutomationPriorEvidence? PriorEvidence=null);
 
 internal static class AutomationReview
 {
@@ -82,6 +83,11 @@ internal static class AutomationReview
      throw new InvalidDataException("Producer evidence paths overlap.");
   }
   var sources=new List<SubmissionEvidenceFile>();
+  if(plan.PriorEvidence is not null) {
+   var prior=AutomationPriorEvidence.Prepare(root,identity,plan,token);
+   string priorPath=Path.Combine(folder,"prior-observations.json");WriteDocument(priorPath,prior);
+   sources.Add(new("review-inputs/prior-observations.json",AutomationFiles.Hash(priorPath)));
+  }
   if(plan.ObservationSources.Distinct(StringComparer.Ordinal).Count()!=plan.ObservationSources.Length)throw new InvalidDataException("Duplicate observation source.");
   foreach(string relative in plan.ObservationSources) {
    if(!retained.TryGetValue(relative,out var hash) || !SubmissionEvidence.SafeEvidencePath(root,relative,out var path) || AutomationFiles.Hash(path)!=hash)

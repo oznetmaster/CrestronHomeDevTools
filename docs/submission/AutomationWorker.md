@@ -75,6 +75,34 @@ retained receipt; the app receipt, workflow identity and complete app inventory 
 rechecked before composition. A JSON file placed in the run directory later is not
 accepted as completed test evidence.
 
+### Reviewed evidence from an earlier candidate
+
+The optional `Review.PriorEvidence` object supplies a private source `Directory`
+and a `Files` inventory of relative paths and SHA-256 digests. The frozen settings
+pin that selection. Candidate validation copies those exact files into the run's
+`prior-evidence/` directory and invokes the public
+[prior-evidence review](PriorEvidence.md) before hardware tests start. The source
+directory may then become unavailable: later stages verify the retained copies.
+Missing or changed retained files stop the run; they are not silently recopied.
+
+The reviewed target policy must explicitly permit each earlier assertion and
+reference its original policy, observations, evidence directory and scoped
+change-impact review beneath `prior-evidence/`. Relative paths in `Files` are
+relative to the source directory; they do **not** include that destination prefix.
+Preserve the original observation bytes and execution identity. Preparing the
+target policy and change review is a reviewed input, not a decision the worker
+makes merely because earlier tests passed. The inventory is limited to 4,096
+files and 512 MiB; traversal, redirected paths and extra retained files fail.
+
+At review preparation the controller imports the validated subset as
+`ReviewedPriorPass`, retains the original records and unrelated failures, and
+composes it with current producer observations and endurance. It cannot import
+an earlier `ReviewedPriorPass` as another original pass. If current evidence also
+addresses the same assertion, ordinary composition reports the conflict instead
+of choosing the older pass. Omit prior permission for scopes intentionally being
+tested again. This handoff does not supply N/A decisions, waive missing tests,
+change an endurance duration or establish Crestron acceptance.
+
 The worker reads a processor login directly from the encrypted store into memory. It does not write a plaintext credential file or pass passwords in process arguments or environment variables. A worker that builds repository code must not have unrelated signing or email credentials. A store created under an interactive user's identity does not automatically become readable by a Windows service; provision the intended service identity through the public private-store tools during setup.
 
 ## GitHub rehearsal option
