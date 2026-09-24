@@ -1,0 +1,10 @@
+<!-- Copyright (c) 2026 Neil Colvin. MIT licensed. -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../CrestronHomeDevTools/CrestronHomeDevTools.csproj" />
+    <PackageReference Include="WeatherLinkLiveLibrary" Version="2.0.0" />
+    <PackageReference Include="SSH.NET" Version="2026.0.0" />
+    <InternalsVisibleTo Include="CrestronHomeDevTools.Tests" />
+  </ItemGroup>
+</Project>

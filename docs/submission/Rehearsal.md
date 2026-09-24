@@ -24,6 +24,10 @@ the controller.
    frozen factual snapshot with a reviewed settings template and tooling
    manifest to prepare pinned release profiles and an empty registry. It lists
    missing bindings without starting work or exporting saved secrets.
+   The public [WeatherLink functional producer](../../samples/WeatherLinkEnduranceProducer/README.md)
+   supplies that driver's metric/local-station endurance checks and automatic
+   lifetime initialization; its settings and published inventory must still be
+   prepared for the selected candidate before freezing the plan.
 3. Verify the actual worker account can use its named processor credentials and
    the selected emulator. Source/test workers must not have signing or mail
    secrets. Record existing machine and driver state before permitted changes.
