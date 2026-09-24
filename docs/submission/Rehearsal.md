@@ -28,6 +28,9 @@ the controller.
    supplies that driver's metric/local-station endurance checks and automatic
    lifetime initialization; its settings and published inventory must still be
    prepared for the selected candidate before freezing the plan.
+   The [WeatherLink app fixture](../../samples/WeatherLinkAndroidTests/README.md)
+   supplies Home/current/forecast navigation and display observations through
+   `InstalledAppFixtureSettings`; it does not replace the other checklist producers.
 3. Verify the actual worker account can use its named processor credentials and
    the selected emulator. Source/test workers must not have signing or mail
    secrets. Record existing machine and driver state before permitted changes.

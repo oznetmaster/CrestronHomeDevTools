@@ -77,6 +77,37 @@ public sealed class AutomationInstalledAppTests
   var stages=new SubmissionAutomationStages(settings,new('f',64),(_,_,_,_)=>throw new AssertionException("NUnit must not run here"),_=>new(),installedApp:Run);
   Assert.That((await stages.ExecuteAsync(context,default)).Status,Is.EqualTo(SubmissionWorkflowStatus.Completed));Assert.That(calls,Is.EqualTo(1));
  }
+ [Test] public async Task FixtureSettingsAreAvailableBeforeExecutionAndIncludedInReceipt() {
+  settings=settings with{InstalledAppFixtureSettings=JsonSerializer.SerializeToElement(new{TileName="Station",DeviceId=2})};
+  Task<InstalledDriverTestResult> Inspect(InstalledDriverTestPlan p,NetworkCredential c,string f,CancellationToken t) {
+   using var fixture=JsonDocument.Parse(File.ReadAllText(Path.Combine(context.RunDirectory,"app-fixture-settings.json")));
+   Assert.That(fixture.RootElement.GetProperty("TileName").GetString(),Is.EqualTo("Station"));
+   return Run(p,c,f,t);
+  }
+  await AutomationInstalledApp.Advance(context,settings,false,Inspect,_=>new(),default);
+  await Advance(true);Assert.That(calls,Is.EqualTo(1));
+  AutomationInstalledApp.VerifyRetained(context.RunDirectory);
+  File.Delete(Path.Combine(context.RunDirectory,"app-fixture-settings.json"));
+  Assert.Throws<InvalidDataException>(()=>AutomationInstalledApp.VerifyRetained(context.RunDirectory));
+  Assert.ThrowsAsync<InvalidDataException>(async()=>await Advance(true));Assert.That(calls,Is.EqualTo(1));
+ }
+ [Test] public async Task ChangedFixtureDataIsNeverUsedToRecoverOrReplayAnAttempt() {
+  settings=settings with{InstalledAppFixtureSettings=JsonSerializer.SerializeToElement(new{DeviceId=2})};
+  await Advance();settings=settings with{InstalledAppFixtureSettings=JsonSerializer.SerializeToElement(new{DeviceId=3})};
+  Assert.ThrowsAsync<InvalidDataException>(async()=>await Advance(true));Assert.That(calls,Is.EqualTo(1));
+ }
+ [Test] public void FixtureMutationDuringExecutionCannotProduceCompletionReceipt() {
+  settings=settings with{InstalledAppFixtureSettings=JsonSerializer.SerializeToElement(new{DeviceId=2})};
+  Task<InstalledDriverTestResult> Mutate(InstalledDriverTestPlan p,NetworkCredential c,string f,CancellationToken t) {
+   File.WriteAllText(Path.Combine(context.RunDirectory,"app-fixture-settings.json"),"{}");return Run(p,c,f,t);
+  }
+  Assert.ThrowsAsync<InvalidDataException>(async()=>await AutomationInstalledApp.Advance(context,settings,false,Mutate,_=>new(),default));
+  Assert.That(File.Exists(Path.Combine(context.RunDirectory,"installed-app-tests.json")),Is.False);
+ }
+ [Test] public void NonObjectFixtureSettingsAreRejectedBeforeTests() {
+  settings=settings with{InstalledAppFixtureSettings=JsonSerializer.SerializeToElement("wrong shape")};
+  Assert.ThrowsAsync<InvalidDataException>(async()=>await Advance());Assert.That(calls,Is.Zero);
+ }
  [Test] public void ConfigurationCheckListsLaterGapsWithoutCallingTestsOrReadingCredentials() {
   var report=SubmissionAutomationConfiguration.Check(settings with{CredentialBindings="private-store-not-opened"});
   Assert.That(report.AllStageBindingsPresent,Is.False);

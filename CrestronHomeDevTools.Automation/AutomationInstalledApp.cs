@@ -13,6 +13,8 @@ internal static class AutomationInstalledApp
  internal static void Validate(SubmissionAutomationSettings settings) {
   var plan=settings.InstalledAppTests??throw new InvalidDataException("Missing installed-app plan.");
   plan.Validate();
+  if(settings.InstalledAppFixtureSettings is { ValueKind: not JsonValueKind.Object })
+   throw new InvalidDataException("Installed-app fixture settings must be an object.");
   if(settings.NUnit.AndroidTests!=null || plan.Host!=settings.NUnit.Host ||
    plan.CertificateSha256!=settings.NUnit.CertificateSha256 || plan.SshFingerprint!=settings.NUnit.SshFingerprint ||
    !plan.PackageSha256.Equals(settings.Release.PackageSha256,StringComparison.OrdinalIgnoreCase) ||
@@ -31,8 +33,23 @@ internal static class AutomationInstalledApp
   string intentPath=Path.Combine(context.RunDirectory,"installed-app-intent.json");
   string folder=Path.Combine(context.RunDirectory,"installed-app");
   string resultPath=Path.Combine(folder,"InstalledDriverTests.json");
+  string fixturePath=Path.Combine(context.RunDirectory,"app-fixture-settings.json");
+  void CheckFixture(bool create) {
+   if(settings.InstalledAppFixtureSettings is not {} fixture) {
+    if(File.Exists(fixturePath))throw new InvalidDataException("Unexpected installed-app fixture settings.");
+    return;
+   }
+   if(File.Exists(fixturePath)) {
+    if(!SubmissionEvidence.SafeEvidencePath(context.RunDirectory,"app-fixture-settings.json",out _))
+     throw new InvalidDataException("Unsafe installed-app fixture settings path.");
+    if(!File.ReadAllBytes(fixturePath).AsSpan().SequenceEqual(JsonSerializer.SerializeToUtf8Bytes(fixture,AutomationFiles.Json)))
+     throw new InvalidDataException("Installed-app fixture settings changed.");
+   } else if(create) AutomationFiles.Write(fixturePath,fixture);
+   else throw new InvalidDataException("Installed-app fixture settings disappeared.");
+  }
   // A recorded invocation is never repeated, even if the caller mistakenly uses execute rather than recover.
   if(File.Exists(intentPath)) {
+   CheckFixture(false);
    var intent=AutomationFiles.Read<Intent>(intentPath);
    if(intent.OperationId!=context.Checkpoint.OperationId || intent.InputSha256!=context.Checkpoint.InputSha256 ||
     intent.SourceDigest!=await WorkflowEvidence.SourceDigestAsync(plan.SourceRoots,token) ||
@@ -42,10 +59,12 @@ internal static class AutomationInstalledApp
     return new(SubmissionWorkflowStatus.OutcomeUnknown,ReasonCode:"inspect-installed-app-operation-and-leases");
   } else {
    if(recover) return new(SubmissionWorkflowStatus.OutcomeUnknown,ReasonCode:"installed-app-intent-missing");
+   CheckFixture(true);
    var intent=new Intent(context.Checkpoint.OperationId,context.Checkpoint.InputSha256,
     await WorkflowEvidence.SourceDigestAsync(plan.SourceRoots,token),AutomationFiles.Hash(plan.AndroidTests.ProfilePath));
    AutomationFiles.Write(intentPath,intent);
    await run(plan,credentials(plan.Host),folder,token);
+   CheckFixture(false);
    if(intent.SourceDigest!=await WorkflowEvidence.SourceDigestAsync(plan.SourceRoots,token) ||
     intent.ProfileSha256!=AutomationFiles.Hash(plan.AndroidTests.ProfilePath))
     throw new InvalidDataException("Installed-app fixture source changed during execution.");
@@ -70,6 +89,11 @@ internal static class AutomationInstalledApp
      throw new InvalidDataException("Installed-app evidence exceeds its bound or contains a link.");
     entries.Add(entry);if(entry is DirectoryInfo child)pending.Push(child);
    }
+  }
+  if(File.Exists(Path.Combine(root,"app-fixture-settings.json"))) {
+   if(!SubmissionEvidence.SafeEvidencePath(root,"app-fixture-settings.json",out var fixture))
+    throw new InvalidDataException("Unsafe installed-app fixture settings path.");
+   entries.Add(new FileInfo(fixture));
   }
   return entries.OfType<FileInfo>().OrderBy(f=>f.FullName,StringComparer.Ordinal)
    .Select(f=>new SubmissionWorkflowReceipt(Path.GetRelativePath(root,f.FullName),AutomationFiles.Hash(f.FullName))).ToArray();

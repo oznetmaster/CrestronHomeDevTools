@@ -24,7 +24,8 @@ public sealed record SubmissionAutomationSettings(int SchemaVersion, string Priv
  SubmissionAutomationMode Mode = SubmissionAutomationMode.Rehearsal,
  SubmissionAutomationReviewPlan? Review = null,SubmissionAutomationProtectedPlan? Protected = null,
  InstalledDriverTestPlan? InstalledAppTests = null,
- SubmissionAutomationInput? EnduranceProbeSettingsTemplate = null);
+ SubmissionAutomationInput? EnduranceProbeSettingsTemplate = null,
+ JsonElement? InstalledAppFixtureSettings = null);
 
 internal static class AutomationFiles
 {
