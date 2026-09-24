@@ -37,6 +37,40 @@ public sealed class SubmissionAutomationTests
   File.WriteAllText(Path.Combine(folder,"Workflow.json"),JsonSerializer.Serialize(result));File.WriteAllText(Path.Combine(folder,"Lease.json"),JsonSerializer.Serialize(new{State=lease}));
   File.WriteAllText(Path.Combine(folder,"individual-results.xml"),"synthetic retained raw result");return Task.FromResult(result);
  },_=>new NetworkCredential("synthetic","synthetic"));
+ [TestCase(SubmissionWorkflowStage.SignReview)]
+ [TestCase(SubmissionWorkflowStage.Deliver)]
+ [TestCase(SubmissionWorkflowStage.Retain)]
+ public async Task RehearsalCannotEnterSigningOrDeliveryIncludingRecovery(SubmissionWorkflowStage stage) {
+  context=context with{Checkpoint=context.Checkpoint with{Stage=stage}};
+  var adapter=Stages();
+  foreach(var result in new[]{await adapter.ExecuteAsync(context,default),await adapter.RecoverAsync(context,default)}) {
+   Assert.That(result.Status,Is.EqualTo(SubmissionWorkflowStatus.NeedsInput));
+   Assert.That(result.ReasonCode,Is.EqualTo("rehearsal-ready-for-review"));Assert.That(result.Receipt,Is.Null);
+  }
+  Assert.That(executions,Is.Zero);
+ }
+ [Test]public async Task SubmitModeDoesNotCreateAuthorityOrConvertAnUnboundStageIntoAPass() {
+  settings=settings with{Mode=SubmissionAutomationMode.Submit};
+  context=context with{Checkpoint=context.Checkpoint with{Stage=SubmissionWorkflowStage.SignReview}};
+  var result=await Stages().ExecuteAsync(context,default);
+  Assert.That(result.Status,Is.EqualTo(SubmissionWorkflowStatus.NeedsInput));Assert.That(result.ReasonCode,Is.EqualTo("review-delivery-binding-required"));
+ }
+ [Test]public void GitHubDispatchCanOnlySelectAPinnedRegistrationWithTheSameReleaseAndMode() {
+  string path=Path.Combine(root,"settings.json"),registry=Path.Combine(root,"registry.json");
+  AutomationFiles.Write(path,settings);string digest=AutomationFiles.Hash(path);
+  AutomationFiles.Write(registry,new SubmissionAutomationRegistry(1,[new("driver",1,SubmissionAutomationMode.Rehearsal,path,digest)]));
+  string[] request=["--registry",registry,"--profile","driver","--release-id","1","--mode","rehearsal"];
+  Assert.That(AutomationRequest.Load(request).Sha256,Is.EqualTo(digest));
+  Assert.Throws<InvalidDataException>(()=>AutomationRequest.Load([..request[..7],"submit"]));
+  Assert.Throws<InvalidDataException>(()=>AutomationRequest.Load(["--registry",registry,"--profile","../driver","--release-id","1","--mode","rehearsal"]));
+  File.AppendAllText(path," ");Assert.Throws<InvalidDataException>(()=>AutomationRequest.Load(request));
+ }
+ [Test]public void RegistrationCannotRelabelRehearsalSettingsAsSubmit() {
+  string path=Path.Combine(root,"settings.json"),registry=Path.Combine(root,"registry.json");
+  AutomationFiles.Write(path,settings);
+  AutomationFiles.Write(registry,new SubmissionAutomationRegistry(1,[new("driver",1,SubmissionAutomationMode.Submit,path,AutomationFiles.Hash(path))]));
+  Assert.Throws<InvalidDataException>(()=>AutomationRequest.Load(["--registry",registry,"--profile","driver","--release-id","1","--mode","submit"]));
+ }
  [Test]public async Task WindowsAndProcessorStagesConsumeOneWorkflowAndVerifyCleanup() {
   var adapter=Stages();var windows=await adapter.ExecuteAsync(context,default);Assert.That(windows.Status,Is.EqualTo(SubmissionWorkflowStatus.Completed));
   var recovered=await adapter.RecoverAsync(context,default);Assert.That(recovered.Receipt,Is.EqualTo(windows.Receipt));

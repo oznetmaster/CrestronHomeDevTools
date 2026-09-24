@@ -5,17 +5,20 @@ using CrestronHomeDevTools.Automation;
 
 if(args is ["--help"])
 {
- Console.WriteLine("submission automation: --settings PRIVATE_JSON --settings-sha256 PIN. Runs ready stages; returns while endurance waits. Missing review/app bindings stop explicitly.");return 0;
+ Console.WriteLine("submission automation: --settings PRIVATE_JSON --settings-sha256 PIN; or --registry PRIVATE_JSON --profile NAME --release-id ID --mode rehearsal|submit. Rehearsal stops before signing/delivery. Submit still requires exact authorizations. Returns while endurance waits; missing bindings stop explicitly.");return 0;
 }
 try
 {
- if(args is not ["--settings",var path,"--settings-sha256",var digest] || !Path.IsPathFullyQualified(path) || AutomationFiles.Hash(path)!=digest)
-  throw new InvalidDataException("Select the reviewed settings and exact digest.");
- var settings=AutomationFiles.Read<SubmissionAutomationSettings>(path);
+ var request=AutomationRequest.Load(args);
+ var settings=request.Settings;
  using var deadline=new CancellationTokenSource(TimeSpan.FromHours(6));
  Console.CancelKeyPress+=(_,e)=>{e.Cancel=true;deadline.Cancel();};
- var state=await SubmissionWorkflow.AdvanceAsync(settings.PrivateRoot,settings.Release,new SubmissionAutomationStages(settings,digest),deadline.Token);
- Console.WriteLine(JsonSerializer.Serialize(new{state.Stage,state.Status,state.ReasonCode,state.UpdatedUtc},AutomationFiles.Json));
+ var state=await SubmissionWorkflow.AdvanceAsync(settings.PrivateRoot,settings.Release,new SubmissionAutomationStages(settings,request.Sha256),deadline.Token);
+ bool rehearsed=settings.Mode==SubmissionAutomationMode.Rehearsal && state.Stage==SubmissionWorkflowStage.SignReview &&
+  state.Status==SubmissionWorkflowStatus.NeedsInput && state.ReasonCode=="rehearsal-ready-for-review";
+ Console.WriteLine(JsonSerializer.Serialize(new{settings.Mode,state.Stage,state.Status,state.ReasonCode,state.UpdatedUtc,
+  Outcome=rehearsed?"RehearsalPrepared":state.Status.ToString()},AutomationFiles.Json));
+ if(rehearsed)return 0;
  return state.Status switch { SubmissionWorkflowStatus.Completed=>0,SubmissionWorkflowStatus.Waiting=>4,_=>3 };
 }
 catch(Exception e) when(e is not OutOfMemoryException)

@@ -33,7 +33,7 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
  public Task<SubmissionWorkflowStepResult> RecoverAsync(SubmissionWorkflowStepContext c,CancellationToken t)=>Advance(c,true,t);
  private async Task<SubmissionWorkflowStepResult> Advance(SubmissionWorkflowStepContext c,bool recover,CancellationToken token)
  {
-  if(settings.SchemaVersion!=1 || c.Checkpoint.Release!=settings.Release || settingsDigest.Length!=64 || !settingsDigest.All(char.IsAsciiHexDigit))
+  if(settings.SchemaVersion!=1 || !Enum.IsDefined(settings.Mode) || c.Checkpoint.Release!=settings.Release || settingsDigest.Length!=64 || !settingsDigest.All(char.IsAsciiHexDigit))
    throw new InvalidDataException("Automation settings do not match the workflow.");
   AutomationFiles.Write(Path.Combine(c.RunDirectory,"automation-binding.json"),new { SettingsSha256=settingsDigest, c.Checkpoint.InputSha256 });
   if(c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.WindowsTests)) VerifyRetainedNUnit(c.RunDirectory);
@@ -42,6 +42,9 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
    var observation=SubmissionEndurance.Export(Path.Combine(c.RunDirectory,"endurance","observations"),plan,DateTimeOffset.UtcNow);
    AutomationFiles.Write(Path.Combine(c.RunDirectory,"endurance-evidence.json"),new{EvidenceDirectory="endurance/observations",Observation=observation});
   }
+  // Enforced inside both execute and recovery, before any signing/provider adapter is selected.
+  if(settings.Mode==SubmissionAutomationMode.Rehearsal && c.Checkpoint.Stage>=SubmissionWorkflowStage.SignReview)
+   return new(SubmissionWorkflowStatus.NeedsInput,ReasonCode:"rehearsal-ready-for-review");
   switch(c.Checkpoint.Stage)
   {
    case SubmissionWorkflowStage.ValidateCandidate: return await Candidate(c,token);

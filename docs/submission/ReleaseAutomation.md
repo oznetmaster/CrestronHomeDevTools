@@ -2,6 +2,8 @@
 
 The intended entry point is publishing an opted-in **driver** release. One-time private setup supplies the developer, driver, equipment, test plan, credentials and permitted operations. A persistent controller should advance the work; an assistant should be needed for exceptions and product decisions, not to carry files between stages or remember when endurance finishes.
 
+For an already registered release, the source-preview [GitHub entry point](AutomationWorker.md#github-rehearsal-option) offers **Rehearsal** (default) and **Submit**. Rehearsal uses the same permitted tests and unsigned document preparation, then stops before signing or delivery. Submit still requires the exact authorizations. This selector is in Actions **Run workflow**, not GitHub's standard release editor. Automatic release events will use the saved profile policy; that event routing is not implemented yet.
+
 **Source preview, not complete automation.** This branch implements verified release intake, persistent sequencing and a [Windows automation worker](AutomationWorker.md) using the public NUnit and endurance APIs. Release intake through Windows tests, processor tests and owned-instance cleanup has been exercised on real hardware. App/endurance handoffs have deterministic adapter tests; their complete real route, review/delivery adapters and automatic release-event routing remain pending. The existing [manual workflow](WorkflowSetup.md) remains the supported GitHub stage route. Use the [single starting document](START-DRIVER-SUBMISSION.md) for an assistant-led submission. Neither route has yet demonstrated the fully automatic GitHub-release-to-delivery goal.
 
 ## What is implemented

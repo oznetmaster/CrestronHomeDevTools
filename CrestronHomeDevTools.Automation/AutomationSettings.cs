@@ -7,9 +7,13 @@ using CrestronHomeNUnit.Workflow;
 
 namespace CrestronHomeDevTools.Automation;
 
+/// <summary>Rehearsal runs real permitted tests and prepares documents, but cannot sign or contact delivery providers.</summary>
+public enum SubmissionAutomationMode { Rehearsal, Submit }
+
 public sealed record SubmissionAutomationSettings(int SchemaVersion, string PrivateRoot, SubmissionWorkflowRelease Release,
  string SourceRepository, SubmissionPackageRequirements PackageRequirements, string CredentialBindings,
- WorkflowPlan NUnit, SubmissionEnduranceWorkerPlan? Endurance = null);
+ WorkflowPlan NUnit, SubmissionEnduranceWorkerPlan? Endurance = null,
+ SubmissionAutomationMode Mode = SubmissionAutomationMode.Rehearsal);
 
 internal static class AutomationFiles
 {
