@@ -125,7 +125,8 @@ public static class SubmissionEvidence
 		left.PolicySha256.Equals (right.PolicySha256, StringComparison.OrdinalIgnoreCase) &&
 		left.TemplateSha256.Equals (right.TemplateSha256, StringComparison.OrdinalIgnoreCase);
 
-	internal static bool SafeEvidencePath (string root, string? relative, out string path)
+	/// <summary>Resolve a retained relative file beneath its evidence root, rejecting traversal and redirected paths.</summary>
+	public static bool SafeEvidencePath (string root, string? relative, out string path)
 		{
 		path = string.Empty;
 		if (string.IsNullOrWhiteSpace (relative) || Path.IsPathRooted (relative) || relative.Contains (':') ||

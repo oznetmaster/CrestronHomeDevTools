@@ -1,0 +1,63 @@
+# Copyright (c) 2026 Neil Colvin. MIT licensed.
+# Source preview: private orchestration repository only. See AutomationWorker.md.
+# Invokes an already registered release. The optional private Windows watcher discovers/registers published releases.
+name: Crestron release workflow
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: Saved private driver profile name
+        required: true
+        type: string
+      release_id:
+        description: Registered GitHub driver release ID
+        required: true
+        type: string
+      mode:
+        description: Rehearsal prepares unsigned documents; Submit requires separate exact signing and delivery authority
+        type: choice
+        options: [rehearsal, submit]
+        default: rehearsal
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: crestron-release-automation
+  cancel-in-progress: false
+  queue: max
+jobs:
+  advance:
+    if: ${{ vars.CRESTRON_SUBMISSION_AUTOMATION_ENABLED == 'true' && vars.CRESTRON_SUBMISSION_REPOSITORY != '' && github.repository == vars.CRESTRON_SUBMISSION_REPOSITORY && vars.CRESTRON_SUBMISSION_BRANCH != '' && github.ref == format('refs/heads/{0}', vars.CRESTRON_SUBMISSION_BRANCH) }}
+    runs-on: [self-hosted, Windows, '${{ vars.CRESTRON_SUBMISSION_RUNNER_LABEL }}']
+    environment: crestron-submission-automation
+    timeout-minutes: 360
+    steps:
+      # No repository checkout or arbitrary command supplied by the dispatch.
+      # The installed executable and registry are owned by the trusted worker administrator.
+      - name: Advance the registered release
+        shell: pwsh
+        env:
+          AUTOMATION_EXE: ${{ vars.CRESTRON_SUBMISSION_AUTOMATION_EXE }}
+          AUTOMATION_REGISTRY: ${{ vars.CRESTRON_SUBMISSION_AUTOMATION_REGISTRY }}
+          REQUEST_PROFILE: ${{ inputs.profile }}
+          REQUEST_RELEASE: ${{ inputs.release_id }}
+          REQUEST_MODE: ${{ inputs.mode }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($PSVersionTable.PSVersion -lt [version]'7.6') { throw 'PowerShell 7.6 or later is required.' }
+          if ($env:REQUEST_PROFILE -cnotmatch '\A[A-Za-z0-9_-]{1,64}\z' -or $env:REQUEST_RELEASE -cnotmatch '\A[1-9][0-9]*\z' -or $env:REQUEST_MODE -cnotin @('rehearsal', 'submit')) { throw 'Invalid profile, release ID or mode.' }
+          foreach ($p in @($env:AUTOMATION_EXE, $env:AUTOMATION_REGISTRY)) {
+            if (-not [IO.Path]::IsPathFullyQualified($p) -or -not (Test-Path -LiteralPath $p -PathType Leaf)) { throw 'Configure the protected installed worker and private registry.' }
+          }
+          & $env:AUTOMATION_EXE --registry $env:AUTOMATION_REGISTRY --profile $env:REQUEST_PROFILE --release-id $env:REQUEST_RELEASE --mode $env:REQUEST_MODE
+          $result = $LASTEXITCODE
+          if ($result -eq 4) {
+            'Waiting for a recorded operation. Resume this same registered release; a waiting step is not completion.' >> $env:GITHUB_STEP_SUMMARY
+            exit 0
+          }
+          if ($result -ne 0) { throw 'The retained workflow requires attention. Inspect its private checkpoint; do not reset or start another run.' }
+          if ($env:REQUEST_MODE -eq 'rehearsal') {
+            'Rehearsal documents are ready for private review. No signature, upload or submission email was performed.' >> $env:GITHUB_STEP_SUMMARY
+          } else {
+            'The registered workflow completed. Consult its retained provider receipts; this does not establish Crestron acceptance.' >> $env:GITHUB_STEP_SUMMARY
+          }

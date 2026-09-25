@@ -118,6 +118,32 @@ public sealed class SubmissionPriorEvidenceTests
 		Assert.That (Import, Throws.TypeOf<InvalidDataException> ());
 		}
 
+	[TestCase (false)]
+	[TestCase (true)]
+	public void UnusedPolicyPermissionDoesNotCreateNestedOriginalEvidence (bool permissionOnSelectedScope)
+		{
+		var selected = permissionOnSelectedScope ? _oldRule with { PriorEvidence = _prior } : _oldRule;
+		var other = new SubmissionRequirement ("other-unperformed", TimeSpan.Zero) with { PriorEvidence = _prior };
+		var policyFile = Write ("source/policy.json", new SubmissionEvidencePolicy (1, [selected, other]));
+		_source = _source with { PolicySha256 = policyFile.Sha256 };
+		_oldDocument = _oldDocument with { Observations = _oldDocument.Observations.Select (o => o with { Identity = _source }).ToArray () };
+		_review = _review with { SourceIdentity = _source };
+		_prior = _prior with { Identity = _source, Policy = policyFile, Observations = Write ("source/observations.json", _oldDocument),
+			ChangeReview = Write ("change-review.json", _review) };
+		_policy = new (1, [_oldRule with { PriorEvidence = _prior }]);
+		if (permissionOnSelectedScope)
+			Assert.That (Import, Throws.TypeOf<InvalidDataException> ());
+		else
+			Assert.That (Evaluate (Import ()).EvidenceChecksPassed, Is.True);
+		}
+
+	[Test]
+	public void ActualCarriedForwardObservationStillCannotBecomeAnOriginal ()
+		{
+		RepinSource (new (1, [_oldDocument.Observations[0] with { Outcome = SubmissionEvidenceOutcome.ReviewedPriorPass }, _oldDocument.Observations[1]]));
+		Assert.That (Import, Throws.TypeOf<ArgumentException> ());
+		}
+
 	[Test]
 	public void PassingLabelWithFailedResponseMeasurementCannotBePromoted ()
 		{

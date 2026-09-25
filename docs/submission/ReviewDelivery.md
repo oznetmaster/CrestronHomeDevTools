@@ -20,6 +20,14 @@ There is always one reviewed PDF attachment; an absent form is not replaced with
 
 `ReviewPlanDigest(plan)` hashes the plan **and the generated correspondence**. Changed explanations, attachment bytes, document status, verification mode, recipients or generated wording invalidate the previous approval. Review all public text before authorizing it; do not include credentials, private file paths or raw test evidence. The providers attach only the reviewed PDF, not the evidence archive or original signature image.
 
+## Independently reviewed email wording
+
+Source after 1.18.2 supports the optional `SubmissionReviewDeliveryPlan.CorrespondenceOverride` property. Supply a `SubmissionReviewCorrespondence` with subject `Driver Submission Package` and the exact reviewed plain-text body, containing exactly one `{{PACKAGE_DOWNLOAD_URL}}` token. The existing SMTP provider replaces that token with the confirmed upload URL and preserves the remaining wording. Without an override, existing generated correspondence and approval digests remain unchanged.
+
+The override is included in both packet and correspondence approval hashes. Changed text invalidates approval before provider contact. The trusted coordinator must review the body against the actual gaps, attachment and submission scope; custom wording must not hide qualifications or imply a Crestron decision. Retain its source and independently approved hash with the submission record. No credentials or private evidence belong in the email.
+
+The lower-level authorized API below also supports an already signed, independently reviewed PDF. Its caller must retain and revalidate the exact unsigned form, signing authorization and receipt, signed PDF, and frozen evidence bundle before each provider step. This does not require applying a second signature. The higher-level prepared-request coordinator still requires its own preparation receipt chain.
+
 ## Authorized execution through C#
 
 Call `SubmissionDelivery.ExecuteReviewAuthorizedAsync` with the private durable journal directory, reviewed plan, exact package and attachment paths, an `ISubmissionReviewDeliveryTransport` and a trusted revalidation callback. `CrestronSubmissionTransport` and `SubmissionSmtpMailer.SendReviewAsync` implement the provider path. C# developers do not need to edit Python code to use these APIs.

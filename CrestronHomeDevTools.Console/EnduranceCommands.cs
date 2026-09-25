@@ -63,6 +63,12 @@ internal static class EnduranceCommands
 			return 0;
 			}
 		var status = SubmissionEnduranceMonitor.ReadStatus (directory, worker.Plan, endpoint);
+		if (command == "endurance-stop")
+			{
+			await SubmissionEnduranceMonitor.StopAsync (directory, worker.Plan, endpoint, credential, token);
+			Console.WriteLine (JsonSerializer.Serialize (SubmissionEnduranceMonitor.ReadStatus (directory, worker.Plan, endpoint), JsonOptions));
+			return 0; // Stop/cleanup succeeded; this is not a passing endurance result.
+			}
 		if (status.ReservationState is "Acquiring" or "Releasing" ||
 			(command == "endurance-finish" && status.Checkpoint?.State is SubmissionEnduranceState.ProbePending or SubmissionEnduranceState.Interrupted))
 			{

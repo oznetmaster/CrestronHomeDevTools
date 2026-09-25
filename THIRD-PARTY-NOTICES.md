@@ -12,10 +12,15 @@ Original CrestronHomeDevTools code is copyright (c) 2026 Neil Colvin and distrib
 | NUnit | 4.6.1 | Offline tests only | MIT |
 | NUnit3TestAdapter | 6.3.0 | Visual Studio/VSTest discovery and execution of offline tests | MIT |
 | Microsoft.NET.Test.Sdk | 18.9.0 | Offline test infrastructure | MIT |
+| CrestronHomeNUnit.TestAdapter public workflow/client/Android/transport assemblies | 1.12.1 | Bundled automation worker's test coordination | MIT; [license text](licenses/CrestronHomeNUnit-LICENSE.txt) |
+| Common.Logging and Common.Logging.Core | 3.4.1 | Automation discovery dependency | Apache-2.0; [license text](licenses/Common.Logging-LICENSE.txt) |
+| Makaretu.Dns | 2.0.1 | Automation DNS models | MIT; [license text](licenses/Makaretu.Dns-LICENSE.txt) |
+| Makaretu.Dns.Multicast | 0.27.0 | Automation processor discovery | MIT; [license text](licenses/Makaretu.Dns.Multicast-LICENSE.txt) |
+| SimpleBase | 1.3.1 | Transitive DNS dependency | Apache-2.0; [license text](licenses/SimpleBase-LICENSE.txt) |
 
 NUnit and test tooling are not dependencies of the configuration runtime library. NuGet manages the library's SSH.NET, MailKit, ProtectedData and transitive dependencies separately. MailKit and MimeKit retain copyright of the .NET Foundation and contributors; Bouncy Castle retains copyright of Legion of the Bouncy Castle Inc. Transitive Microsoft cryptography packages retain Microsoft's MIT license. A published console carries its runtime dependencies; a self-contained console also carries .NET runtime components and must retain their notices. Microsoft packages retain Microsoft Corporation copyright. SSH.NET retains copyright of Renci, Oleg Kapeljushnik, Gert Driesen and contributors.
 
-Processor discovery was adapted from Neil Colvin's MIT-licensed Crestron Home NUnit project. DevTools has no runtime dependency on that project.
+Processor discovery in the configuration library was adapted from Neil Colvin's MIT-licensed Crestron Home NUnit project. The configuration library has no runtime dependency on that project. The separately bundled automation worker uses its published public workflow assemblies. The additional discovery license texts above are retained from the NUnit project's reviewed notices; SimpleBase's Apache-2.0 text is from upstream tag 1.7.0, also used for the shipped 1.3.1 package in that notice inventory.
 
 The Windows submission console built from this source bundles an isolated CPython3.13.15 runtime (Python Software Foundation license and included component notices), lxml6.1.1 (BSD and its included libxml/libxslt notices), Pillow12.3.0 (HPND and included dependency notices), pypdf6.10.0 (BSD-3-Clause), ReportLab4.4.9 (BSD), and charset-normalizer3.5.1 (MIT). These components retain their original copyrights. The complete vendor notices are preserved under `submission-tools/runtime/LICENSE.txt` and each `submission-tools/runtime/packages/*.dist-info/licenses` directory, including transitive notices supplied by the wheels. Exact download hashes and versions are recorded in `tools/submission/runtime-lock.json` and copied into the console download. They are not dependencies of the NuGet configuration runtime library. Source-maintainer tests may separately use `tools/submission/requirements.txt`.
 

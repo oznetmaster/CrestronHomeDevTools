@@ -8,8 +8,8 @@ namespace CrestronHomeDevTools;
 internal static class SubmissionJournalFile
 	{
 	private static readonly int[] Delays = [25, 50, 100, 200];
-	internal static void Replace (string temporary, string destination) => Replace (
-		() => File.Move (temporary, destination, overwrite: true), Thread.Sleep, OperatingSystem.IsWindows ());
+	internal static void Replace (string temporary, string destination, bool overwrite = true) => Replace (
+		() => File.Move (temporary, destination, overwrite), Thread.Sleep, OperatingSystem.IsWindows ());
 
 	internal static void Replace (Action replace, Action<int> wait, bool windows)
 		{

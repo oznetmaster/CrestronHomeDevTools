@@ -1,7 +1,11 @@
 <!-- Copyright (c) 2026 Neil Colvin. Licensed under the MIT License. See LICENSE. -->
 <Solution>
+  <Project Path="CrestronHomeDevTools.Automation/CrestronHomeDevTools.Automation.csproj" />
   <Project Path="CrestronHomeDevTools/CrestronHomeDevTools.csproj" />
   <Project Path="CrestronHomeDevTools.Tests/CrestronHomeDevTools.Tests.csproj" />
   <Project Path="CrestronHomeDevTools.Tests.Probe/CrestronHomeDevTools.Tests.Probe.csproj" />
   <Project Path="CrestronHomeDevTools.Console/CrestronHomeDevTools.Console.csproj" />
+  <Project Path="CrestronHomeDevTools.Setup/CrestronHomeDevTools.Setup.csproj" />
+  <Project Path="samples/WeatherLinkEnduranceProducer/WeatherLinkEnduranceProducer.csproj" />
+  <Project Path="samples/WeatherLinkAndroidTests/WeatherLinkAndroidTests.csproj" />
 </Solution>

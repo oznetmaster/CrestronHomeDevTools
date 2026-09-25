@@ -1,0 +1,14 @@
+<!-- Copyright (c) 2026 Neil Colvin. MIT licensed. -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../CrestronHomeDevTools/CrestronHomeDevTools.csproj" />
+    <!-- The published adapter distributes these public workflow assemblies. Do not import its VSTest build hooks. -->
+    <PackageReference Include="CrestronHomeNUnit.TestAdapter" Version="1.12.1" GeneratePathProperty="true" ExcludeAssets="build;buildTransitive" />
+    <Reference Include="CrestronHomeNUnit.Workflow"><HintPath>$(PkgCrestronHomeNUnit_TestAdapter)/lib/net10.0/CrestronHomeNUnit.Workflow.dll</HintPath></Reference>
+    <Reference Include="CrestronHomeNUnit.Client"><HintPath>$(PkgCrestronHomeNUnit_TestAdapter)/lib/net10.0/CrestronHomeNUnit.Client.dll</HintPath></Reference>
+    <Reference Include="CrestronHomeNUnit.Android"><HintPath>$(PkgCrestronHomeNUnit_TestAdapter)/lib/net10.0/CrestronHomeNUnit.Android.dll</HintPath></Reference>
+    <InternalsVisibleTo Include="CrestronHomeDevTools.Tests" />
+    <InternalsVisibleTo Include="CrestronHomeDevTools.Tests.Probe" />
+  </ItemGroup>
+</Project>

@@ -39,6 +39,7 @@ internal static class SubmissionToolsCommand
                 These commands do not certify a driver or send anything to Crestron.
                 Actual delivery uses the separate protected submission-deliver command.
                 Signing can replace --signature-image with a final --credentials PRIVATE_BINDINGS pair.
+                PRIVATE_BINDINGS may also be an absolute encrypted snapshot-NAME.setup path from the Setup app.
                 The exact reviewed-form authorization is still required; saving a signature grants no approval.
                 """);
 			return 0;

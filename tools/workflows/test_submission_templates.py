@@ -27,6 +27,60 @@ def load(name):
 
 
 class SubmissionTemplateTests(unittest.TestCase):
+    def test_automation_dispatch_defaults_to_rehearsal_and_has_no_provider_secrets(self):
+        entry = load("submission-automation")
+        self.assertEqual(["workflow_dispatch"], list(entry["on"]))
+        mode = entry["on"]["workflow_dispatch"]["inputs"]["mode"]
+        self.assertEqual("rehearsal", mode["default"])
+        self.assertEqual(["rehearsal", "submit"], mode["options"])
+        self.assertEqual({"contents": "read"}, entry["permissions"])
+        job = entry["jobs"]["advance"]
+        self.assertIn("CRESTRON_SUBMISSION_AUTOMATION_ENABLED", job["if"])
+        self.assertEqual("false", entry["concurrency"]["cancel-in-progress"])
+        for step in job["steps"]:
+            self.assertNotIn("${{", step.get("run", ""))
+            self.assertNotIn("uses", step)
+        self.assertNotIn("secrets.", (TEMPLATES / "submission-automation.yml.example").read_text())
+
+    def test_automation_dispatch_preserves_waits_failures_and_requested_mode(self):
+        step = load("submission-automation")["jobs"]["advance"]["steps"][0]
+        shell = shutil.which("pwsh")
+        self.assertIsNotNone(shell)
+        for mode, result, succeeds, summary in [
+            ("rehearsal", 0, True, "Rehearsal documents are ready"),
+            ("rehearsal", 4, True, "Waiting for a recorded operation"),
+            ("submit", 0, True, "registered workflow completed"),
+            ("rehearsal", 3, False, ""),
+            ("rehearsal", 2, False, ""),
+            ("invalid", 0, False, ""),
+        ]:
+            with self.subTest(mode=mode, result=result), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                fake = root / "worker.ps1"
+                fake.write_text('[IO.File]::WriteAllText($env:CAPTURE, ($args -join "|"))\nexit ' + str(result), encoding="utf-8")
+                script = root / "dispatch.ps1"
+                script.write_text(step["run"], encoding="utf-8")
+                registry = root / "registry.json"
+                registry.write_text("{}")
+                env = dict(os.environ, AUTOMATION_EXE=str(fake), AUTOMATION_REGISTRY=str(registry),
+                           REQUEST_PROFILE="weather-driver", REQUEST_RELEASE="123456", REQUEST_MODE=mode,
+                           GITHUB_STEP_SUMMARY=str(root / "summary.txt"), CAPTURE=str(root / "args.txt"))
+                run = subprocess.run([shell, "-NoProfile", "-NonInteractive", "-File", str(script)], env=env,
+                                     capture_output=True, text=True, timeout=20)
+                self.assertEqual(succeeds, run.returncode == 0, run.stderr)
+                if summary:
+                    text = (root / "summary.txt").read_text(encoding="utf-8-sig")
+                    self.assertIn(summary, text)
+                    if result == 4:
+                        self.assertNotIn("documents are ready", text)
+                        self.assertNotIn("workflow completed", text)
+                if mode != "invalid":
+                    self.assertEqual("|".join(["--registry", str(registry), "--profile", "weather-driver",
+                                              "--release-id", "123456", "--mode", mode]),
+                                     (root / "args.txt").read_text(encoding="utf-8-sig"))
+                else:
+                    self.assertFalse((root / "args.txt").exists())
+
     def test_disabled_manual_entrypoint_and_no_parent_lock(self):
         entry = load("submission")
         self.assertEqual(["workflow_dispatch"], list(entry["on"]))

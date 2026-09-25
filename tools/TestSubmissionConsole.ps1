@@ -6,6 +6,20 @@ $directory = [IO.Path]::GetFullPath($ConsoleDirectory)
 $console = Join-Path $directory 'CrestronHomeDevTools.Console.exe'
 & $console submission runtime-check
 if ($LASTEXITCODE -ne 0) { throw 'Submission console integrity check failed.' }
+& (Join-Path $directory 'automation/CrestronHomeDevTools.Automation.exe') --help
+if ($LASTEXITCODE -ne 0) { throw 'Packaged automation worker could not start.' }
+$setup = Join-Path $directory 'setup/CrestronHomeDevTools.Setup.exe'
+if (-not (Test-Path -LiteralPath $setup -PathType Leaf)) { throw 'Packaged setup application is missing.' }
+$consoleVersion = [Diagnostics.FileVersionInfo]::GetVersionInfo($console).FileVersion
+if ([Diagnostics.FileVersionInfo]::GetVersionInfo($setup).FileVersion -ne $consoleVersion) { throw 'Packaged setup application version differs from the console.' }
+if (-not (Test-Path -LiteralPath (Join-Path $directory 'setup/licenses/windowsdesktop-runtime/LICENSE') -PathType Leaf)) { throw 'Packaged Desktop Runtime license is missing.' }
+foreach ($name in @('InstallSubmissionAutomationWorker.ps1','InstallSubmissionAndroidFixture.ps1','RunAndroidFixture.ps1')) {
+    $script = Join-Path $directory ('scripts/automation/' + $name)
+    if (-not (Test-Path -LiteralPath $script -PathType Leaf)) { throw "Missing automation setup script: $name" }
+    $parseTokens = $null; $parseErrors = $null
+    $null = [Management.Automation.Language.Parser]::ParseFile($script, [ref]$parseTokens, [ref]$parseErrors)
+    if ($parseErrors.Count) { throw "Invalid packaged automation setup script: $name" }
+}
 dotnet build (Join-Path $PSScriptRoot '../CrestronHomeDevTools.Tests.Probe/CrestronHomeDevTools.Tests.Probe.csproj') -c Release --verbosity quiet
 if ($LASTEXITCODE -ne 0) { throw 'Synthetic delivery probe build failed.' }
 $names = @('SUBMISSION_TEST_BUNDLE', 'SUBMISSION_TEST_DOTNET', 'SUBMISSION_TEST_VALIDATOR', 'SUBMISSION_TEST_PROBE', 'SUBMISSION_TEST_PWSH')

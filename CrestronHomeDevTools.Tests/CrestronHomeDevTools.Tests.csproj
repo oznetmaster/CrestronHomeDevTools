@@ -6,6 +6,12 @@
     <PackageReference Include="NUnit3TestAdapter" Version="6.3.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.9.0" />
     <ProjectReference Include="../CrestronHomeDevTools/CrestronHomeDevTools.csproj" />
+    <ProjectReference Include="../CrestronHomeDevTools.Automation/CrestronHomeDevTools.Automation.csproj" />
+    <ProjectReference Include="../samples/WeatherLinkEnduranceProducer/WeatherLinkEnduranceProducer.csproj" />
+    <ProjectReference Include="../samples/WeatherLinkAndroidTests/WeatherLinkAndroidTests.csproj" />
+    <PackageReference Include="CrestronHomeNUnit.TestAdapter" Version="1.12.1" GeneratePathProperty="true" ExcludeAssets="build;buildTransitive" />
+    <Reference Include="CrestronHomeNUnit.Workflow"><HintPath>$(PkgCrestronHomeNUnit_TestAdapter)/lib/net10.0/CrestronHomeNUnit.Workflow.dll</HintPath></Reference>
+    <Reference Include="CrestronHomeNUnit.Client"><HintPath>$(PkgCrestronHomeNUnit_TestAdapter)/lib/net10.0/CrestronHomeNUnit.Client.dll</HintPath></Reference>
     <ProjectReference Include="../CrestronHomeDevTools.Console/CrestronHomeDevTools.Console.csproj" />
     <ProjectReference Include="../CrestronHomeDevTools.Tests.Probe/CrestronHomeDevTools.Tests.Probe.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>

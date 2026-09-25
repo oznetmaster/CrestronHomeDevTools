@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <AssemblyName>CrestronHomeDevTools.Setup</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup><ProjectReference Include="../CrestronHomeDevTools/CrestronHomeDevTools.csproj" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="../CrestronHomeDevTools.Automation/CrestronHomeDevTools.Automation.csproj" /></ItemGroup>
+</Project>

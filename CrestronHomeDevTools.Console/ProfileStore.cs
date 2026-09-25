@@ -54,7 +54,7 @@ internal sealed class ProfileStore (string? directory = null)
 		try
 			{
 			File.WriteAllBytes (temporary, encrypted);
-			File.Move (temporary, path, true);
+			CrestronHomeDevTools.SubmissionJournalFile.Replace (temporary, path);
 			}
 		finally { if (File.Exists (temporary)) File.Delete (temporary); }
 		}

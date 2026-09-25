@@ -42,6 +42,10 @@ The producer must be read-only and obey cancellation. Tests that change physical
 
 ## Restart and failure handling
 
+For an explicit operator stop, disable the scheduler first, then use `endurance-stop` with the same worker, run and private connection arguments, or call `SubmissionEnduranceMonitor.StopAsync`. It refuses pending/interrupted probes and uncertain ownership. Between observations it preserves the original plan and samples, records `Failed` with reason `operator-stopped` for an incomplete interval, and releases only the verified reservation. That status means the requested interval was not completed; it does not mean a device measurement failed. A passed or already failed outcome is preserved. Successful command exit means stop/cleanup succeeded, not that endurance passed. Do not edit a frozen plan to shorten a running test.
+
+Choose rehearsal duration before starting the rehearsal. A one-hour rehearsal exercises scheduling and collection handoffs without waiting for the actual submission interval. Identify its shortened policy and resulting documents as rehearsal-only; do not credit that hour as a full-duration submission pass.
+
 - A Windows restart between completed samples may resume the same journal only while the approved gap is still satisfied and the environment/reservation is unchanged. A service must load the same pinned plan and directory after restart.
 - A crash after probe intent was saved leaves `ProbePending`. The next invocation marks the run `Interrupted` without replaying the probe. It does not assume that an unfinished observation passed.
 - A gap, changed identity or boot identity, failed functional check, reversed clock or probe error stops the run. Later successful responses cannot overwrite that failure. Review the retained failure before starting a new run in a new directory.

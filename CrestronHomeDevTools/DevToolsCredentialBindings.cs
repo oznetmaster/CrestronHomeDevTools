@@ -12,6 +12,17 @@ public sealed record DevToolsCredentialBindings (string StoreDirectory, string? 
 	{
 	public static DevToolsCredentialBindings Read (string path)
 		{
+		// The same --credentials input can refer directly to an encrypted setup snapshot.
+		// No intermediate credential file or environment variables are needed.
+		if (Path.GetExtension (path).Equals (".setup", StringComparison.OrdinalIgnoreCase))
+			{
+			if (!OperatingSystem.IsWindows ())
+				throw new PlatformNotSupportedException ("Encrypted setup snapshots require Windows.");
+			string filename = Path.GetFileNameWithoutExtension (path);
+			if (!Path.IsPathFullyQualified (path) || !filename.StartsWith ("snapshot-", StringComparison.Ordinal))
+				throw new ArgumentException ("Select an absolute encrypted submission snapshot path.");
+			return DevToolsPrivateStore.Open (Path.GetDirectoryName (path)!).GetSubmissionSetupBindings (filename[9..]);
+			}
 		using var file = File.OpenRead (path);
 		if (file.Length > 65536)
 			throw new InvalidDataException ("Credential bindings exceed their size limit.");

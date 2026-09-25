@@ -23,6 +23,8 @@ Reviewed V1 removal can preserve other instances sharing the same driver code ac
 - [Deployment and tests](#deployment-and-tests)
 - [Submission preparation console](docs/submission/ConsoleTools.md) (no Python setup)
 - [Submission runbook](docs/submission/Runbook.md) (normal path, expected results and resuming work)
+- [Single submission starting document](docs/submission/START-DRIVER-SUBMISSION.md) (give an assistant this document and your driver repository; independent validation pending)
+- [Release-to-submission automation](docs/submission/ReleaseAutomation.md) (source-preview intake/controller, tested scope and remaining integration)
 - [Reviewed evidence mapping](docs/submission/EvidenceMapping.md) (C# API and CLI, requires 1.11.0)
 - [Passive endurance health assessment](docs/submission/WindowsEnduranceWorker.md#passive-health-assessment) (requires 1.12.0; no notification delivery)
 - [Optional endurance notifications](docs/submission/EnduranceNotifications.md) (APIs require 1.12.0; unattended Windows setup requires 1.17.0; authorized SMTP destination required)
@@ -165,3 +167,7 @@ Development management operations were verified on MC4-R and CP4-R / Crestron Ho
 Copyright (c) 2026 Neil Colvin. Original project code is licensed under the [MIT License](LICENSE). Dependencies retain their own licenses; see [third-party notices](THIRD-PARTY-NOTICES.md).
 
 Crestron and Crestron Home are trademarks or registered trademarks of Crestron Electronics, Inc. This project is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc. It uses an independently implemented, unofficial configuration interface. The MIT license does not grant rights to Crestron's software or documentation. Software is provided as-is, without warranty, as specified in LICENSE.
+
+## Submission input setup (source preview)
+
+The [Windows setup app](docs/submission/SetupApp.md) collects editable developer, driver and submission profiles in the encrypted private store. A submission uses a frozen input snapshot so subsequent edits do not alter earlier records. Complete console archives built from this source include the self-contained form at `setup/CrestronHomeDevTools.Setup.exe`; previously published versions may not include it. It prepares Rehearsal or Submit configuration without starting tests or authorizing signing and delivery.

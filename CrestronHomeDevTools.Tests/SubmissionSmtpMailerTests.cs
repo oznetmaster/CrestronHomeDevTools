@@ -161,6 +161,40 @@ public sealed class SubmissionSmtpMailerTests
 		Assert.That (sent.TextBody, Does.Not.Contain ("Request for review with declared gaps"));
 		}
 
+	[Test]
+	public async Task ReviewedCorrespondencePreservesExactTextAndBindsApproval ()
+		{
+		const string body = "Hello,\r\n\r\nPlease review the disclosed gaps in the signed form.\r\nPackage: {{PACKAGE_DOWNLOAD_URL}}\r\nThank you.\r\n";
+		var plan = ReviewPlan (SubmissionReviewAttachmentKind.SignedSelfTest) with
+			{ CorrespondenceOverride = new ("Driver Submission Package", body) };
+		string digest = SubmissionDelivery.ReviewPlanDigest (plan);
+		var changed = plan with { CorrespondenceOverride = new ("Driver Submission Package", body + "Changed text") };
+		var rejected = new Session ();
+		Assert.ThrowsAsync<InvalidDataException> (() => Create (rejected).SendReviewAsync (changed, Upload,
+			new MemoryStream (Form), "<crestron-" + digest + "@submission.local>"));
+		Assert.That (rejected.Connects, Is.Zero);
+		var session = new Session ();
+		await Create (session).SendReviewAsync (plan, Upload, new MemoryStream (Form), "<crestron-" + digest + "@submission.local>");
+		using var sent = MimeMessage.Load (new MemoryStream (session.SentBytes!));
+		Assert.That (sent.TextBody!.Replace ("\r\n", "\n"), Is.EqualTo (
+			body.Replace ("{{PACKAGE_DOWNLOAD_URL}}", Upload.DownloadUrl).Replace ("\r\n", "\n")));
+		Assert.That (sent.Subject, Is.EqualTo ("Driver Submission Package"));
+		Assert.That (sent.Attachments.Count (), Is.EqualTo (1));
+		}
+
+	[TestCase ("No URL")]
+	[TestCase ("{{PACKAGE_DOWNLOAD_URL}} {{PACKAGE_DOWNLOAD_URL}}")]
+	[TestCase ("{{PACKAGE_DOWNLOAD_URL}}\0")]
+	public void InvalidCorrespondenceCannotConnect (string body)
+		{
+		var plan = ReviewPlan (SubmissionReviewAttachmentKind.SignedSelfTest) with
+			{ CorrespondenceOverride = new ("Driver Submission Package", body) };
+		var session = new Session ();
+		Assert.Throws<ArgumentException> (() => Create (session).SendReviewAsync (plan, Upload,
+			new MemoryStream (Form), "unused"));
+		Assert.That (session.Connects, Is.Zero);
+		}
+
 	[TestCase ("attachment")]
 	[TestCase ("disclosure")]
 	public void ChangedReviewCannotConnectToMailServer (string change)

@@ -57,6 +57,13 @@ static async Task<int> RunSafelyAsync (string[] args, bool interactive = false)
 
 static async Task<int> RunAsync (string[] args, bool interactive = false)
 	{
+	if (args.FirstOrDefault () == "submission-release-intake")
+		{
+		using var deadline = new CancellationTokenSource (TimeSpan.FromMinutes (5));
+		return await SubmissionReleaseIntakeCommand.RunAsync (args[1..], Console.In, Console.Out, Console.Error, deadline.Token);
+		}
+	if (args.FirstOrDefault () == "submission-setup")
+		return SubmissionSetupCommand.Run (args[1..], Console.Out, Console.Error);
 	if (args.FirstOrDefault () == "resources")
 		return await ResourceSetupCommand.RunAsync (args[1..], Console.Out, Console.Error, CancellationToken.None);
 	if (args.FirstOrDefault () == "credentials")
@@ -223,6 +230,7 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
               endurance-status --worker FILE --run DIR
                                        Inspect retained progress offline, without running a probe.
               endurance-finish --worker FILE --run DIR
+              endurance-stop --worker FILE --run DIR
                                        Release after a known terminal result; never guess ownership.
               endurance-export --worker FILE --run DIR
                                        Revalidate and export a passed endurance observation offline.
@@ -326,7 +334,7 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 				"submission-evidence-check" => ["candidate", "candidate-sha256", "package", "policy", "template", "observations", "evidence"],
 				"submission-bundle-create" => ["output", "candidate", "candidate-sha256", "package", "policy", "template", "observations", "evidence"],
 				"submission-bundle-check" => ["bundle", "bundle-sha256", "candidate-sha256", "scratch"],
-				"endurance-start" or "endurance-tick" or "endurance-status" or "endurance-finish" or "endurance-export" => ["worker", "run"],
+				"endurance-start" or "endurance-tick" or "endurance-status" or "endurance-finish" or "endurance-stop" or "endurance-export" => ["worker", "run"],
 				"endurance-health" => ["worker", "snapshot", "max-status-age-seconds", "clock-tolerance-seconds"],
 				"activate" => ["driver", "name", "room", "device"],
 				"remove" => ["device", "model", "version"],

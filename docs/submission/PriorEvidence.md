@@ -36,6 +36,13 @@ SubmissionEvidenceDocument imported = SubmissionPriorEvidence.ImportFiles(
 
 `Import` is also available for callers already holding the independently reviewed identity and policy. Neither entry point performs hardware tests, applies a signature or delivers anything. Import validates only the selected subset; it does not establish full submission readiness.
 
+For the source-preview automatic controller, configure
+[`Review.PriorEvidence`](AutomationWorker.md#reviewed-evidence-from-an-earlier-candidate)
+instead of manually copying evidence after tests finish. The controller retains
+the pinned original inventory during candidate validation and imports it during
+review preparation. The same explicit policy and change-review decisions remain
+required; the worker does not make those judgments itself.
+
 ## A completed endurance run followed by a documentation-only package
 
 A new package has a new identity even if only its bundled help changed. Do not edit the earlier export or pretend that the later package was installed during that run. Review the actual runtime, resources and dependencies before deciding whether to reuse the evidence.

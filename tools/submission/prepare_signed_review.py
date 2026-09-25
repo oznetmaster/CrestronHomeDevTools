@@ -11,6 +11,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import traceback
 import zipfile
 
 from pypdf.errors import PdfReadError
@@ -190,8 +191,14 @@ def main():
         image_bytes = sys.stdin.buffer.read(10 * 1024 * 1024 + 1) if args.signature_stdin else None
         print(json.dumps(prepare(args.settings, args.review_sha256, args.authorization_sha256, image_bytes=image_bytes), indent=2))
         return 0
-    except (ValueError, OSError, KeyError, TypeError, PdfReadError, zipfile.BadZipFile, subprocess.SubprocessError):
-        print("Signed review preparation failed. Inspect private inputs; no delivery was attempted.", file=sys.stderr)
+    except (ValueError, OSError, KeyError, TypeError, PdfReadError, zipfile.BadZipFile, subprocess.SubprocessError) as error:
+        # Keep original failure location/category useful without exposing private
+        # paths, exception messages, document content or signature bytes.
+        frame = traceback.extract_tb(error.__traceback__)[-1]
+        detail = f"{type(error).__name__} at {Path(frame.filename).name}:{frame.lineno}"
+        if isinstance(error, OSError):
+            detail += f" (errno={error.errno}, winerror={getattr(error, 'winerror', None)})"
+        print(f"Signed review preparation failed: {detail}. Inspect private inputs; no delivery was attempted.", file=sys.stderr)
         return 1
 
 

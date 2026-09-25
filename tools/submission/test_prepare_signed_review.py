@@ -224,5 +224,25 @@ class InterpretedSigningStageTests(unittest.TestCase):
         self.assertIn('not a new automatic pass', '\n'.join(page.extract_text() for page in signed.pages))
 
 
+class SigningDiagnosticTests(unittest.TestCase):
+    def test_failure_diagnostic_keeps_category_without_private_exception_content(self):
+        import contextlib
+        import io
+        import sys
+        diagnostic = io.StringIO()
+        with patch.object(sys, "argv", ["prepare-signed-review", "--settings", "private.json",
+                                       "--review-sha256", "a" * 64,
+                                       "--authorization-sha256", "b" * 64]), \
+                patch.object(stage, "prepare", side_effect=PermissionError(13, "secret-content", "private-signature.png")), \
+                contextlib.redirect_stderr(diagnostic):
+            self.assertEqual(stage.main(), 1)
+        text = diagnostic.getvalue()
+        self.assertIn("PermissionError", text)
+        self.assertIn("errno=13", text)
+        self.assertNotIn("secret-content", text)
+        self.assertNotIn("private-signature.png", text)
+        self.assertIn("no delivery was attempted", text)
+
+
 if __name__ == "__main__":
     unittest.main()

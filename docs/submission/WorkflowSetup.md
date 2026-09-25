@@ -2,6 +2,8 @@
 
 Start with the [normal-path runbook](Runbook.md) for stage order, expected results and resuming an interrupted attempt. This page supplies the one-time worker and repository configuration.
 
+For an assistant starting with only a driver repository, use the [single starting document](START-DRIVER-SUBMISSION.md). The [release automation implementation](ReleaseAutomation.md) describes the new source-preview intake/controller and the integrations still required; it does not replace these manual stage templates yet.
+
 These templates belong in your own trusted orchestration repository. They do not depend on the author's private CI repository or require another physical PC. See [development configurations](DevelopmentConfigurations.md) for one or many PCs and processors. Use a private repository for this supplied configuration, with restricted write access and a protected Windows worker; ordinary builds and releases remain independent.
 
 The templates connect the public review, signing, delivery-preparation and delivery commands. They do not run missing acceptance tests or establish that a driver is ready for submission. The public console has completed a real authorized submission. The consuming repository's GitHub protections, worker identity and private credentials still require their own validation; see [verified scope](ValidationStatus.md). Copying the files leaves it disabled until you configure and explicitly enable it.
