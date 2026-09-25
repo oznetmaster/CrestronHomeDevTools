@@ -6,6 +6,13 @@ Give this document and the driver's repository URL to the assistant that will pe
 
 The [release automation controller](ReleaseAutomation.md) is a source preview. Its [Windows worker](AutomationWorker.md) connects release discovery, tests, endurance, documents, authorized signing/delivery and retention. A configured rehearsal has now completed actual deployment, Windows/processor/live/app tests, temporary-test cleanup, shortened endurance, export and unsigned review preparation without intervention after startup. Signing/delivery/retention use separate synthetic-authority and test-provider validation. This is not an independent operator validation of this document or a newly published release followed by real submission. See [the precise validation boundaries](ValidationStatus.md). Intake alone does not start tests; the installed watcher advances registered runs. The [setup form](SetupApp.md) can reduce repeated questions, but check availability in the selected published version before prescribing it to another developer.
 
+In this source preview, saved setup offers **Prepare rehearsal profile** and
+**Prepare submission profile**. Select the intended mode before intake. Actual
+submission preparation requires a Submission-purpose snapshot, explicit protected
+stage bindings and the separately installed protected worker. It does not approve
+signing or delivery. Do not turn a completed rehearsal into a submission by editing
+its frozen settings.
+
 **How to start:** attach this document and supply the driver repository URL. An existing private submission-state file is optional for resuming an attempt. No other prepared plan is required from the developer. The assistant must read the public references below itself; this is one starting document, not a requirement to fit every API schema into one file.
 
 ## Assignment

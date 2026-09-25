@@ -151,6 +151,36 @@ public sealed class SubmissionSetupTests
   Assert.That(exported,Does.Not.Contain("SYNTHETIC-SECRET").And.Not.Contain("PRIVATE-PROTECTED-STORE"));
   Assert.That(File.Exists(Path.Combine(_path,"worker-bindings.json")),Is.False,"Preparation does not provision credentials.");
  }
+ [TestCase(false)][TestCase(true)] public void SubmissionPreparationPreservesExplicitBindingsWithoutStartingOrApproving(bool missingProtected)
+ {
+  var original=RehearsalTemplate();
+  if(missingProtected) {
+   original=original with{Protected=null};
+   File.WriteAllBytes(Path.Combine(_path,"template.json"),JsonSerializer.SerializeToUtf8Bytes(original,AutomationFiles.Json));
+  }
+  string snapshotHash=AutomationFiles.Hash(_store.GetSubmissionSetupSnapshotPath("rehearsal"));
+  var prepared=SubmissionAutomationSetup.PrepareSubmission(_store,"rehearsal");
+  var profile=AutomationFiles.Read<SubmissionAutomationReleaseProfiles>(prepared.ProfilesPath).Profiles.Single();
+  var settings=AutomationFiles.Read<SubmissionAutomationSettings>(profile.SettingsTemplate.Path);
+  Assert.That(profile.Mode,Is.EqualTo(SubmissionAutomationMode.Submit));
+  Assert.That(settings.Mode,Is.EqualTo(SubmissionAutomationMode.Submit));
+  Assert.That(settings.Protected,Is.EqualTo(original.Protected));
+  Assert.That(settings.CredentialBindings,Is.EqualTo(original.CredentialBindings));
+  Assert.That(settings.NUnit.Host,Is.EqualTo(original.NUnit.Host));
+  Assert.That(AutomationFiles.Read<SubmissionAutomationRegistry>(prepared.RegistryPath).Entries,Is.Empty);
+  Assert.That(AutomationFiles.Hash(_store.GetSubmissionSetupSnapshotPath("rehearsal")),Is.EqualTo(snapshotHash));
+  Assert.That(Directory.GetFiles(Path.GetDirectoryName(prepared.ProfilesPath)!,"*",SearchOption.AllDirectories).Select(Path.GetFileName),
+   Is.EquivalentTo(new[]{"settings-template.json","tooling.json","release-profiles.json","registry.json","setup-provenance.json"}));
+  if(missingProtected)Assert.That(prepared.Configuration.MissingBindings,Has.Some.Contains("Protected"));
+  // Saved signing material remains encrypted in the store, not exported into this profile.
+  Assert.That(File.ReadAllText(profile.SettingsTemplate.Path),Does.Not.Contain("secret"));
+ }
+ [Test] public void RehearsalPurposeCannotBeConvertedIntoSubmissionPreparation()
+ {
+  RehearsalTemplate(delivery:false);
+  Assert.Throws<InvalidDataException>(()=>SubmissionAutomationSetup.PrepareSubmission(_store,"rehearsal"));
+  Assert.That(Directory.GetDirectories(_path,"submission-*"),Is.Empty);
+ }
  [Test] public void SavedRehearsalOnlySetupPreparesPublicReleaseProfileWithoutDeliveryProvisioning()
  {
   RehearsalTemplate(delivery:false);

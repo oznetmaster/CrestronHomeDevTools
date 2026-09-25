@@ -68,7 +68,7 @@ The draft retains pending items for model/support verification, actual test envi
 
 User-scoped stores cannot simply be copied to another computer or runner account. Use the existing explicit credential provisioning mechanisms for selected secrets; provision factual profiles separately under the intended account using the public save/load APIs. Do not switch to shared plaintext files or broaden access automatically. Inventory selection and hardware leases remain the responsibility of the executing workflow.
 
-## Prepare a controller rehearsal
+## Prepare a controller profile
 
 The automation worker exposes the same preparation as the form:
 
@@ -100,12 +100,32 @@ silently retargeting equipment. Test fixtures, device IDs, trust pins, endurance
 criteria, evidence mappings and package support-metadata requirements remain
 explicit reviewed template inputs. They cannot be inferred from contact details.
 
-Preparation always selects **Rehearsal** and omits protected signing/delivery
+Rehearsal preparation always selects **Rehearsal** and omits protected signing/delivery
 settings. It preserves the template's selected evidence-worker credential
 binding; it never substitutes the setup snapshot containing all credentials.
 The saved snapshot freezes factual revisions and file selections; preparation
 captures the current selected file bytes and records their hashes in
 `setup-provenance.json`. Later edits do not modify an already prepared profile.
+
+For actual submission mode, create a **Submission**-purpose snapshot, then use
+the form's **Prepare submission profile** button or:
+
+```powershell
+CrestronHomeDevTools.Automation.exe --prepare-submission --store C:\Private\SubmissionSetup --snapshot example-release-attempt1
+```
+
+The matching public API is `SubmissionAutomationSetup.PrepareSubmission(store, snapshotName)`.
+It retains the reviewed template's protected-stage references and records Submit
+mode in a fresh profile and provenance record. It rejects a Rehearsal-purpose
+snapshot. Missing bindings are reported in the same way as rehearsal preparation;
+the command does not invent credentials, approvals or evidence. Neither preparation
+command starts a worker, installs a driver, signs a document, uploads or sends mail.
+
+Submit mode still requires an independently configured protected worker and exact
+signing/delivery approvals. Keep its credential store isolated from the evidence
+worker. Preparation copies configuration references only, never the saved password
+or signature bytes. Existing frozen rehearsal runs cannot be converted into actual
+submissions by editing their mode; prepare the intended mode before release intake.
 
 Outputs stay in a fresh restricted child of the setup store. Do not grant an
 evidence service access to the entire store to read these files. When running

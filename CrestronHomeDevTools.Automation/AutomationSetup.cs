@@ -14,10 +14,16 @@ public sealed record SubmissionAutomationPreparedSetup(string ProfilesPath,strin
 [SupportedOSPlatform("windows")]
 public static class SubmissionAutomationSetup
 {
- public static SubmissionAutomationPreparedSetup PrepareRehearsal(DevToolsPrivateStore store,string snapshotName) {
+ public static SubmissionAutomationPreparedSetup PrepareRehearsal(DevToolsPrivateStore store,string snapshotName)=>Prepare(store,snapshotName,SubmissionAutomationMode.Rehearsal);
+ /// <summary>Prepare an opted-in Submit profile from a submission-purpose snapshot. This saves
+ /// configuration only; installed protected-worker bindings and exact approvals remain required.</summary>
+ public static SubmissionAutomationPreparedSetup PrepareSubmission(DevToolsPrivateStore store,string snapshotName)=>Prepare(store,snapshotName,SubmissionAutomationMode.Submit);
+ private static SubmissionAutomationPreparedSetup Prepare(DevToolsPrivateStore store,string snapshotName,SubmissionAutomationMode mode) {
   ArgumentNullException.ThrowIfNull(store);
   var saved=store.LoadSetupProfile<SubmissionSetupSnapshot>(snapshotName);
   var snapshot=saved.Value;var run=snapshot.Run.Value;
+  if(mode==SubmissionAutomationMode.Submit && snapshot.Purpose!=SubmissionSetupPurpose.Submission)
+   throw new InvalidDataException("Submit preparation requires a submission-purpose snapshot; a rehearsal snapshot cannot authorize this selection.");
   if(!Uri.TryCreate(snapshot.Driver.Value.RepositoryUrl,UriKind.Absolute,out var url) ||
    url.Scheme!="https" || url.Host!="github.com" || !url.IsDefaultPort || url.UserInfo.Length!=0 || url.Query.Length!=0 || url.Fragment.Length!=0 ||
    !Regex.IsMatch(url.AbsolutePath,"\\A/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/?\\z"))
@@ -38,12 +44,12 @@ public static class SubmissionAutomationSetup
    throw new InvalidDataException("Select the evidence worker's provisioned credential bindings in the template.");
   // Never substitute the setup store/snapshot here: it can also contain mail and signing secrets.
   // A rehearsal carries no protected-stage configuration, even when its source template did.
-  settings=settings with {PrivateRoot=run.PrivateWorkspace,Mode=SubmissionAutomationMode.Rehearsal,Protected=null,
+  settings=settings with {PrivateRoot=run.PrivateWorkspace,Mode=mode,Protected=mode==SubmissionAutomationMode.Rehearsal?null:settings.Protected,
    Review=settings.Review is {} review?review with {Title=snapshot.Driver.Value.DriverName+" ${version} - Crestron Home driver",Author=snapshot.Developer.Value.DeveloperName}:null};
-  string directory=Path.Combine(store.DirectoryPath,"rehearsal-"+snapshotName+"-"+Guid.NewGuid().ToString("N"));
+  string directory=Path.Combine(store.DirectoryPath,(mode==SubmissionAutomationMode.Rehearsal?"rehearsal-":"submission-")+snapshotName+"-"+Guid.NewGuid().ToString("N"));
   string template=Path.Combine(directory,"settings-template.json"),tooling=Path.Combine(directory,"tooling.json");
   var profile=new SubmissionAutomationReleaseProfile(snapshotName,repository,cutoff,run.PrivateWorkspace,
-   run.AutomationPackageName,new(template,"pending"),new(tooling,"pending"));
+   run.AutomationPackageName,new(template,"pending"),new(tooling,"pending"),mode);
   AutomationReleaseDiscovery.Validate(profile);
   // Parse before creating outputs; do not accept arbitrary non-JSON as a tooling manifest.
   using var toolingDocument=JsonDocument.Parse(toolingBytes);
@@ -53,7 +59,7 @@ public static class SubmissionAutomationSetup
   AutomationFiles.Write(template,settings);File.WriteAllBytes(tooling,toolingBytes);
   profile=profile with {SettingsTemplate=new(template,AutomationFiles.Hash(template)),ToolingManifest=new(tooling,AutomationFiles.Hash(tooling))};
   string profiles=Path.Combine(directory,"release-profiles.json"),registry=Path.Combine(directory,"registry.json"),provenance=Path.Combine(directory,"setup-provenance.json");
-  AutomationFiles.Write(provenance,new {SchemaVersion=1,PreparedUtc=DateTimeOffset.UtcNow,Snapshot=saved.Name,
+  AutomationFiles.Write(provenance,new {SchemaVersion=1,PreparedUtc=DateTimeOffset.UtcNow,Mode=mode,Snapshot=saved.Name,
    SnapshotSha256=AutomationFiles.Hash(store.GetSubmissionSetupSnapshotPath(snapshotName)),
    DeveloperRevision=snapshot.Developer.Revision,DriverRevision=snapshot.Driver.Revision,RunRevision=snapshot.Run.Revision,
    SourceTemplateSha256=Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(templateBytes)),

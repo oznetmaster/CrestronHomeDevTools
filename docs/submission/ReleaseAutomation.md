@@ -72,4 +72,11 @@ Use one configured Windows worker and one processor as the first complete route,
 
 The controller needs no new NuGet release for every fix during development. Batch changes, test the source build, and publish a coherent version when the ordinary route is ready. A delivered packet means provider-confirmed submission; Crestron decides acceptance.
 
+Saved setup can prepare either a fresh Rehearsal profile or a Submit profile through
+the form, CLI or public API; see [profile preparation](SetupApp.md#prepare-a-controller-profile).
+Submit preparation requires a submission-purpose snapshot and preserves explicit
+protected-stage references. It grants no signing/delivery authority and starts no
+worker. Named GitHub access and independent clean-machine/operator validation
+remain separate integration work.
+
 Copyright (c) 2026 Neil Colvin. MIT licensed.

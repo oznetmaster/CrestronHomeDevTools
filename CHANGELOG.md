@@ -2,15 +2,19 @@
 
 ## Unreleased
 
+Saved setup can prepare a Submit-mode controller profile through the Windows form, `--prepare-submission` command or public API. It requires a submission-purpose snapshot, preserves explicitly configured protected-stage references and reports missing bindings. Preparation saves configuration only; it neither exports secrets nor authorizes or starts signing, upload or email.
+
+Integration checks now exercise the production worker's combined release-discovery and dispatch cycle, including publication before asset upload, automatic registration, durable continuation and refusal to restart failed or review-ready runs on duplicate discovery. GitHub and domain operations in these checks are simulated; see the validation guide for the separate completed hardware rehearsal.
+
 Automatic review preparation now connects completed Android coordinator receipts to the raw-evidence audit for both combined and separate app-test routes. It preserves pre-execution pins, verifies retained files and release identity, and keeps explicit independent bindings when supplied. Missing or changed evidence stops preparation instead of generating replacement proof.
 
 The WeatherLink Android fixture now writes the camel-case evidence schema required by the public composer and references captures under the actual combined-deployment or separate-app output directory. Integration regressions cover both routes and passing/failing observations without rewriting their results. Background-worker exception status identifies the affected stage; observers must inspect worker attention status even when the durable operation checkpoint remains Running for recovery.
 
 An explicit `endurance-stop` command and public monitor API can end an idle collection and release its reservation while retaining its original plan and samples. An incomplete interval is recorded as `operator-stopped`, never converted to a pass. Pending probes and uncertain ownership still require inspection.
 
-An optional deployment-to-endurance binding now derives the probe's device and catalogue IDs from retained, verified NUnit release-deployment receipts. Intake preserves a pinned template; the final producer is prepared before collection and reused on recovery without rewriting frozen settings or changing the test criteria. Existing installed-candidate runs keep their current behavior. Fresh hardware validation of this route remains pending.
+An optional deployment-to-endurance binding now derives the probe's device and catalogue IDs from retained, verified NUnit release-deployment receipts. Intake preserves a pinned template; the final producer is prepared before collection and reused on recovery without rewriting frozen settings or changing the test criteria. Existing installed-candidate runs keep their current behavior. This route passed the configured release-to-review hardware rehearsal documented in the validation guide.
 
-The combined release-deployment route now supplies retained fixture inputs before NUnit starts. The WeatherLink app sample can use the newly deployed instance ID from the public Android context, without a manual settings edit. Existing-instance tests still require an exact ID. Changes or loss of fixture inputs prevent recovery from reporting a pass. Fresh hardware validation of this new route remains pending.
+The combined release-deployment route now supplies retained fixture inputs before NUnit starts. The WeatherLink app sample can use the newly deployed instance ID from the public Android context, without a manual settings edit. Existing-instance tests still require an exact ID. Changes or loss of fixture inputs prevent recovery from reporting a pass. This route passed the configured release-to-review hardware rehearsal documented in the validation guide.
 
 Saved setup now has an explicit rehearsal purpose in the Windows form, console and public APIs. Rehearsals can prepare unsigned testing/review inputs without mail, uploader or signature credentials; their snapshots expose only testing credential bindings. Full submission readiness remains the default, and existing public method signatures are preserved.
 

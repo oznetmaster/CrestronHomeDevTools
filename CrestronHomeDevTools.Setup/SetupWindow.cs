@@ -167,11 +167,13 @@ internal sealed class SetupWindow : Form
    var prepared = Store ().PrepareSubmissionSetupInputs (snapshot.Text.Trim ());
    results.Text = "Prepared inside the protected store:\r\n\r\nHelp content:\r\n" + prepared.HelpContentPath + "\r\n\r\nRelease notes:\r\n" + prepared.ReleaseNotesPath + "\r\n\r\nForm and delivery defaults:\r\n" + prepared.OperationDefaultsPath + "\r\n\r\nEncrypted credentials input:\r\n" + prepared.CredentialsPath + "\r\n\r\nReview the drafts before using them. No signature applied, network connection, upload or email performed.";
   })));
-  top.Controls.Add (Button ("Prepare rehearsal profile", () => Safe (() => {
-   var prepared = Automation.SubmissionAutomationSetup.PrepareRehearsal (Store (), snapshot.Text.Trim ());
-   results.Text = "Prepared a fresh private rehearsal profile. No tests or provider operations started.\r\n\r\nRelease profiles:\r\n" + prepared.ProfilesPath + "\r\n\r\nEmpty run registry:\r\n" + prepared.RegistryPath + "\r\n\r\nSetup provenance:\r\n" + prepared.ProvenancePath + "\r\n\r\n" +
-    (prepared.Configuration.AllStageBindingsPresent ? "All stage bindings are present; execution and evidence are not yet validated." : "Complete these bindings before a full rehearsal:\r\n" + string.Join ("\r\n", prepared.Configuration.MissingBindings)) + "\r\n\r\nUse the public automation worker with these paths. Provision selected worker credentials separately; do not share this entire setup store.";
-  })));
+  void PrepareAutomation(bool submit) {
+   var prepared = submit ? Automation.SubmissionAutomationSetup.PrepareSubmission (Store (), snapshot.Text.Trim ()) : Automation.SubmissionAutomationSetup.PrepareRehearsal (Store (), snapshot.Text.Trim ());
+   results.Text = "Prepared a fresh private " + (submit ? "submission" : "rehearsal") + " profile. No tests or provider operations started. Signing and delivery still need exact approvals.\r\n\r\nRelease profiles:\r\n" + prepared.ProfilesPath + "\r\n\r\nEmpty run registry:\r\n" + prepared.RegistryPath + "\r\n\r\nSetup provenance:\r\n" + prepared.ProvenancePath + "\r\n\r\n" +
+    (prepared.Configuration.AllStageBindingsPresent ? "All stage bindings are present; execution and evidence are not yet validated." : "Complete these bindings before starting the workflow:\r\n" + string.Join ("\r\n", prepared.Configuration.MissingBindings)) + "\r\n\r\nUse the public automation worker with these paths. Provision selected worker credentials separately; do not share this entire setup store.";
+  }
+  top.Controls.Add (Button ("Prepare rehearsal profile", () => Safe (() => PrepareAutomation(false))));
+  top.Controls.Add (Button ("Prepare submission profile", () => Safe (() => PrepareAutomation(true))));
   page.Controls.Add (results); page.Controls.Add (top); return page;
  }
 }
