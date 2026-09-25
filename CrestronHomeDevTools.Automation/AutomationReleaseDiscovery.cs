@@ -86,7 +86,7 @@ internal static class AutomationReleaseDiscovery
    ["${run}"]=run,["${source}"]=source,["${package}"]=Path.Combine(run,"candidate.pkg"),["${version}"]=version,
    ["${version4}"]=version.Split('.').Length==3?version+".0":version,["${commit}"]=release.SourceCommit,
    ["${packageSha256}"]=release.PackageSha256,["${releaseId}"]=release.ReleaseId.ToString(CultureInfo.InvariantCulture),
-   ["${reservationId}"]=reservationId
+   ["${reservationId}"]=reservationId,["${runKey}"]=SubmissionWorkflow.RunKey(release)
   };
   JsonNode? Replace(JsonNode? value,bool deploymentTokens=false) {
    if(value is JsonValue v && v.TryGetValue<string>(out var text)) {

@@ -2,7 +2,9 @@
 
 ## Unreleased
 
-Saved setup can prepare a Submit-mode controller profile through the Windows form, `--prepare-submission` command or public API. It requires a submission-purpose snapshot, preserves explicitly configured protected-stage references and reports missing bindings. Preparation saves configuration only; it neither exports secrets nor authorizes or starts signing, upload or email.
+The complete console archive now includes the self-contained Windows setup app under `setup/`. Release validation requires that executable and checks its version matches the console, so profile collection does not require building the form from source or installing a separate Desktop Runtime.
+
+Saved setup can prepare a Submit-mode controller profile through the Windows form, `--prepare-submission` command or public API. It requires a submission-purpose snapshot, preserves explicitly configured protected-stage references and reports missing bindings. Release intake supports the same `${runKey}` approval-path placeholder as the protected worker. Preparation saves configuration only; it neither exports secrets nor authorizes or starts signing, upload or email.
 
 Integration checks now exercise the production worker's combined release-discovery and dispatch cycle, including publication before asset upload, automatic registration, durable continuation and refusal to restart failed or review-ready runs on duplicate discovery. GitHub and domain operations in these checks are simulated; see the validation guide for the separate completed hardware rehearsal.
 

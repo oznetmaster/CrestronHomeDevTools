@@ -24,6 +24,9 @@ dotnet publish (Join-Path $root 'CrestronHomeDevTools.Automation/CrestronHomeDev
 if ($LASTEXITCODE -ne 0) { throw 'Automation worker publish failed.' }
 & (Join-Path $automation 'CrestronHomeDevTools.Automation.exe') --help
 if ($LASTEXITCODE -ne 0) { throw 'Automation worker smoke test failed.' }
+$setupArguments = @{ OutputDirectory = (Join-Path $output 'setup') }
+if ($Version) { $setupArguments.Version = $Version }
+& (Join-Path $PSScriptRoot 'BuildSubmissionSetup.ps1') @setupArguments
 $assets = Get-Content (Join-Path $root 'CrestronHomeDevTools.Console/obj/project.assets.json') -Raw | ConvertFrom-Json -AsHashtable
 $runtimePack = @($assets.packageFolders.Keys | ForEach-Object { Join-Path $_ 'microsoft.netcore.app.runtime.win-x64/10.0.12' } | Where-Object { Test-Path $_ }) | Select-Object -First 1
 if (-not $runtimePack) { throw 'Bundled runtime license source not found.' }

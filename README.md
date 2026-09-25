@@ -170,4 +170,4 @@ Crestron and Crestron Home are trademarks or registered trademarks of Crestron E
 
 ## Submission input setup (source preview)
 
-The [Windows setup app](docs/submission/SetupApp.md) collects editable developer, driver and submission profiles in the encrypted private store. A submission uses a frozen input snapshot so subsequent edits do not alter earlier records. This new source feature is not yet part of a published release.
+The [Windows setup app](docs/submission/SetupApp.md) collects editable developer, driver and submission profiles in the encrypted private store. A submission uses a frozen input snapshot so subsequent edits do not alter earlier records. Complete console archives built from this source include the self-contained form at `setup/CrestronHomeDevTools.Setup.exe`; previously published versions may not include it. It prepares Rehearsal or Submit configuration without starting tests or authorizing signing and delivery.

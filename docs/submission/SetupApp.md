@@ -6,7 +6,15 @@ This is the initial source implementation, not yet included in a published relea
 
 ## Start and edit
 
-Build `CrestronHomeDevTools.Setup/CrestronHomeDevTools.Setup.csproj` on Windows with the .NET 10 SDK. Run its `CrestronHomeDevTools.Setup.exe` with the .NET 10 Desktop Runtime installed, or use `tools/BuildSubmissionSetup.ps1` to produce a self-contained Windows build. The full Visual Studio IDE is not required.
+The complete console archive built from this source includes the self-contained
+`setup/CrestronHomeDevTools.Setup.exe`. Open it to collect and edit profiles; no
+separate SDK or Desktop Runtime installation is needed for the form. Previously
+published archives may not contain it; check the selected version.
+
+For source development, build `CrestronHomeDevTools.Setup/CrestronHomeDevTools.Setup.csproj`
+on Windows with the .NET 10 SDK, then run it with the .NET 10 Desktop Runtime
+installed. Alternatively, `tools/BuildSubmissionSetup.ps1` creates a self-contained
+build in a fresh directory. The full Visual Studio IDE is not required.
 
 The default storage location is `%LOCALAPPDATA%\CrestronHomeDevTools\PrivateStore`. An optional `--store ABSOLUTE_DIRECTORY` selects a local store. The existing private-store API creates new stores with restricted NTFS permissions and Windows encryption. No existing profiles are migrated automatically.
 

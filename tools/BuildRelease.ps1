@@ -37,7 +37,7 @@ try {
                 if (@($zip.Entries | Where-Object FullName -CEQ $relative).Count -ne 1) { throw "Missing or duplicated document $relative in $($file.Name)." }
             }
             if ($file.Extension -eq '.zip') {
-                foreach ($name in @('automation/CrestronHomeDevTools.Automation.exe','scripts/automation/InstallSubmissionAutomationWorker.ps1','scripts/automation/InstallSubmissionAndroidFixture.ps1','scripts/automation/RunAndroidFixture.ps1')) {
+                foreach ($name in @('setup/CrestronHomeDevTools.Setup.exe','automation/CrestronHomeDevTools.Automation.exe','scripts/automation/InstallSubmissionAutomationWorker.ps1','scripts/automation/InstallSubmissionAndroidFixture.ps1','scripts/automation/RunAndroidFixture.ps1')) {
                     if (@($zip.Entries | Where-Object FullName -CEQ $name).Count -ne 1) { throw "Missing automation component $name." }
                 }
                 foreach ($name in @('Set-EnduranceDirectoryPermissions.ps1','Invoke-EnduranceScheduledTick.ps1','New-EnduranceScheduleConfiguration.ps1','Register-EnduranceScheduledTask.ps1','Export-EnduranceScheduledRun.ps1','Get-EnduranceHealthSnapshot.ps1','New-EnduranceWatchConfiguration.ps1','Invoke-EnduranceScheduledWatch.ps1')) {

@@ -324,7 +324,12 @@ Add `-ReleaseProfiles C:/CI/Private/release-profiles.json` to the **evidence** i
 }
 ```
 
-The settings template uses the settings model above. Its `Release`, `PrivateRoot`, `SchemaVersion` and `Mode` are filled from verified intake and the private profile. String values can use `${run}`, `${source}`, `${package}`, `${version}`, `${version4}`, `${commit}`, `${packageSha256}`, `${releaseId}` and `${reservationId}`. Set `SourceRepository` to `${source}` and use it in the NUnit source/project paths. Other required source/tool roots must be provisioned in the saved plan. Unknown placeholders fail. Package names may use `${version}`. Automatic version expansion currently supports numeric three- or four-component tags, optionally prefixed with `v`; other tagging conventions use explicit intake.
+The settings template uses the settings model above. Its `Release`, `PrivateRoot`, `SchemaVersion` and `Mode` are filled from verified intake and the private profile. String values can use `${run}`, `${source}`, `${package}`, `${version}`, `${version4}`, `${commit}`, `${packageSha256}`, `${releaseId}`, `${reservationId}` and `${runKey}`. Set `SourceRepository` to `${source}` and use it in the NUnit source/project paths. Other required source/tool roots must be provisioned in the saved plan. Unknown placeholders fail. Package names may use `${version}`. Automatic version expansion currently supports numeric three- or four-component tags, optionally prefixed with `v`; other tagging conventions use explicit intake.
+
+`${runKey}` is the stable repository/release identifier also used by the installed
+protected worker for per-release approval paths. It keeps each release's signing
+and delivery channels separate. Expanding those references creates no approval
+files and does not replace the protected worker's independently pinned bindings.
 
 Set `Endurance.Plan.ReservationId` to `${reservationId}` in a release template.
 Intake derives a stable GUID in N format from the frozen release identity,
@@ -400,6 +405,14 @@ On a dedicated Windows worker, the public installer ran the empty-registry watch
 
 The public private-store provisioning API subsequently copied only the selected test-processor credential to a local service store. A task running as LocalService successfully decrypted it and resolved its purpose/endpoint binding without displaying values or opening a processor connection. This validates the evidence identity's credential access; signing/mail credentials were not provisioned to that account.
 
-These are component and integration checks. A fresh real release through configured Android, endurance, document review and authorized provider delivery still needs validation. Service-account credential/ACL provisioning, setup-form generation of full automation bindings, authenticated GitHub access and the consolidated approval experience remain integration work. Existing submissions must not be resent to demonstrate controller progress.
+The later configured rehearsal completed deployment, Android, shortened endurance
+and unsigned review without intervention after startup; see the current
+[validation record](ValidationStatus.md) for its exact scope. Saved setup can
+prepare Rehearsal and Submit profiles from reviewed executable templates, and the
+complete archive includes its Windows form. Neither successful configuration nor
+the rehearsal proves a new publication through real protected delivery. Configure
+the actual protected service account and exact approvals before enabling Submit.
+Named GitHub access and an independent operator run remain unvalidated integration
+work. Existing submissions must not be resent to demonstrate controller progress.
 
 Copyright (c) 2026 Neil Colvin. MIT licensed.

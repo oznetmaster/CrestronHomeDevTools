@@ -181,6 +181,25 @@ public sealed class SubmissionSetupTests
   Assert.Throws<InvalidDataException>(()=>SubmissionAutomationSetup.PrepareSubmission(_store,"rehearsal"));
   Assert.That(Directory.GetDirectories(_path,"submission-*"),Is.Empty);
  }
+ [Test] public void SavedSubmissionProfileExpandsPerReleaseApprovalChannels()
+ {
+  var original=RehearsalTemplate();
+  string approvalRoot=Path.Combine(_path,"authority","${runKey}");
+  original=original with{Protected=original.Protected! with{
+   SigningApproval=new(Path.Combine(approvalRoot,"sign.json"),Path.Combine(approvalRoot,"sign.sha256")),
+   DeliveryApproval=new(Path.Combine(approvalRoot,"deliver.json"),Path.Combine(approvalRoot,"deliver.sha256"))}};
+  File.WriteAllBytes(Path.Combine(_path,"template.json"),JsonSerializer.SerializeToUtf8Bytes(original,AutomationFiles.Json));
+  var prepared=SubmissionAutomationSetup.PrepareSubmission(_store,"rehearsal");
+  var profile=AutomationFiles.Read<SubmissionAutomationReleaseProfiles>(prepared.ProfilesPath).Profiles.Single();
+  var release=original.Release with{Repository=profile.Repository,ReleaseId=27,Tag="v1.2.3"};
+  string key=SubmissionWorkflow.RunKey(release),run=Path.Combine(profile.PrivateRoot,key);
+  var expanded=AutomationReleaseDiscovery.Expand(profile,release,run,Path.Combine(run,"source"),"1.2.3");
+  Assert.That(expanded.Protected!.SigningApproval.DocumentPath,Is.EqualTo(Path.Combine(_path,"authority",key,"sign.json")));
+  Assert.That(expanded.Protected.DeliveryApproval.PinPath,Is.EqualTo(Path.Combine(_path,"authority",key,"deliver.sha256")));
+  Assert.That(File.Exists(expanded.Protected.SigningApproval.DocumentPath),Is.False);
+  Assert.That(File.Exists(expanded.Protected.DeliveryApproval.DocumentPath),Is.False);
+  Assert.That(File.ReadAllText(profile.SettingsTemplate.Path),Does.Contain("${runKey}"),"The frozen template must remain reusable.");
+ }
  [Test] public void SavedRehearsalOnlySetupPreparesPublicReleaseProfileWithoutDeliveryProvisioning()
  {
   RehearsalTemplate(delivery:false);
