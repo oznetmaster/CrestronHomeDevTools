@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.19.0 - 2026-09-25
+
+This release adds a preview of the persistent release-to-submission workflow. An opted-in private Windows worker discovers published GitHub driver releases, verifies the package and source, runs configured Windows/processor/Android tests, collects endurance evidence, prepares the review packet and hands off to separately authorized signing and delivery. It resumes recorded waits without an AI heartbeat. Ordinary driver releases and library/client releases remain independent of submission.
+
+The complete Windows console download includes the automation worker and a self-contained setup app at `setup/CrestronHomeDevTools.Setup.exe`. The form saves editable developer, driver, equipment and submission information in the encrypted private store. It can prepare Rehearsal or Submit profiles from frozen snapshots. Rehearsal stops at unsigned review; Submit still requires an independently configured protected worker and exact signing and delivery approvals. Saving a signature or preparing a profile does not authorize its use.
+
+The workflow preserves original test results, failed attempts, immutable candidate identities and disclosed qualifications. Temporary processor test instances are cleaned up by the NUnit workflow. Per-release deployment identifiers connect automatically to Android tests and endurance collection. Review preparation verifies retained Android producer evidence before composing the checklist. Repeated release discovery does not restart a failed attempt or resend a completed submission.
+
+An explicit `endurance-stop` command can end an idle incomplete collection and release its reservation while preserving its original plan and samples. It records the incomplete result as `operator-stopped`, not passed. Pending operations and uncertain ownership still require inspection.
+
+**Verified scope:** one configured hardware rehearsal completed release intake, fresh deployment, Windows/processor/live/Android tests, cleanup, a disclosed one-hour endurance interval, evidence export and unsigned PDF preparation without intervention after startup. Separate bundled acceptance tests exercised document signing and upload-before-email sequencing using synthetic authority and test providers. Earlier actual uploads and SMTP deliveries used the public APIs with operator assistance. A newly published release through real protected delivery, and an independent operator starting solely from the single-document guide, have not yet been demonstrated. Submission delivery never establishes Crestron acceptance or certification.
+
+Start with [the operator guide](docs/submission/START-DRIVER-SUBMISSION.md), [setup app](docs/submission/SetupApp.md), [worker installation](docs/submission/AutomationWorker.md) and [validation boundaries](docs/submission/ValidationStatus.md). Configure actual C# fixtures, equipment restrictions, credentials and official forms before enabling a profile. Public-repository discovery supports anonymous GitHub access; named GitHub authentication remains a separate setup integration. No Python or Linux knowledge is required to use the complete Windows bundle.
+
+Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
+
 ## Unreleased
 
 The complete console archive now includes the self-contained Windows setup app under `setup/`. Release validation requires that executable and checks its version matches the console, so profile collection does not require building the form from source or installing a separate Desktop Runtime.
