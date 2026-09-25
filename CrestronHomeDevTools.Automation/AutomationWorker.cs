@@ -53,6 +53,23 @@ internal static class AutomationWorker
   File.AppendAllText(history,JsonSerializer.Serialize(new{ObservedUtc=DateTimeOffset.UtcNow,Statuses=statuses})+Environment.NewLine);
   return true;
  }
+ internal static async Task<DateTimeOffset> Cycle(string registryPath,string statusDirectory,SubmissionAutomationWorkerRole role,
+  DateTimeOffset nextDiscovery,CancellationToken token,string? profilesPath=null,AutomationProtectedWorker? protection=null,
+  Func<CancellationToken,Task<AutomationReleaseDiscovery.Status[]>>? discover=null,
+  Func<AutomationRequest,CancellationToken,Task<SubmissionWorkflowCheckpoint>>? advance=null,DateTimeOffset? observedUtc=null) {
+  var now=observedUtc??DateTimeOffset.UtcNow;
+  if(profilesPath!=null && role!=SubmissionAutomationWorkerRole.Evidence)throw new InvalidDataException("Only the evidence worker can discover releases.");
+  if(profilesPath!=null && now>=nextDiscovery) {
+   using var limit=CancellationTokenSource.CreateLinkedTokenSource(token);limit.CancelAfter(TimeSpan.FromMinutes(30));
+   using var http=new HttpClient();
+   var discovered=await (discover??(t=>AutomationReleaseDiscovery.Tick(profilesPath,registryPath,new GitHubSubmissionRelease(http),t)))(limit.Token);
+   SaveStatus(Path.Combine(statusDirectory,"release-discovery"),discovered.Select(s=>new Status(s.Profile,s.ReleaseId??0,s.Mode,s.State,"ReleaseIntake",s.Reason)).ToArray());
+   nextDiscovery=(observedUtc??DateTimeOffset.UtcNow).AddMinutes(15);
+  }
+  var states=await Tick(registryPath,role,token,advance,protection);
+  if(SaveStatus(statusDirectory,states))Console.WriteLine("Submission worker status changed; inspect the private worker status.");
+  return nextDiscovery;
+ }
  internal static async Task<int> Watch(string registryPath,string statusDirectory,SubmissionAutomationWorkerRole role,TimeSpan interval,CancellationToken token,string? profilesPath=null,AutomationProtectedWorker? protection=null) {
   if(!Path.IsPathFullyQualified(registryPath)||!Path.IsPathFullyQualified(statusDirectory)||interval<TimeSpan.FromSeconds(30)||interval>TimeSpan.FromMinutes(15))
    throw new InvalidDataException("Use absolute private paths and a 30-second to 15-minute polling interval.");
@@ -60,16 +77,9 @@ internal static class AutomationWorker
   Directory.CreateDirectory(statusDirectory);
   // Keep one watcher per installed role/status directory; run.lock protects dispatches sharing a run.
   using var gate=new FileStream(Path.Combine(statusDirectory,"worker.lock"),FileMode.OpenOrCreate,FileAccess.Write,FileShare.None);
-  using var http=new HttpClient();DateTimeOffset nextDiscovery=DateTimeOffset.MinValue;
+  DateTimeOffset nextDiscovery=DateTimeOffset.MinValue;
   while(!token.IsCancellationRequested) {
-   if(profilesPath!=null && DateTimeOffset.UtcNow>=nextDiscovery) {
-    using var limit=CancellationTokenSource.CreateLinkedTokenSource(token);limit.CancelAfter(TimeSpan.FromMinutes(30));
-    var discovered=await AutomationReleaseDiscovery.Tick(profilesPath,registryPath,new GitHubSubmissionRelease(http),limit.Token);
-    SaveStatus(Path.Combine(statusDirectory,"release-discovery"),discovered.Select(s=>new Status(s.Profile,s.ReleaseId??0,s.Mode,s.State,"ReleaseIntake",s.Reason)).ToArray());
-    nextDiscovery=DateTimeOffset.UtcNow.AddMinutes(15);
-   }
-   var states=await Tick(registryPath,role,token,protection:protection);
-   if(SaveStatus(statusDirectory,states))Console.WriteLine("Submission worker status changed; inspect the private worker status.");
+   nextDiscovery=await Cycle(registryPath,statusDirectory,role,nextDiscovery,token,profilesPath,protection);
    await Task.Delay(interval,token);
   }
   return 0;

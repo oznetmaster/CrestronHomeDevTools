@@ -156,6 +156,66 @@ public sealed class AutomationReleaseDiscoveryTests
   handler.HasPackage=true;
   Assert.That((await AutomationReleaseDiscovery.Tick(profilesFile,registry,new(http),default,Checkout)).Single().State,Is.EqualTo("Registered"));
  }
+ // Exercise the production watcher's complete discovery/dispatch cycle. Only GitHub, source
+ // transport and domain operations are synthetic; intake, registry, hashes and continuation are real.
+ private sealed class SyntheticStages(List<(SubmissionWorkflowStage Stage,string Operation,bool Recover)> calls,bool finish,bool fail):ISubmissionWorkflowSteps {
+  public Task<SubmissionWorkflowStepResult> ExecuteAsync(SubmissionWorkflowStepContext c,CancellationToken t)=>Run(c,false);
+  public Task<SubmissionWorkflowStepResult> RecoverAsync(SubmissionWorkflowStepContext c,CancellationToken t)=>Run(c,true);
+  private Task<SubmissionWorkflowStepResult> Run(SubmissionWorkflowStepContext c,bool recover) {
+   calls.Add((c.Checkpoint.Stage,c.Checkpoint.OperationId!,recover));
+   if(c.Checkpoint.Stage==SubmissionWorkflowStage.Endurance && (!finish || fail))
+    return Task.FromResult(new SubmissionWorkflowStepResult(fail?SubmissionWorkflowStatus.Failed:SubmissionWorkflowStatus.Waiting,ReasonCode:fail?"synthetic-probe-failed":"synthetic-collecting"));
+   if(c.Checkpoint.Stage==SubmissionWorkflowStage.SignReview)
+    return Task.FromResult(new SubmissionWorkflowStepResult(SubmissionWorkflowStatus.NeedsInput,ReasonCode:"rehearsal-ready-for-review"));
+   string name=c.Checkpoint.Stage+".synthetic.json",path=Path.Combine(c.RunDirectory,name);
+   AutomationFiles.Write(path,new{SyntheticOnly=true,c.Checkpoint.OperationId});
+   return Task.FromResult(new SubmissionWorkflowStepResult(SubmissionWorkflowStatus.Completed,new(name,AutomationFiles.Hash(path))));
+  }
+ }
+ [TestCase(false)][TestCase(true)]
+ public async Task WatcherDiscoversThenDispatchesAndResumesWithoutManualRegistration(bool fail) {
+  handler.HasPackage=false;
+  string status=Path.Combine(root,"worker-status");int checkouts=0,discoveries=0;
+  var calls=new List<(SubmissionWorkflowStage Stage,string Operation,bool Recover)>();
+  DateTimeOffset now=DateTimeOffset.Parse("2026-09-24T02:00:00Z"),next=DateTimeOffset.MinValue;
+  Task Checkout(string r,string c,string d,CancellationToken t){checkouts++;Directory.CreateDirectory(d);return Task.CompletedTask;}
+  Task<AutomationReleaseDiscovery.Status[]> Discover(CancellationToken t){discoveries++;return AutomationReleaseDiscovery.Tick(profilesFile,registry,new(http),t,Checkout);}
+  async Task Cycle(bool finish=false) {
+   // A new adapter per cycle models a process restart; durable operations live in the workflow.
+   var steps=new SyntheticStages(calls,finish,fail && finish);
+   next=await AutomationWorker.Cycle(registry,status,SubmissionAutomationWorkerRole.Evidence,next,default,profilesFile,
+    discover:Discover,advance:(r,t)=>SubmissionWorkflow.AdvanceAsync(r.Settings.PrivateRoot,r.Settings.Release,steps,t),observedUtc:now);
+  }
+  await Cycle();
+  Assert.That(AutomationFiles.Read<SubmissionAutomationRegistry>(registry).Entries,Is.Empty);
+  Assert.That(calls,Is.Empty);
+  Assert.That(AutomationFiles.Read<AutomationWorker.Status[]>(Path.Combine(status,"release-discovery/worker-status.json")).Single().Reason,Is.EqualTo("package-not-uploaded"));
+  handler.HasPackage=true;now=now.AddMinutes(1);await Cycle();
+  Assert.That(discoveries,Is.EqualTo(1),"Do not poll GitHub every worker tick.");
+  Assert.That(calls,Is.Empty);
+  now=now.AddMinutes(14);await Cycle();
+  Assert.That(checkouts,Is.EqualTo(1));
+  var entry=AutomationFiles.Read<SubmissionAutomationRegistry>(registry).Entries.Single();
+  var request=AutomationRequest.Load(["--registry",registry,"--profile",entry.Profile,"--release-id","91","--mode","rehearsal"]);
+  var state=SubmissionWorkflow.Read(request.Settings.PrivateRoot,request.Settings.Release);
+  Assert.That(state.Stage,Is.EqualTo(SubmissionWorkflowStage.Endurance));Assert.That(state.Status,Is.EqualTo(SubmissionWorkflowStatus.Waiting));
+  string operation=state.OperationId!,run=Path.GetDirectoryName(entry.SettingsPath)!;
+  string packageHash=AutomationFiles.Hash(Path.Combine(run,"candidate.pkg"));
+  next=DateTimeOffset.MinValue;now=now.AddMinutes(1);await Cycle(finish:true);
+  state=SubmissionWorkflow.Read(request.Settings.PrivateRoot,request.Settings.Release);
+  Assert.That(state.Status,Is.EqualTo(fail?SubmissionWorkflowStatus.Failed:SubmissionWorkflowStatus.NeedsInput));
+  Assert.That(state.ReasonCode,Is.EqualTo(fail?"synthetic-probe-failed":"rehearsal-ready-for-review"));
+  Assert.That(calls.Where(c=>c.Stage==SubmissionWorkflowStage.Endurance).ToArray(),Is.EqualTo(new[]{
+   (SubmissionWorkflowStage.Endurance,operation,false),(SubmissionWorkflowStage.Endurance,operation,true)}));
+  Assert.That(calls.Where(c=>c.Stage<SubmissionWorkflowStage.Endurance).GroupBy(c=>c.Stage).All(g=>g.Count()==1),Is.True);
+  int completedCalls=calls.Count;string checkpointHash=AutomationFiles.Hash(Path.Combine(run,"state.json"));
+  now=now.AddMinutes(15);await Cycle(finish:true);
+  Assert.That(calls.Count,Is.EqualTo(completedCalls),"Neither a failure nor review boundary may restart on the next discovery.");
+  Assert.That(checkouts,Is.EqualTo(1));Assert.That(AutomationFiles.Read<SubmissionAutomationRegistry>(registry).Entries,Has.Length.EqualTo(1));
+  Assert.That(AutomationFiles.Hash(Path.Combine(run,"state.json")),Is.EqualTo(checkpointHash));
+  Assert.That(AutomationFiles.Hash(Path.Combine(run,"candidate.pkg")),Is.EqualTo(packageHash));
+  Assert.That(calls.Any(c=>c.Stage is SubmissionWorkflowStage.Deliver or SubmissionWorkflowStage.Retain),Is.False);
+ }
  [Test]public async Task ChangedPrivateTemplateStopsBeforeAnyNetworkOrSourceOperation() {
   File.AppendAllText(profile.SettingsTemplate.Path," ");
   Assert.That((await AutomationReleaseDiscovery.Tick(profilesFile,registry,new(http),default)).Single().State,Is.EqualTo("AttentionRequired"));
