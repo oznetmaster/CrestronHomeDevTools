@@ -416,3 +416,13 @@ Named GitHub access and an independent operator run remain unvalidated integrati
 work. Existing submissions must not be resent to demonstrate controller progress.
 
 Copyright (c) 2026 Neil Colvin. MIT licensed.
+
+### Kasa and Tapo observation sample
+
+The [Kasa/Tapo producer](../../samples/KasaTapoEnduranceProducer/README.md) uses
+released public packages to observe a configured platform, explicitly selected
+lasting managed children and independent physical outlets. Its source and
+configuration contract are public. It does not provision devices or send controls;
+read its documented limits before choosing it for a run. Temporary Android managed
+children cannot be used after their automatic cleanup. Component hardware checks
+have passed; the full Kasa release rehearsal is separate validation.

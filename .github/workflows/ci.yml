@@ -26,6 +26,8 @@ jobs:
       - name: Validate Windows scheduled endurance worker
         shell: pwsh
         run: ./tools/endurance/Test-EnduranceScheduler.ps1 -ResultsDirectory artifacts/scheduler-tests
+      - name: Validate Kasa Tapo read-only endurance sample
+        run: dotnet run --project samples/KasaTapoEnduranceProducer -c Release -- --self-test
       - name: Validate new monitoring directory permissions
         shell: pwsh
         run: ./tools/endurance/Test-EnduranceDirectoryPermissions.ps1 -ResultsDirectory artifacts/directory-permissions-tests
