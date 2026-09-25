@@ -1,6 +1,6 @@
 # Windows submission automation worker
 
-This source-preview worker connects release discovery, the public Crestron NUnit and endurance APIs, document preparation, authorized signing and delivery, and final retention. The adapters are implemented; the full route still needs a fresh real end-to-end rehearsal. No additional NuGet release is required to test this branch.
+This source-preview worker connects release discovery, the public Crestron NUnit and endurance APIs, document preparation, authorized signing and delivery, and final retention. A configured real release-to-review rehearsal completed without intervention after startup, with shortened endurance explicitly disclosed. Protected signing/delivery/retention passed separate synthetic validation. A newly published release followed by real submission remains a distinct validation boundary; see [validation status](ValidationStatus.md). No additional NuGet release is required to test this branch.
 
 Observers must check `worker-status.json` as well as the workflow checkpoint and
 the actual scheduled-task/process state. An adapter exception produces worker
@@ -63,7 +63,7 @@ Run [release intake](ReleaseAutomation.md#try-intake-from-the-source-build) firs
 | `Review` | `SubmissionAutomationReviewPlan`: pinned policy, official template, inventory, mapping, complete bundled console, title/author and retained observation paths. Optional declarations and Android pins follow the public review contract. |
 | `Protected` | Separate signing/delivery credential bindings and exact approval channels. Each channel has an approval document path and an independently recorded digest-file path outside the evidence run. Delivery includes the approved sender, SMTP endpoint and reviewed uploader form/terms digests. |
 
-Freeze settings and their digest after accepting the plan. Do not recalculate the expected digest to bypass a changed configuration on an existing run. The current setup form does not yet generate all these bindings; that integration is still required. The tooling manifest is retained by intake, but complete service-account tool-inventory enforcement is also unfinished.
+Freeze settings and their digest after accepting the plan. Do not recalculate the expected digest to bypass a changed configuration on an existing run. The [saved-setup bridge](SetupApp.md#prepare-a-controller-rehearsal) combines factual profiles with a reviewed executable template; it cannot invent driver-specific fixtures or coverage mappings. Review-console and endurance-producer file inventories are enforced by their stage adapters. The general tooling manifest is retained by intake; it is not an enforcement mechanism for every machine-wide SDK or executable. Verify those prerequisites under the actual worker account during setup.
 
 Before a full rehearsal, list missing stage bindings together:
 

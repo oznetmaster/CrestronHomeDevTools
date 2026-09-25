@@ -37,9 +37,12 @@ the controller.
 4. Pin the reviewed settings and tools, and register this rehearsal separately
    from any completed real submission. Do not edit a previous attempt's frozen
    inputs or overwrite its evidence.
-5. Use the normal endurance requirements when claiming a complete submission
-   rehearsal. A deliberately shortened development exercise must be identified
-   as such and cannot establish the full endurance requirement.
+5. A workflow rehearsal may use a shorter endurance interval, such as one hour.
+   Keep the actual submission review requirement unchanged and explicitly
+   disclose the shortened interval through the declared-gaps route. This can
+   validate the collection/export/document handoffs, but cannot establish the
+   full endurance requirement. Do not repeat a completed 24-hour test merely
+   to check workflow plumbing.
 
 ## Run through the controller
 

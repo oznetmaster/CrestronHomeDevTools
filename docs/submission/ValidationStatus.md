@@ -1,12 +1,16 @@
 # Submission workflow validation
 
-This page records the shared tooling's verified scope, with source-preview updates through 24 September 2026. It contains no driver-specific submission files or progress details. Use the [normal-path runbook](Runbook.md) to configure your own workflow.
+This page records the shared tooling's verified scope, with source-preview updates through 25 September 2026. It contains no driver-specific submission files or progress details. Use the [normal-path runbook](Runbook.md) to configure your own workflow.
 
 ## Release automation source preview
 
 Verified release intake and persistent stage sequencing now have offline tests for duplicate events, waiting for an unfinished asset upload, package/commit identity, frozen-input changes, interrupted stages, unchanged waiting ticks and uncertain delivery outcomes. The console intake retains the candidate but starts no tests or delivery. The stage tests use synthetic adapters; they are not a real release-to-submission demonstration. See [implementation and remaining integrations](ReleaseAutomation.md).
 
 Two real driver packets have now reached verified upload and SMTP acceptance through public APIs. The second exercised approved correspondence from a source fix after 1.18.2 and a C# consumer of the public delivery API. It was not an unmodified released CLI route or a complete GitHub-triggered pipeline. The [single starting document](START-DRIVER-SUBMISSION.md) captures the operator procedure, but still needs an independent run without supervisor intervention.
+
+A source-preview controller rehearsal at commit `dad5536b8e690d83335aeab928b6705d479ea6b1` reached the unsigned review boundary without intervention after startup. Public GitHub intake registered an existing published release; the Windows service then completed candidate validation, Windows and processor tests, live-device checks, fresh release-package deployment, Android observations, temporary-test cleanup, shortened endurance collection, evidence export, raw Android audit and PDF preparation. The collector retained 11 passing samples over 62 minutes 45 seconds. Its original 24-hour review policy remained unchanged, and the review disclosed the shortened interval and other retained qualifications. This proves the configured rehearsal handoffs, not a fresh 24-hour test or a new publication event followed by real submission.
+
+The same tool revision passed 1,257 local regression tests and 22 bundled acceptance checks, including coordinator-to-Android-audit-to-PDF integration and separately simulated signing/upload/email/retention. Those protected checks used synthetic authority and test providers; no rehearsal packet was signed or delivered. One-time equipment/profile preparation occurred before startup and is not claimed to be automatic clean-machine setup.
 
 ## Released capabilities
 
