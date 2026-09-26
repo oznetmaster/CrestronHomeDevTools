@@ -231,6 +231,97 @@ public sealed class AutomationReviewTests
    .Select(f=>new SubmissionEvidenceFile(Path.GetRelativePath(P("originals"),f).Replace('\\','/'),AutomationFiles.Hash(f))).ToArray();
   settings=settings with{Review=settings.Review! with{Policy=Input("prior-policy.json"),ObservationSources=[],PriorEvidence=new(P("originals"),inventory)}};
  }
+ [Test]public void PlannedGapBindsReleaseWithoutCreatingPassingEvidence() {
+  settings=settings with{Review=settings.Review! with{PlannedGaps=[new("ui.navigation","Synthetic deliberate incomplete observation.")]}};
+  var observations=AutomationFiles.Read<SubmissionEvidenceDocument>(P("nunit/observations.json"));
+  Write("nunit/incomplete.json",new SubmissionEvidenceDocument(1,[observations.Observations.Single() with{Outcome=SubmissionEvidenceOutcome.NotTested}]));
+  File.Delete(P("windows-tests.json"));
+  AutomationFiles.Write(P("windows-tests.json"),new{Files=new[]{new SubmissionWorkflowReceipt("nunit/incomplete.json",Hash("nunit/incomplete.json")),new("nunit/trace.txt",Hash("nunit/trace.txt"))}});
+  settings=settings with{Review=settings.Review with{ObservationSources=["nunit/incomplete.json"]}};
+  var prepared=AutomationReview.PrepareInputs(context,settings,settings.Review,default);
+  var declaration=AutomationFiles.Read<SubmissionGapDeclarations>(prepared.DeclarationsPath!);
+  Assert.That(declaration.Identity,Is.EqualTo(ReviewedIdentity()));
+  Assert.That(declaration.Mode,Is.EqualTo(SubmissionReviewMode.DeclaredGaps));
+  var result=SubmissionReviewFiles.Check(P("review-inputs/candidate.json"),prepared.CandidateSha256,
+   P("review-inputs/ExampleDeveloper_Test_Example_IP.pkg"),P("review-inputs/policy.json"),P("review-inputs/template.pdf"),
+   P("review-inputs/observations.json"),root,prepared.DeclarationsPath!,prepared.DeclarationsSha256!,SubmissionReviewMode.DeclaredGaps,DateTimeOffset.UtcNow);
+  Assert.That(result.ReadyForReview,Is.True);
+  Assert.That(result.Assessment!.VerificationStatus,Is.EqualTo(SubmissionVerificationStatus.GapsDeclared));
+  Assert.That(result.Assessment.Requirements.Single().ObservedOutcome,Is.EqualTo(SubmissionEvidenceOutcome.NotTested));
+ }
+ [Test]public void PlannedGapCannotQuietlySurviveAnActualPass() {
+  settings=settings with{Review=settings.Review! with{PlannedGaps=[new("ui.navigation","No test planned.")]}};
+  var prepared=AutomationReview.PrepareInputs(context,settings,settings.Review,default);
+  var document=AutomationFiles.Read<SubmissionEvidenceDocument>(P("review-inputs/observations.json"));
+  var rules=AutomationFiles.Read<SubmissionEvidencePolicy>(P("policy.json"));
+  Assert.Throws<ArgumentException>(()=>SubmissionReviewAssessment.Assess(ReviewedIdentity(),rules.Requirements,document.Observations,root,
+   SubmissionReviewMode.DeclaredGaps,settings.Review.PlannedGaps!,DateTimeOffset.UtcNow));
+ }
+ [TestCase("unknown","reason")]
+ [TestCase("ui.navigation","")]
+ public void PlannedGapMustHaveAKnownScopeAndReason(string id,string reason) {
+  Assert.Throws<InvalidDataException>(()=>AutomationReview.ValidatePlannedGaps(settings.Review! with{PlannedGaps=[new(id,reason)]}));
+ }
+ [Test]public void PlannedGapCannotSupplyAnInterpretationOrConflictingDeclaration() {
+  var gap=new SubmissionGapDeclaration("ui.navigation","reason");
+  Assert.Throws<InvalidDataException>(()=>AutomationReview.ValidatePlannedGaps(settings.Review! with{PlannedGaps=[gap,gap]}));
+  Assert.Throws<InvalidDataException>(()=>AutomationReview.ValidatePlannedGaps(settings.Review! with{PlannedGaps=[gap],Declarations=Input("policy.json")}));
+  Assert.Throws<InvalidDataException>(()=>AutomationReview.ValidatePlannedGaps(settings.Review! with{
+   PlannedGaps=[gap with{InterpretationReview=new("reviewer","not an observed test",[])}]}));
+ }
+ private void ConfigureSourceApplicability(bool allowed=true,string method="absence",bool restore=false) {
+  Directory.CreateDirectory(P("candidate-source"));
+  File.WriteAllText(P("candidate-source/ui.xml"),"<page><button /></page>");
+  Write("source-policy.json",new SubmissionEvidencePolicy(1,[new("ui.slider",TimeSpan.Zero,allowed,
+   new("$slider",method,SubmissionEvidenceOutcome.NotApplicable,null,restore))]));
+  Write("source-plan.json",new SubmissionSourceApplicabilityPlan(1,"Synthetic reviewer",DateTimeOffset.UtcNow.AddDays(-1),
+   [new("ui.xml",Hash("candidate-source/ui.xml"))],[new("ui.slider","This source-defined view has no slider; not a runtime-dependent decision.")]));
+  settings=settings with{SourceRepository=P("candidate-source"),Review=settings.Review! with{
+   Policy=Input("source-policy.json"),ObservationSources=[],SourceApplicability=Input("source-plan.json")}};
+ }
+ [Test]public async Task SourceApplicabilityBindsNewCandidateAndTravelsWithReview() {
+  ConfigureSourceApplicability();
+  var first=AutomationSourceApplicability.Prepare(root,settings,default);
+  Directory.Delete(P("candidate-source"),true);
+  Assert.That(AutomationSourceApplicability.Prepare(root,settings,default),Is.EqualTo(first));
+  var result=await AutomationReview.Advance(context,settings,false,default,Prepare);
+  Assert.That(result.Status,Is.EqualTo(SubmissionWorkflowStatus.Completed));
+  var document=AutomationFiles.Read<SubmissionEvidenceDocument>(P("review-inputs/observations.json"));
+  var observation=document.Observations.Single();
+  Assert.That(observation.Identity,Is.EqualTo(ReviewedIdentity()));
+  Assert.That(observation.Outcome,Is.EqualTo(SubmissionEvidenceOutcome.NotApplicable));
+  Assert.That(observation.Rationale,Does.Contain("No runtime execution is claimed"));
+  Assert.That(observation.Files.Any(f=>f.RelativePath=="source-applicability/ui.xml"),Is.True);
+ }
+ [TestCase(false,"absence",false)]
+ [TestCase(true,"android",false)]
+ [TestCase(true,"absence",true)]
+ public void SourceApplicabilityCannotBypassRuntimePolicy(bool allowed,string method,bool restore) {
+  ConfigureSourceApplicability(allowed,method,restore);
+  Assert.Throws<InvalidDataException>(()=>AutomationSourceApplicability.Prepare(root,settings,default));
+ }
+ [Test]public void SourceApplicabilityStopsWhenReviewedSourceChanges() {
+  ConfigureSourceApplicability();File.AppendAllText(P("candidate-source/ui.xml"),"<slider />");
+  Assert.Throws<InvalidDataException>(()=>AutomationSourceApplicability.Prepare(root,settings,default));
+  Assert.That(File.Exists(P("source-applicability-observations.json")),Is.False);
+ }
+ [TestCase("source-applicability/ui.xml")]
+ [TestCase("source-applicability-observations.json")]
+ [TestCase("source-applicability-plan.json")]
+ public void SourceApplicabilityRetainedChangesAreNotRecreated(string path) {
+  ConfigureSourceApplicability();AutomationSourceApplicability.Prepare(root,settings,default);
+  File.AppendAllText(P(path)," ");
+  Assert.Throws<InvalidDataException>(()=>AutomationSourceApplicability.Prepare(root,settings,default));
+ }
+ [Test]public void SourceApplicabilityCannotRelabelAnExistingCandidate() {
+  ConfigureSourceApplicability();AutomationSourceApplicability.Prepare(root,settings,default);
+  Assert.Throws<InvalidDataException>(()=>AutomationSourceApplicability.Prepare(root,
+   settings with{Release=settings.Release with{PackageSha256=new('f',64)}},default));
+ }
+ [Test]public void SourceApplicabilityRequiresThePinnedNamedDatedReview() {
+  ConfigureSourceApplicability();File.AppendAllText(P("source-plan.json")," ");
+  Assert.Throws<InvalidDataException>(()=>AutomationSourceApplicability.Prepare(root,settings,default));
+ }
  private SubmissionEvidenceIdentity ReviewedIdentity()=>new(settings.Release.PackageSha256,settings.Release.SourceCommit,
   settings.Review!.Policy.Sha256,settings.Review.Template.Sha256);
  [Test]public async Task PriorHandoffProducesPortableReviewWithoutRelabellingOriginalTests() {

@@ -208,7 +208,55 @@ Ordinary composition and the unsigned review bundle include these decisions and
 their source files. This input records a reviewed decision; it does not itself
 analyze source code or establish whether Crestron agrees with that interpretation.
 
+### Source-based applicability before a release exists
+
+`Review.SourceApplicability` is an optional pinned `SubmissionAutomationInput`
+(`Path`, `Sha256`) for a private `SubmissionSourceApplicabilityPlan`. It lets a
+reviewed source-only N/A decision apply to a new release without knowing its
+future package hash during setup. This addition is available from source; use a
+bundle containing it before configuring this field.
+
+The plan contains `SchemaVersion: 1`, a nonempty `ReviewedBy`, `ReviewedUtc`,
+`SourceFiles` (checkout-relative paths and exact byte SHA-256 values), and
+`Decisions` (`RequirementId`, `Rationale`). Include every source file needed to
+support each decision. Git checkout line endings affect these exact byte pins;
+use stable attributes or verify the target Windows checkout when preparing them.
+
+The candidate stage first verifies the release checkout, then checks the reviewed
+source files and the policy. Each decision must reference a policy scope that
+explicitly allows N/A, uses method `absence`, requires outcome `NotApplicable`
+and has no response, restoration or sampling measurements. The worker retains
+the source and the dated review, binds the decision to the actual new release,
+and includes it in the unsigned review bundle. Changed source stops the workflow
+for a new review. Recovery verifies retained bytes and does not relabel an old
+decision or silently recreate missing evidence.
+
+Use this only when applicability is determined by those source files: for
+example, a control type absent from all driver-defined UI variants. Do not use
+it for framework-generated controls, device capabilities, installation-dependent
+behavior, unperformed tests or runtime observations. Those need their own
+producer or a disclosed gap. This input cannot generate a passing result, infer
+that the source inventory is complete, authorize a signature or determine
+Crestron acceptance. Existing candidate-specific `Applicability` remains valid;
+do not supply both routes for the same requirement.
+
 ### Retained qualifications
+
+When a limitation is known during setup, `Review.PlannedGaps` may instead provide
+an array of `SubmissionGapDeclaration` objects with a `RequirementId` and a
+nonempty `Reason`. For example, a rehearsal can explicitly declare its planned
+one-hour observation against the unchanged 24-hour policy requirement. The
+frozen settings authorize only those exact scoped explanations; the worker binds
+them to the release identity when preparing the review. No future package hash
+is needed during setup. This addition is available from source alongside
+`SourceApplicability`.
+
+Use either `PlannedGaps` or the existing pinned candidate-specific `Declarations`,
+never both. Planned gaps cannot contain interpretation reviews or add unknown
+policy scopes. They generate no observations and cannot convert a failure or an
+unperformed test into a pass. The normal assessor still rejects malformed or
+conflicting evidence, undeclared gaps, and a stale declaration where the actual
+requirement passed. Signing and delivery approvals remain separate.
 
 For an explicitly reviewed partial, inconclusive, failed or untested item,
 `Review.Qualifications` accepts the same `Directory`, `Files` and `Observations`
@@ -219,8 +267,8 @@ the original records, identify it as a current review, and disclose that no fres
 execution occurred; do not change an old test's identity or dates.
 
 The records are retained before testing and composed without altering their
-outcome. They still fail ordinary completeness checks: the separate pinned
-`Review.Declarations` must explicitly account for the exact gaps. The existing
+outcome. They still fail ordinary completeness checks: `Review.Declarations` or
+the frozen `Review.PlannedGaps` must explicitly account for the exact gaps. The existing
 interpretation-review rules continue to apply and cannot accept a failed or
 unperformed test. This handoff neither grants signing authority nor suppresses
 conflicting fresh results. It replaces manual mid-workflow file copying, not

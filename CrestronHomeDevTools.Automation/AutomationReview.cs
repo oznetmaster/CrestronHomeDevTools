@@ -12,7 +12,9 @@ public sealed record SubmissionAutomationReviewPlan(SubmissionAutomationInput Po
  string Title,string Author,string[] ObservationSources,SubmissionAutomationInput? Declarations=null,
  SubmissionAutomationInput? AndroidPins=null,JsonElement? AndroidEvidence=null,
  SubmissionAutomationPriorEvidence? PriorEvidence=null,SubmissionAutomationApplicability? Applicability=null,
- SubmissionAutomationQualifications? Qualifications=null);
+ SubmissionAutomationQualifications? Qualifications=null,
+ SubmissionAutomationInput? SourceApplicability=null,
+ SubmissionGapDeclaration[]? PlannedGaps=null);
 
 internal static class AutomationReview
 {
@@ -54,6 +56,7 @@ internal static class AutomationReview
 
  internal static Prepared PrepareInputs(SubmissionWorkflowStepContext c,SubmissionAutomationSettings settings,SubmissionAutomationReviewPlan plan,CancellationToken token)
  {
+  ValidatePlannedGaps(plan);
   string root=c.RunDirectory,folder=Path.Combine(root,"review-inputs");Directory.CreateDirectory(folder);
   string Copy(SubmissionAutomationInput input,string name) {
    if(!Path.IsPathFullyQualified(input.Path) || AutomationFiles.Hash(input.Path)!=input.Sha256)throw new InvalidDataException("Reviewed document input changed.");
@@ -84,6 +87,8 @@ internal static class AutomationReview
      throw new InvalidDataException("Producer evidence paths overlap.");
   }
   var sources=new List<SubmissionEvidenceFile>();
+  if(plan.SourceApplicability is not null)
+   sources.Add(AutomationSourceApplicability.Prepare(root,settings,token));
   if(plan.Applicability is not null)
    sources.Add(AutomationApplicability.Prepare(root,identity,plan,token));
   if(plan.Qualifications is not null)
@@ -114,6 +119,10 @@ internal static class AutomationReview
   // Preserve every outcome. The public review command applies the full policy and any explicit gap declarations.
   string observations=Path.Combine(folder,"observations.json");WriteDocument(observations,report.Observations);
   string? declarations=plan.Declarations==null?null:Copy(plan.Declarations,"declarations.json");
+  if(plan.PlannedGaps is {} gaps) {
+   declarations=Path.Combine(folder,"declarations.json");
+   WriteDocument(declarations,new SubmissionGapDeclarations(1,identity,SubmissionReviewMode.DeclaredGaps,gaps));
+  }
   string? android=plan.AndroidPins==null?null:Copy(plan.AndroidPins,"android-pins.json");
   JsonElement? androidEvidence=plan.AndroidEvidence;
   if((android==null)!=(androidEvidence==null))throw new InvalidDataException("Explicit Android review bindings require both pins and evidence locations.");
@@ -127,8 +136,19 @@ internal static class AutomationReview
   if(androidEvidence is {} locations)values.Add("androidEvidence",locations);
   string settingsPath=Path.Combine(folder,"settings.json");WriteDocument(settingsPath,values);
   var prepared=new Prepared(settingsPath,AutomationFiles.Hash(Path.Combine(folder,"candidate.json")),plan.Inventory.Sha256,plan.Mapping.Sha256,
-   declarations,plan.Declarations?.Sha256,android,android==null?null:AutomationFiles.Hash(android));
+   declarations,declarations==null?null:AutomationFiles.Hash(declarations),android,android==null?null:AutomationFiles.Hash(android));
   AutomationFiles.Write(Path.Combine(folder,"prepared.json"),prepared);return prepared;
+ }
+ internal static void ValidatePlannedGaps(SubmissionAutomationReviewPlan plan) {
+  if(plan.PlannedGaps is not {} gaps)return;
+  if(plan.Declarations!=null || gaps.Length is <1 or >512 || gaps.Any(g=>g==null ||
+   string.IsNullOrWhiteSpace(g.RequirementId) || string.IsNullOrWhiteSpace(g.Reason) || g.InterpretationReview!=null) ||
+   gaps.Select(g=>g.RequirementId).Distinct(StringComparer.Ordinal).Count()!=gaps.Length)
+   throw new InvalidDataException("Planned gaps require distinct scoped reasons, no interpretation review and no second declaration source.");
+  if(AutomationFiles.Hash(plan.Policy.Path)!=plan.Policy.Sha256)throw new InvalidDataException("Planned-gap policy changed.");
+  var policy=AutomationFiles.Read<SubmissionEvidencePolicy>(plan.Policy.Path);
+  if(policy.SchemaVersion!=1 || gaps.Any(g=>!policy.Requirements.Any(r=>r.Id==g.RequirementId)))
+   throw new InvalidDataException("Every planned gap must belong to the reviewed policy.");
  }
  private static SubmissionObservation Rebase(SubmissionObservation o,string root) {
   string P(string path)=>root+"/"+path;

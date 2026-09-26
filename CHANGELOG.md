@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Saved automation review plans can include source-based N/A decisions before a release's package hash exists. The worker checks the pinned source files against the verified release checkout, retains the dated review and binds the decisions to the actual candidate. Changed source requires a new review. Runtime-dependent decisions and passing test results cannot use this route.
+- Planned, scoped limitations such as shortened rehearsal endurance can also be saved before release. They are bound to the discovered candidate for declared-gaps review, retain the original policy and test outcomes, and do not authorize signing or delivery.
+
 ## 1.19.0 - 2026-09-25
 
 This release adds a preview of the persistent release-to-submission workflow. An opted-in private Windows worker discovers published GitHub driver releases, verifies the package and source, runs configured Windows/processor/Android tests, collects endurance evidence, prepares the review packet and hands off to separately authorized signing and delivery. It resumes recorded waits without an AI heartbeat. Ordinary driver releases and library/client releases remain independent of submission.

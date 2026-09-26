@@ -103,6 +103,9 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
    return new(SubmissionWorkflowStatus.Failed,ReasonCode:"candidate-package-check-failed");
   await VerifySource(token);
   settings.NUnit.Validate();
+  if(settings.Review is {} plannedReview)AutomationReview.ValidatePlannedGaps(plannedReview);
+  if(settings.Review?.SourceApplicability is not null)
+   _=AutomationSourceApplicability.Prepare(c.RunDirectory,settings,token);
   if(settings.InstalledAppTests!=null) AutomationInstalledApp.Validate(settings);
   if(settings.Review is {PriorEvidence:not null} review)
    _=AutomationPriorEvidence.Prepare(c.RunDirectory,new(settings.Release.PackageSha256,settings.Release.SourceCommit,
