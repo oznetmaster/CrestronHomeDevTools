@@ -48,7 +48,8 @@ public static class DriverRemovalValidation
             }, token);
     }
 
-    internal static DriverRemovalDevice Summarize(DeviceInfo item)
+    /// <summary>Retains identity and load status without copying configuration properties that may contain credentials.</summary>
+    public static DriverRemovalDevice Summarize(DeviceInfo item)
     {
         string? Text(string key) => item.PropertyValues.TryGetValue(key, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
         return new(item.Id, item.ParentDeviceId, item.Name, item.Model, item.LocationId,

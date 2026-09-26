@@ -87,6 +87,7 @@ internal static class AutomationReview
      throw new InvalidDataException("Producer evidence paths overlap.");
   }
   var sources=new List<SubmissionEvidenceFile>();
+  if(settings.Removal!=null)sources.Add(AutomationRemoval.VerifyRetained(c));
   if(settings.PostEnduranceTests!=null)
    foreach(var file in AutomationPostEndurance.RetainedFiles(c))
     if(!retained.TryAdd(file.RelativePath,file.Sha256))throw new InvalidDataException("Post-endurance evidence paths overlap.");

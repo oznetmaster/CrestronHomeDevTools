@@ -148,6 +148,52 @@ public sealed class AutomationInstalledAppTests
   context.Checkpoint.CompletedStages[SubmissionWorkflowStage.ProcessorTests]=new("processor-tests.json",new('a',64));
   context.Checkpoint.CompletedStages[SubmissionWorkflowStage.AppTests]=new("app-tests.json",new('b',64));
  }
+ private async Task ConfigureRemoval() {
+  ConfigurePostDeployment();await Post();calls=0;
+  string policy=Path.Combine(root,"removal-policy.json");
+  File.WriteAllBytes(policy,JsonSerializer.SerializeToUtf8Bytes(new SubmissionEvidencePolicy(1,[new("system.removal",TimeSpan.Zero,false,
+   new("selected.driver","combined",SubmissionEvidenceOutcome.Passed,null,false))]),AutomationFiles.Json));
+  var profile=AndroidWorkflowSession.Read<AndroidSessionProfile>(settings.PostEnduranceTests!.AndroidTests.ProfilePath);
+  settings=settings with{Review=new(new(policy,AutomationFiles.Hash(policy)),new("unused-template",new('a',64)),null!,null!,null!,"Example","Example",[]),
+   Removal=new(new(profile,[new(167,"Example",1,"Room",false)],[]),"system.removal")};
+ }
+ private Task<SubmissionWorkflowStepResult> Remove(bool pass=true,bool interrupt=false,bool baseline=false)=>AutomationRemoval.Advance(context,settings,_=>new("synthetic","synthetic"),default,
+  (plan,credential,folder,token)=>{
+   calls++;Assert.That(plan.Target.DeviceId,Is.EqualTo(167));Assert.That(plan.Target.CatalogueId,Is.EqualTo("observed.catalogue.1.0.000.0000"));
+   if(interrupt)throw new IOException("Synthetic interrupted removal");
+   Directory.CreateDirectory(folder);
+   var result=new DriverRemovalWorkflowResult(!baseline,true,true,new(true,true,true,true,true,new(true,pass,"synthetic log interval",[],pass?[]:["synthetic error"])),null);
+   File.WriteAllBytes(Path.Combine(folder,"result.json"),JsonSerializer.SerializeToUtf8Bytes(result,AutomationFiles.Json));
+   File.WriteAllText(Path.Combine(folder,"raw.xml"),"synthetic retained UI/log evidence");
+   return Task.FromResult(result);
+  });
+ [Test] public async Task FinalRemovalUsesDeploymentAndCannotRunTwice() {
+  await ConfigureRemoval();var first=await Remove();Assert.That(first.Status,Is.EqualTo(SubmissionWorkflowStatus.Completed));
+  Assert.That((await Remove()).Receipt,Is.EqualTo(first.Receipt));Assert.That(calls,Is.EqualTo(1));
+  var source=AutomationRemoval.VerifyRetained(context);
+  var observations=AutomationFiles.Read<SubmissionEvidenceDocument>(Path.Combine(context.RunDirectory,source.RelativePath));
+  Assert.That(observations.Observations.Single().RequirementId,Is.EqualTo("system.removal"));
+  Assert.That(observations.Observations.Single().Outcome,Is.EqualTo(SubmissionEvidenceOutcome.Passed));
+  File.AppendAllText(Path.Combine(context.RunDirectory,"removal","operation","raw.xml"),"changed");
+  Assert.Throws<InvalidDataException>(()=>AutomationRemoval.VerifyRetained(context));
+ }
+ [Test] public async Task InterruptedRemovalCannotBeReissued() {
+  await ConfigureRemoval();Assert.ThrowsAsync<IOException>(async()=>await Remove(interrupt:true));
+  Assert.That((await Remove()).Status,Is.EqualTo(SubmissionWorkflowStatus.OutcomeUnknown));Assert.That(calls,Is.EqualTo(1));
+ }
+ [Test] public async Task RemovalFailureRemainsFailedDuringRecovery() {
+  await ConfigureRemoval();Assert.That((await Remove(pass:false)).Status,Is.EqualTo(SubmissionWorkflowStatus.Failed));
+  Assert.That((await Remove()).Status,Is.EqualTo(SubmissionWorkflowStatus.Failed));Assert.That(calls,Is.EqualTo(1));
+  Assert.Throws<InvalidDataException>(()=>AutomationRemoval.VerifyRetained(context));
+ }
+ [Test] public async Task NonRemovingBaselineCannotBecomeRemovalEvidence() {
+  await ConfigureRemoval();Assert.That((await Remove(baseline:true)).Status,Is.EqualTo(SubmissionWorkflowStatus.OutcomeUnknown));
+  Assert.That(File.Exists(Path.Combine(context.RunDirectory,"removal-evidence.json")),Is.False);
+ }
+ [Test] public async Task MissingOrChangedPrecedingEvidenceStopsRemoval() {
+  await ConfigureRemoval();File.AppendAllText(Path.Combine(context.RunDirectory,"post-endurance","installed-app","raw.xml"),"changed");
+  Assert.ThrowsAsync<InvalidDataException>(async()=>await Remove());Assert.That(calls,Is.Zero);
+ }
  [Test] public async Task PostEnduranceUsesVerifiedDeploymentIdsAndRetainsTheResolvedPlan() {
   ConfigurePostDeployment();
   Task<InstalledDriverTestResult> Inspect(InstalledDriverTestPlan p,NetworkCredential c,string f,CancellationToken t) {

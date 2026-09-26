@@ -2,7 +2,9 @@
 
 ## Unreleased
 
-Added source APIs for final actual-driver removal validation and read-only processor error-log comparison. Removal checks the exact device tree and unrelated inventory, accepts a caller-supplied app observer, and retains a one-shot journal. The log reader has been checked against real CP4-R output; actual removal with Android and unattended review integration remain unverified. See [the API contract and validation limits](docs/DriverRemovalValidation.md).
+Added source APIs for final actual-driver removal validation and read-only processor error-log comparison. Removal checks the exact device tree and unrelated inventory, accepts a caller-supplied app observer, and retains a one-shot journal. The log reader has been checked against real CP4-R output; actual removal with Android remains unverified. See [the API contract and validation limits](docs/DriverRemovalValidation.md).
+
+Added a public baseline/removal coordinator and Home/Room/native-light observer. The worker can now opt into final removal after post-endurance checks and retain its observation for review, without replaying interrupted attempts. A real baseline-only check confirmed selected extension/native-light views, candidate identity, Home restoration and automatic reservation release. Actual removal and the integrated unattended run still require hardware validation.
 
 - Automation plans can run separately configured functional checks after endurance and before preparing review. The worker preserves both phases, binds the later checks to the completed interval, and stops on failed or uncertain restoration. This has offline regression coverage; hardware validation of the new stage is pending.
 - Those post-endurance checks can obtain the installed device and catalogue IDs from the workflow's verified deployment receipts, avoiding manual ID updates and assumptions about catalogue version formatting. Expected identity and room constraints remain enforced, and the resolved plan is retained with the evidence.

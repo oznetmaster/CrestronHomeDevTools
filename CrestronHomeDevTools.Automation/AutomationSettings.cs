@@ -35,6 +35,8 @@ public sealed record SubmissionAutomationSettings(int SchemaVersion, string Priv
  public bool PostEnduranceFromDeployment { get; init; }
  /// <summary>Optional phase-specific fixture inputs; otherwise the initial app fixture inputs are reused.</summary>
  public JsonElement? PostEnduranceFixtureSettings { get; init; }
+ /// <summary>Optional final candidate removal after post-endurance checks, before review. Never implied by test cleanup.</summary>
+ public SubmissionAutomationRemovalPlan? Removal { get; init; }
 }
 
 internal static class AutomationFiles

@@ -25,6 +25,9 @@ public static class SubmissionAutomationConfiguration
    missing.Add("PostEnduranceTests for PostEnduranceFixtureSettings");
   if(settings.PostEnduranceFromDeployment && (settings.PostEnduranceTests==null || settings.NUnit.ActualDriver==null || settings.NUnit.ReleaseCandidate==null))
    missing.Add("PostEnduranceTests and actual candidate deployment for PostEnduranceFromDeployment");
+  if(settings.Removal!=null && (settings.PostEnduranceTests==null || !settings.PostEnduranceFromDeployment || settings.Review==null ||
+   settings.NUnit.ActualDriver==null || settings.NUnit.ReleaseCandidate==null || string.IsNullOrWhiteSpace(settings.Removal.RequirementId)))
+   missing.Add("Removal requires deployment-bound PostEnduranceTests, Review and a removal RequirementId");
   if(settings.Mode==SubmissionAutomationMode.Submit) {
    if(settings.Protected==null)missing.Add("Protected");
    else {

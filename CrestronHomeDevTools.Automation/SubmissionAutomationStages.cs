@@ -60,6 +60,8 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
   if(c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.PrepareReview)) AutomationReview.VerifyRetained(c.RunDirectory);
   if(settings.PostEnduranceTests!=null && c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.PrepareReview))
    AutomationPostEndurance.VerifyRetained(c);
+  if(settings.Removal!=null && c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.PrepareReview))
+   AutomationRemoval.VerifyRetained(c);
   if(c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.SignReview)) AutomationSigning.VerifyRetained(c.RunDirectory);
   if(c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.Endurance)) {
    var plan=AutomationDeploymentEndurance.Resolve(c,settings)?.Plan??throw new InvalidDataException("Completed endurance plan is missing.");
@@ -84,6 +86,10 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
     if(settings.PostEnduranceTests!=null) {
      var post=await AutomationPostEndurance.Advance(c,settings,recover,runInstalledApp,credential,token);
      if(post.Status!=SubmissionWorkflowStatus.Completed)return post;
+    }
+    if(settings.Removal!=null) {
+     var removal=await AutomationRemoval.Advance(c,settings,credential,token);
+     if(removal.Status!=SubmissionWorkflowStatus.Completed)return removal;
     }
     return await AutomationReview.Advance(c,settings,recover,token);
    case SubmissionWorkflowStage.SignReview: return await AutomationSigning.Advance(c,settings,recover,token);
@@ -115,6 +121,7 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
    _=AutomationSourceApplicability.Prepare(c.RunDirectory,settings,token);
   if(settings.InstalledAppTests!=null) AutomationInstalledApp.Validate(settings);
   AutomationPostEndurance.Validate(settings);
+  if(settings.Removal!=null)AutomationRemoval.Validate(settings);
   if(settings.Review is {PriorEvidence:not null} review)
    _=AutomationPriorEvidence.Prepare(c.RunDirectory,new(settings.Release.PackageSha256,settings.Release.SourceCommit,
     review.Policy.Sha256,review.Template.Sha256),review,token);

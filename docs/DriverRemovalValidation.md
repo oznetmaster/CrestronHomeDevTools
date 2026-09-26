@@ -12,7 +12,23 @@ After sending removal once, it waits for the root and descendants to disappear, 
 
 The observer receives the original selected device tree, `false` for the baseline or `true` for post-removal observation, and a fresh evidence directory. Return `DriverRemovalUiOutcome(Passed, HomeRestored)` based on real app observations. Capture the relevant Home and Room views, including scrollable content, and retain the captures in that directory. Do not equate configuration API absence with absence in the app. A callback result or an arbitrary file by itself is not independent proof: the coordinator must validate the producer and audit its raw evidence before using it in a checklist.
 
-The library requires evidence files in both phases but does not interpret screenshots, know driver-specific tile presentation, or provide a built-in Android observer. The standard installed-driver NUnit runner deliberately requires the candidate to remain installed afterward; do not remove a driver inside that runner and weaken its post-test identity check.
+The library requires evidence files in both phases but does not interpret screenshots or infer driver-specific tile presentation. The automation assembly supplies the observer described below. The standard installed-driver NUnit runner deliberately requires the candidate to remain installed afterward; do not remove a driver inside that runner and weaken its post-test identity check.
+
+## Public app observer and coordinated execution
+
+`CrestronHomeDevTools.Automation.DriverRemovalAppObserver` observes the selected Home and Room lists, including bounded vertical traversal. A `DriverRemovalAppPlan` contains the Android profile, explicit tile IDs/names/rooms/Home presentation, and explicitly reviewed `NonvisualDeviceIds`. Every selected root and descendant must appear in exactly one category. Set a tile's `NativeLight` property when the load appears in its room's native Lights list rather than as an extension tile. The observer opens that list using its navigation title; it never taps its power, dimmer, scene or colour controls. Unsupported presentation types require another observer; declaring a visible device nonvisual is not a workaround.
+
+The observer captures masked hierarchies and PNGs, records its observed/expected names and returns Home. It detects a surviving selected tile anywhere in the traversed lists. Native-light scrolling requires an observed clear gutter; otherwise it stops. This covers those reviewed views, not every possible subsystem or firmware layout. App page structure changes fail explicitly.
+
+`DriverRemovalWorkflow.ObserveBaselineAsync` validates the candidate package against the installed payload, acquires processor and Android reservations, runs the baseline only, checks the candidate again and releases after confirmed Home restoration. Its result has `RemovalRequested: false` and cannot become removal evidence. Use it to validate a new equipment/app profile without deleting the driver.
+
+`DriverRemovalWorkflow.RemoveAsync` uses the same candidate checks and reservations, then invokes the actual removal API with the app observer and log reader. It is a final operation: finish physical-state restoration and any tests requiring the installation first. Exceptions with uncertain control or removal state retain reservations for inspection. Neither method redeploys a driver. The app must already be connected to the intended processor; the profile's Home name is a presentation assertion, not network-route authentication.
+
+## Worker integration
+
+The optional automation `Removal` setting contains `App` and `RequirementId`. It requires `PostEnduranceTests`, `PostEnduranceFromDeployment: true`, actual candidate deployment and a pinned review policy. That policy entry must describe this combined configuration/app/log check without unrelated response-time or physical-restoration claims.
+
+The worker runs final removal after successful post-endurance checks and before PDF preparation. It obtains root/catalogue identity from retained deployment receipts, uses the same Android profile, saves a durable intent, and inventories the resulting raw evidence. Review consumes the generated observation automatically. Changed prior evidence, an uncertain attempt or a baseline-only result cannot become a pass; an existing attempt is never rerun. A failed result stays failed on recovery. Omit `Removal` when this operation has not been authorized or configured; omission does not satisfy a checklist requirement.
 
 ## Reading and comparing processor logs
 
@@ -30,4 +46,4 @@ A thrown exception or connection loss after the durable removal intent has an un
 
 ## Verified scope
 
-Offline tests exercise exact removal scope, descendants, unrelated-device preservation, failed UI preflight, retained evidence, uncertain removal, no replay, orphaned children, final inventory checks and new versus historical log errors. Two successive read-only snapshots on a CP4-R verified the public log reader and prefix comparison with real current-boot output. Actual removal with the Android observer and its integration into unattended review preparation have **not** yet been validated. These APIs do not establish submission completeness or Crestron acceptance.
+Offline tests exercise exact removal scope, descendants, unrelated-device preservation, failed UI preflight, retained evidence, uncertain removal, no replay, orphaned children, final inventory checks, full-list app observation, native-light navigation and new versus historical log errors. Controller tests verify deployment binding, preservation of failures, interruption without replay and evidence-change detection. Two successive read-only snapshots on a CP4-R verified the public log reader and prefix comparison with real current-boot output. A real baseline-only run verified five extension tiles and one native light through Home, Room and Lights views, candidate identity, Home restoration and reservation release. Actual removal with the Android observer and its full unattended execution have **not** yet been demonstrated. These APIs do not establish submission completeness or Crestron acceptance.
