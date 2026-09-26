@@ -19,6 +19,7 @@ try {
     & ./tools/Test-DiscoveredCoverage.ps1 -Configuration Release -ResultsDirectory artifacts/tests
     dotnet pack CrestronHomeDevTools/CrestronHomeDevTools.csproj -c Release "-p:Version=$Version" -o $release
     if ($LASTEXITCODE -ne 0) { throw 'Library pack failed.' }
+    ./tools/Test-NuGetDocumentation.ps1 -PackagePath (Join-Path $release "CrestronHomeDevTools.$Version.nupkg")
     $console = Join-Path $root ('artifacts/console-' + [Guid]::NewGuid().ToString('N'))
     & ./tools/BuildSubmissionConsole.ps1 -OutputDirectory $console -Version $Version
     & ./tools/TestSubmissionConsole.ps1 -ConsoleDirectory $console

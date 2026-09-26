@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Include release notes in NuGet metadata and make package README links work outside GitHub.
+
 - Close the processor event socket with a bounded normal WebSocket handshake before aborting an unresponsive connection. This reduces abrupt disconnects during configuration operations; no device commands are retried.
 
 - Fresh deployment-bound app plans can use a zero device ID during preflight. The worker substitutes the verified deployment receipt before execution; standalone installed-app tests still require a real positive ID.
@@ -45,6 +47,8 @@ Start with [the operator guide](docs/submission/START-DRIVER-SUBMISSION.md), [se
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
 ## Unreleased
+
+- Include release notes in NuGet metadata and make package README links work outside GitHub.
 
 The complete console archive now includes the self-contained Windows setup app under `setup/`. Release validation requires that executable and checks its version matches the console, so profile collection does not require building the form from source or installing a separate Desktop Runtime.
 

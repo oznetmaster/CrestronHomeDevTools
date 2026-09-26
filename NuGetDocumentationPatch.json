@@ -1,0 +1,8 @@
+{
+  "BaseSha256": "2CB42B1E7705F4FF7A4927C61C33871752EBADE7297C6BF4D595FC4F05141AD5",
+  "ReleaseNotesFile": "NUGET-PATCH-NOTES.md",
+  "ReadmeBaseUrl": "https://github.com/oznetmaster/CrestronHomeDevTools/blob/v1.19.0/",
+  "Version": "1.19.1",
+  "Id": "CrestronHomeDevTools",
+  "BaseVersion": "1.19.0"
+}

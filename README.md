@@ -4,42 +4,42 @@
 
 An independent .NET 10 library, interactive console and automation CLI for Crestron Home configuration management. Discover processors, inspect installed devices, deploy driver packages, install or update Entity V2 driver instances, and verify their loaded versions without operating Configure Pro.
 
-The configuration-management interface is unofficial and firmware-dependent, [documented here from verified behavior](docs/ProtocolReference.md). This is not an official Crestron API SDK. The library has no dependency on Crestron SDK assemblies, proprietary client binaries or NUnit.
+The configuration-management interface is unofficial and firmware-dependent, [documented here from verified behavior](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/ProtocolReference.md). This is not an official Crestron API SDK. The library has no dependency on Crestron SDK assemblies, proprietary client binaries or NUnit.
 
-This source includes initial driver configuration and read-only inspection of current settings. See [driver configuration](docs/DriverConfiguration.md) for the commands, private input format, masking rules and library API. Shared processor reservations continue to coordinate development operations.
+This source includes initial driver configuration and read-only inspection of current settings. See [driver configuration](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/DriverConfiguration.md) for the commands, private input format, masking rules and library API. Shared processor reservations continue to coordinate development operations.
 
-Reviewed V1 removal can preserve other instances sharing the same driver code across an explicitly authorized Home reboot. See [V1 installation and removal](docs/V1DriverRemoval.md) for the opt-in scope, preservation checks and validation limits.
+Reviewed V1 removal can preserve other instances sharing the same driver code across an explicitly authorized Home reboot. See [V1 installation and removal](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/V1DriverRemoval.md) for the opt-in scope, preservation checks and validation limits.
 
 ## Contents
 
 - [What is included](#what-is-included)
 - [Get started](#get-started)
-- [PowerShell prerequisite for Windows automation](docs/PowerShell.md)
+- [PowerShell prerequisite for Windows automation](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/PowerShell.md)
 - [Library example](#library-example)
-- [Driver configuration](docs/DriverConfiguration.md)
-- [Managed-child validation lifecycle](docs/ManagedChildValidation.md)
-- [Moving drivers between rooms](docs/RoomMoves.md)
-- [Associating Android tiles with installed drivers](docs/DriverUiBinding.md)
+- [Driver configuration](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/DriverConfiguration.md)
+- [Managed-child validation lifecycle](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/ManagedChildValidation.md)
+- [Moving drivers between rooms](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/RoomMoves.md)
+- [Associating Android tiles with installed drivers](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/DriverUiBinding.md)
 - [Deployment and tests](#deployment-and-tests)
-- [Submission preparation console](docs/submission/ConsoleTools.md) (no Python setup)
-- [Submission runbook](docs/submission/Runbook.md) (normal path, expected results and resuming work)
-- [Single submission starting document](docs/submission/START-DRIVER-SUBMISSION.md) (give an assistant this document and your driver repository; independent validation pending)
-- [Release-to-submission automation](docs/submission/ReleaseAutomation.md) (source-preview intake/controller, tested scope and remaining integration)
-- [Reviewed evidence mapping](docs/submission/EvidenceMapping.md) (C# API and CLI, requires 1.11.0)
-- [Passive endurance health assessment](docs/submission/WindowsEnduranceWorker.md#passive-health-assessment) (requires 1.12.0; no notification delivery)
-- [Optional endurance notifications](docs/submission/EnduranceNotifications.md) (APIs require 1.12.0; unattended Windows setup requires 1.17.0; authorized SMTP destination required)
-- [Reusable private inputs](docs/PrivateInputs.md) (requires 1.17.0)
-- [Windows resource assessment](docs/WindowsResources.md) (requires 1.17.0)
-- [Windows SSH setup](docs/WindowsSetup.md) and [GitHub runner setup](docs/WindowsRunnerSetup.md) (require 1.17.0; installation validation limits documented)
-- [Automated Crestron submission plan and progress](docs/CrestronSubmission.md)
-- [Development configurations](docs/submission/DevelopmentConfigurations.md) (one PC and one processor, optional additional hardware)
-- [Submission workflow setup](docs/submission/WorkflowSetup.md) (dispatcher and protected stages for your own repository)
-- [Submission delivery journal and reconciliation](docs/submission/DeliveryJournal.md) (authorized upload, SMTP delivery and uncertain-outcome handling)
-- [Final submission delivery preparation](docs/submission/DeliveryPreparation.md) (approved signed artifacts to a private plan; no sending)
-- [Bundled delivery settings](docs/submission/DeliverySetup.md) (requires 1.10.0; generate protected settings without runtime paths)
-- [Combining submission evidence](docs/submission/EvidenceComposition.md) (requires 1.13.0)
-- [Reviewing prior candidate evidence](docs/submission/PriorEvidence.md) (C# API and CLI)
-- [Requests with declared gaps](docs/submission/DeclaredGaps.md) and [approval/delivery](docs/submission/ReviewApproval.md) (review preparation requires 1.13.0; signed-form delivery requires 1.14.0)
+- [Submission preparation console](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/ConsoleTools.md) (no Python setup)
+- [Submission runbook](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/Runbook.md) (normal path, expected results and resuming work)
+- [Single submission starting document](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/START-DRIVER-SUBMISSION.md) (give an assistant this document and your driver repository; independent validation pending)
+- [Release-to-submission automation](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/ReleaseAutomation.md) (source-preview intake/controller, tested scope and remaining integration)
+- [Reviewed evidence mapping](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/EvidenceMapping.md) (C# API and CLI, requires 1.11.0)
+- [Passive endurance health assessment](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/WindowsEnduranceWorker.md#passive-health-assessment) (requires 1.12.0; no notification delivery)
+- [Optional endurance notifications](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/EnduranceNotifications.md) (APIs require 1.12.0; unattended Windows setup requires 1.17.0; authorized SMTP destination required)
+- [Reusable private inputs](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/PrivateInputs.md) (requires 1.17.0)
+- [Windows resource assessment](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/WindowsResources.md) (requires 1.17.0)
+- [Windows SSH setup](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/WindowsSetup.md) and [GitHub runner setup](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/WindowsRunnerSetup.md) (require 1.17.0; installation validation limits documented)
+- [Automated Crestron submission plan and progress](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/CrestronSubmission.md)
+- [Development configurations](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/DevelopmentConfigurations.md) (one PC and one processor, optional additional hardware)
+- [Submission workflow setup](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/WorkflowSetup.md) (dispatcher and protected stages for your own repository)
+- [Submission delivery journal and reconciliation](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/DeliveryJournal.md) (authorized upload, SMTP delivery and uncertain-outcome handling)
+- [Final submission delivery preparation](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/DeliveryPreparation.md) (approved signed artifacts to a private plan; no sending)
+- [Bundled delivery settings](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/DeliverySetup.md) (requires 1.10.0; generate protected settings without runtime paths)
+- [Combining submission evidence](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/EvidenceComposition.md) (requires 1.13.0)
+- [Reviewing prior candidate evidence](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/PriorEvidence.md) (C# API and CLI)
+- [Requests with declared gaps](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/DeclaredGaps.md) and [approval/delivery](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/ReviewApproval.md) (review preparation requires 1.13.0; signed-form delivery requires 1.14.0)
 - [Documentation](#documentation)
 - [Build and validate](#build-and-validate)
 - [Privacy and compatibility](#privacy-and-compatibility)
@@ -53,7 +53,7 @@ Reviewed V1 removal can preserve other instances sharing the same driver code ac
 | `CrestronHomeDevTools.Console` | Interactive `ch>` prompt and one-command CLI using the same library. Distributed separately from the library. |
 | `CrestronHomeDevTools.Tests` | Offline NUnit regression tests for discovery parsing, authentication, command handling, update/removal guards, profiles and deployment validation. |
 
-Supported operations include discovery by processor name, credentials and certificate validation, driver/device inventory, SFTP upload, catalogue import, reviewed updates, guarded install/update/reuse, targeted reload, guarded room moves for loaded childless drivers, and explicit instance removal. See [room moves](docs/RoomMoves.md) for scope and validation. Reboots require explicit authorization; submitted configuration changes are never replayed after a connection failure.
+Supported operations include discovery by processor name, credentials and certificate validation, driver/device inventory, SFTP upload, catalogue import, reviewed updates, guarded install/update/reuse, targeted reload, guarded room moves for loaded childless drivers, and explicit instance removal. See [room moves](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/RoomMoves.md) for scope and validation. Reboots require explicit authorization; submitted configuration changes are never replayed after a connection failure.
 
 The `reboot` command supports interactive confirmation or explicit unattended authorization:
 
@@ -65,19 +65,19 @@ The two target values must match; credentials and verified SSH trust still come 
 
 ## Get started
 
-Version 1.8.0 adds an optional [authorized delivery command](docs/submission/DeliveryCommand.md), upload and SMTP providers, and [Windows endurance scheduling](docs/submission/WindowsEnduranceWorker.md). It also stops promptly when the requested driver version fails to load. These components do not establish a completed submission or endurance period. Version 1.7.0 added bounded [processor uptime observations](docs/ProcessorUptime.md) and a public plan-validation entry point for external endurance producers. These APIs support monitoring independently of optional submission. Version 1.6.0 added [managed-child setup, validation and cleanup](docs/ManagedChildValidation.md), resumable endurance collection and further offline submission preparation. It retains the package/evidence checks, guarded UI name binding and delivery journals introduced in 1.5.0. The console includes [private evidence bundle creation and verification](docs/submission/EvidenceBundle.md).
+Version 1.8.0 adds an optional [authorized delivery command](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/DeliveryCommand.md), upload and SMTP providers, and [Windows endurance scheduling](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/WindowsEnduranceWorker.md). It also stops promptly when the requested driver version fails to load. These components do not establish a completed submission or endurance period. Version 1.7.0 added bounded [processor uptime observations](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/ProcessorUptime.md) and a public plan-validation entry point for external endurance producers. These APIs support monitoring independently of optional submission. Version 1.6.0 added [managed-child setup, validation and cleanup](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/ManagedChildValidation.md), resumable endurance collection and further offline submission preparation. It retains the package/evidence checks, guarded UI name binding and delivery journals introduced in 1.5.0. The console includes [private evidence bundle creation and verification](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/EvidenceBundle.md).
 
-Version 1.9.0 provides [submission preparation commands](docs/submission/ConsoleTools.md) in the complete console download, including [help generation](docs/submission/HelpBuild.md), [Android evidence auditing](docs/submission/AndroidEvidence.md), [self-test forms](docs/submission/FormGeneration.md) and [private review](docs/submission/ReviewStage.md). The console includes its isolated document runtime and validator; developers use documented commands, configuration and C# fixtures without installing or maintaining Python. DOCX-to-PDF rendering still needs the documented renderer and fonts. Preparation does not send anything or establish self-test completion.
+Version 1.9.0 provides [submission preparation commands](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/ConsoleTools.md) in the complete console download, including [help generation](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/HelpBuild.md), [Android evidence auditing](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/AndroidEvidence.md), [self-test forms](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/FormGeneration.md) and [private review](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/ReviewStage.md). The console includes its isolated document runtime and validator; developers use documented commands, configuration and C# fixtures without installing or maintaining Python. DOCX-to-PDF rendering still needs the documented renderer and fonts. Preparation does not send anything or establish self-test completion.
 
-The same console includes [authorized image signing](docs/submission/FormSigning.md), the [private signing stage](docs/submission/SigningStage.md) and [final delivery preparation](docs/submission/DeliveryPreparation.md). Complete candidate evidence, reviewed forms and exact signing/delivery authorization remain prerequisites. The optional [submission roadmap](docs/CrestronSubmission.md) distinguishes implemented tools from remaining end-to-end validation. The NuGet library does not include the document runtime.
+The same console includes [authorized image signing](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/FormSigning.md), the [private signing stage](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/SigningStage.md) and [final delivery preparation](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/DeliveryPreparation.md). Complete candidate evidence, reviewed forms and exact signing/delivery authorization remain prerequisites. The optional [submission roadmap](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/CrestronSubmission.md) distinguishes implemented tools from remaining end-to-end validation. The NuGet library does not include the document runtime.
 
-Version 1.9.0 also adds [read-only candidate payload comparison](docs/DriverPayloadInspection.md) under the shared processor reservation and bounded recovery from transient delivery-journal file replacement refusals. It never retries a provider request because a file operation failed.
+Version 1.9.0 also adds [read-only candidate payload comparison](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/DriverPayloadInspection.md) under the shared processor reservation and bounded recovery from transient delivery-journal file replacement refusals. It never retries a provider request because a file operation failed.
 
-Version 1.11.0 adds [reviewed evidence mapping](docs/submission/EvidenceMapping.md) and [completed endurance snapshots](docs/submission/WindowsEnduranceWorker.md). These preserve original evidence and explicitly report uncovered requirements; they do not turn a partial test run into submission approval. Existing running collectors can remain pinned to their original version.
+Version 1.11.0 adds [reviewed evidence mapping](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/EvidenceMapping.md) and [completed endurance snapshots](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/WindowsEnduranceWorker.md). These preserve original evidence and explicitly report uncovered requirements; they do not turn a partial test run into submission approval. Existing running collectors can remain pinned to their original version.
 
-Version 1.12.0 adds passive local/remote observation and authorized operational email notifications through C# APIs and the console. See [endurance monitoring](docs/submission/EnduranceNotifications.md) for configuration, supervision and validation limits.
+Version 1.12.0 adds passive local/remote observation and authorized operational email notifications through C# APIs and the console. See [endurance monitoring](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/EnduranceNotifications.md) for configuration, supervision and validation limits.
 
-Version 1.16.0 adds evidence-backed reviewer interpretations and numbered checklist endnotes. Original automatic outcomes remain recorded, and missing, failed or unperformed tests cannot be accepted as interpretations. Version 1.14.0 extends explicit requests with declared gaps to signed forms and approved delivery. Failed, partial and unperformed checks remain disclosed; a signature does not turn them into passes or imply Crestron acceptance. Start with the [submission runbook](docs/submission/Runbook.md); it links each stage's settings, expected outputs and recovery steps. Developers use the bundled console or C# API without editing the bundled document-processing scripts.
+Version 1.16.0 adds evidence-backed reviewer interpretations and numbered checklist endnotes. Original automatic outcomes remain recorded, and missing, failed or unperformed tests cannot be accepted as interpretations. Version 1.14.0 extends explicit requests with declared gaps to signed forms and approved delivery. Failed, partial and unperformed checks remain disclosed; a signature does not turn them into passes or imply Crestron acceptance. Start with the [submission runbook](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/Runbook.md); it links each stage's settings, expected outputs and recovery steps. Developers use the bundled console or C# API without editing the bundled document-processing scripts.
 
 Install the library with `dotnet add package CrestronHomeDevTools`. Download the self-contained Windows x64 console from [GitHub Releases](https://github.com/oznetmaster/CrestronHomeDevTools/releases/latest), extract the complete ZIP, and run `CrestronHomeDevTools.Console.exe`. Its first run opens processor/profile setup; `--help` lists commands.
 
@@ -100,7 +100,7 @@ deploy --package "C:/CI/Artifacts/Example.Driver.pkg"
 activate --driver CATALOGUE_ID --name "Example Driver" --room ROOM_ID
 ```
 
-Use actual IDs returned by inventory. Deploying imports a package; activating installs or updates its instance. See the [command guide](docs/UserGuide.md) before automating changes.
+Use actual IDs returned by inventory. Deploying imports a package; activating installs or updates its instance. See the [command guide](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/UserGuide.md) before automating changes.
 
 ## Library example
 
@@ -120,7 +120,7 @@ var drivers = await client.GetDriversAsync("Example", cancellationToken);
 var devices = await client.GetDevicesAsync(cancellationToken);
 ```
 
-Credentials and trusted fingerprints come from the calling application. Device properties may contain private configuration; do not publish whole inventory responses. The [API guide](docs/LibraryGuide.md) covers upload, activation, update plans, removal and operation outcomes.
+Credentials and trusted fingerprints come from the calling application. Device properties may contain private configuration; do not publish whole inventory responses. The [API guide](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/LibraryGuide.md) covers upload, activation, update plans, removal and operation outcomes.
 
 ## Deployment and tests
 
@@ -130,17 +130,17 @@ See the [end-to-end CI guide](https://github.com/oznetmaster/CrestronHomeNUnit/b
 
 ## Documentation
 
-- [User and CLI guide](docs/UserGuide.md): setup, profiles, commands, exit codes and troubleshooting.
-- [Library API guide](docs/LibraryGuide.md): component responsibilities and examples.
-- [Processor coordination and storage](docs/ProcessorCoordination.md): shared reservations, build deployment, reboot waits and retained package inspection.
-- [Windows endurance worker](docs/submission/WindowsEnduranceWorker.md): optional scheduled observations, private service-account setup, interruption handling and alert requirements. Console ZIPs include scheduler scripts under `scripts/endurance`; 1.17.2 adds an optional preview/apply helper for a new monitor's directory permissions.
-- [Remote processor logging](docs/RemoteSystemLogging.md): verified console queries, TCP/UDP/TLS choices and collector validation requirements; no automatic collector is included.
-- [Processor uptime observations](docs/ProcessorUptime.md): bounded, read-only SSH observations for consumer-owned monitoring; requires 1.7.0 or later.
-- [Configuration-management protocol reference](docs/ProtocolReference.md): discovery packets, authentication, request/response formats, commands, events, V1/V2 lifecycle sequences and recovery rules.
-- [Compatibility and validation](docs/Compatibility.md): tested environment, V1/V2 limits and failure semantics.
-- [Release procedure](docs/Releasing.md): versioning, packages, console distribution, documentation and validation.
-- [Changelog](CHANGELOG.md) and [release notes](RELEASE-NOTES.md) for packaged releases; [development history](DEVELOPMENT-HISTORY.md) for the development evidence and limitations behind those releases.
-- [Third-party notices](THIRD-PARTY-NOTICES.md) and [MIT license](LICENSE).
+- [User and CLI guide](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/UserGuide.md): setup, profiles, commands, exit codes and troubleshooting.
+- [Library API guide](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/LibraryGuide.md): component responsibilities and examples.
+- [Processor coordination and storage](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/ProcessorCoordination.md): shared reservations, build deployment, reboot waits and retained package inspection.
+- [Windows endurance worker](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/WindowsEnduranceWorker.md): optional scheduled observations, private service-account setup, interruption handling and alert requirements. Console ZIPs include scheduler scripts under `scripts/endurance`; 1.17.2 adds an optional preview/apply helper for a new monitor's directory permissions.
+- [Remote processor logging](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/RemoteSystemLogging.md): verified console queries, TCP/UDP/TLS choices and collector validation requirements; no automatic collector is included.
+- [Processor uptime observations](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/ProcessorUptime.md): bounded, read-only SSH observations for consumer-owned monitoring; requires 1.7.0 or later.
+- [Configuration-management protocol reference](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/ProtocolReference.md): discovery packets, authentication, request/response formats, commands, events, V1/V2 lifecycle sequences and recovery rules.
+- [Compatibility and validation](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/Compatibility.md): tested environment, V1/V2 limits and failure semantics.
+- [Release procedure](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/Releasing.md): versioning, packages, console distribution, documentation and validation.
+- [Changelog](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/CHANGELOG.md) and [release notes](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/RELEASE-NOTES.md) for packaged releases; [development history](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/DEVELOPMENT-HISTORY.md) for the development evidence and limitations behind those releases.
+- [Third-party notices](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/THIRD-PARTY-NOTICES.md) and [MIT license](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/LICENSE).
 
 ## Build and validate
 
@@ -160,14 +160,14 @@ Connection profiles are stored outside the checkout under `%LOCALAPPDATA%/Crestr
 
 Real connection files, device bindings, update plans and logs stay outside source control or are locally excluded using `.git/info/exclude`. Do not commit those exclusions or private paths. Public examples use placeholders. A processor supplies its own Crestron runtime; this library does not need or redistribute `Newtonsoft.Json.Compact.dll`.
 
-Development management operations were verified on MC4-R and CP4-R / Crestron Home 4.11.322. Both passed Entity V2 lifecycle and configuration reboot/recovery checks. The complete unattended V1 driver update/reboot/verification workflow was verified on MC4-R only. Discovery alone does not establish management compatibility with another processor. Read the [validation limits](docs/Compatibility.md). Cancellation stops waiting; it cannot undo a submitted processor operation.
+Development management operations were verified on MC4-R and CP4-R / Crestron Home 4.11.322. Both passed Entity V2 lifecycle and configuration reboot/recovery checks. The complete unattended V1 driver update/reboot/verification workflow was verified on MC4-R only. Discovery alone does not establish management compatibility with another processor. Read the [validation limits](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/Compatibility.md). Cancellation stops waiting; it cannot undo a submitted processor operation.
 
 ## License and Crestron disclaimer
 
-Copyright (c) 2026 Neil Colvin. Original project code is licensed under the [MIT License](LICENSE). Dependencies retain their own licenses; see [third-party notices](THIRD-PARTY-NOTICES.md).
+Copyright (c) 2026 Neil Colvin. Original project code is licensed under the [MIT License](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/LICENSE). Dependencies retain their own licenses; see [third-party notices](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/THIRD-PARTY-NOTICES.md).
 
 Crestron and Crestron Home are trademarks or registered trademarks of Crestron Electronics, Inc. This project is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc. It uses an independently implemented, unofficial configuration interface. The MIT license does not grant rights to Crestron's software or documentation. Software is provided as-is, without warranty, as specified in LICENSE.
 
 ## Submission input setup (source preview)
 
-The [Windows setup app](docs/submission/SetupApp.md) collects editable developer, driver and submission profiles in the encrypted private store. A submission uses a frozen input snapshot so subsequent edits do not alter earlier records. Complete console archives built from this source include the self-contained form at `setup/CrestronHomeDevTools.Setup.exe`; previously published versions may not include it. It prepares Rehearsal or Submit configuration without starting tests or authorizing signing and delivery.
+The [Windows setup app](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/SetupApp.md) collects editable developer, driver and submission profiles in the encrypted private store. A submission uses a frozen input snapshot so subsequent edits do not alter earlier records. Complete console archives built from this source include the self-contained form at `setup/CrestronHomeDevTools.Setup.exe`; previously published versions may not include it. It prepares Rehearsal or Submit configuration without starting tests or authorizing signing and delivery.
