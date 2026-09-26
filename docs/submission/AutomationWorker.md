@@ -59,6 +59,7 @@ Run [release intake](ReleaseAutomation.md#try-intake-from-the-source-build) firs
 | `InstalledAppFixtureSettings` | Optional JSON object of driver-specific factual inputs for the separate installed-app phase or combined `NUnit.AndroidTests` deployment route. Release placeholders are expanded and the frozen settings bind its bytes. The controller retains it as `app-fixture-settings.json` at the run root before invocation, verifies it after execution and during recovery, and includes it in the owning producer inventory (NUnit for combined deployment, installed-app for the separate route). Store credential references, never raw passwords or signing material. |
 | `Endurance` | Optional public `SubmissionEnduranceWorkerPlan`, including the fully pinned read-only producer. Its candidate/source and processor must match this attempt. Missing settings stop at the corresponding stage. |
 | `PostEnduranceTests` | Optional public `InstalledDriverTestPlan` for functional checks after endurance finishes and before review preparation. Use the same frozen candidate, processor and trust pins. Results are kept separately from the initial app tests. |
+| `PostEnduranceFromDeployment` | Resolve that plan's device and catalogue IDs from this workflow's verified actual-driver deployment receipts. Default `false`; requires `NUnit.ActualDriver` and `NUnit.ReleaseCandidate`. |
 | `PostEnduranceFixtureSettings` | Optional factual JSON object for those checks; defaults to `InstalledAppFixtureSettings`. Use phase-specific observation IDs where the review includes both phases. |
 | `EnduranceFromDeployment` | Optional boolean (default false). Bind the final probe settings to the verified actual-driver deployment before collection. Requires `NUnit.ActualDriver`, `NUnit.ReleaseCandidate` and a pinned probe settings template; see deployment below. |
 | `EnduranceProbeSettingsTemplate` | Optional pinned JSON settings template for release discovery. Intake copies the declared producer publication into the new run, expands candidate/path placeholders, includes the generated settings in its file inventory and binds the resulting producer ID. Leave the source probe's `SettingsFile` null. Explicit prebuilt settings continue to use the existing probe contract. |
@@ -172,6 +173,19 @@ completed `Endurance` receipt. It does not redeploy the candidate or repeat the
 Windows and processor unit suites. The plan identifies the exact installed target;
 it does not discover a target by its display name. The worker still enforces the
 public runner's reservations, candidate verification, restoration and cleanup.
+
+For a release that the same workflow deploys, set
+`PostEnduranceFromDeployment: true`. The post-test plan still supplies expected
+name, model, room, parent, version, developer and control type. Its syntactically
+valid device/catalogue IDs are replaced from the retained import and activation
+receipts before execution; do not construct a catalogue ID from a version string.
+The worker checks the receipts against the frozen candidate and checks name,
+model, room, version and any `ActualDriver.ExpectedDeviceId` constraint. It saves
+the resolved `target-plan.json` in the post-test evidence inventory. This option
+does not redeploy or discover a different driver by name. With the option off,
+the exact supplied installed target remains in use. Neither mode rebinds private
+fixture child IDs; configure managed-child selectors or verified child bindings
+appropriate to the fixture.
 
 Keep measurements needed for a before/after response comparison in the fixture's
 evidence. Merely rerunning a functional test does not establish unchanged response

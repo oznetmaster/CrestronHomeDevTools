@@ -76,8 +76,9 @@ internal static class AutomationInstalledApp
     entries.Add(entry);if(entry is DirectoryInfo child)pending.Push(child);
    }
   }
-  if(File.Exists(Path.Combine(root,"app-fixture-settings.json"))) {
-   if(!SubmissionEvidence.SafeEvidencePath(root,"app-fixture-settings.json",out var fixture))
+  foreach(string name in new[]{"app-fixture-settings.json","target-plan.json"}) {
+   if(!File.Exists(Path.Combine(root,name)))continue;
+   if(!SubmissionEvidence.SafeEvidencePath(root,name,out var fixture))
     throw new InvalidDataException("Unsafe installed-app fixture settings path.");
    entries.Add(new FileInfo(fixture));
   }

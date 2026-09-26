@@ -31,6 +31,8 @@ public sealed record SubmissionAutomationSettings(int SchemaVersion, string Priv
  public bool EnduranceFromDeployment { get; init; }
  /// <summary>Optional functional checks after endurance, before review. Uses the installed candidate without redeployment.</summary>
  public InstalledDriverTestPlan? PostEnduranceTests { get; init; }
+ /// <summary>Bind the post-endurance device and catalogue IDs to this workflow's verified actual deployment.</summary>
+ public bool PostEnduranceFromDeployment { get; init; }
  /// <summary>Optional phase-specific fixture inputs; otherwise the initial app fixture inputs are reused.</summary>
  public JsonElement? PostEnduranceFixtureSettings { get; init; }
 }

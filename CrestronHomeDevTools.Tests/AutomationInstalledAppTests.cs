@@ -130,6 +130,55 @@ public sealed class AutomationInstalledAppTests
   context.Checkpoint.CompletedStages[SubmissionWorkflowStage.Endurance]=new("endurance-result.json",AutomationFiles.Hash(receipt));
  }
  private Task<SubmissionWorkflowStepResult> Post(bool recover=false)=>AutomationPostEndurance.Advance(context,settings,recover,Run,_=>new("synthetic","synthetic"),default);
+ private void ConfigurePostDeployment() {
+  ConfigurePostEndurance();
+  var plan=settings.PostEnduranceTests!;string guid=Guid.NewGuid().ToString();
+  settings=settings with{PostEnduranceFromDeployment=true,NUnit=settings.NUnit with{
+   ActualDriver=new(plan.AndroidTests.Project,plan.PackagePath,plan.Target.Name,plan.Target.LocationId),
+   ReleaseCandidate=new(settings.Release.PackageSha256,guid,plan.Target.Version,settings.SourceRepository,settings.Release.SourceCommit)}};
+  string folder=Path.Combine(context.RunDirectory,"nunit");Directory.CreateDirectory(folder);
+  void Write(string name,object value)=>File.WriteAllBytes(Path.Combine(folder,name),JsonSerializer.SerializeToUtf8Bytes(value,AutomationFiles.Json));
+  Write("actual-import.json",new DriverDeploymentResult(new(guid,plan.Target.Model,"Example","1.0.000.0000"),settings.Release.PackageSha256,"observed.catalogue.1.0.000.0000","refreshed",true));
+  Write("actual-activation.json",new DriverInstanceReady(167,plan.Target.Model,"1.0.000.0000","Installed"));
+  Write("ReleaseCandidate.json",new{Sha256=settings.Release.PackageSha256,settings.Release.SourceCommit,SourceInitiallyClean=true,Mode="PrebuiltRelease"});
+  string receipt=Path.Combine(context.RunDirectory,"windows-tests.json");
+  File.WriteAllBytes(receipt,JsonSerializer.SerializeToUtf8Bytes(new{context.Checkpoint.InputSha256,
+   Files=Directory.GetFiles(folder).Select(p=>new SubmissionWorkflowReceipt(Path.GetRelativePath(context.RunDirectory,p),AutomationFiles.Hash(p))).ToArray()},AutomationFiles.Json));
+  context.Checkpoint.CompletedStages[SubmissionWorkflowStage.WindowsTests]=new("windows-tests.json",AutomationFiles.Hash(receipt));
+  context.Checkpoint.CompletedStages[SubmissionWorkflowStage.ProcessorTests]=new("processor-tests.json",new('a',64));
+  context.Checkpoint.CompletedStages[SubmissionWorkflowStage.AppTests]=new("app-tests.json",new('b',64));
+ }
+ [Test] public async Task PostEnduranceUsesVerifiedDeploymentIdsAndRetainsTheResolvedPlan() {
+  ConfigurePostDeployment();
+  Task<InstalledDriverTestResult> Inspect(InstalledDriverTestPlan p,NetworkCredential c,string f,CancellationToken t) {
+   Assert.That(p.Target.DeviceId,Is.EqualTo(167));
+   Assert.That(p.Target.CatalogueId,Is.EqualTo("observed.catalogue.1.0.000.0000"));
+   Assert.That(p.Target.Name,Is.EqualTo(settings.PostEnduranceTests!.Target.Name));
+   return Run(p,c,f,t);
+  }
+  var result=await AutomationPostEndurance.Advance(context,settings,false,Inspect,_=>new(),default);
+  Assert.That(result.Status,Is.EqualTo(SubmissionWorkflowStatus.Completed));
+  Assert.That(settings.PostEnduranceTests!.Target.DeviceId,Is.EqualTo(2),"Input plan must remain immutable");
+  Assert.That(AutomationPostEndurance.RetainedFiles(context).Any(f=>f.RelativePath=="post-endurance/target-plan.json"),Is.True);
+  await Post(true);Assert.That(calls,Is.EqualTo(1));
+  File.AppendAllText(Path.Combine(context.RunDirectory,"post-endurance","target-plan.json")," ");
+  Assert.Throws<InvalidDataException>(()=>AutomationPostEndurance.VerifyRetained(context));
+ }
+ [TestCase("receipt")][TestCase("expected-device")][TestCase("room")][TestCase("name")]
+ public void PostDeploymentMismatchStopsBeforeAnyControls(string difference) {
+  ConfigurePostDeployment();
+  if(difference=="receipt")File.AppendAllText(Path.Combine(context.RunDirectory,"nunit","actual-import.json")," ");
+  else if(difference=="expected-device")settings=settings with{NUnit=settings.NUnit with{ActualDriver=settings.NUnit.ActualDriver! with{ExpectedDeviceId=99}}};
+  else settings=settings with{PostEnduranceTests=settings.PostEnduranceTests! with{Target=difference=="room"
+   ?settings.PostEnduranceTests.Target with{LocationId=9}:settings.PostEnduranceTests.Target with{Name="Another instance"}}};
+  Assert.ThrowsAsync<InvalidDataException>(async()=>await Post());Assert.That(calls,Is.Zero);
+ }
+ [Test] public async Task MissingRetainedPostTargetIsNotReconstructedOnRecovery() {
+  ConfigurePostDeployment();await Post();
+  string path=Path.Combine(context.RunDirectory,"post-endurance","target-plan.json");File.Delete(path);
+  Assert.ThrowsAsync<InvalidDataException>(async()=>await Post(true));
+  Assert.That(File.Exists(path),Is.False);Assert.That(calls,Is.EqualTo(1));
+ }
  [Test] public async Task PostEnduranceUsesSeparateEvidenceAndRecoveryDoesNotRepeatControls() {
   await Advance();Assert.That(calls,Is.EqualTo(1));
   string initial=File.ReadAllText(Path.Combine(context.RunDirectory,"installed-app-tests.json"));

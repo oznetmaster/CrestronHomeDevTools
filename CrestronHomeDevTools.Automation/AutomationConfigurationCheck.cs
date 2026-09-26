@@ -23,6 +23,8 @@ public static class SubmissionAutomationConfiguration
   if(settings.Review==null)missing.Add("Review");
   if(settings.PostEnduranceFixtureSettings!=null && settings.PostEnduranceTests==null)
    missing.Add("PostEnduranceTests for PostEnduranceFixtureSettings");
+  if(settings.PostEnduranceFromDeployment && (settings.PostEnduranceTests==null || settings.NUnit.ActualDriver==null || settings.NUnit.ReleaseCandidate==null))
+   missing.Add("PostEnduranceTests and actual candidate deployment for PostEnduranceFromDeployment");
   if(settings.Mode==SubmissionAutomationMode.Submit) {
    if(settings.Protected==null)missing.Add("Protected");
    else {
