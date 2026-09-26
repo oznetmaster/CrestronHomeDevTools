@@ -1,7 +1,7 @@
 # Kasa and Tapo functional endurance producer
 
 This C# sample supplies read-only observations to the public endurance worker.
-It uses released DevTools 1.19.0 and KasaTapoClient 2.0.0. It never sends a power,
+It uses released DevTools 1.19.0 and KasaTapoClient 2.0.1. It never sends a power,
 brightness, configuration, discovery-refresh or other driver/device command.
 It is sample source, not an additional DevTools package release.
 
@@ -13,6 +13,12 @@ Use .NET 10 on the Windows build machine:
 dotnet run --project samples/KasaTapoEnduranceProducer -c Release -- --self-test
 dotnet publish samples/KasaTapoEnduranceProducer -c Release -r win-x64 --self-contained true -o C:\Private\KasaProbe
 ```
+
+To validate changes from a reviewed DevTools source commit before its next package
+release, add `-p:UseDevToolsSource=true` to the build/publish command. This selects
+the library project in the same checkout instead of the released package. Pin
+that commit and inventory the resulting publication; do not replace files in an
+existing endurance run. Normal builds keep using the released package.
 
 The self-test checks property types/ranges and changed managed process identities.
 Two preparatory observations on a CP4-R also passed, including reuse of the saved

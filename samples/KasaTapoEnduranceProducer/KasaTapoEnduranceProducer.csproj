@@ -2,8 +2,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="CrestronHomeDevTools" Version="1.19.0" />
-    <PackageReference Include="KasaTapoClient" Version="2.0.0" />
+    <PackageReference Include="CrestronHomeDevTools" Version="1.19.0" Condition="'$(UseDevToolsSource)' != 'true'" />
+    <ProjectReference Include="../../CrestronHomeDevTools/CrestronHomeDevTools.csproj" Condition="'$(UseDevToolsSource)' == 'true'" />
+    <PackageReference Include="KasaTapoClient" Version="2.0.1" />
     <PackageReference Include="SSH.NET" Version="2026.0.0" />
   </ItemGroup>
 </Project>

@@ -227,8 +227,11 @@ public sealed class ProcessorConnection : IConfigurationConnection
 		if (_disposed)
 			return;
 		_disposed = true;
+		if (_socket != null)
+			await EventSocketShutdown.CloseAsync (_socket, _eventsTask, TimeSpan.FromSeconds (2)).ConfigureAwait (false);
 		await _lifetime.CancelAsync ().ConfigureAwait (false);
-		_socket?.Abort ();
+		if (_socket != null && _socket.State is not (WebSocketState.Closed or WebSocketState.Aborted))
+			_socket.Abort ();
 		if (_eventsTask != null)
 			await _eventsTask.ConfigureAwait (false);
 		_operations.Fail (new ObjectDisposedException (nameof (ProcessorConnection)));

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Close the processor event socket with a bounded normal WebSocket handshake before aborting an unresponsive connection. This reduces abrupt disconnects during configuration operations; no device commands are retried.
+
 - Fresh deployment-bound app plans can use a zero device ID during preflight. The worker substitutes the verified deployment receipt before execution; standalone installed-app tests still require a real positive ID.
 
 - Add explicit reviewed-tree platform reload through the API and CLI. Recheck descendants and processor dependency scope before reloading children with the parent; parent-only reload remains unchanged. See the protocol reference for recovery verification requirements.

@@ -1,5 +1,13 @@
 # Development history
 
+## 26 September 2026 - Processor connection cleanup
+
+A candidate-bound platform removal confirmed removal of the selected tree and app tiles, preservation of unrelated devices, Home restoration and reservation release. Its strict log check failed on new processor `ReceiveDataAsync: Invalid client Index` messages. The original failed result remains retained. Six subsequent read-only configuration connections reproduced the diagnostic with no driver removal or device writes.
+
+Connection disposal now sends a normal WebSocket close frame and lets the existing receive loop consume the response, with a two-second bound and abort fallback. It does not start a competing receive, retry a command or weaken the error-log criteria. All 45 focused connection, shutdown, removal and log tests pass. Six equivalent read-only connections with the change produced no new errors in a comparable processor log interval. A fresh full removal/rehearsal with the corrected tool remains to be verified.
+
+The Kasa/Tapo endurance sample can opt into `UseDevToolsSource=true` when validating a pinned source build, and uses the published KasaTapoClient 2.0.1. Its normal build still uses the released DevTools package.
+
 ## 21 September 2026 - Saved private inputs in the CI templates
 
 The signing and delivery workflow examples now accept a protected environment's `CRESTRON_SUBMISSION_CREDENTIAL_BINDINGS` path, using the named encrypted input APIs already released in 1.17.0. Signing can use an encrypted signature without a plaintext image file; delivery can use locally provisioned provider entries without a duplicate GitHub secret. Existing image-file and protected-stdin inputs remain supported. Delivery refuses simultaneous credential sources. Worker access and exact operation approvals remain separate prerequisites.
