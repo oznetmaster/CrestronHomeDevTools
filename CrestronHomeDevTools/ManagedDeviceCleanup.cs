@@ -9,7 +9,7 @@ public sealed record ManagedDeviceCleanupResult (int DeviceId, bool Removed, boo
 
 public static partial class ManagedDeviceCommissioning
 	{
-	/// <summary>Removes only the leaf child identified by a completed commissioning receipt. The caller holds the processor lease and verifies physical-state restoration first.</summary>
+	/// <summary>Removes the receipt-owned child, including a wrapper with one native light. The caller holds the processor lease and verifies physical-state restoration first.</summary>
 	/// <remarks>A partial cleanup journal is never replayed. Resolve uncertain outcomes by inspecting the recorded identity and processor state.</remarks>
 	public static async Task<ManagedDeviceCleanupResult> RemoveCreatedAsync (ConfigurationClient client, string commissioningJournal,
 		TimeSpan timeout, CancellationToken cancellationToken = default)
@@ -51,23 +51,45 @@ public static partial class ManagedDeviceCommissioning
 			if (parent == null || parent.Model != request.ParentModel || !VersionMatches (parent, request.ParentVersion) ||
 				!IsTrue (parent, "cp.driverConfiguration:supportsUnloadReloadDriver") ||
 				!parent.PropertyValues.TryGetValue ("cp.driverConfiguration:swapDriverRequiresReboot", out var reboot) || reboot.ValueKind != JsonValueKind.False ||
-				child == null || child.ParentDeviceId != request.ParentId || child.Name != request.Name || child.Model != request.ChildModel ||
-				child.LocationId != request.LocationId || !VersionMatches (child, request.ParentVersion) ||
+				child == null || child.ParentDeviceId != request.ParentId || child.Name != request.Name || child.Model != request.ChildModel)
+				throw new InvalidOperationException ("Cleanup requires the unchanged owned child and its reloadable Entity V2 platform.");
+			var removalIds = new HashSet<int> { id };
+			int commandDeviceId = id;
+			if (child.LocationId == null)
+				{
+				// Home can replace an activated managed light with an unlocated wrapper,
+				// retaining its receipt ID, and create a native load below it. Match the
+				// physical managed identity as well as the complete parent chain.
+				if (child.PropertyValues.ContainsKey ("cp.driverInformation:version") && !VersionMatches (child, request.ParentVersion) ||
+					!child.PropertyValues.TryGetValue ("platform:managedDevices", out var managed) || managed.ValueKind != JsonValueKind.Array ||
+					managed.GetArrayLength () != 1 || !managed[0].TryGetProperty ("Id", out var managedId) || managedId.ValueKind != JsonValueKind.String ||
+					managedId.GetString () != request.ManagedDeviceId)
+					throw new InvalidOperationException ("The native wrapper does not match the commissioned managed device.");
+				var loads = before.Where (d => d.ParentDeviceId == id).ToArray ();
+				if (loads.Length != 1 || loads[0].Id <= 0 || loads[0].Name != request.Name || loads[0].Model != request.ChildModel ||
+					loads[0].LocationId != request.LocationId || !loads[0].Commands.Contains ("cp.deviceConfiguration:setLocation") ||
+					!loads[0].PropertyValues.TryGetValue ("lightType:variant", out var variant) || variant.ValueKind != JsonValueKind.String || variant.GetString () != "load" ||
+					before.Any (d => d.ParentDeviceId == loads[0].Id))
+					throw new InvalidOperationException ("Cleanup requires exactly one unchanged native light below the receipt-owned wrapper.");
+				commandDeviceId = loads[0].Id;
+				removalIds.Add (commandDeviceId);
+				}
+			else if (child.LocationId != request.LocationId || !VersionMatches (child, request.ParentVersion) ||
 				!child.Commands.Contains ("cp.deviceConfiguration:setLocation") || before.Any (d => d.ParentDeviceId == id))
-				throw new InvalidOperationException ("Cleanup requires the unchanged owned leaf child and its reloadable Entity V2 platform.");
+				throw new InvalidOperationException ("Cleanup requires the unchanged owned leaf child.");
 			Record ("before", before);
-			Record ("remove-intent", new { DeviceId = id, Utc = DateTimeOffset.UtcNow });
+			Record ("remove-intent", new { DeviceId = id, CommandDeviceId = commandDeviceId, ExpectedRemovedIds = removalIds.Order ().ToArray (), Utc = DateTimeOffset.UtcNow });
 			// A managed child's location removal disposes that child. It is not a
 			// driver package replacement or root-platform unload/reload operation.
-			var result = await client.ExecuteDeviceCommandAsync (id, "cp.deviceConfiguration:setLocation", new { locationId = (int?)null }, token).ConfigureAwait (false);
+			var result = await client.ExecuteDeviceCommandAsync (commandDeviceId, "cp.deviceConfiguration:setLocation", new { locationId = (int?)null }, token).ConfigureAwait (false);
 			Record ("remove-response", new { Response = result });
 			while (true)
 				{
 				var after = await client.GetDevicesAsync (token).ConfigureAwait (false);
-				if (after.All (d => d.Id != id))
+				if (after.All (d => !removalIds.Contains (d.Id)))
 					{
 					Record ("after", after);
-					if (after.Count != before.Count - 1 || before.Where (d => d.Id != id).Any (old => !after.Any (now => Preserved (old, now))))
+					if (after.Count != before.Count - removalIds.Count || before.Where (d => !removalIds.Contains (d.Id)).Any (old => !after.Any (now => Preserved (old, now))))
 						throw new InvalidDataException ("The owned child was removed, but preservation of other devices was not confirmed.");
 					var outcome = new ManagedDeviceCleanupResult (id, true, true);
 					Record ("result", outcome);

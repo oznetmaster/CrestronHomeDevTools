@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Journal-owned managed-child cleanup recognizes an activated wrapper with one native light, verifies its managed-device identity, and requires both devices to disappear while preserving unrelated devices. Offline scope and partial-cleanup tests pass; hardware validation is pending.
+
 - An optional response-comparison stage pairs retained measurements before and after endurance and includes deltas and ratios in review evidence. Explicit reviewed limits determine pass/fail; absent limits remain a disclosed partial result. Offline integration covers both initial producer routes and retention failures; hardware end-to-end validation is pending. See [the contract](docs/submission/ResponseComparison.md).
 
 Added source APIs for final actual-driver removal validation and read-only processor error-log comparison. Removal checks the exact device tree and unrelated inventory, accepts a caller-supplied app observer, and retains a one-shot journal. The log reader has been checked against real CP4-R output; actual removal with Android remains unverified. See [the API contract and validation limits](docs/DriverRemovalValidation.md).

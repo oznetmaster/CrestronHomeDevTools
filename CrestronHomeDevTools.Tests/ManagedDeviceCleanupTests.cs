@@ -105,8 +105,43 @@ public sealed class ManagedDeviceCleanupTests
 		}
 
 	private Task<ManagedDeviceCleanupResult> Remove (Connection connection) => ManagedDeviceCommissioning.RemoveCreatedAsync (new (connection), _journal, TimeSpan.FromSeconds (2));
+	[Test]
+	public async Task NativeCleanupTargetsLoadAndRequiresBothLoadAndWrapperGone ()
+		{
+		File.WriteAllText (Path.Combine (_journal, "result.json"), JsonSerializer.Serialize (new ManagedDeviceResult (18, "ConfigurationRequired")));
+		var connection = new Connection (_journal) { Native = true };
+		Assert.That (await Remove (connection), Is.EqualTo (new ManagedDeviceCleanupResult (18, true, true)));
+		using var intent = JsonDocument.Parse (File.ReadAllText (Path.Combine (_journal, "cleanup", "remove-intent.json")));
+		Assert.That (intent.RootElement.GetProperty ("CommandDeviceId").GetInt32 (), Is.EqualTo (19));
+		Assert.That (intent.RootElement.GetProperty ("ExpectedRemovedIds").EnumerateArray ().Select (v => v.GetInt32 ()), Is.EqualTo (new[] { 18, 19 }));
+		Assert.That (connection.RemovalCalls, Is.EqualTo (1));
+		}
+
+	[TestCase ("native-identity")]
+	[TestCase ("native-name")]
+	[TestCase ("native-location")]
+	[TestCase ("native-extra-load")]
+	[TestCase ("native-descendant")]
+	[TestCase ("native-not-light")]
+	public void NativeCleanupRejectsUnconfirmedTopology (string fault)
+		{
+		var connection = new Connection (_journal) { Native = true, Fault = fault };
+		Assert.ThrowsAsync<InvalidOperationException> (async () => await Remove (connection));
+		Assert.That (connection.RemovalCalls, Is.Zero);
+		}
+
+	[Test]
+	public void RetainedWrapperDoesNotCountAsSuccessfulNativeCleanup ()
+		{
+		var connection = new Connection (_journal) { Native = true, Fault = "native-wrapper-remains" };
+		Assert.ThrowsAsync<TimeoutException> (async () => await ManagedDeviceCommissioning.RemoveCreatedAsync (new (connection), _journal, TimeSpan.FromMilliseconds (100)));
+		Assert.That (connection.RemovalCalls, Is.EqualTo (1));
+		Assert.That (File.Exists (Path.Combine (_journal, "cleanup", "result.json")), Is.False);
+		}
+
 	private sealed class Connection (string journal) : IConfigurationConnection
 		{
+		public bool Native { get; init; }
 		public string? Fault { get; init; }
 		public int RemovalCalls { get; private set; }
 		public int Reads { get; private set; }
@@ -127,12 +162,27 @@ public sealed class ManagedDeviceCleanupTests
 			var other = new DeviceInfo { Id = 99, Name = RemovalCalls > 0 && Fault == "other-changed" ? "Changed" : "Preserved", Model = "Other", ParentDeviceId = Fault == "descendant" ? 18 : null };
 			var devices = new Dictionary<string, DeviceInfo> { ["17"] = parent, ["99"] = other };
 			if (Fault != "absent" && (RemovalCalls == 0 || Fault == "remains")) devices["18"] = child;
+			if (Native)
+				{
+				if (RemovalCalls == 0 || Fault == "native-wrapper-remains") devices["18"] = child with
+					{
+					LocationId = null, Commands = [], PropertyValues = new ()
+						{ ["platform:managedDevices"] = JsonSerializer.SerializeToElement (new[] { new { Id = Fault == "native-identity" ? "someone-else" : "child" } }) }
+					};
+				if (RemovalCalls == 0)
+					{
+					devices["19"] = new DeviceInfo { Id = 19, ParentDeviceId = 18, Name = Fault == "native-name" ? "Other light" : REQUEST.Name,
+						Model = REQUEST.ChildModel, LocationId = Fault == "native-location" ? 4 : 3, Commands = ["cp.deviceConfiguration:setLocation"],
+						PropertyValues = new () { ["lightType:variant"] = JsonSerializer.SerializeToElement (Fault == "native-not-light" ? "other" : "load") } };
+					if (Fault is "native-extra-load" or "native-descendant") devices["20"] = new DeviceInfo { Id = 20, ParentDeviceId = Fault == "native-extra-load" ? 18 : 19 };
+					}
+				}
 			return Task.FromResult (JsonSerializer.Deserialize<T> (JsonSerializer.Serialize (devices)));
 			}
 		public Task<T?> ExecuteAsync<T> (int id, string command, object? parameters = null, CancellationToken cancellationToken = default)
 			{
 			cancellationToken.ThrowIfCancellationRequested ();
-			Assert.That (id, Is.EqualTo (18));
+			Assert.That (id, Is.EqualTo (Native ? 19 : 18));
 			Assert.That (command, Is.EqualTo ("cp.deviceConfiguration:setLocation"));
 			Assert.That (JsonSerializer.SerializeToElement (parameters).GetProperty ("locationId").ValueKind, Is.EqualTo (JsonValueKind.Null));
 			Assert.That (File.Exists (Path.Combine (journal, "cleanup", "remove-intent.json")), Is.True);
