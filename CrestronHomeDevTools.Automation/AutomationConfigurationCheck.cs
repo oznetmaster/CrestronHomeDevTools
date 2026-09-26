@@ -21,6 +21,8 @@ public static class SubmissionAutomationConfiguration
   if(settings.EnduranceFromDeployment && (settings.NUnit.ActualDriver==null || settings.NUnit.ReleaseCandidate==null || settings.EnduranceProbeSettingsTemplate==null))
    missing.Add("EnduranceFromDeployment requires NUnit.ActualDriver, NUnit.ReleaseCandidate and EnduranceProbeSettingsTemplate");
   if(settings.Review==null)missing.Add("Review");
+  if(settings.PostEnduranceFixtureSettings!=null && settings.PostEnduranceTests==null)
+   missing.Add("PostEnduranceTests for PostEnduranceFixtureSettings");
   if(settings.Mode==SubmissionAutomationMode.Submit) {
    if(settings.Protected==null)missing.Add("Protected");
    else {

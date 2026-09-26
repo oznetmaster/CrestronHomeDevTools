@@ -58,6 +58,8 @@ Run [release intake](ReleaseAutomation.md#try-intake-from-the-source-build) firs
 | `InstalledAppTests` | Optional public `InstalledDriverTestPlan` for a separate app phase against an already-installed exact candidate. Leave `NUnit.AndroidTests` empty when using this route. The release package/commit, processor and trust pins must match this attempt. |
 | `InstalledAppFixtureSettings` | Optional JSON object of driver-specific factual inputs for the separate installed-app phase or combined `NUnit.AndroidTests` deployment route. Release placeholders are expanded and the frozen settings bind its bytes. The controller retains it as `app-fixture-settings.json` at the run root before invocation, verifies it after execution and during recovery, and includes it in the owning producer inventory (NUnit for combined deployment, installed-app for the separate route). Store credential references, never raw passwords or signing material. |
 | `Endurance` | Optional public `SubmissionEnduranceWorkerPlan`, including the fully pinned read-only producer. Its candidate/source and processor must match this attempt. Missing settings stop at the corresponding stage. |
+| `PostEnduranceTests` | Optional public `InstalledDriverTestPlan` for functional checks after endurance finishes and before review preparation. Use the same frozen candidate, processor and trust pins. Results are kept separately from the initial app tests. |
+| `PostEnduranceFixtureSettings` | Optional factual JSON object for those checks; defaults to `InstalledAppFixtureSettings`. Use phase-specific observation IDs where the review includes both phases. |
 | `EnduranceFromDeployment` | Optional boolean (default false). Bind the final probe settings to the verified actual-driver deployment before collection. Requires `NUnit.ActualDriver`, `NUnit.ReleaseCandidate` and a pinned probe settings template; see deployment below. |
 | `EnduranceProbeSettingsTemplate` | Optional pinned JSON settings template for release discovery. Intake copies the declared producer publication into the new run, expands candidate/path placeholders, includes the generated settings in its file inventory and binds the resulting producer ID. Leave the source probe's `SettingsFile` null. Explicit prebuilt settings continue to use the existing probe contract. |
 | `Review` | `SubmissionAutomationReviewPlan`: pinned policy, official template, inventory, mapping, complete bundled console, title/author and retained observation paths. Optional declarations and Android pins follow the public review contract. |
@@ -160,6 +162,43 @@ or a completed separate app producer. Its source must be listed in that producer
 retained receipt; the app receipt, workflow identity and complete app inventory are
 rechecked before composition. A JSON file placed in the run directory later is not
 accepted as completed test evidence.
+
+### Functional checks after endurance
+
+Configure `PostEnduranceTests` when the test plan requires controls or response
+checks after the endurance interval. This source-preview addition runs the public
+installed-driver test runner at the start of `PrepareReview`, after a verified
+completed `Endurance` receipt. It does not redeploy the candidate or repeat the
+Windows and processor unit suites. The plan identifies the exact installed target;
+it does not discover a target by its display name. The worker still enforces the
+public runner's reservations, candidate verification, restoration and cleanup.
+
+Keep measurements needed for a before/after response comparison in the fixture's
+evidence. Merely rerunning a functional test does not establish unchanged response
+time. A shortened rehearsal remains shortened even when its later checks pass.
+Leaving this optional plan absent preserves existing workflows; it does not mark
+any post-endurance checklist requirement complete.
+
+The worker retains the second invocation under `post-endurance/`, with a binding to
+the original endurance receipt and frozen input identity. Interrupted invocations
+are not replayed automatically. Recovery inspects their existing result; uncertain
+execution or restoration stops review preparation. Initial app evidence remains
+unchanged, and altered post-endurance files also prevent later continuation.
+
+List the new producer's observation file in `Review.ObservationSources`, for
+example `post-endurance/installed-app/AndroidUI/after-observations.json`. The fixture
+uses paths relative to its own phase run root (for example
+`installed-app/AndroidUI/after/screen.png`); composition prefixes those references
+with `post-endurance/` in a separate derived document and preserves the original.
+This includes response, restoration and sample evidence references. Give before
+and after assertions distinct policy/observation IDs when including both; the
+composer does not replace an earlier observation with the later one. Passing
+NUnit counts alone never populate checklist boxes.
+
+The stage adapter and evidence composition have offline regression coverage.
+A hardware run exercising this additional stage remains to be completed; existing
+rehearsals did not include it. Build from source to validate this addition before
+the next packaged release.
 
 ### Reviewed evidence from an earlier candidate
 

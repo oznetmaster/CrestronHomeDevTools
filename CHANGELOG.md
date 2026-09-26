@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Automation plans can run separately configured functional checks after endurance and before preparing review. The worker preserves both phases, binds the later checks to the completed interval, and stops on failed or uncertain restoration. This has offline regression coverage; hardware validation of the new stage is pending.
 - Saved automation review plans can include source-based N/A decisions before a release's package hash exists. The worker checks the pinned source files against the verified release checkout, retains the dated review and binds the decisions to the actual candidate. Changed source requires a new review. Runtime-dependent decisions and passing test results cannot use this route.
 - Planned, scoped limitations such as shortened rehearsal endurance can also be saved before release. They are bound to the discovered candidate for declared-gaps review, retain the original policy and test outcomes, and do not authorize signing or delivery.
 

@@ -29,6 +29,10 @@ public sealed record SubmissionAutomationSettings(int SchemaVersion, string Priv
 {
  /// <summary>Resolve the endurance probe target from retained actual-driver deployment receipts before collection.</summary>
  public bool EnduranceFromDeployment { get; init; }
+ /// <summary>Optional functional checks after endurance, before review. Uses the installed candidate without redeployment.</summary>
+ public InstalledDriverTestPlan? PostEnduranceTests { get; init; }
+ /// <summary>Optional phase-specific fixture inputs; otherwise the initial app fixture inputs are reused.</summary>
+ public JsonElement? PostEnduranceFixtureSettings { get; init; }
 }
 
 internal static class AutomationFiles

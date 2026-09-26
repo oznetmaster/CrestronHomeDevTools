@@ -58,6 +58,8 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
   if(settings.InstalledAppTests!=null && c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.AppTests))
    AutomationInstalledApp.VerifyRetained(c.RunDirectory);
   if(c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.PrepareReview)) AutomationReview.VerifyRetained(c.RunDirectory);
+  if(settings.PostEnduranceTests!=null && c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.PrepareReview))
+   AutomationPostEndurance.VerifyRetained(c);
   if(c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.SignReview)) AutomationSigning.VerifyRetained(c.RunDirectory);
   if(c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.Endurance)) {
    var plan=AutomationDeploymentEndurance.Resolve(c,settings)?.Plan??throw new InvalidDataException("Completed endurance plan is missing.");
@@ -78,7 +80,12 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
    case SubmissionWorkflowStage.AppTests:
     return settings.InstalledAppTests==null ? VerifyApp(c) : await AutomationInstalledApp.Advance(c,settings,recover,runInstalledApp,credential,token);
    case SubmissionWorkflowStage.Endurance: return await Endurance(c,recover,token);
-   case SubmissionWorkflowStage.PrepareReview: return await AutomationReview.Advance(c,settings,recover,token);
+   case SubmissionWorkflowStage.PrepareReview:
+    if(settings.PostEnduranceTests!=null) {
+     var post=await AutomationPostEndurance.Advance(c,settings,recover,runInstalledApp,credential,token);
+     if(post.Status!=SubmissionWorkflowStatus.Completed)return post;
+    }
+    return await AutomationReview.Advance(c,settings,recover,token);
    case SubmissionWorkflowStage.SignReview: return await AutomationSigning.Advance(c,settings,recover,token);
    case SubmissionWorkflowStage.Deliver: return await AutomationDelivery.Advance(c,settings,recover,token);
    case SubmissionWorkflowStage.Retain: return AutomationDelivery.Retain(c);
@@ -107,6 +114,7 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
   if(settings.Review?.SourceApplicability is not null)
    _=AutomationSourceApplicability.Prepare(c.RunDirectory,settings,token);
   if(settings.InstalledAppTests!=null) AutomationInstalledApp.Validate(settings);
+  AutomationPostEndurance.Validate(settings);
   if(settings.Review is {PriorEvidence:not null} review)
    _=AutomationPriorEvidence.Prepare(c.RunDirectory,new(settings.Release.PackageSha256,settings.Release.SourceCommit,
     review.Policy.Sha256,review.Template.Sha256),review,token);

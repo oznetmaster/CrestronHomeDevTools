@@ -87,6 +87,9 @@ internal static class AutomationReview
      throw new InvalidDataException("Producer evidence paths overlap.");
   }
   var sources=new List<SubmissionEvidenceFile>();
+  if(settings.PostEnduranceTests!=null)
+   foreach(var file in AutomationPostEndurance.RetainedFiles(c))
+    if(!retained.TryAdd(file.RelativePath,file.Sha256))throw new InvalidDataException("Post-endurance evidence paths overlap.");
   if(plan.SourceApplicability is not null)
    sources.Add(AutomationSourceApplicability.Prepare(root,settings,token));
   if(plan.Applicability is not null)
@@ -102,7 +105,13 @@ internal static class AutomationReview
   foreach(string relative in plan.ObservationSources) {
    if(!retained.TryGetValue(relative,out var hash) || !SubmissionEvidence.SafeEvidencePath(root,relative,out var path) || AutomationFiles.Hash(path)!=hash)
     throw new InvalidDataException("Observation source is not retained verified producer output.");
-   sources.Add(new(relative,hash));
+   if(relative.StartsWith(AutomationPostEndurance.DirectoryName+"/",StringComparison.Ordinal)) {
+    var document=AutomationFiles.Read<SubmissionEvidenceDocument>(path);
+    if(document.SchemaVersion!=1)throw new InvalidDataException("Unsupported post-endurance observation document.");
+    string rebased="review-inputs/post-endurance-"+sources.Count.ToString("D3",System.Globalization.CultureInfo.InvariantCulture)+".json";
+    WriteDocument(Path.Combine(root,rebased),new SubmissionEvidenceDocument(1,document.Observations.Select(o=>Rebase(o,AutomationPostEndurance.DirectoryName)).ToArray()));
+    sources.Add(new(rebased,AutomationFiles.Hash(Path.Combine(root,rebased))));
+   } else sources.Add(new(relative,hash));
   }
   if(File.Exists(Path.Combine(root,"endurance-evidence.json"))) {
    var envelope=AutomationFiles.Read<EnduranceEnvelope>(Path.Combine(root,"endurance-evidence.json"));

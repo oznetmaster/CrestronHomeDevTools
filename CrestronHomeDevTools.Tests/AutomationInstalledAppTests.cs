@@ -120,4 +120,45 @@ public sealed class AutomationInstalledAppTests
   Assert.That(report.MissingBindings,Does.Contain("Protected"));
   Assert.That(SubmissionAutomationConfiguration.Check(settings).MissingBindings,Does.Not.Contain("Protected"));
  }
+ private void ConfigurePostEndurance() {
+  // The fake app runner never reads the monitor plan. The completed-stage
+  // receipt models the workflow engine's already verified endurance gate.
+  settings=settings with{PostEnduranceTests=settings.InstalledAppTests,Endurance=new(null!,null!,null!)};
+  context=context with{Checkpoint=context.Checkpoint with{Stage=SubmissionWorkflowStage.PrepareReview}};
+  string receipt=Path.Combine(context.RunDirectory,"endurance-result.json");
+  File.WriteAllText(receipt,"synthetic completed endurance receipt");
+  context.Checkpoint.CompletedStages[SubmissionWorkflowStage.Endurance]=new("endurance-result.json",AutomationFiles.Hash(receipt));
+ }
+ private Task<SubmissionWorkflowStepResult> Post(bool recover=false)=>AutomationPostEndurance.Advance(context,settings,recover,Run,_=>new("synthetic","synthetic"),default);
+ [Test] public async Task PostEnduranceUsesSeparateEvidenceAndRecoveryDoesNotRepeatControls() {
+  await Advance();Assert.That(calls,Is.EqualTo(1));
+  string initial=File.ReadAllText(Path.Combine(context.RunDirectory,"installed-app-tests.json"));
+  ConfigurePostEndurance();
+  Assert.That((await Post()).Status,Is.EqualTo(SubmissionWorkflowStatus.Completed));
+  Assert.That((await Post(true)).Status,Is.EqualTo(SubmissionWorkflowStatus.Completed));
+  Assert.That(calls,Is.EqualTo(2));
+  Assert.That(File.ReadAllText(Path.Combine(context.RunDirectory,"installed-app-tests.json")),Is.EqualTo(initial));
+  Assert.That(AutomationPostEndurance.RetainedFiles(context).All(f=>f.RelativePath.StartsWith("post-endurance/")),Is.True);
+  File.AppendAllText(Path.Combine(context.RunDirectory,"post-endurance","installed-app","raw.xml"),"changed");
+  Assert.Throws<InvalidDataException>(()=>AutomationPostEndurance.VerifyRetained(context));
+ }
+ [TestCase(false)][TestCase(true)] public void PostEnduranceRequiresCompletedUnchangedSegment(bool changed) {
+  ConfigurePostEndurance();
+  if(changed)File.AppendAllText(Path.Combine(context.RunDirectory,"endurance-result.json"),"changed");
+  else context.Checkpoint.CompletedStages.Clear();
+  Assert.ThrowsAsync<InvalidDataException>(async()=>await Post());Assert.That(calls,Is.Zero);
+ }
+ [Test] public void PostEnduranceRejectsAnotherCandidateBeforeCallingRunner() {
+  ConfigurePostEndurance();settings=settings with{PostEnduranceTests=settings.PostEnduranceTests! with{PackageSourceCommit=new('f',40)}};
+  Assert.ThrowsAsync<InvalidDataException>(async()=>await Post());Assert.That(calls,Is.Zero);
+ }
+ [Test] public async Task PostEnduranceDoesNotReplayAnInterruptedInvocation() {
+  ConfigurePostEndurance();
+  Task<InstalledDriverTestResult> Interrupted(InstalledDriverTestPlan p,NetworkCredential c,string f,CancellationToken t) {
+   calls++;throw new IOException("synthetic lost runner connection");
+  }
+  Assert.ThrowsAsync<IOException>(async()=>await AutomationPostEndurance.Advance(context,settings,false,Interrupted,_=>new(),default));
+  Assert.That((await Post(true)).Status,Is.EqualTo(SubmissionWorkflowStatus.OutcomeUnknown));
+  Assert.That(calls,Is.EqualTo(1));
+ }
 }

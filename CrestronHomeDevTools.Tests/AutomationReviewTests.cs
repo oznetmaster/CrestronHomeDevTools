@@ -34,6 +34,36 @@ public sealed class AutomationReviewTests
   context=new(root,new(1,new('d',64),release,SubmissionWorkflowStage.PrepareReview,SubmissionWorkflowStatus.Running,"operation",null,[],DateTimeOffset.UtcNow));executions=0;
  }
  [TearDown]public void Cleanup()=>Directory.Delete(root,true);
+ [Test]public void PostEnduranceObservationsAreRebasedFromTheirVerifiedSeparateInventory() {
+  const string folder="post-endurance";
+  Directory.CreateDirectory(P(folder+"/installed-app"));
+  File.WriteAllText(P("endurance-result.json"),"synthetic completed endurance receipt");
+  var endurance=new SubmissionWorkflowReceipt("endurance-result.json",Hash("endurance-result.json"));
+  context.Checkpoint.CompletedStages[SubmissionWorkflowStage.Endurance]=endurance;
+  AutomationFiles.Write(P(folder+"/endurance-binding.json"),new{context.Checkpoint.InputSha256,Endurance=endurance});
+  File.WriteAllText(P(folder+"/installed-app/trace.txt"),"synthetic post-endurance capture");
+  var identity=new SubmissionEvidenceIdentity(settings.Release.PackageSha256,settings.Release.SourceCommit,Hash("policy.json"),Hash("template.pdf"));
+  var now=DateTimeOffset.UtcNow.AddSeconds(-1);
+  Write(folder+"/installed-app/observations.json",new SubmissionEvidenceDocument(1,[new("ui.navigation",identity,
+   SubmissionEvidenceOutcome.Passed,now,now,[new("installed-app/trace.txt",Hash(folder+"/installed-app/trace.txt"))])]));
+  AutomationFiles.Write(P(folder+"/installed-app-tests.json"),new{context.Checkpoint.InputSha256,Files=new[]{
+   new SubmissionWorkflowReceipt(Path.Combine("installed-app","trace.txt"),Hash(folder+"/installed-app/trace.txt")),
+   new(Path.Combine("installed-app","observations.json"),Hash(folder+"/installed-app/observations.json"))}.OrderBy(f=>f.RelativePath,StringComparer.Ordinal).ToArray()});
+  // This composition test starts after the fake installed-app runner gate;
+  // the plan is never executed here.
+  settings=settings with{PostEnduranceTests=new(){Host=settings.NUnit.Host,
+   CertificateSha256=settings.NUnit.CertificateSha256,SshFingerprint=settings.NUnit.SshFingerprint,
+   PackagePath=P("candidate.pkg"),PackageSha256=settings.Release.PackageSha256,SourceRoots=[root],
+   Target=new(2,-1,"Example","Model",1,"1.0.0.0","catalogue","Example","IP"),
+   AndroidTests=new(P("unused.csproj"),P("unused-profile.json"))},
+   Review=settings.Review! with{ObservationSources=[folder+"/installed-app/observations.json"]}};
+  AutomationReview.PrepareInputs(context,settings,settings.Review!,default);
+  var rebased=AutomationFiles.Read<SubmissionEvidenceDocument>(Directory.GetFiles(P("review-inputs"),"post-endurance-*.json").Single());
+  Assert.That(rebased.Observations.Single().Files.Single().RelativePath,Is.EqualTo(folder+"/installed-app/trace.txt"));
+  Assert.That(rebased.Observations.Single().Identity,Is.EqualTo(identity));
+  File.AppendAllText(P(folder+"/installed-app/trace.txt"),"changed");
+  Assert.Throws<InvalidDataException>(()=>AutomationReview.PrepareInputs(context,settings,settings.Review!,default));
+ }
  private Task<int> Prepare(SubmissionAutomationConsole console,string[] args,string logs,CancellationToken token) {
   executions++;Assert.That(args.Take(2),Is.EqualTo(new[]{"submission","prepare-review"}));
   using var config=JsonDocument.Parse(File.ReadAllBytes(args[3]));var s=config.RootElement;
