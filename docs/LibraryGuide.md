@@ -11,6 +11,8 @@ For wire messages, parameter types, event correlation and the verified lifecycle
 | `ProcessorDiscovery` | Native processor discovery and exact system-name resolution. |
 | `ProcessorConnectionOptions` | Host, ports, timeout and trusted certificate fingerprint. |
 | `ConfigurationClient` | Authenticated inventory, commands, update/reload/removal and operation waits. |
+| `DriverRemovalValidation` | [Final actual-driver removal](DriverRemovalValidation.md) with caller-supplied UI evidence and before/after logs. |
+| `ProcessorErrorLog` | Pinned read-only current-boot log snapshots and conservative interval comparison. |
 | `DriverDeployment` | Inspect a package, verify an SSH key and deploy/import by SFTP. |
 | `ProcessorReboot` | Pinned SSH whole-processor reboot with mandatory caller-provided confirmation. |
 | `DriverInstanceLifecycle` | Guarded install/update/reuse with version readiness checks. |
