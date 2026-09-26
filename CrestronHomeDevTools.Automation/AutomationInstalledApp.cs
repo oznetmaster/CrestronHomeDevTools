@@ -10,6 +10,23 @@ internal static class AutomationInstalledApp
  private sealed record Intent(string OperationId,string InputSha256,string SourceDigest,string ProfileSha256);
  private sealed record Receipt(string InputSha256,SubmissionWorkflowReceipt[] Files);
 
+ // Only pre-deployment validation may use zero for an identity that will come from
+ // the deployment receipt. Never pass the validation-only target to a test runner.
+ internal static void ValidateTemplate(SubmissionAutomationSettings settings,bool bindFromDeployment) {
+  var plan=settings.InstalledAppTests??throw new InvalidDataException("Missing installed-app plan.");
+  if(bindFromDeployment) {
+   var actual=settings.NUnit.ActualDriver;
+   var candidate=settings.NUnit.ReleaseCandidate;
+   if(actual==null || candidate==null || plan.Target==null || plan.Target.Name!=actual.InstanceName ||
+    plan.Target.LocationId!=actual.LocationId || !Version.TryParse(plan.Target.Version,out var version) ||
+    !Version.TryParse(candidate.DriverVersion,out var expected) || version!=expected)
+    throw new InvalidDataException("Deployment-bound app expectations must match the actual release target.");
+   if(plan.Target.DeviceId==0)
+    settings=settings with{InstalledAppTests=plan with{Target=plan.Target with{DeviceId=1}}};
+  }
+  Validate(settings);
+ }
+
  internal static void Validate(SubmissionAutomationSettings settings) {
   var plan=settings.InstalledAppTests??throw new InvalidDataException("Missing installed-app plan.");
   plan.Validate();

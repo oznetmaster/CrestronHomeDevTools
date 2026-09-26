@@ -157,6 +157,35 @@ public sealed partial class AutomationInstalledAppTests
   settings=settings with{Review=new(new(policy,AutomationFiles.Hash(policy)),new("unused-template",new('a',64)),null!,null!,null!,"Example","Example",[]),
    Removal=new(new(profile,[new(167,"Example",1,"Room",false)],[]),"system.removal")};
  }
+ [Test] public async Task FreshDeploymentTemplateAllowsZeroButRunnerReceivesOnlyReceiptIdentity() {
+  ConfigurePostDeployment();
+  settings=settings with{PostEnduranceTests=settings.PostEnduranceTests! with{Target=settings.PostEnduranceTests.Target with{DeviceId=0}}};
+  Assert.DoesNotThrow(()=>AutomationPostEndurance.Validate(settings));
+  Assert.That(settings.PostEnduranceTests.Target.DeviceId,Is.Zero,"Preflight must not mutate the plan.");
+  Assert.Throws<ArgumentException>(()=>AutomationInstalledApp.Validate(AutomationPostEndurance.Settings(settings)));
+  int received=0;
+  var result=await AutomationPostEndurance.Advance(context,settings,false,(plan,credential,folder,token)=>{
+   received=plan.Target.DeviceId;Assert.That(plan.Target.CatalogueId,Is.EqualTo("observed.catalogue.1.0.000.0000"));
+   return Run(plan,credential,folder,token);
+  },_=>new(),default);
+  Assert.That(result.Status,Is.EqualTo(SubmissionWorkflowStatus.Completed));Assert.That(received,Is.EqualTo(167));
+ }
+ [TestCase("name")][TestCase("room")][TestCase("version")][TestCase("negative")][TestCase("package")]
+ public void DeploymentTemplateStillRejectsWrongTargetAndCandidate(string difference) {
+  ConfigurePostDeployment();var plan=settings.InstalledAppTests!;
+  var target=plan.Target with{DeviceId=0};
+  target=difference switch{"name"=>target with{Name="Other"},"room"=>target with{LocationId=9},
+   "version"=>target with{Version="2.0.0.0"},"negative"=>target with{DeviceId=-1},_=>target};
+  settings=settings with{InstalledAppTests=plan with{Target=target,PackageSha256=difference=="package"?new('f',64):plan.PackageSha256}};
+  Assert.Catch(()=>AutomationInstalledApp.ValidateTemplate(settings,true));Assert.That(calls,Is.Zero);
+ }
+ [Test] public void ExistingInstanceRouteNeverAcceptsZeroIdentity() {
+  ConfigurePostDeployment();
+  settings=settings with{InstalledAppTests=settings.InstalledAppTests! with{Target=settings.InstalledAppTests.Target with{DeviceId=0}}};
+  Assert.Throws<ArgumentException>(()=>AutomationInstalledApp.ValidateTemplate(settings,false));
+  Assert.DoesNotThrow(()=>AutomationInstalledApp.ValidateTemplate(settings,true));
+  Assert.ThrowsAsync<ArgumentException>(async()=>await Advance());Assert.That(calls,Is.Zero);
+ }
  private Task<SubmissionWorkflowStepResult> Remove(bool pass=true,bool interrupt=false,bool baseline=false,string placementBaseline="passed")=>AutomationRemoval.Advance(context,settings,_=>new("synthetic","synthetic"),default,
   (plan,credential,folder,token)=>{
    calls++;Assert.That(plan.Target.DeviceId,Is.EqualTo(167));Assert.That(plan.Target.CatalogueId,Is.EqualTo("observed.catalogue.1.0.000.0000"));

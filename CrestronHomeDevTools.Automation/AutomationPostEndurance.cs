@@ -21,7 +21,7 @@ internal static class AutomationPostEndurance
    return;
   }
   if(settings.Endurance==null)throw new InvalidDataException("Post-endurance tests require an endurance plan.");
-  AutomationInstalledApp.Validate(Settings(settings));
+  AutomationInstalledApp.ValidateTemplate(Settings(settings),settings.PostEnduranceFromDeployment);
  }
  internal static SubmissionAutomationSettings Resolve(SubmissionWorkflowStepContext context,SubmissionAutomationSettings settings) {
   var resolved=Settings(settings);

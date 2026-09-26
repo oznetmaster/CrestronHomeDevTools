@@ -55,6 +55,11 @@ wrapper. App tests, endurance, and review continue only after setup completes an
 its processor reservation is released. The initial installed-app target is also
 bound to the deployment receipts.
 
+For a fresh installation, use `Target.DeviceId: 0` in the initial installed-app
+plan and in deployment-bound post-endurance tests. Preflight validates the other
+target fields against the actual-driver plan; execution replaces zero with the
+verified deployment ID. Zero is never accepted by the installed-app runner itself.
+
 ## Use actual child identities
 
 Use exact string placeholders in `InstalledAppFixtureSettings`, optional

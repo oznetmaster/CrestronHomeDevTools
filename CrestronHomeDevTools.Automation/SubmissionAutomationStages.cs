@@ -132,7 +132,7 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
   if(settings.Review is {} plannedReview)AutomationReview.ValidatePlannedGaps(plannedReview);
   if(settings.Review?.SourceApplicability is not null)
    _=AutomationSourceApplicability.Prepare(c.RunDirectory,settings,token);
-  if(settings.InstalledAppTests!=null) AutomationInstalledApp.Validate(settings);
+  if(settings.InstalledAppTests!=null) AutomationInstalledApp.ValidateTemplate(settings,settings.ManagedDevices!=null);
   AutomationPostEndurance.Validate(settings);
   if(settings.Removal!=null)AutomationRemoval.Validate(settings);
   if(settings.ResponseComparison!=null)AutomationResponseComparison.Validate(settings);
