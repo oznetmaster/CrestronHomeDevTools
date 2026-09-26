@@ -62,6 +62,8 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
    AutomationPostEndurance.VerifyRetained(c);
   if(settings.Removal!=null && c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.PrepareReview))
    AutomationRemoval.VerifyRetained(c);
+  if(settings.ResponseComparison!=null && c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.PrepareReview))
+   AutomationResponseComparison.VerifyRetained(c);
   if(c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.SignReview)) AutomationSigning.VerifyRetained(c.RunDirectory);
   if(c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.Endurance)) {
    var plan=AutomationDeploymentEndurance.Resolve(c,settings)?.Plan??throw new InvalidDataException("Completed endurance plan is missing.");
@@ -87,6 +89,7 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
      var post=await AutomationPostEndurance.Advance(c,settings,recover,runInstalledApp,credential,token);
      if(post.Status!=SubmissionWorkflowStatus.Completed)return post;
     }
+    if(settings.ResponseComparison!=null)AutomationResponseComparison.Prepare(c,settings,token);
     if(settings.Removal!=null) {
      var removal=await AutomationRemoval.Advance(c,settings,credential,token);
      if(removal.Status!=SubmissionWorkflowStatus.Completed)return removal;
@@ -122,6 +125,7 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
   if(settings.InstalledAppTests!=null) AutomationInstalledApp.Validate(settings);
   AutomationPostEndurance.Validate(settings);
   if(settings.Removal!=null)AutomationRemoval.Validate(settings);
+  if(settings.ResponseComparison!=null)AutomationResponseComparison.Validate(settings);
   if(settings.Review is {PriorEvidence:not null} review)
    _=AutomationPriorEvidence.Prepare(c.RunDirectory,new(settings.Release.PackageSha256,settings.Release.SourceCommit,
     review.Policy.Sha256,review.Template.Sha256),review,token);
@@ -219,7 +223,7 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
    new NUnitReceipt(c.Checkpoint.InputSha256,requiredStage,files));
  }
  private sealed record NUnitReceipt(string InputSha256,string Stage,SubmissionWorkflowReceipt[] Files);
- private static void VerifyRetainedNUnit(string root)
+ internal static void VerifyRetainedNUnit(string root)
  {
   var receipt=AutomationFiles.Read<NUnitReceipt>(Path.Combine(root,"windows-tests.json"));
   foreach(var file in receipt.Files) {

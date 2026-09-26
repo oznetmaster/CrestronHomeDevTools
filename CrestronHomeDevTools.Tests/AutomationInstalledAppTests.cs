@@ -9,7 +9,7 @@ using NUnit.Framework;
 
 namespace CrestronHomeDevTools.Tests;
 [TestFixture]
-public sealed class AutomationInstalledAppTests
+public sealed partial class AutomationInstalledAppTests
 {
  private string root=null!;
  private SubmissionAutomationSettings settings=null!;

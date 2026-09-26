@@ -37,6 +37,8 @@ public sealed record SubmissionAutomationSettings(int SchemaVersion, string Priv
  public JsonElement? PostEnduranceFixtureSettings { get; init; }
  /// <summary>Optional final candidate removal after post-endurance checks, before review. Never implied by test cleanup.</summary>
  public SubmissionAutomationRemovalPlan? Removal { get; init; }
+ /// <summary>Optional before/after comparison of retained response measurements; no limits means a disclosed partial result.</summary>
+ public SubmissionAutomationResponseComparisonPlan? ResponseComparison { get; init; }
 }
 
 internal static class AutomationFiles

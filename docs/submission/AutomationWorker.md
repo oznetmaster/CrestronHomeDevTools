@@ -191,6 +191,14 @@ appropriate to the fixture.
 Keep measurements needed for a before/after response comparison in the fixture's
 evidence. Merely rerunning a functional test does not establish unchanged response
 time. A shortened rehearsal remains shortened even when its later checks pass.
+
+Optional `ResponseComparison` connects those measurements to review preparation,
+after post-endurance tests and before removal. Configure named `Pairs` of `Before`
+and `After` paths, a separate `RequirementId`, and optional developer-reviewed
+`Limits`. The worker checks both producer receipts, candidate identity, device,
+method, requested controls and interval boundaries. Without limits it records a
+declared partial result, never a pass for unchanged performance. See the
+[measurement contract and configuration example](ResponseComparison.md).
 Leaving this optional plan absent preserves existing workflows; it does not mark
 any post-endurance checklist requirement complete.
 
