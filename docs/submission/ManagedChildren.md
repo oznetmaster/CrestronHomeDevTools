@@ -93,3 +93,7 @@ removal retain their separate responsibilities.
 
 Keep concrete selections, installer inputs and evidence in the private workflow
 store. This generic guide does not belong in an individual driver's release notes.
+
+## Reload verification
+
+Use the [reviewed platform-tree reload](../ProtocolReference.md) when checking persistence. Parent-only reload can leave the installed children unloaded. Include native load IDs in the reviewed tree and verify every selected child's configuration and controls after the operation; parent readiness alone is insufficient. Reload is a deliberate validation operation, not an automatic retry for failed commissioning.

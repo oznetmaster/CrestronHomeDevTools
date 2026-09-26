@@ -403,7 +403,11 @@ An immediate SSH reboot after confirmed V1 swap completion returned with the pre
 
 ## Reload and removal
 
-For targeted reload, inspect `supportsUnloadReloadDriver` and require `swapDriverRequiresReboot` to be explicitly false. `beginReloadDrivers` accepts `deviceId` and `reloadReferenceDeviceOnly: true`. `findUnloadReloadDriversAffectedDevices` exposes related scope for review. Reconfirm loaded state and discover any newly assigned service port afterward.
+For a single reference instance, `BeginReloadDriverAsync` requires `supportsUnloadReloadDriver: true` and `swapDriverRequiresReboot: false`, then sends `reloadReferenceDeviceOnly: true`. Do not use parent-only reload to validate a platform's children: on the tested CP4-R it left the children unloaded while the parent returned online/ready.
+
+For a platform, hold the processor operation lease and call `BeginReloadDriverTreeAsync(parentId, reviewedDeviceIds)`, or use `reload --device ID --tree-devices ID,CHILD,...`. Include the parent, every descendant and native light loads in the reviewed IDs. The method rechecks the complete tree and rejects changes or dependencies outside that tree before sending `reloadReferenceDeviceOnly: false`. Keep the receipt and operation ID; do not repeat an uncertain operation.
+
+`findUnloadReloadDriversAffectedDevices` can return only the parent even though reloading it affects the children. It is not a complete descendant inventory. The new method checks both sources. After the operation ends, verify every child is loaded and ready, its configuration and identity are preserved, and native loads regain their controls. A parent ready flag or operation `Ended` alone does not establish recovery. Discover any newly assigned service port afterward.
 
 The tested removal path sends `cp.deviceConfiguration:setLocation` with `locationId: null` to the intended installed instance. DevTools first checks model/version, advertised command, applicable capabilities and affected scope. Automatic removal requires the affected ID array to contain exactly that instance. It then polls inventory until the instance disappears; losing its room assignment or tile alone is insufficient confirmation of disposal.
 

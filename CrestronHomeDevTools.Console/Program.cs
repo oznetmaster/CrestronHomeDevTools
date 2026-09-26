@@ -255,6 +255,9 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
                                        Refuses if versions or affected devices have changed.
               reload --device ID       Reload only the selected device's driver instance.
                                        Requires reload support and refuses a required reboot.
+                                       For a platform, add --tree-devices ID,CHILD,... with
+                                       the complete reviewed parent/descendant IDs. Rechecks
+                                       scope and reloads the children too; verify readiness.
 
               activate --driver ID --name NAME --room ID [--device ID]
                                        Install if absent, upgrade if older, or verify loaded.
@@ -344,7 +347,8 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 				"eligibility" => ["driver"],
 				"plan-update" => ["driver", "output"],
 				"update" => ["plan"],
-				"reload" or "reload-scope" => ["device"],
+				"reload" => ["device", "tree-devices"],
+				"reload-scope" => ["device"],
 				_ => throw new ArgumentException ("Unknown command. Run with --help.")
 				};
 		var options = new Dictionary<string, string> (StringComparer.Ordinal);
@@ -386,6 +390,14 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 				throw new ArgumentException ("Device ID must be a positive integer.");
 			}
 		ManagedDeviceRequest? managedRequest = command == "commission-child" ? ManagedDeviceCommissioning.ReadRequest (Required ("input")) : null;
+		int[]? reloadTree = null;
+		if (command == "reload" && options.TryGetValue ("tree-devices", out var treeText))
+			{
+			reloadTree = treeText.Split (',').Select (part => int.TryParse (part.Trim (), out var id) && id > 0
+				? id : throw new ArgumentException ("--tree-devices requires comma-separated positive IDs.")).ToArray ();
+			if (!reloadTree.Contains (deviceId) || reloadTree.Distinct ().Count () != reloadTree.Length)
+				throw new ArgumentException ("--tree-devices must include the parent exactly once and contain no duplicates.");
+			}
 		string? managedJournal = command is "commission-child" or "remove-created-child" ? Required ("journal") : null;
 		DriverConfiguration.Inputs? configurationInputs = null;
 		DriverInstanceReady? configurationTarget = null;
@@ -652,7 +664,9 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 				break;
 			case "reload":
 				mutationSubmitted = true;
-				operationId = await client.BeginReloadDriverAsync (deviceId, cancellation.Token);
+				operationId = reloadTree == null
+					? await client.BeginReloadDriverAsync (deviceId, cancellation.Token)
+					: await client.BeginReloadDriverTreeAsync (deviceId, reloadTree, cancellation.Token);
 				result = null;
 				break;
 			case "update":

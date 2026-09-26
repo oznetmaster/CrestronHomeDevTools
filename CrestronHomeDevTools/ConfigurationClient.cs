@@ -149,6 +149,47 @@ public sealed class ConfigurationClient : IAsyncDisposable
 			}, cancellationToken).ConfigureAwait (false));
 		}
 
+	/// <summary>Reload a platform and its reviewed descendant tree. Hold the processor operation lease.</summary>
+	/// <remarks>Scope discovery can report only the parent even when its children are unloaded.
+	/// Verify every reviewed child after the returned operation ends; an operation ID is not readiness.</remarks>
+	public async Task<string> BeginReloadDriverTreeAsync (int deviceId, IReadOnlyCollection<int> expectedDeviceIds,
+		CancellationToken cancellationToken = default)
+		{
+		ArgumentNullException.ThrowIfNull (expectedDeviceIds);
+		var expected = expectedDeviceIds.ToArray ();
+		if (deviceId <= 0 || !expected.Contains (deviceId) || expected.Any (id => id <= 0)
+			|| expected.Distinct ().Count () != expected.Length)
+			throw new ArgumentException ("Reload requires distinct positive reviewed IDs including the parent.");
+		var inventory = await GetDevicesAsync (cancellationToken).ConfigureAwait (false);
+		var parent = inventory.SingleOrDefault (device => device.Id == deviceId)
+			?? throw new InvalidOperationException ("The reviewed parent is missing.");
+		if (!parent.PropertyValues.TryGetValue ("cp.driverConfiguration:supportsUnloadReloadDriver", out var supported)
+			|| supported.ValueKind != JsonValueKind.True
+			|| !parent.PropertyValues.TryGetValue ("cp.driverConfiguration:swapDriverRequiresReboot", out var reboot)
+			|| reboot.ValueKind != JsonValueKind.False)
+			throw new InvalidOperationException ("The parent is not confirmed to support reboot-free reload.");
+		var tree = new HashSet<int> { deviceId };
+		bool added;
+		do
+			{
+			added = false;
+			foreach (var device in inventory)
+				if (device.ParentDeviceId is { } parentId && tree.Contains (parentId) && tree.Add (device.Id))
+					added = true;
+			} while (added);
+		if (!tree.SetEquals (expected))
+			throw new InvalidOperationException ("The platform tree differs from the reviewed reload scope.");
+		var affected = await GetReloadAffectedDevicesAsync (deviceId, cancellationToken).ConfigureAwait (false);
+		if (!affected.Contains (deviceId) || affected.Distinct ().Count () != affected.Count
+			|| affected.Any (id => !tree.Contains (id)))
+			throw new InvalidOperationException ("Reload dependencies include unreviewed devices or are unknown.");
+		return RequireOperationId (await DriverCommandAsync<string> ("beginReloadDrivers", new
+			{
+			deviceId,
+			reloadReferenceDeviceOnly = false
+			}, cancellationToken).ConfigureAwait (false));
+		}
+
 	/// <summary>Read the processor's configured location identities without device settings.</summary>
 	public async Task<IReadOnlyList<ProcessorLocation>> GetLocationsAsync (CancellationToken cancellationToken = default)
 		=> await _connection.GetAsync<ProcessorLocation[]> ("v2/Locations", cancellationToken).ConfigureAwait (false)

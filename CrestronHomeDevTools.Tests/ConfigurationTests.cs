@@ -123,6 +123,71 @@ public sealed class ConfigurationTests
 		Assert.ThrowsAsync<ProcessorApiException> (async () => await new ConfigurationClient (new FakeConnection (operationId)).BeginLocalDriverRefreshAsync ());
 		}
 
+	private static DeviceInfo[] ReloadTree () =>
+		[
+		new () { Id = 17, PropertyValues = new ()
+			{
+			["cp.driverConfiguration:supportsUnloadReloadDriver"] = JsonSerializer.SerializeToElement (true),
+			["cp.driverConfiguration:swapDriverRequiresReboot"] = JsonSerializer.SerializeToElement (false)
+			} },
+		new () { Id = 18, ParentDeviceId = 17 },
+		new () { Id = 19, ParentDeviceId = 18 },
+		new () { Id = 20 }
+		];
+
+	[Test]
+	public async Task ReloadTree_IncludesChildrenEvenWhenAffectedQueryListsOnlyParent ()
+		{
+		var connection = new FakeConnection (ReloadTree ().ToDictionary (device => device.Id.ToString ()), new[] { 17 }, "tree-op");
+		Assert.That (await new ConfigurationClient (connection).BeginReloadDriverTreeAsync (17, [19, 17, 18]), Is.EqualTo ("tree-op"));
+		Assert.That (connection.Calls.Last ().Parameters.GetProperty ("reloadReferenceDeviceOnly").GetBoolean (), Is.False);
+		Assert.That (connection.Calls.Last ().Parameters.GetProperty ("deviceId").GetInt32 (), Is.EqualTo (17));
+		}
+
+	[TestCase (new[] { 17, 18 })]
+	[TestCase (new[] { 17, 18, 19, 20 })]
+	public void ReloadTree_RejectsChangedTreeBeforeSubmitting (int[] reviewed)
+		{
+		var connection = new FakeConnection (ReloadTree ().ToDictionary (device => device.Id.ToString ()));
+		Assert.ThrowsAsync<InvalidOperationException> (async () => await new ConfigurationClient (connection).BeginReloadDriverTreeAsync (17, reviewed));
+		Assert.That (connection.Calls, Is.Empty);
+		}
+
+	[TestCase ("unsupported")]
+	[TestCase ("reboot")]
+	[TestCase ("unknown")]
+	public void ReloadTree_RequiresExplicitRebootFreeCapability (string condition)
+		{
+		var devices = ReloadTree ();
+		if (condition == "unknown") devices[0].PropertyValues.Clear ();
+		else devices[0].PropertyValues[condition == "reboot"
+			? "cp.driverConfiguration:swapDriverRequiresReboot" : "cp.driverConfiguration:supportsUnloadReloadDriver"]
+			= JsonSerializer.SerializeToElement (condition == "reboot");
+		var connection = new FakeConnection (devices.ToDictionary (device => device.Id.ToString ()));
+		Assert.ThrowsAsync<InvalidOperationException> (async () => await new ConfigurationClient (connection).BeginReloadDriverTreeAsync (17, [17, 18, 19]));
+		Assert.That (connection.Calls, Is.Empty);
+		}
+
+	[TestCase (new[] { 17, 20 })]
+	[TestCase (new[] { 18 })]
+	[TestCase (new[] { 17, 17 })]
+	public void ReloadTree_RejectsUnexpectedDependencyScope (int[] affected)
+		{
+		var connection = new FakeConnection (ReloadTree ().ToDictionary (device => device.Id.ToString ()), affected);
+		Assert.ThrowsAsync<InvalidOperationException> (async () => await new ConfigurationClient (connection).BeginReloadDriverTreeAsync (17, [17, 18, 19]));
+		Assert.That (connection.Calls.Select (call => call.Command), Does.Not.Contain ("cp.platformDriverController:beginReloadDrivers"));
+		}
+
+	[TestCase (new[] { 18, 19 })]
+	[TestCase (new[] { 17, 17, 18, 19 })]
+	[TestCase (new[] { 17, 0 })]
+	public void ReloadTree_RejectsInvalidReviewedIds (int[] reviewed)
+		{
+		var connection = new FakeConnection ();
+		Assert.ThrowsAsync<ArgumentException> (async () => await new ConfigurationClient (connection).BeginReloadDriverTreeAsync (17, reviewed));
+		Assert.That (connection.Calls, Is.Empty);
+		}
+
 	[Test]
 	public async Task Command_UsesNamedParametersAndPreservesOptionalResponseFields ()
 		{
