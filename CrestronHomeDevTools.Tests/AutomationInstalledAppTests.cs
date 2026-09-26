@@ -157,7 +157,7 @@ public sealed class AutomationInstalledAppTests
   settings=settings with{Review=new(new(policy,AutomationFiles.Hash(policy)),new("unused-template",new('a',64)),null!,null!,null!,"Example","Example",[]),
    Removal=new(new(profile,[new(167,"Example",1,"Room",false)],[]),"system.removal")};
  }
- private Task<SubmissionWorkflowStepResult> Remove(bool pass=true,bool interrupt=false,bool baseline=false)=>AutomationRemoval.Advance(context,settings,_=>new("synthetic","synthetic"),default,
+ private Task<SubmissionWorkflowStepResult> Remove(bool pass=true,bool interrupt=false,bool baseline=false,string placementBaseline="passed")=>AutomationRemoval.Advance(context,settings,_=>new("synthetic","synthetic"),default,
   (plan,credential,folder,token)=>{
    calls++;Assert.That(plan.Target.DeviceId,Is.EqualTo(167));Assert.That(plan.Target.CatalogueId,Is.EqualTo("observed.catalogue.1.0.000.0000"));
    if(interrupt)throw new IOException("Synthetic interrupted removal");
@@ -165,8 +165,42 @@ public sealed class AutomationInstalledAppTests
    var result=new DriverRemovalWorkflowResult(!baseline,true,true,new(true,true,true,true,true,new(true,pass,"synthetic log interval",[],pass?[]:["synthetic error"])),null);
    File.WriteAllBytes(Path.Combine(folder,"result.json"),JsonSerializer.SerializeToUtf8Bytes(result,AutomationFiles.Json));
    File.WriteAllText(Path.Combine(folder,"raw.xml"),"synthetic retained UI/log evidence");
+   if(settings.Removal!.PlacementRequirementId!=null && placementBaseline!="missing") {
+    string before=Path.Combine(folder,"removal","ui-before");Directory.CreateDirectory(before);
+    AutomationFiles.Write(Path.Combine(before,"outcome.json"),new DriverRemovalUiOutcome(placementBaseline!="failed",placementBaseline!="unrestored"));
+    AutomationFiles.Write(Path.Combine(before,"plan.json"),placementBaseline=="changed"?plan.App with{NonvisualDeviceIds=[999]}:plan.App);
+   }
    return Task.FromResult(result);
   });
+ private async Task ConfigurePlacement() {
+  await ConfigureRemoval();var review=settings.Review!;
+  var policy=AutomationFiles.Read<SubmissionEvidencePolicy>(review.Policy.Path);
+  var placement=new SubmissionRequirement("ui.placement",TimeSpan.Zero,false,new("selected.membership","combined",SubmissionEvidenceOutcome.Passed,null,false));
+  File.WriteAllBytes(review.Policy.Path,JsonSerializer.SerializeToUtf8Bytes(policy with{Requirements=[..policy.Requirements,placement]},AutomationFiles.Json));
+  settings=settings with{Review=review with{Policy=review.Policy with{Sha256=AutomationFiles.Hash(review.Policy.Path)}},
+   Removal=settings.Removal! with{PlacementRequirementId=placement.Id}};
+ }
+ [Test] public async Task PlacementReusesMatchingBeforeRemovalBaselineWithoutAnotherOperation() {
+  await ConfigurePlacement();Assert.That((await Remove()).Status,Is.EqualTo(SubmissionWorkflowStatus.Completed));
+  var source=AutomationRemoval.VerifyRetained(context);
+  var observations=AutomationFiles.Read<SubmissionEvidenceDocument>(Path.Combine(context.RunDirectory,source.RelativePath));
+  Assert.That(observations.Observations.Select(o=>o.RequirementId),Is.EquivalentTo(new[]{"system.removal","ui.placement"}));
+  var placement=observations.Observations.Single(o=>o.RequirementId=="ui.placement");
+  Assert.That(placement.Execution!.Target,Is.EqualTo("selected.membership"));
+  Assert.That(placement.Files.Any(f=>f.RelativePath.EndsWith("ui-before/plan.json",StringComparison.Ordinal)),Is.True);
+  await Remove();Assert.That(calls,Is.EqualTo(1));
+ }
+ [TestCase("failed")][TestCase("unrestored")][TestCase("changed")][TestCase("missing")]
+ public async Task PlacementRejectsInvalidOrMissingBaselineWithoutReplayingRemoval(string condition) {
+  await ConfigurePlacement();var error=Assert.CatchAsync(async()=>await Remove(placementBaseline:condition));
+  Assert.That(error,Is.InstanceOf<InvalidDataException>().Or.InstanceOf<IOException>());
+  Assert.That(File.Exists(Path.Combine(context.RunDirectory,"removal-evidence.json")),Is.False);
+  Assert.That((await Remove()).Status,Is.EqualTo(SubmissionWorkflowStatus.OutcomeUnknown));Assert.That(calls,Is.EqualTo(1));
+ }
+ [Test] public async Task PlacementCannotReuseTheRemovalRequirement() {
+  await ConfigureRemoval();settings=settings with{Removal=settings.Removal! with{PlacementRequirementId="system.removal"}};
+  Assert.ThrowsAsync<InvalidDataException>(async()=>await Remove());Assert.That(calls,Is.Zero);
+ }
  [Test] public async Task FinalRemovalUsesDeploymentAndCannotRunTwice() {
   await ConfigureRemoval();var first=await Remove();Assert.That(first.Status,Is.EqualTo(SubmissionWorkflowStatus.Completed));
   Assert.That((await Remove()).Receipt,Is.EqualTo(first.Receipt));Assert.That(calls,Is.EqualTo(1));

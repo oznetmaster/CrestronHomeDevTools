@@ -30,6 +30,17 @@ The optional automation `Removal` setting contains `App` and `RequirementId`. It
 
 The worker runs final removal after successful post-endurance checks and before PDF preparation. It obtains root/catalogue identity from retained deployment receipts, uses the same Android profile, saves a durable intent, and inventories the resulting raw evidence. Review consumes the generated observation automatically. Changed prior evidence, an uncertain attempt or a baseline-only result cannot become a pass; an existing attempt is never rerun. A failed result stays failed on recovery. Omit `Removal` when this operation has not been authorized or configured; omission does not satisfy a checklist requirement.
 
+The optional `Removal.PlacementRequirementId` can bind a separate, untimed
+combined placement requirement to the **pre-removal** app observation. This reuses
+the baseline already collected by the removal operation, without another device
+operation. The saved baseline must pass, return Home and match the exact reviewed
+app selection. The observation covers Home/Room/native Lights membership and
+explicitly nonvisual entities. It does not establish icon artwork, default
+actions, control behavior or response timing; give those their own evidence.
+It cannot reuse the removal requirement ID or turn the empty post-removal screen
+into evidence of correct placement before removal. Missing or changed baseline
+evidence stops review; the removal operation is not replayed.
+
 ## Reading and comparing processor logs
 
 `ProcessorErrorLog.ReadAsync(host, credential, sshFingerprint, timeout, token)` opens one pinned SSH session and sends only `err plogcurrent`, the read command documented in Crestron's [4-Series Message Logging reference](https://docs.crestron.com/en-us/8559/Content/Topics/Reference/Message-Logging.htm). It does not clear logs or change logging configuration. Reads require a complete terminal prompt and are bounded to two Mi-characters and two minutes.

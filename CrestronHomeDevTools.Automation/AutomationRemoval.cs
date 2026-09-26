@@ -5,7 +5,8 @@ using CrestronHomeNUnit.Android;
 namespace CrestronHomeDevTools.Automation;
 
 /// <summary>Opt-in final removal of this run's candidate after its post-endurance checks.</summary>
-public sealed record SubmissionAutomationRemovalPlan(DriverRemovalAppPlan App, string RequirementId);
+public sealed record SubmissionAutomationRemovalPlan(DriverRemovalAppPlan App, string RequirementId,
+    string? PlacementRequirementId = null);
 
 internal static class AutomationRemoval
 {
@@ -27,6 +28,13 @@ internal static class AutomationRemoval
         var requirements = policy.Requirements.Where(r => r.Id == plan.RequirementId).ToArray();
         if (requirements.Length != 1 || requirements[0] is not { MinimumDuration: var duration, Execution: { Method: "combined", RequiredOutcome: SubmissionEvidenceOutcome.Passed, Restore: false, ResponseLimitSeconds: null, MaximumSampleGapSeconds: null } } || duration != TimeSpan.Zero)
             throw new InvalidDataException("Removal must bind one combined API/app/log requirement without unrelated timing or restoration claims.");
+        if (plan.PlacementRequirementId is {} placement)
+        {
+            var matches = policy.Requirements.Where(r => r.Id == placement).ToArray();
+            if (placement == plan.RequirementId || matches.Length != 1 ||
+                matches[0] is not { MinimumDuration: var minimum, Execution: { Method: "combined", RequiredOutcome: SubmissionEvidenceOutcome.Passed, Restore: false, ResponseLimitSeconds: null, MaximumSampleGapSeconds: null } } || minimum != TimeSpan.Zero)
+                throw new InvalidDataException("Placement requires a distinct untimed combined membership requirement; it does not prove glyphs or controls.");
+        }
         var configured = AndroidWorkflowSession.Read<AndroidSessionProfile>(settings.PostEnduranceTests.AndroidTests.ProfilePath);
         if (configured != plan.App.Profile) throw new InvalidDataException("Removal must observe the same Android session as the preceding checks.");
         return requirements[0];
@@ -78,7 +86,23 @@ internal static class AutomationRemoval
         var observation = new SubmissionObservation(requirement.Id, identity, result.Passed ? SubmissionEvidenceOutcome.Passed : SubmissionEvidenceOutcome.Failed,
             intent.StartedUtc, DateTimeOffset.UtcNow, files, "Final actual-driver removal: exact API tree, reviewed Home/Room and native-light views, Home restoration and retained current-boot log interval.",
             new(requirement.Execution!.Target, "combined"));
-        File.WriteAllText(Path.Combine(c.RunDirectory, ObservationPath), System.Text.Json.JsonSerializer.Serialize(new SubmissionEvidenceDocument(1, [observation]), AutomationReview.DocumentJson));
+        var observations = new List<SubmissionObservation> { observation };
+        if (result.Passed && settings.Removal!.PlacementRequirementId is {} placementId)
+        {
+            // Reuse the real pre-removal baseline, never the empty post-removal
+            // screen as evidence that the installed candidate was placed correctly.
+            string before = Path.Combine(folder, "operation", "removal", "ui-before");
+            var baseline = AutomationFiles.Read<DriverRemovalUiOutcome>(Path.Combine(before, "outcome.json"));
+            var appPlan = AutomationFiles.Read<DriverRemovalAppPlan>(Path.Combine(before, "plan.json"));
+            if (!baseline.Passed || !baseline.HomeRestored ||
+                System.Text.Json.JsonSerializer.Serialize(appPlan) != System.Text.Json.JsonSerializer.Serialize(intent.Plan.App))
+                throw new InvalidDataException("Placement baseline did not pass or belongs to another selection.");
+            var placement = AutomationFiles.Read<SubmissionEvidencePolicy>(settings.Review.Policy.Path).Requirements.Single(r => r.Id == placementId);
+            observations.Add(new(placementId, identity, SubmissionEvidenceOutcome.Passed, intent.StartedUtc, DateTimeOffset.UtcNow,
+                files, "Before removal, the candidate's exact selected tree matched the reviewed Home, Room and native Lights membership plan, with complete bounded list traversal and return Home. Explicitly nonvisual entities were accounted for. This does not assert icon glyphs, default actions, control behavior or response timing.",
+                new(placement.Execution!.Target, "combined")));
+        }
+        File.WriteAllText(Path.Combine(c.RunDirectory, ObservationPath), System.Text.Json.JsonSerializer.Serialize(new SubmissionEvidenceDocument(1, observations), AutomationReview.DocumentJson));
         var receipt = new Receipt(c.Checkpoint.InputSha256, Inventory(c.RunDirectory));
         AutomationFiles.Write(Path.Combine(c.RunDirectory, "removal-evidence.json"), receipt);
         VerifyRetained(c, false);
