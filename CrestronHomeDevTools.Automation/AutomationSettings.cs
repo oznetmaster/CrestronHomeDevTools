@@ -27,6 +27,8 @@ public sealed record SubmissionAutomationSettings(int SchemaVersion, string Priv
  SubmissionAutomationInput? EnduranceProbeSettingsTemplate = null,
  JsonElement? InstalledAppFixtureSettings = null)
 {
+ /// <summary>Persistent managed children created after candidate deployment and retained through app tests and endurance.</summary>
+ public SubmissionManagedDevicesPlan? ManagedDevices { get; init; }
  /// <summary>Resolve the endurance probe target from retained actual-driver deployment receipts before collection.</summary>
  public bool EnduranceFromDeployment { get; init; }
  /// <summary>Optional functional checks after endurance, before review. Uses the installed candidate without redeployment.</summary>

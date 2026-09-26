@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added optional persistent managed-child setup before separate installed-app tests. It binds the actual platform deployment, applies reviewed initial configuration, checks required controls and retains children through endurance. App/probe inputs and final removal can use the recorded child/native-load IDs. Interrupted setup is not replayed. Offline regression coverage is available; integrated hardware validation is pending. See [the setup contract](docs/submission/ManagedChildren.md).
+
 - Explicit inspected recovery can remove a successfully created child when readiness validation was interrupted before a completion result. It preserves the original failed attempt and keeps the same ownership, scope and no-replay checks; ordinary automatic cleanup remains unchanged.
 
 - Managed-child commissioning recognizes an immediately created native-light wrapper and returns its verified load ID. A read-only receipt observer can inspect an interrupted setup without repeating commands or rewriting the original outcome. Offline native loads without controls remain not ready. Regression tests cover identity, room, receipt disagreement and incomplete readiness; persistent setup after reload remains under hardware investigation.

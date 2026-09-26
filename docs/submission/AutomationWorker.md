@@ -16,6 +16,11 @@ the service subsequently reads them; do not bypass this with a global trust rule
 
 ## Build and run
 
+Platform-driver workflows can prepare persistent managed children before the
+separate installed-app stage, retain them through endurance, and bind later
+fixtures and removal to their recorded identities. See [persistent managed-child
+setup](ManagedChildren.md) for the source-preview contract and validation limits.
+
 Use Windows, .NET 10, PowerShell 7.6 or later, Git and the documented driver-build prerequisites. The build machine needs the .NET Framework 4.7.2 targeting assemblies and Crestron packaging tools. Visual Studio's full editor is optional. Configure tool paths using the public [processor-test workflow](https://github.com/oznetmaster/CrestronHomeNUnit/blob/main/docs/ProcessorTestWorkflow.md). Paths and SDK overrides are build configuration, not credentials.
 
 Use a short private work root and enable Windows long-path support before starting

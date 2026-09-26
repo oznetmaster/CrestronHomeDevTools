@@ -8,12 +8,12 @@ namespace CrestronHomeDevTools.Automation;
 internal static class AutomationDeploymentEvidence
 {
  internal sealed record Deployment(DriverDeploymentResult Imported,DriverInstanceReady Installed,SubmissionWorkflowReceipt Receipt);
- internal static Deployment Read(SubmissionWorkflowStepContext c,SubmissionAutomationSettings settings) {
+ internal static Deployment Read(SubmissionWorkflowStepContext c,SubmissionAutomationSettings settings,bool beforeAppTests=false) {
   if(settings.NUnit.ActualDriver==null || settings.NUnit.ReleaseCandidate==null)
    throw new InvalidDataException("Actual candidate deployment is required.");
   if(settings.Release!=c.Checkpoint.Release ||
    !c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.ProcessorTests) ||
-   !c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.AppTests) ||
+   (beforeAppTests ? c.Checkpoint.Stage!=SubmissionWorkflowStage.AppTests : !c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.AppTests)) ||
    !c.Checkpoint.CompletedStages.TryGetValue(SubmissionWorkflowStage.WindowsTests,out var receipt) || receipt.RelativePath!="windows-tests.json")
    throw new InvalidDataException("Deployment evidence requires the completed candidate test stages.");
 

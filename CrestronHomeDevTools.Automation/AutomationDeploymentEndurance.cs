@@ -24,6 +24,8 @@ internal static class AutomationDeploymentEndurance
   if(source.SettingsFile==null || new FileInfo(source.SettingsFile).Length>65536)
    throw new InvalidDataException("Missing retained deployment probe template.");
   var node=JsonNode.Parse(File.ReadAllBytes(source.SettingsFile)) as JsonObject??throw new InvalidDataException("Probe settings must be an object.");
+  if(settings.ManagedDevices!=null)node=JsonNode.Parse(AutomationManagedDevices.RenderInputs(JsonSerializer.SerializeToElement(node),
+   AutomationManagedDevices.VerifyRetained(c)).GetRawText())!.AsObject();
   byte[] generated=RenderTemplate(node,installed.DeviceId,imported.CatalogueId);
   string output=P("endurance-producer"),name="settings.generated.json";
   if(Path.GetFullPath(source.Directory).Equals(Path.GetFullPath(output),StringComparison.OrdinalIgnoreCase))
@@ -43,10 +45,11 @@ internal static class AutomationDeploymentEndurance
   SubmissionEnduranceProcessProbe.Validate(resolved.Probe,resolved.Plan);
   return resolved;
  }
- internal static byte[] RenderTemplate(JsonObject node,int deviceId,string catalogueId) {
+ internal static byte[] RenderTemplate(JsonObject node,int deviceId,string catalogueId,SubmissionManagedDevicesPlan? deferredManaged=null) {
   bool deviceBound=false,catalogueBound=false;
   JsonNode? Replace(JsonNode? value) {
    if(value is JsonValue v && v.TryGetValue<string>(out var text)) {
+    if(deferredManaged!=null && AutomationManagedDevices.IsReference(text) && deferredManaged.Children.Any(c=>c.Alias==text.Split(':')[1]))return JsonValue.Create(text);
     if(text=="${deployedDeviceId}"){deviceBound=true;return JsonValue.Create(deviceId);}
     if(text.Contains("${deployedCatalogueId}",StringComparison.Ordinal)) {catalogueBound=true;text=text.Replace("${deployedCatalogueId}",catalogueId,StringComparison.Ordinal);}
     if(text.Contains("${",StringComparison.Ordinal))throw new InvalidDataException("Unknown or embedded device-ID deployment placeholder.");

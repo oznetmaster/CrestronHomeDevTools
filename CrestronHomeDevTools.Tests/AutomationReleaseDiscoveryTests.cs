@@ -107,6 +107,28 @@ public sealed class AutomationReleaseDiscoveryTests
   Assert.That(Expand(release with{ReleaseId=92},"next-release"),Is.Not.EqualTo(first));
   Assert.That(Expand(release with{ProfileSnapshotSha256=new('e',64)},"next-profile"),Is.Not.EqualTo(first));
  }
+ [TestCase(true)][TestCase(false)]public void ManagedReferencesSurviveReleaseIntakeOnlyForReviewedAliases(bool known) {
+  WithProbeTemplate();
+  var original=AutomationFiles.Read<SubmissionAutomationSettings>(profile.SettingsTemplate.Path);
+  string input=Path.Combine(root,"probe-settings-template.json");
+  File.WriteAllText(input,"{\"DeviceId\":\"${deployedDeviceId}\",\"CatalogueId\":\"${deployedCatalogueId}\",\"Sensor\":\"${managed:sensor:deviceId}\"}");
+  var nunit=original.NUnit with{ActualDriver=new("${source}/driver.csproj","${package}","Platform",1),
+   ReleaseCandidate=new("${packageSha256}",Guid.NewGuid().ToString(),"${version4}","${source}","${commit}")};
+  var app=new InstalledDriverTestPlan{Host=nunit.Host,CertificateSha256=nunit.CertificateSha256,SshFingerprint=nunit.SshFingerprint,
+   PackagePath="${package}",PackageSha256="${packageSha256}",PackageSourceCommit="${commit}",SourceRoots=["${source}"],
+   Target=new(1,-1,"Platform","Model",1,"${version4}","catalogue","Developer","IP"),AndroidTests=new("${source}/tests.csproj",Path.Combine(root,"profile.json"))};
+  var template=original with{NUnit=nunit,InstalledAppTests=app,EnduranceFromDeployment=true,EnduranceProbeSettingsTemplate=new(input,AutomationFiles.Hash(input)),
+   ManagedDevices=new([new("sensor","physical-id","Demo Sensor","Model",1,[],["extension:doCommand"])]),
+   InstalledAppFixtureSettings=JsonSerializer.SerializeToElement(new{Sensor=known?"${managed:sensor:deviceId}":"${managed:unknown:deviceId}"})};
+  File.WriteAllBytes(profile.SettingsTemplate.Path,JsonSerializer.SerializeToUtf8Bytes(template,AutomationFiles.Json));
+  profile=profile with{SettingsTemplate=new(profile.SettingsTemplate.Path,AutomationFiles.Hash(profile.SettingsTemplate.Path))};
+  string run=Path.Combine(root,"managed-run");
+  if(!known){Assert.Throws<InvalidDataException>(()=>ExpandProbe(run));Assert.That(Directory.Exists(run),Is.False);return;}
+  var expanded=ExpandProbe(run);
+  Assert.That(expanded.InstalledAppFixtureSettings!.Value.GetProperty("Sensor").GetString(),Is.EqualTo("${managed:sensor:deviceId}"));
+  using var producer=JsonDocument.Parse(File.ReadAllBytes(expanded.Endurance!.Probe.SettingsFile!));
+  Assert.That(producer.RootElement.GetProperty("Sensor").GetString(),Is.EqualTo("${managed:sensor:deviceId}"));
+ }
  [Test]public void InvalidReservationStopsExpansionAndExplicitSettingsBeforeHardwareOrProducerCopy() {
   WithProbeTemplate();
   var template=AutomationFiles.Read<SubmissionAutomationSettings>(profile.SettingsTemplate.Path);

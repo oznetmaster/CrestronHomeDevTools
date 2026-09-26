@@ -92,4 +92,13 @@ public sealed class AutomationDeploymentEnduranceTests
   Assert.That(AutomationDeploymentEndurance.Resolve(context,settings with{EnduranceFromDeployment=false}),Is.SameAs(settings.Endurance));
   Assert.That(File.Exists(P("endurance-deployment-binding.json")),Is.False);
  }
+ [Test]public void OnlyTheAppStageCanUsePreAppDeploymentEvidence() {
+  context.Checkpoint.CompletedStages.Remove(SubmissionWorkflowStage.AppTests);
+  Assert.Throws<InvalidDataException>(()=>AutomationDeploymentEvidence.Read(context,settings,true));
+  var app=context with{Checkpoint=context.Checkpoint with{Stage=SubmissionWorkflowStage.AppTests}};
+  Assert.That(AutomationDeploymentEvidence.Read(app,settings,true).Installed.DeviceId,Is.EqualTo(5678));
+  Assert.Throws<InvalidDataException>(()=>AutomationDeploymentEvidence.Read(app,settings));
+  app.Checkpoint.CompletedStages.Remove(SubmissionWorkflowStage.ProcessorTests);
+  Assert.Throws<InvalidDataException>(()=>AutomationDeploymentEvidence.Read(app,settings,true));
+ }
 }

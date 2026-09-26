@@ -46,7 +46,27 @@ internal static class AutomationRemoval
         var resolved = AutomationPostEndurance.Resolve(c, settings).InstalledAppTests!;
         if (resolved.Target.DeviceId != deployed.Installed.DeviceId) throw new InvalidDataException("Removal deployment binding differs.");
         return new(settings.NUnit.Host, settings.NUnit.CertificateSha256, settings.NUnit.SshFingerprint,
-            Path.Combine(c.RunDirectory, "candidate.pkg"), settings.Release.PackageSha256, resolved.Target, settings.Removal!.App);
+            Path.Combine(c.RunDirectory, "candidate.pkg"), settings.Release.PackageSha256, resolved.Target,
+            BindManagedApp(settings.Removal!.App, deployed.Installed.DeviceId,
+                settings.ManagedDevices == null ? [] : AutomationManagedDevices.VerifyRetained(c)));
+    }
+
+    internal static DriverRemovalAppPlan BindManagedApp(DriverRemovalAppPlan app, int platformId, SubmissionManagedChildBinding[] bindings)
+    {
+        SubmissionManagedChildBinding Find(string alias) => bindings.SingleOrDefault(b => b.Alias == alias)
+            ?? throw new InvalidDataException("Removal references an unknown managed-child alias.");
+        var tiles = app.Tiles.Select(tile =>
+        {
+            if (tile.ManagedAlias == null) return tile;
+            var bound = Find(tile.ManagedAlias);
+            if (tile.Name != bound.Request.Name || tile.LocationId != bound.Request.LocationId)
+                throw new InvalidDataException("Removal tile expectations differ from the commissioned child.");
+            int id = tile.NativeLight ? bound.NativeLoadId ?? throw new InvalidDataException("Removal expects an unavailable native load.") : bound.DeviceId;
+            return tile with { DeviceId = id, ManagedAlias = null };
+        }).ToArray();
+        var nonvisual = app.NonvisualDeviceIds.Concat(app.NonvisualManagedAliases.Select(a => Find(a).DeviceId));
+        if (app.IncludeDeployedPlatformAsNonvisual) nonvisual = nonvisual.Append(platformId);
+        return app with { Tiles = tiles, NonvisualDeviceIds = nonvisual.ToArray(), NonvisualManagedAliases = [], IncludeDeployedPlatformAsNonvisual = false };
     }
 
     internal static async Task<SubmissionWorkflowStepResult> Advance(SubmissionWorkflowStepContext c, SubmissionAutomationSettings settings,

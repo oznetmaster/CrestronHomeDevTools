@@ -25,6 +25,8 @@ internal static class AutomationPostEndurance
  }
  internal static SubmissionAutomationSettings Resolve(SubmissionWorkflowStepContext context,SubmissionAutomationSettings settings) {
   var resolved=Settings(settings);
+  if(settings.ManagedDevices!=null && resolved.InstalledAppFixtureSettings is {} fixture)
+   resolved=resolved with{InstalledAppFixtureSettings=AutomationManagedDevices.RenderInputs(fixture,AutomationManagedDevices.VerifyRetained(context))};
   if(!settings.PostEnduranceFromDeployment)return resolved;
   var deployment=AutomationDeploymentEvidence.Read(context,settings);
   var plan=resolved.InstalledAppTests!;

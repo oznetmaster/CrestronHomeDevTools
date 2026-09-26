@@ -9,9 +9,15 @@ namespace CrestronHomeDevTools.Automation;
 public sealed record DriverRemovalAppTile(int DeviceId, string Name, int LocationId, string RoomName, bool OnHome)
 {
     public bool NativeLight { get; init; }
+    /// <summary>Automation-only alias resolved from retained managed-child creation receipts before observation.</summary>
+    public string? ManagedAlias { get; init; }
 }
 /// <summary>Nonvisual IDs must be explicitly reviewed; no child is silently excluded.</summary>
-public sealed record DriverRemovalAppPlan(AndroidSessionProfile Profile, DriverRemovalAppTile[] Tiles, int[] NonvisualDeviceIds);
+public sealed record DriverRemovalAppPlan(AndroidSessionProfile Profile, DriverRemovalAppTile[] Tiles, int[] NonvisualDeviceIds)
+{
+    public string[] NonvisualManagedAliases { get; init; } = [];
+    public bool IncludeDeployedPlatformAsNonvisual { get; init; }
+}
 
 /// <summary>Observes Home and Room tile lists without opening device controls. Caller owns both reservations.</summary>
 public sealed class DriverRemovalAppObserver
@@ -35,7 +41,8 @@ public sealed class DriverRemovalAppObserver
 
     internal static void ValidateScope(DriverRemovalAppPlan plan, IReadOnlyList<DriverRemovalDevice> selected)
     {
-        if (plan.Tiles.Length == 0 || plan.Tiles.Length > 100 || plan.NonvisualDeviceIds.Length > 4096 ||
+        if (plan.NonvisualManagedAliases.Length != 0 || plan.IncludeDeployedPlatformAsNonvisual || plan.Tiles.Any(t => t.ManagedAlias != null) ||
+            plan.Tiles.Length == 0 || plan.Tiles.Length > 100 || plan.NonvisualDeviceIds.Length > 4096 ||
             plan.Tiles.Any(t => t.DeviceId <= 0 || t.LocationId <= 0 || string.IsNullOrWhiteSpace(t.Name) || string.IsNullOrWhiteSpace(t.RoomName)) ||
             plan.Tiles.Select(t => (t.RoomName, t.Name)).Distinct().Count() != plan.Tiles.Length ||
             plan.Tiles.Where(t => t.OnHome).Select(t => t.Name).Distinct().Count() != plan.Tiles.Count(t => t.OnHome))

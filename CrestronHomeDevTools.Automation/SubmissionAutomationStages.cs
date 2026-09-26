@@ -57,6 +57,8 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
   if(c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.WindowsTests)) VerifyRetainedNUnit(c.RunDirectory);
   if(settings.InstalledAppTests!=null && c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.AppTests))
    AutomationInstalledApp.VerifyRetained(c.RunDirectory);
+  if(settings.ManagedDevices!=null && c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.AppTests))
+   _=AutomationManagedDevices.VerifyRetained(c);
   if(c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.PrepareReview)) AutomationReview.VerifyRetained(c.RunDirectory);
   if(settings.PostEnduranceTests!=null && c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.PrepareReview))
    AutomationPostEndurance.VerifyRetained(c);
@@ -82,6 +84,13 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
    case SubmissionWorkflowStage.WindowsTests: return await NUnit(c,recover,token);
    case SubmissionWorkflowStage.ProcessorTests: return VerifyNUnit(c,"Processor");
    case SubmissionWorkflowStage.AppTests:
+    if(settings.ManagedDevices!=null) {
+     var setup=await AutomationManagedDevices.Advance(c,settings,credential,token);
+     if(setup.Status!=SubmissionWorkflowStatus.Completed)return setup;
+     var resolved=AutomationManagedDevices.BindApp(c,settings);
+     AutomationFiles.Write(Path.Combine(c.RunDirectory,"target-plan.json"),resolved.InstalledAppTests);
+     return await AutomationInstalledApp.Advance(c,resolved,recover && File.Exists(Path.Combine(c.RunDirectory,"installed-app-intent.json")),runInstalledApp,credential,token);
+    }
     return settings.InstalledAppTests==null ? VerifyApp(c) : await AutomationInstalledApp.Advance(c,settings,recover,runInstalledApp,credential,token);
    case SubmissionWorkflowStage.Endurance: return await Endurance(c,recover,token);
    case SubmissionWorkflowStage.PrepareReview:
@@ -106,6 +115,7 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
   AutomationEndurance.ValidateReservation(settings.Endurance);
   AutomationDeploymentEndurance.ValidateConfiguration(settings);
   AutomationAppFixture.Validate(settings);
+  AutomationManagedDevices.Validate(settings);
   // Intake's persisted receipt uses the API's numeric enum contract, unlike CLI settings.
   var inspection=JsonSerializer.Deserialize<SubmissionReleaseInspection>(File.ReadAllBytes(Path.Combine(c.RunDirectory,"release.json")))
    ?? throw new InvalidDataException("Missing release receipt.");

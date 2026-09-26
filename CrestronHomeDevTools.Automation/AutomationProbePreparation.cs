@@ -20,7 +20,7 @@ internal static class AutomationProbePreparation
   SubmissionEnduranceProcessProbe.Validate(source,worker.Plan with{ProducerId=SubmissionEnduranceProcessProbe.GetProducerId(source)});
   var node=JsonNode.Parse(File.ReadAllBytes(input.Path)) as JsonObject??throw new InvalidDataException("Probe settings template must be an object.");
   var expanded=expand(node) as JsonObject??throw new InvalidDataException("Probe settings must remain an object.");
-  if(settings.EnduranceFromDeployment)_=AutomationDeploymentEndurance.RenderTemplate((JsonObject)expanded.DeepClone(),1,"validation-only");
+  if(settings.EnduranceFromDeployment)_=AutomationDeploymentEndurance.RenderTemplate((JsonObject)expanded.DeepClone(),1,"validation-only",settings.ManagedDevices);
   byte[] generated=JsonSerializer.SerializeToUtf8Bytes(expanded,AutomationFiles.Json);
   string output=Path.Combine(run,settings.EnduranceFromDeployment?"endurance-producer-template":"endurance-producer");
   if(Path.GetFullPath(source.Directory).StartsWith(Path.GetFullPath(run)+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase))
