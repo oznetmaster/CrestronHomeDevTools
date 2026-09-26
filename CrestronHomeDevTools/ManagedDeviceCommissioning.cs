@@ -7,7 +7,11 @@ namespace CrestronHomeDevTools;
 
 public sealed record ManagedDeviceRequest (int ParentId, string ParentModel, string ParentVersion,
 	string ManagedDeviceId, string Name, string ChildModel, int LocationId);
-public sealed record ManagedDeviceResult (int DeviceId, string State);
+public sealed record ManagedDeviceResult (int DeviceId, string State)
+	{
+	/// <summary>The native load below a commissioned light wrapper, when present. DeviceId remains the receipt-owned wrapper.</summary>
+	public int? NativeLoadId { get; init; }
+	}
 
 /// <summary>Commissions one new child and records its initial configuration and readiness. The caller holds the shared processor lease.</summary>
 public static partial class ManagedDeviceCommissioning
@@ -87,11 +91,26 @@ public static partial class ManagedDeviceCommissioning
 					 || observed.Model != request.ChildModel || observed.LocationId != request.LocationId || !VersionMatches (observed, request.ParentVersion))
 					throw new InvalidOperationException ("The created child no longer matches the commissioning receipt.");
 				}
-			VerifyChild (child);
 			bool configurationEntered = false;
 			while (true)
 				{
 				child = await client.GetDeviceAsync (idValue, token).ConfigureAwait (false) ?? throw new InvalidOperationException ("The newly commissioned child disappeared.");
+				if (child.LocationId == null)
+					{
+					var inventory = await client.GetDevicesAsync (token).ConfigureAwait (false);
+					var load = ObserveNativeLoad (request, child, inventory);
+					if (load != null)
+						{
+						if (before.Any (d => d.Id == load.Id)) throw new InvalidDataException ("The native load existed before commissioning.");
+						var native = new ManagedDeviceResult (idValue, "Ready") { NativeLoadId = load.Id };
+						Record ("ready-observation", new { Utc = DateTimeOffset.UtcNow, WrapperId = idValue, NativeLoadId = load.Id,
+							request.ParentId, request.ManagedDeviceId, request.Name, request.ChildModel, request.LocationId });
+						Record ("result", native);
+						return native;
+						}
+					await Task.Delay (200, token).ConfigureAwait (false);
+					continue;
+					}
 				VerifyChild (child);
 				if (!configurationEntered && child.Commands.Contains ("cp.driverConfiguration:getFirstConfigurationStep"))
 					{
@@ -108,6 +127,7 @@ public static partial class ManagedDeviceCommissioning
 						}
 					}
 				child = await client.GetDeviceAsync (idValue, token).ConfigureAwait (false) ?? throw new InvalidOperationException ("The newly commissioned child disappeared.");
+				if (child.LocationId == null) continue;
 				VerifyChild (child);
 				if (IsTrue (child, "onlineIndicator:isOnline") && IsTrue (child, "readyIndicator:isReady")) break;
 				await Task.Delay (200, token).ConfigureAwait (false);
@@ -121,6 +141,64 @@ public static partial class ManagedDeviceCommissioning
 			{
 			throw new TimeoutException ("Managed-child commissioning was not verified before the deadline. The journal is retained; no command was retried.");
 			}
+		}
+
+	internal static DeviceInfo? ObserveNativeLoad (ManagedDeviceRequest request, DeviceInfo wrapper, IReadOnlyList<DeviceInfo> inventory)
+		{
+		var parent = inventory.SingleOrDefault (d => d.Id == request.ParentId);
+		if (parent == null || parent.Model != request.ParentModel || !VersionMatches (parent, request.ParentVersion) ||
+			wrapper.Id <= 0 || wrapper.ParentDeviceId != request.ParentId || wrapper.Model != request.ChildModel || wrapper.Name != request.Name || wrapper.LocationId != null ||
+			wrapper.PropertyValues.ContainsKey ("cp.driverInformation:version") && !VersionMatches (wrapper, request.ParentVersion) ||
+			!wrapper.PropertyValues.TryGetValue ("platform:managedDevices", out var managed) || managed.ValueKind != JsonValueKind.Array || managed.GetArrayLength () != 1 ||
+			!managed[0].TryGetProperty ("Id", out var id) || id.ValueKind != JsonValueKind.String || id.GetString () != request.ManagedDeviceId)
+			throw new InvalidDataException ("The native wrapper does not match the commissioned device and candidate platform.");
+		var loads = inventory.Where (d => d.ParentDeviceId == wrapper.Id).ToArray ();
+		if (loads.Length == 0) return null;
+		if (loads.Length != 1 || loads[0].Id <= 0 || loads[0].Name != request.Name || loads[0].Model != request.ChildModel ||
+			loads[0].LocationId != request.LocationId || inventory.Any (d => d.ParentDeviceId == loads[0].Id) ||
+			!loads[0].PropertyValues.TryGetValue ("lightType:variant", out var variant) || variant.ValueKind != JsonValueKind.String || variant.GetString () != "load")
+			throw new InvalidDataException ("The native light identity or room is unconfirmed.");
+		// Offline native loads can omit their dimmer commands and current level altogether.
+		// Identity is still required, but absent controls while offline are not a different device.
+		if (!IsTrue (wrapper, "onlineIndicator:isOnline") ||
+			!wrapper.PropertyValues.TryGetValue ("cp.driverConfiguration:driverLoadingStatus", out var loading) ||
+			loading.ValueKind != JsonValueKind.String || loading.GetString () != "Loaded") return null;
+		if (
+			!loads[0].Commands.Contains ("lightDimmer:setLevel") ||
+			!loads[0].PropertyValues.TryGetValue ("lightDimmer:level", out var level) || level.ValueKind != JsonValueKind.Number ||
+			!level.TryGetDouble (out double value) || !double.IsFinite (value) || value < 0 || value > 1)
+			throw new InvalidDataException ("The native light identity, room or state is unconfirmed.");
+		return loads[0];
+		}
+
+	/// <summary>Read current readiness of a receipt-owned child after an interrupted setup. Sends no commands and does not rewrite the original outcome.</summary>
+	public static async Task<ManagedDeviceResult> ObserveCreatedAsync (ConfigurationClient client, string commissioningJournal, CancellationToken cancellationToken = default)
+		{
+		ArgumentNullException.ThrowIfNull (client);
+		string journal = Path.GetFullPath (commissioningJournal);
+		var request = ReadRequest (Path.Combine (journal, "request.json"));
+		using var created = JsonDocument.Parse (File.ReadAllText (Path.Combine (journal, "created-child.json")));
+		int id = created.RootElement.GetProperty ("DeviceId").GetInt32 ();
+		var expected = JsonSerializer.SerializeToElement (new { DeviceId = id, request.ParentId, request.Name, request.ChildModel, request.ParentVersion, request.LocationId });
+		using var response = JsonDocument.Parse (File.ReadAllText (Path.Combine (journal, "commission-response.json")));
+		var commissioned = response.RootElement.GetProperty ("Response");
+		if (id <= 0 || id == request.ParentId || !JsonElement.DeepEquals (created.RootElement, expected) ||
+			commissioned.GetProperty ("Id").GetInt32 () != id || commissioned.GetProperty ("CommissioningResult").GetString () != "Success")
+			throw new InvalidDataException ("The commissioning receipt does not identify the created child.");
+		var inventory = await client.GetDevicesAsync (cancellationToken).ConfigureAwait (false);
+		var parent = inventory.SingleOrDefault (d => d.Id == request.ParentId);
+		var child = inventory.SingleOrDefault (d => d.Id == id);
+		if (parent == null || parent.Model != request.ParentModel || !VersionMatches (parent, request.ParentVersion) || child == null ||
+			child.ParentDeviceId != request.ParentId || child.Name != request.Name || child.Model != request.ChildModel)
+			throw new InvalidDataException ("Current identities differ from the commissioning receipt.");
+		if (child.LocationId == null)
+			{
+			var native = ObserveNativeLoad (request, child, inventory);
+			return new (id, native == null ? "NotReady" : "Ready") { NativeLoadId = native?.Id };
+			}
+		if (child.LocationId != request.LocationId || !VersionMatches (child, request.ParentVersion))
+			throw new InvalidDataException ("Current child location or version differs from the commissioning receipt.");
+		return new (id, IsTrue (child, "onlineIndicator:isOnline") && IsTrue (child, "readyIndicator:isReady") ? "Ready" : "NotReady");
 		}
 
 	private static bool VersionMatches (DeviceInfo device, string expected) => device.PropertyValues.TryGetValue ("cp.driverInformation:version", out var version)

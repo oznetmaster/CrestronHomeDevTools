@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-- Journal-owned managed-child cleanup recognizes an activated wrapper with one native light, verifies its managed-device identity, and requires both devices to disappear while preserving unrelated devices. Offline scope and partial-cleanup tests pass; hardware validation is pending.
+- Managed-child commissioning recognizes an immediately created native-light wrapper and returns its verified load ID. A read-only receipt observer can inspect an interrupted setup without repeating commands or rewriting the original outcome. Offline native loads without controls remain not ready. Regression tests cover identity, room, receipt disagreement and incomplete readiness; persistent setup after reload remains under hardware investigation.
+- Journal-owned managed-child cleanup recognizes an activated wrapper with one native light, verifies its managed-device identity, and requires both devices to disappear while preserving unrelated devices. Offline scope and partial-cleanup tests pass, and a CP4-R native-light cleanup check confirmed removal and unrelated-device preservation. Full workflow validation remains pending.
 
 - An optional response-comparison stage pairs retained measurements before and after endurance and includes deltas and ratios in review evidence. Explicit reviewed limits determine pass/fail; absent limits remain a disclosed partial result. Offline integration covers both initial producer routes and retention failures; hardware end-to-end validation is pending. See [the contract](docs/submission/ResponseComparison.md).
 
