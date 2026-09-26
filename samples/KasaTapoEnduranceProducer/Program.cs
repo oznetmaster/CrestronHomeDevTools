@@ -103,7 +103,9 @@ static class Producer
     {
         if (device.Name != name || device.Model != model || device.LocationId != room) throw new InvalidDataException("Installed identity changed.");
         var values = device.PropertyValues;
-        if (!values.TryGetValue("cp.driverInformation:version", out var actualVersion) || actualVersion.GetString() != version ||
+        // Home pads version components (2.1.002.0000); release metadata uses 2.1.2.0.
+        if (!values.TryGetValue("cp.driverInformation:version", out var actualVersion) || actualVersion.ValueKind != JsonValueKind.String ||
+            !Version.TryParse(actualVersion.GetString(), out var installedVersion) || !Version.TryParse(version, out var expectedVersion) || installedVersion != expectedVersion ||
             !values.TryGetValue("cp.driverConfiguration:driverLoadingStatus", out var loaded) || loaded.GetString() != "Loaded" ||
             !values.TryGetValue("cp.driverConfiguration:isConfigured", out var configured) || configured.ValueKind != JsonValueKind.True ||
             !values.TryGetValue("onlineIndicator:isOnline", out var online) || online.ValueKind != JsonValueKind.True ||
@@ -196,6 +198,19 @@ static class OfflineChecks
     {
         void Invalid(Action action) { try { action(); } catch (InvalidDataException) { return; } throw new Exception("Invalid observation accepted."); }
         JsonElement Json(string text) { using var doc = JsonDocument.Parse(text); return doc.RootElement.Clone(); }
+        var platform = new DeviceInfo { Name = "Platform", Model = "KasaTapoPlatform", LocationId = 3, PropertyValues = new()
+        {
+            ["cp.driverInformation:version"] = Json("\"2.1.002.0000\""),
+            ["cp.driverConfiguration:driverLoadingStatus"] = Json("\"Loaded\""),
+            ["cp.driverConfiguration:isConfigured"] = Json("true"),
+            ["onlineIndicator:isOnline"] = Json("true"),
+            ["readyIndicator:isReady"] = Json("true")
+        }};
+        Producer.VerifyIdentity(platform, "Platform", "KasaTapoPlatform", 3, "2.1.2.0");
+        Invalid(() => Producer.VerifyIdentity(platform, "Platform", "KasaTapoPlatform", 3, "2.1.2.1"));
+        Invalid(() => Producer.VerifyIdentity(platform, "Platform", "KasaTapoPlatform", 3, "invalid"));
+        platform.PropertyValues["onlineIndicator:isOnline"] = Json("false");
+        Invalid(() => Producer.VerifyIdentity(platform, "Platform", "KasaTapoPlatform", 3, "2.1.2.0"));
         new PropertyRule("power", "boolean").Verify(Json("false"));
         Invalid(() => new PropertyRule("power", "boolean").Verify(Json("\"false\"")));
         new PropertyRule("humidity", "number", 0, 100).Verify(Json("52.3"));

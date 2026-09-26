@@ -20,7 +20,8 @@ the library project in the same checkout instead of the released package. Pin
 that commit and inventory the resulting publication; do not replace files in an
 existing endurance run. Normal builds keep using the released package.
 
-The self-test checks property types/ranges and changed managed process identities.
+The self-test checks property types/ranges, equivalent padded driver versions,
+rejection of different versions and offline devices, and changed managed process identities.
 Two preparatory observations on a CP4-R also passed, including reuse of the saved
 lifetime baseline in a second producer process. That component check is not a
 completed endurance run or validation of the complete release workflow.

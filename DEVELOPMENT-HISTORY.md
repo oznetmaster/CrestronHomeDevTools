@@ -1,5 +1,9 @@
 # Development history
 
+## 27 September 2026 - Kasa/Tapo endurance version comparison
+
+The first integrated endurance probe rejected `2.1.002.0000` from Home when the release profile specified `2.1.2.0`. The producer now compares parsed versions, retaining the checks for an exact version match, device identity, loading, configuration and availability. Its offline self-test reproduces the padded-version failure before the fix and checks that different versions, invalid versions and offline devices remain rejected afterward. This changes the sample producer only; it does not change driver binaries or convert the original failed sample into a pass.
+
 ## 26 September 2026 - Processor connection cleanup
 
 A candidate-bound platform removal confirmed removal of the selected tree and app tiles, preservation of unrelated devices, Home restoration and reservation release. Its strict log check failed on new processor `ReceiveDataAsync: Invalid client Index` messages. The original failed result remains retained. Six subsequent read-only configuration connections reproduced the diagnostic with no driver removal or device writes.
