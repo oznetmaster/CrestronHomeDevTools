@@ -131,6 +131,33 @@ public sealed class ManagedDeviceCleanupTests
 		}
 
 	[Test]
+	public async Task InspectedCreationCanBeRemovedWithoutRewritingFailedReadiness ()
+		{
+		File.Delete (Path.Combine (_journal, "result.json"));
+		var connection = new Connection (_journal) { Native = true };
+		var result = await ManagedDeviceCommissioning.RemoveCreatedAfterInspectionAsync (new (connection), _journal, TimeSpan.FromSeconds (2));
+		Assert.That (result.Removed, Is.True);
+		Assert.That (connection.RemovalCalls, Is.EqualTo (1));
+		Assert.That (File.Exists (Path.Combine (_journal, "result.json")), Is.False);
+		using var record = JsonDocument.Parse (File.ReadAllText (Path.Combine (_journal, "cleanup", "request.json")));
+		Assert.That (record.RootElement.GetProperty ("InspectedIncompleteReadiness").GetBoolean (), Is.True);
+		Assert.ThrowsAsync<InvalidOperationException> (async () => await ManagedDeviceCommissioning.RemoveCreatedAfterInspectionAsync (new (connection), _journal, TimeSpan.FromSeconds (2)));
+		Assert.That (connection.RemovalCalls, Is.EqualTo (1));
+		}
+
+	[TestCase ("response")]
+	[TestCase ("result")]
+	public void InspectedCleanupStillRejectsContradictoryReceipts (string fault)
+		{
+		if (fault == "response") File.WriteAllText (Path.Combine (_journal, "commission-response.json"), "{\"Response\":{\"Id\":99,\"CommissioningResult\":\"Success\"}}");
+		else File.WriteAllText (Path.Combine (_journal, "result.json"), JsonSerializer.Serialize (new ManagedDeviceResult (99, "Ready")));
+		var connection = new Connection (_journal);
+		Assert.ThrowsAsync<InvalidDataException> (async () => await ManagedDeviceCommissioning.RemoveCreatedAfterInspectionAsync (new (connection), _journal, TimeSpan.FromSeconds (2)));
+		Assert.That (connection.Reads, Is.Zero);
+		Assert.That (connection.RemovalCalls, Is.Zero);
+		}
+
+	[Test]
 	public void RetainedWrapperDoesNotCountAsSuccessfulNativeCleanup ()
 		{
 		var connection = new Connection (_journal) { Native = true, Fault = "native-wrapper-remains" };

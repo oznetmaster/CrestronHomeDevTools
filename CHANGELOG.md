@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Explicit inspected recovery can remove a successfully created child when readiness validation was interrupted before a completion result. It preserves the original failed attempt and keeps the same ownership, scope and no-replay checks; ordinary automatic cleanup remains unchanged.
+
 - Managed-child commissioning recognizes an immediately created native-light wrapper and returns its verified load ID. A read-only receipt observer can inspect an interrupted setup without repeating commands or rewriting the original outcome. Offline native loads without controls remain not ready. Regression tests cover identity, room, receipt disagreement and incomplete readiness; persistent setup after reload remains under hardware investigation.
 - Journal-owned managed-child cleanup recognizes an activated wrapper with one native light, verifies its managed-device identity, and requires both devices to disappear while preserving unrelated devices. Offline scope and partial-cleanup tests pass, and a CP4-R native-light cleanup check confirmed removal and unrelated-device preservation. Full workflow validation remains pending.
 

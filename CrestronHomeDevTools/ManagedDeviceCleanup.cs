@@ -11,8 +11,18 @@ public static partial class ManagedDeviceCommissioning
 	{
 	/// <summary>Removes the receipt-owned child, including a wrapper with one native light. The caller holds the processor lease and verifies physical-state restoration first.</summary>
 	/// <remarks>A partial cleanup journal is never replayed. Resolve uncertain outcomes by inspecting the recorded identity and processor state.</remarks>
-	public static async Task<ManagedDeviceCleanupResult> RemoveCreatedAsync (ConfigurationClient client, string commissioningJournal,
+	public static Task<ManagedDeviceCleanupResult> RemoveCreatedAsync (ConfigurationClient client, string commissioningJournal,
 		TimeSpan timeout, CancellationToken cancellationToken = default)
+		=> RemoveCreatedCoreAsync (client, commissioningJournal, timeout, false, cancellationToken);
+
+	/// <summary>Explicit recovery after successful child creation but interrupted readiness validation. Rechecks ownership and removal scope; never repeats commissioning or a previous cleanup attempt.</summary>
+	/// <remarks>The caller holds the lease, has inspected the original failure, and has restored physical state. Missing or contradictory successful-creation receipts are still rejected.</remarks>
+	public static Task<ManagedDeviceCleanupResult> RemoveCreatedAfterInspectionAsync (ConfigurationClient client, string commissioningJournal,
+		TimeSpan timeout, CancellationToken cancellationToken = default)
+		=> RemoveCreatedCoreAsync (client, commissioningJournal, timeout, true, cancellationToken);
+
+	private static async Task<ManagedDeviceCleanupResult> RemoveCreatedCoreAsync (ConfigurationClient client, string commissioningJournal,
+		TimeSpan timeout, bool inspectedIncompleteReadiness, CancellationToken cancellationToken)
 		{
 		ArgumentNullException.ThrowIfNull (client);
 		if (timeout <= TimeSpan.Zero || timeout > TimeSpan.FromHours (1)) throw new ArgumentOutOfRangeException (nameof (timeout));
@@ -26,9 +36,14 @@ public static partial class ManagedDeviceCommissioning
 		if (id <= 0 || id == request.ParentId || !JsonElement.DeepEquals (created.RootElement, expected) ||
 			commissioned.GetProperty ("Id").GetInt32 () != id || commissioned.GetProperty ("CommissioningResult").GetString () != "Success")
 			throw new InvalidDataException ("The commissioning identity and returned child receipt do not agree.");
-		var completed = JsonSerializer.Deserialize<ManagedDeviceResult> (File.ReadAllText (Path.Combine (journal, "result.json")));
-		if (completed == null || completed.DeviceId != id || completed.State is not ("Ready" or "ConfigurationRequired"))
-			throw new InvalidDataException ("Commissioning has no confirmed terminal result; reconcile it before cleanup.");
+		string resultPath = Path.Combine (journal, "result.json");
+		bool hasResult = File.Exists (resultPath);
+		if (hasResult || !inspectedIncompleteReadiness)
+			{
+			var completed = JsonSerializer.Deserialize<ManagedDeviceResult> (File.ReadAllText (resultPath));
+			if (completed == null || completed.DeviceId != id || completed.State is not ("Ready" or "ConfigurationRequired"))
+				throw new InvalidDataException ("Commissioning has no confirmed terminal result; reconcile it before cleanup.");
+			}
 		string cleanup = Path.Combine (journal, "cleanup");
 		if (Directory.Exists (cleanup) || File.Exists (cleanup)) throw new InvalidOperationException ("Cleanup has already been attempted; reconcile its retained journal instead of repeating removal.");
 		Directory.CreateDirectory (cleanup);
@@ -39,7 +54,7 @@ public static partial class ManagedDeviceCommissioning
 			stream.Flush (true);
 			}
 		// CreateNew also prevents two callers that raced directory creation from both submitting removal.
-		Record ("request", new { DeviceId = id, Request = request });
+		Record ("request", new { DeviceId = id, Request = request, InspectedIncompleteReadiness = inspectedIncompleteReadiness, OriginalResultPresent = hasResult });
 		using var deadline = CancellationTokenSource.CreateLinkedTokenSource (cancellationToken);
 		deadline.CancelAfter (timeout);
 		var token = deadline.Token;
