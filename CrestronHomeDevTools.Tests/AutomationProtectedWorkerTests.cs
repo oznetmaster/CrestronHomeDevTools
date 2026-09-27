@@ -37,6 +37,11 @@ public sealed class AutomationProtectedWorkerTests
   string pin=AutomationFiles.Hash(path);File.AppendAllText(path," ");
   Assert.Throws<InvalidDataException>(()=>AutomationProtectedWorker.Load(path,pin));
  }
+ [Test]public void EvidenceWorkerCannotSelectAReviewSupplement() {
+  var injected=supplied with{Protected=supplied.Protected! with{ReviewRevision=new("review-revisions/untrusted",new('a',64),new('b',64))}};
+  var trusted=AutomationProtectedWorker.Load(path,AutomationFiles.Hash(path));
+  Assert.That(trusted.Bind(injected).Protected!.ReviewRevision,Is.Null);
+ }
  [Test]public void BuildWritableProtectedToolsAreRejectedEvenIfConfigurationHashMatches() {
   File.Delete(path);AutomationFiles.Write(path,installed with{Console=installed.Console with{Directory=Path.Combine(runs,"tools")}});
   Assert.Throws<InvalidDataException>(()=>AutomationProtectedWorker.Load(path,AutomationFiles.Hash(path)));

@@ -4,6 +4,11 @@ Give this document and the driver's repository URL to the assistant that will pe
 
 **Validation status:** this starting document is a draft. The underlying tools have validation and real delivery evidence described in the public validation guide, but an independent run beginning with this document has not yet demonstrated the entire procedure. Do not describe that independent validation as complete.
 
+If equipment becomes available after endurance and unsigned review preparation,
+use the source worker's [additive review supplement](ReviewSupplements.md) for
+newly covered requirements on the same candidate. Preserve the original run;
+adding hardware alone is not a reason to repeat endurance.
+
 The [release automation controller](ReleaseAutomation.md) is a source preview. Its [Windows worker](AutomationWorker.md) connects release discovery, tests, endurance, documents, authorized signing/delivery and retention. A configured rehearsal has now completed actual deployment, Windows/processor/live/app tests, temporary-test cleanup, shortened endurance, export and unsigned review preparation without intervention after startup. Signing/delivery/retention use separate synthetic-authority and test-provider validation. This is not an independent operator validation of this document or a newly published release followed by real submission. See [the precise validation boundaries](ValidationStatus.md). Intake alone does not start tests; the installed watcher advances registered runs. The [setup form](SetupApp.md) can reduce repeated questions, but check availability in the selected published version before prescribing it to another developer.
 
 In this source preview, saved setup offers **Prepare rehearsal profile** and

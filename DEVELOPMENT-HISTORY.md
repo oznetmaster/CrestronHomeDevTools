@@ -1,5 +1,23 @@
 # Development history
 
+## 27 September 2026 - Additive unsigned review selection
+
+Additional sensor hardware can arrive after the automated evidence run has
+prepared its unsigned packet. The protected plan can now select a separately
+pinned additive review, retaining the original packet and completed-stage ledger.
+It checks the unchanged candidate declaration, source, inventory, mapping and
+every original observation. Earlier failures cannot be erased by a later pass.
+The public bundle validator checks all new evidence, and the signing adapter
+still waits for exact authority before invoking the document tool. Delivery
+checks that its selected review is the one signed.
+
+All 65 targeted review/protected-binding tests pass. Three bundled-console
+integration tests also pass, covering real PDF generation, synthetic signing,
+fake-provider upload-before-email, recovery and no duplicate sending. These are
+offline validation results, not new sensor hardware or real submission evidence.
+No active collector, frozen driver or installed protected worker changed for
+this source-preview addition.
+
 ## 27 September 2026 - Separate protected worker setup
 
 The installer now supports an owner-logon worker for existing CurrentUser DPAPI

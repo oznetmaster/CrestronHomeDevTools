@@ -13,7 +13,12 @@ public enum SubmissionAutomationWorkerRole { Evidence, Protected }
 public sealed record SubmissionAutomationApprovalChannel(string DocumentPath,string PinPath);
 public sealed record SubmissionAutomationProtectedPlan(string CredentialBindings,
  SubmissionAutomationApprovalChannel SigningApproval,SubmissionAutomationApprovalChannel DeliveryApproval,
- SubmissionAutomationDeliverySettings? Delivery=null);
+ SubmissionAutomationDeliverySettings? Delivery=null)
+{
+ /// <summary>Optional independently pinned unsigned supplement; never changes the original run or grants authority.</summary>
+ public SubmissionAutomationReviewRevision? ReviewRevision { get; init; }
+}
+public sealed record SubmissionAutomationReviewRevision(string RelativeDirectory,string OriginalReviewSha256,string ReviewSha256);
 public sealed record SubmissionAutomationDeliverySettings(string Sender,string SmtpHost,int SmtpPort,
  string ReviewedUploadFormSha256,string AcceptedUploadTermsSha256,string? GapSummary=null,
  SubmissionReviewCorrespondence? Correspondence=null);

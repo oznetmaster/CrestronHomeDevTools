@@ -18,6 +18,9 @@ internal static class AutomationDelivery
   string P(string name)=>Path.Combine(c.RunDirectory,name);
   string signedHash=AutomationFiles.Hash(P("signed-review/signed-review-receipt.json"));
   using var signed=JsonDocument.Parse(File.ReadAllBytes(P("signed-review/signed-review-receipt.json")));var r=signed.RootElement;
+  string selectedReview=AutomationReviewSelection.Resolve(c,settings,token);
+  if(r.GetProperty("reviewReceiptSha256").GetString()!=AutomationFiles.Hash(Path.Combine(selectedReview,"review-receipt.json")))
+   throw new InvalidDataException("The selected review differs from the signed packet.");
   string Text(string key)=>r.GetProperty(key).GetString()!;
   bool qualified=r.TryGetProperty("reviewMode",out var mode)&&mode.GetString()=="DeclaredGaps";
   if(!qualified && (delivery.Correspondence!=null || delivery.GapSummary!=null))throw new InvalidDataException("Custom correspondence and gap summaries apply only to the declared-gap route; do not silently ignore them.");
@@ -54,7 +57,7 @@ internal static class AutomationDelivery
     operation=new(null,plan,null);
    } else {
     string prep=P("delivery-preparation-settings.json"),output=P("delivery-prepared"),intent=P("delivery-preparation-intent.json");
-    AutomationReview.WriteDocument(prep,new{schemaVersion=1,signedReviewDirectory=P("signed-review"),reviewDirectory=P("review"),authorization=protection.DeliveryApproval.DocumentPath,output});
+    AutomationReview.WriteDocument(prep,new{schemaVersion=1,signedReviewDirectory=P("signed-review"),reviewDirectory=selectedReview,authorization=protection.DeliveryApproval.DocumentPath,output});
     if(File.Exists(intent)) {
      if(!File.Exists(Path.Combine(output,"COMPLETE")))return new(SubmissionWorkflowStatus.OutcomeUnknown,ReasonCode:"inspect-delivery-preparation");
      using var prior=JsonDocument.Parse(File.ReadAllBytes(intent));

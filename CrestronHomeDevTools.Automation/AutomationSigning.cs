@@ -10,10 +10,12 @@ internal static class AutomationSigning
   if(settings.Mode!=SubmissionAutomationMode.Submit)throw new InvalidOperationException("Rehearsal cannot sign.");
   if(settings.Protected is not {} plan || settings.Review is not {} review)return new(SubmissionWorkflowStatus.NeedsInput,ReasonCode:"protected-signing-plan-required");
   AutomationReview.VerifyRetained(c.RunDirectory);
-  string reviewHash=AutomationFiles.Hash(Path.Combine(c.RunDirectory,"review","review-receipt.json"));
+  string reviewDirectory=AutomationReviewSelection.Resolve(c,settings,token);
+  string reviewHash=AutomationFiles.Hash(Path.Combine(reviewDirectory,"review-receipt.json"));
   // This is a request for review, never an authorization document or an applied signature.
-  AutomationFiles.Write(Path.Combine(c.RunDirectory,"signing-request.json"),new{c.Checkpoint.InputSha256,ReviewSha256=reviewHash,
-   ReviewDirectory=Path.Combine(c.RunDirectory,"review"),SignatureAuthorized=false});
+  string requestName=plan.ReviewRevision==null?"signing-request.json":"signing-request-"+reviewHash+".json";
+  AutomationFiles.Write(Path.Combine(c.RunDirectory,requestName),new{c.Checkpoint.InputSha256,ReviewSha256=reviewHash,
+   ReviewDirectory=reviewDirectory,SignatureAuthorized=false});
   string intent=Path.Combine(c.RunDirectory,"signing-intent.json"),output=Path.Combine(c.RunDirectory,"signed-review");
   if(recover && File.Exists(intent)) {
    if(!File.Exists(Path.Combine(output,"COMPLETE")))return new(SubmissionWorkflowStatus.OutcomeUnknown,ReasonCode:"inspect-signing-operation");
@@ -26,7 +28,7 @@ internal static class AutomationSigning
   string? pin=ApprovalPin(plan.SigningApproval,c.RunDirectory);
   if(pin==null)return new(SubmissionWorkflowStatus.Waiting,ReasonCode:"signing-authorization-required");
   string path=Path.Combine(c.RunDirectory,"signing-settings.json");
-  AutomationReview.WriteDocument(path,new{schemaVersion=1,reviewDirectory=Path.Combine(c.RunDirectory,"review"),authorization=plan.SigningApproval.DocumentPath,output});
+  AutomationReview.WriteDocument(path,new{schemaVersion=1,reviewDirectory,authorization=plan.SigningApproval.DocumentPath,output});
   AutomationFiles.Write(intent,new{c.Checkpoint.OperationId,c.Checkpoint.InputSha256,ReviewSha256=reviewHash,AuthorizationSha256=pin});
   int result=await (execute??AutomationConsole.Run)(review.Console,["submission","prepare-signed-review","--settings",path,
    "--review-sha256",reviewHash,"--authorization-sha256",pin,"--credentials",plan.CredentialBindings],Path.Combine(c.RunDirectory,"signing-process"),token);
