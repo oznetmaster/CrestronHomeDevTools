@@ -1,6 +1,5 @@
 #requires -Version 7.6
 #requires -PSEdition Core
-#requires -RunAsAdministrator
 # Copyright (c) 2026 Neil Colvin. MIT licensed.
 [CmdletBinding()]
 param(
@@ -10,12 +9,19 @@ param(
     [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9_-]{1,64}$')][string]$Name,
     [ValidateSet('evidence','protected')][string]$Role = 'evidence',
     [ValidateSet('NT AUTHORITY\LOCAL SERVICE','NT AUTHORITY\NETWORK SERVICE')][string]$Account = 'NT AUTHORITY\LOCAL SERVICE',
+    [switch]$CurrentUser,
     [ValidateRange(30,900)][int]$PollSeconds = 60,
     [string]$ReleaseProfiles,
     [string]$ProtectedWorker,
     [ValidatePattern('^[a-f0-9]{64}$')][string]$ProtectedWorkerSha256
 )
 $ErrorActionPreference = 'Stop'
+$identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+if ($CurrentUser) {
+    if ($PSBoundParameters.ContainsKey('Account')) { throw 'Choose CurrentUser or a service Account, not both.' }
+} elseif (-not ([Security.Principal.WindowsPrincipal]::new($identity)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    throw 'Service-account installation requires an elevated PowerShell session. Use CurrentUser only for an owner worker that resumes at sign-in.'
+}
 foreach ($path in @($Executable, $Registry, $StatusDirectory)) {
     if (-not [IO.Path]::IsPathFullyQualified($path) -or $path.Contains('"') -or $path.Contains("`r") -or $path.Contains("`n")) { throw 'Use absolute reviewed paths.' }
 }
@@ -36,8 +42,15 @@ if ($ReleaseProfiles) { $arguments += ' --release-profiles "{0}"' -f $ReleasePro
 if ($ProtectedWorker) { $arguments += ' --protected-worker "{0}" --protected-worker-sha256 {1}' -f $ProtectedWorker, $ProtectedWorkerSha256 }
 $arguments += ' --role {0}' -f $Role
 $action = New-ScheduledTaskAction -Execute $Executable -Argument $arguments -WorkingDirectory (Split-Path $Executable -Parent)
-$trigger = New-ScheduledTaskTrigger -AtStartup
-$principal = New-ScheduledTaskPrincipal -UserId $Account -LogonType ServiceAccount -RunLevel Limited
+if ($CurrentUser) {
+    # CurrentUser DPAPI and authenticated network shares need the owner's logon token.
+    # S4U cannot provide either; never request or persist a password to work around it.
+    $trigger = New-ScheduledTaskTrigger -AtLogOn -User $identity.Name
+    $principal = New-ScheduledTaskPrincipal -UserId $identity.Name -LogonType Interactive -RunLevel Limited
+} else {
+    $trigger = New-ScheduledTaskTrigger -AtStartup
+    $principal = New-ScheduledTaskPrincipal -UserId $Account -LogonType ServiceAccount -RunLevel Limited
+}
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
 Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description 'Resume registered Crestron submission workflows using public tools; exact signing/delivery authority remains separate.' | Out-Null
 Start-ScheduledTask -TaskName $taskName

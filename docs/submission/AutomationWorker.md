@@ -416,6 +416,32 @@ Run the installer from administrator PowerShell 7.6 or later:
 
 It creates an ordinary Windows startup task, starts it immediately, prevents overlapping task instances and allows bounded process restart. No interactive desktop or AI heartbeat is needed. The default identity is LocalService; the optional account can be NetworkService. Check the actual account's access before enabling real runs. A user-scope DPAPI store is not transferable to a service by copying its files.
 
+For a protected worker using the signed-in owner's existing DPAPI store, the
+source installer also accepts `-CurrentUser` instead of `-Account`. This mode
+does not require an elevated shell. It starts immediately and resumes at that
+owner's next Windows sign-in, using an interactive logon token without storing a
+password. It does **not** run before sign-in or while the owner is signed out.
+Keep the evidence collector on its startup service when collection must continue
+unattended through restarts. The protected identity must remain separate from the
+identity that builds and executes driver tests.
+
+Two computers must access the **same** registry, evidence and exclusive run
+lock, with the same absolute paths used by the frozen settings. An independently
+copied directory is not a handoff. Use authenticated shared storage restricted to
+the worker identities and required hosts. If the host's local paths are exposed
+through a trusted mount on the protected computer, provision that mount above
+the individual run directories and protect its parent against changes by the
+build account. Links inside a run or evidence tree remain rejected. Verify a
+separate test file's exclusive lock from both computers before enabling the
+protected worker; do not experiment with an active run's lock. Keep tools,
+approval channels and signing/provider credential stores local to the protected
+computer and outside the shared build-writable root.
+
+Both workers must understand the frozen settings schema. A released worker may
+reject a profile that uses newer source-preview features. Pin a compatible
+trusted build on each computer; do not replace the active evidence worker just
+to configure the protected worker.
+
 The protected role additionally requires `-ProtectedWorker PRIVATE_JSON -ProtectedWorkerSha256 INDEPENDENT_DIGEST`. Its `SubmissionAutomationProtectedWorker` model contains schema version 1, exact `AllowedPrivateRoots`, opted-in `Repositories`, a complete pinned `Console` and the protected `Plan` described above. Store this installed configuration, tools, credentials and approvals outside build-writable run roots and deny the build account write access. The installer embeds its reviewed digest in the protected startup command. This independent configuration overrides the run's executable/credential/approval choices; merely writing a different run registry cannot choose a different signing executable. Approval paths may contain `${runKey}`, expanded to the deterministic 64-character run key, to keep concurrent releases separate. In C#, use `SubmissionAutomationStages.CreateProtected` with the independently pinned installed configuration. Role selection alone cannot create a protected adapter.
 
 The worker advances only Ready/Running/Waiting operations assigned to its role. It never automatically resets Failed, NeedsInput or OutcomeUnknown. Signing and delivery waits resume when their exact approval document and digest become available. The existing domain journal reconciles a confirmed upload before sending email; uncertain provider outcomes remain stopped. Polling keeps one current status plus a history that rotates at 1 MiB, with one previous file. Unchanged polling performs no history/status write. Each advancement has a six-hour limit; endurance returns promptly while collection continues separately.

@@ -193,7 +193,9 @@ public static class SubmissionWorkflow
   string full = Path.GetFullPath(receipt.RelativePath, directory);
   if (!Path.GetRelativePath(directory, full).Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).All(p => p != ".."))
    throw new InvalidDataException("Receipt path escapes the run.");
-  for (string? part = full; part != null && part != directory; part = Path.GetDirectoryName(part))
+  string boundary = Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory));
+  var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+  for (string? part = full; part != null && !string.Equals(part, boundary, comparison); part = Path.GetDirectoryName(part))
    if ((File.GetAttributes(part) & FileAttributes.ReparsePoint) != 0) throw new InvalidDataException("Receipt paths cannot be redirected.");
   if (new FileInfo(full).Length > 16 * 1024 * 1024 || Hash(File.ReadAllBytes(full)) != receipt.Sha256)
    throw new InvalidDataException("A completed step's receipt changed or is too large.");

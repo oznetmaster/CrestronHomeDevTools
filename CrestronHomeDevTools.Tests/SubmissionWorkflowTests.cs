@@ -104,4 +104,33 @@ public sealed class SubmissionWorkflowTests
   var steps=new Steps {Start=_=>new(SubmissionWorkflowStatus.Completed,new("../outside.json",Hash(outside)))};
   Assert.ThrowsAsync<InvalidDataException>(async()=>await SubmissionWorkflow.AdvanceAsync(root,release,steps));
  }
+
+ [TestCase(false)][TestCase(true)][Platform("Win")]
+ public async Task TrustedMountAboveRunAcceptsEquivalentWindowsPathSpellings(bool upperCase)
+ {
+  string storage=Path.Combine(root,"storage"),mount=Path.Combine(root,"mount");
+  Directory.CreateDirectory(storage);Directory.CreateSymbolicLink(mount,storage);
+  try {
+   string supplied=mount.Replace('\\','/');if(upperCase)supplied=supplied.ToUpperInvariant();
+   SubmissionWorkflow.Open(supplied,release);
+   await SubmissionWorkflow.AdvanceAsync(supplied,release,new Steps());
+   var original=SubmissionWorkflow.Read(storage,release);
+   var shared=SubmissionWorkflow.Read(supplied,release);
+   Assert.That(shared.Status,Is.EqualTo(SubmissionWorkflowStatus.Completed));
+   Assert.That(shared.CompletedStages,Is.EquivalentTo(original.CompletedStages));
+   Assert.That(shared.UpdatedUtc,Is.EqualTo(original.UpdatedUtc));
+  } finally {Directory.Delete(mount);}
+ }
+
+ [Test][Platform("Win")]
+ public void ReceiptLinkInsideRunRemainsRejected()
+ {
+  SubmissionWorkflow.Open(root,release);
+  string target=Path.Combine(root,"outside.json"),link=Path.Combine(RunDirectory,"linked.json");
+  File.WriteAllText(target,"{}");File.CreateSymbolicLink(link,target);
+  try {
+   var steps=new Steps{Start=_=>new(SubmissionWorkflowStatus.Completed,new("linked.json",Hash(target)))};
+   Assert.ThrowsAsync<InvalidDataException>(async()=>await SubmissionWorkflow.AdvanceAsync(root,release,steps));
+  } finally {File.Delete(link);}
+ }
 }

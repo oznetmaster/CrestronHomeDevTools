@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- The submission worker installer can use the signed-in owner's encrypted inputs with `-CurrentUser`. It resumes at owner sign-in; the existing service mode still starts at Windows startup. Document shared evidence and version compatibility for separate evidence and protected computers.
+- Normalize Windows path spelling when checking the receipt boundary. A trusted storage mount above a run no longer causes valid receipts to be rejected; links within a run remain rejected.
+
 - Include release notes in NuGet metadata and make package README links work outside GitHub.
 
 - Close the processor event socket with a bounded normal WebSocket handshake before aborting an unresponsive connection. This reduces abrupt disconnects during configuration operations; no device commands are retried.

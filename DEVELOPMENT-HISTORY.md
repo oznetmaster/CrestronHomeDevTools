@@ -1,5 +1,29 @@
 # Development history
 
+## 27 September 2026 - Separate protected worker setup
+
+The installer now supports an owner-logon worker for existing CurrentUser DPAPI
+inputs and authenticated network storage, without copying provider credentials
+to the evidence service or storing a Windows password in task arguments. Service
+installation retains its administrator requirement and startup trigger. Owner
+installation uses an interactive logon principal and resumes at sign-in.
+
+A real two-computer setup verified access to one encrypted evidence share and
+exclusive file locking across computers using an isolated disposable test file.
+The owner task was installed and started without elevation. The initial released
+worker rejected a newer source-preview settings schema; that diagnostic was
+retained and only the protected worker was replaced with the matching pinned
+source build. This setup validation does not establish successful signing or
+provider delivery, and it did not restart or modify the active evidence run.
+
+The shared run exposed a receipt-validation defect: the parent walk compared a
+normalized file path against an unnormalized run path, so mixed slash styles
+walked above the intended boundary. The boundary is now normalized and uses
+Windows case-insensitive comparison. All 24 targeted workflow, worker and
+protected-binding tests pass, including mixed slash/case spellings through a
+trusted parent mount and rejection of a linked receipt inside the run. Only the
+protected computer needs this reader correction for the active collection.
+
 ## 27 September 2026 - Kasa/Tapo endurance version comparison
 
 The first integrated endurance probe rejected `2.1.002.0000` from Home when the release profile specified `2.1.2.0`. The producer now compares parsed versions, retaining the checks for an exact version match, device identity, loading, configuration and availability. Its offline self-test reproduces the padded-version failure before the fix and checks that different versions, invalid versions and offline devices remain rejected afterward. This changes the sample producer only; it does not change driver binaries or convert the original failed sample into a pass.
