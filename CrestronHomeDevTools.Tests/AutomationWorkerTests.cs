@@ -95,4 +95,25 @@ public sealed class AutomationWorkerTests
   Assert.That(AutomationWorker.Notification(root,[busy,failed],time),Is.Not.Null);
   Assert.That(AutomationWorker.Notification(root,[a,failed],time),Is.Null);
  }
+ [TestCase("Waiting","Endurance","endurance-collecting",false)]
+ [TestCase("Waiting","SignReview","worker-role-handoff",false)]
+ [TestCase("Running","WindowsTests",null,false)]
+ [TestCase("Completed","Complete",null,false)]
+ [TestCase("Waiting","SignReview","signing-authorization-required",true)]
+ [TestCase("Waiting","Upload","delivery-authorization-required",true)]
+ [TestCase("Waiting","Endurance","unknown-wait",true)]
+ [TestCase("NeedsInput","SignReview","review-required",true)]
+ [TestCase("Failed","Endurance","probe-failed",true)]
+ [TestCase("AttentionRequired",null,"IOException",true)]
+ [TestCase("OutcomeUnknown","Upload",null,true)]
+ public void NoticesDistinguishUnattendedWorkFromRequiredAction(string state,string? stage,string? reason,bool action) {
+  var message=AutomationWorker.NoticeText([new("fixture",1,SubmissionAutomationMode.Submit,state,stage,reason)]);
+  Assert.That(message.Contains("Inspect the private worker status",StringComparison.Ordinal),Is.EqualTo(action));
+  Assert.That(message.Contains("No action required",StringComparison.Ordinal),Is.EqualTo(!action));
+ }
+ [Test]public void AnotherRunsApprovalCannotBeHiddenByHealthyEndurance() {
+  var healthy=new AutomationWorker.Status("one",1,SubmissionAutomationMode.Submit,"Waiting","Endurance","endurance-collecting");
+  var input=healthy with{Profile="two",ReleaseId=2,Stage="SignReview",Reason="signing-authorization-required"};
+  Assert.That(AutomationWorker.NoticeText([healthy,input]),Does.Contain("requires input or approval"));
+ }
 }

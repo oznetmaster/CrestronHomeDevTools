@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Background submission worker notices include UTC timestamps. Temporary workflow-lock contention remains in the private journal but no longer produces repeated Busy/Waiting notices; genuine status changes still notify.
+- Background submission worker notices include UTC timestamps and say whether action is required. Temporary workflow-lock contention remains in the private journal but no longer produces repeated Busy/Waiting notices; genuine status changes still notify. Routine endurance notices say “No action required”; signing/delivery approvals and errors still request attention.
 
 - Protected automation can select an independently pinned additive unsigned review for later hardware evidence. It preserves original observations and endurance, requires the same candidate and policy, and still waits for exact signing/delivery approvals.
 

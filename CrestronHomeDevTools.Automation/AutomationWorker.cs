@@ -68,7 +68,20 @@ internal static class AutomationWorker
    }
   }
   if(stable.Count==0 || !SaveStatus(notices,stable.ToArray()))return null;
-  return $"[{observedUtc.ToUniversalTime():O}] Submission worker status changed; inspect the private worker status.";
+  return $"[{observedUtc.ToUniversalTime():O}] {NoticeText(stable.ToArray())}";
+ }
+ internal static string NoticeText(Status[] statuses) {
+  if(statuses.Any(s=>s.State is not ("Ready" or "Running" or "Waiting" or "NeedsInput" or "Completed")))
+   return "Submission worker needs attention. Inspect the private worker status for details.";
+  // Signing/delivery authorization also uses Waiting, so do not label every
+  // waiting state as passive. Only known unattended waits are informational.
+  if(statuses.Any(s=>s.State=="NeedsInput" || s.State=="Waiting" && s.Reason is not ("endurance-collecting" or "worker-role-handoff")))
+   return "Submission worker requires input or approval. Inspect the private worker status for the required action.";
+  if(statuses.Length>0 && statuses.All(s=>s.State=="Completed"))
+   return "Submission worker completed its configured work. No action required from this notice.";
+  if(statuses.Any(s=>s.State=="Waiting" && s.Stage=="Endurance" && s.Reason=="endurance-collecting"))
+   return "Endurance collection is in progress. No action required.";
+  return "Submission worker status updated. No action required.";
  }
  internal static async Task<DateTimeOffset> Cycle(string registryPath,string statusDirectory,SubmissionAutomationWorkerRole role,
   DateTimeOffset nextDiscovery,CancellationToken token,string? profilesPath=null,AutomationProtectedWorker? protection=null,
