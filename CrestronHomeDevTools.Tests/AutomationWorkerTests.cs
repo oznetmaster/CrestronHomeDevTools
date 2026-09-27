@@ -66,4 +66,33 @@ public sealed class AutomationWorkerTests
   AutomationWorker.SaveStatus(root,[new("fixture",3,SubmissionAutomationMode.Rehearsal,"NeedsInput","SignReview","rehearsal-ready-for-review")]);
   Assert.That(new FileInfo(history+".1").Length,Is.EqualTo(1024*1024));Assert.That(new FileInfo(history).Length,Is.LessThan(4096));
  }
+ [Test]public void NoticesHaveUtcTimestampsAndIgnoreLockContentionIncludingRecovery() {
+  var time=new DateTimeOffset(2026,9,27,8,0,0,TimeSpan.FromHours(1));
+  var waiting=new AutomationWorker.Status("fixture",3,SubmissionAutomationMode.Submit,"Waiting","Endurance","endurance-collecting");
+  var busy=waiting with{State="Busy",Stage=null,Reason="workflow-in-use"};
+  Assert.That(AutomationWorker.Notification(root,[busy],time),Is.Null);
+  Assert.That(AutomationWorker.Notification(root,[waiting],time),Does.StartWith("[2026-09-27T07:00:00.0000000+00:00]"));
+  for(int i=0;i<5;i++) {
+   Assert.That(AutomationWorker.Notification(root,[busy],time.AddMinutes(i)),Is.Null);
+   Assert.That(AutomationWorker.Notification(root,[waiting],time.AddMinutes(i)),Is.Null);
+  }
+  // A real failure must still surface even after an unreadable lock interval.
+  var failure=waiting with{State="AttentionRequired",Reason="IOException"};
+  Assert.That(AutomationWorker.Notification(root,[failure],time),Is.Not.Null);
+  Assert.That(AutomationWorker.Notification(root,[busy],time),Is.Null);
+  Assert.That(AutomationWorker.Notification(root,[failure],time),Is.Null);
+  Assert.That(AutomationWorker.Notification(root,[waiting],time),Is.Not.Null);
+  Assert.That(AutomationWorker.Notification(root,[waiting with{State="NeedsInput",Stage="SignReview",Reason="approval-required"}],time),Is.Not.Null);
+  Assert.That(AutomationWorker.Notification(root,[waiting with{State="Completed",Stage="Complete",Reason=null}],time),Is.Not.Null);
+ }
+ [Test]public void BusyEntryDoesNotHideAnotherReleasesMeaningfulChange() {
+  var time=DateTimeOffset.UtcNow;
+  var a=new AutomationWorker.Status("one",1,SubmissionAutomationMode.Submit,"Waiting","Endurance","endurance-collecting");
+  var b=a with{Profile="two",ReleaseId=2};
+  Assert.That(AutomationWorker.Notification(root,[a,b],time),Is.Not.Null);
+  var busy=a with{State="Busy",Stage=null,Reason="workflow-in-use"};
+  var failed=b with{State="AttentionRequired",Reason="IOException"};
+  Assert.That(AutomationWorker.Notification(root,[busy,failed],time),Is.Not.Null);
+  Assert.That(AutomationWorker.Notification(root,[a,failed],time),Is.Null);
+ }
 }

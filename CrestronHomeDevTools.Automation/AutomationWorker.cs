@@ -53,6 +53,23 @@ internal static class AutomationWorker
   File.AppendAllText(history,JsonSerializer.Serialize(new{ObservedUtc=DateTimeOffset.UtcNow,Statuses=statuses})+Environment.NewLine);
   return true;
  }
+ internal static string? Notification(string directory,Status[] statuses,DateTimeOffset observedUtc) {
+  // Keep the raw Busy transitions in the private journal. A short-lived workflow
+  // lock does not change the last substantive status and must not generate an
+  // alert, nor a second alert when the same status becomes readable again.
+  string notices=Path.Combine(directory,"notifications"),file=Path.Combine(notices,"worker-status.json");
+  var previous=File.Exists(file)?AutomationFiles.Read<Status[]>(file):[];
+  var stable=new List<Status>();
+  foreach(var status in statuses) {
+   if(status.State!="Busy")stable.Add(status);
+   else {
+    var last=previous.SingleOrDefault(s=>s.Profile==status.Profile&&s.ReleaseId==status.ReleaseId&&s.Mode==status.Mode);
+    if(last!=null)stable.Add(last);
+   }
+  }
+  if(stable.Count==0 || !SaveStatus(notices,stable.ToArray()))return null;
+  return $"[{observedUtc.ToUniversalTime():O}] Submission worker status changed; inspect the private worker status.";
+ }
  internal static async Task<DateTimeOffset> Cycle(string registryPath,string statusDirectory,SubmissionAutomationWorkerRole role,
   DateTimeOffset nextDiscovery,CancellationToken token,string? profilesPath=null,AutomationProtectedWorker? protection=null,
   Func<CancellationToken,Task<AutomationReleaseDiscovery.Status[]>>? discover=null,
@@ -67,7 +84,9 @@ internal static class AutomationWorker
    nextDiscovery=(observedUtc??DateTimeOffset.UtcNow).AddMinutes(15);
   }
   var states=await Tick(registryPath,role,token,advance,protection);
-  if(SaveStatus(statusDirectory,states))Console.WriteLine("Submission worker status changed; inspect the private worker status.");
+  SaveStatus(statusDirectory,states);
+  var notice=Notification(statusDirectory,states,observedUtc??DateTimeOffset.UtcNow);
+  if(notice!=null)Console.WriteLine(notice);
   return nextDiscovery;
  }
  internal static async Task<int> Watch(string registryPath,string statusDirectory,SubmissionAutomationWorkerRole role,TimeSpan interval,CancellationToken token,string? profilesPath=null,AutomationProtectedWorker? protection=null) {

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Background submission worker notices include UTC timestamps. Temporary workflow-lock contention remains in the private journal but no longer produces repeated Busy/Waiting notices; genuine status changes still notify.
+
 - Protected automation can select an independently pinned additive unsigned review for later hardware evidence. It preserves original observations and endurance, requires the same candidate and policy, and still waits for exact signing/delivery approvals.
 
 - The submission worker installer can use the signed-in owner's encrypted inputs with `-CurrentUser`. It resumes at owner sign-in; the existing service mode still starts at Windows startup. Document shared evidence and version compatibility for separate evidence and protected computers.
