@@ -141,7 +141,7 @@ The complete `submission prepare-signed-review` stage accepts the same final `--
 
 ## Optional GitHub API access
 
-The current source adds a `GitHub` credential purpose and optional `GitHub` name in a bindings file. This is pending the next batched release after 1.20.0. Public-repository inspection still works without a token within GitHub's unauthenticated limits.
+Version 1.21.0 adds a `GitHub` credential purpose and optional `GitHub` name in a bindings file. Public-repository inspection still works without a token within GitHub's unauthenticated limits.
 
 Use `credentials configure --name release-api --kind GitHub --store C:\Private\Store` to collect the token privately. Enter `api.github.com` as the host, the account name as username, and the token at the password prompt; port 443 is assigned. The account label is not sent as HTTP authentication. Existing protected-stdin import and explicit service provisioning also support this purpose. Saving an entry grants no release, signature or delivery authority.
 

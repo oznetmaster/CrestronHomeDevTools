@@ -214,7 +214,7 @@ Validate the new gate in a fresh rehearsal after the complete plan is ready.
 
 ### Additional initial fixture
 
-Source preview, pending the next packaged release: use `PreEnduranceTests` for a
+Starting with 1.21.0, use `PreEnduranceTests` for a
 separate installed-driver fixture that must finish after the main app fixture and
 before endurance, for example an instrumented outage recorder. It uses the same
 processor and frozen candidate. Supply `PreEnduranceFixtureSettings` for its own
@@ -299,8 +299,8 @@ NUnit counts alone never populate checklist boxes.
 
 The stage adapter and evidence composition have offline regression coverage.
 A hardware run exercising this additional stage remains to be completed; existing
-rehearsals did not include it. Build from source to validate this addition before
-the next packaged release.
+rehearsals did not include it. Use the 1.21.0 release bundle or later to validate
+this stage in a new run.
 
 ### Reviewed evidence from an earlier candidate
 
@@ -520,7 +520,7 @@ The protected role additionally requires `-ProtectedWorker PRIVATE_JSON -Protect
 
 The worker advances only Ready/Running/Waiting operations assigned to its role. It never automatically resets Failed, NeedsInput or OutcomeUnknown. Signing and delivery waits resume when their exact approval document and digest become available. The existing domain journal reconciles a confirmed upload before sending email; uncertain provider outcomes remain stopped. Polling keeps one current status plus a history that rotates at 1 MiB, with one previous file. Unchanged polling performs no history/status write. Each advancement has a six-hour limit; endurance returns promptly while collection continues separately.
 
-Add `-ReleaseProfiles C:/CI/Private/release-profiles.json` to the **evidence** installer to detect opted-in releases every 15 minutes. This is a private Windows poll of published GitHub releases, not a webhook or a change to GitHub's release editor. The profile specifies an explicit UTC start time; installing the watcher does not opt in earlier releases. Default mode is Rehearsal. Public-repository access is unauthenticated by default. In current source, the profiles document can additionally set `credentialBindings` to an absolute private bindings-file path selecting an encrypted GitHub entry. The background watcher and one-time `--intake-releases` command both use it under their executing account. Omit it when not needed. A configured but missing/unreadable entry produces attention rather than silently falling back to unauthenticated access. API rate limits or access failures are attention conditions, not successful intake. See [stored GitHub access](../PrivateInputs.md#optional-github-api-access); this integration awaits the next batched release after 1.20.0.
+Add `-ReleaseProfiles C:/CI/Private/release-profiles.json` to the **evidence** installer to detect opted-in releases every 15 minutes. This is a private Windows poll of published GitHub releases, not a webhook or a change to GitHub's release editor. The profile specifies an explicit UTC start time; installing the watcher does not opt in earlier releases. Default mode is Rehearsal. Public-repository access is unauthenticated by default. Starting with 1.21.0, the profiles document can additionally set `credentialBindings` to an absolute private bindings-file path selecting an encrypted GitHub entry. The background watcher and one-time `--intake-releases` command both use it under their executing account. Omit it when not needed. A configured but missing/unreadable entry produces attention rather than silently falling back to unauthenticated access. API rate limits or access failures are attention conditions, not successful intake. See [stored GitHub access](../PrivateInputs.md#optional-github-api-access).
 
 ```json
 {
