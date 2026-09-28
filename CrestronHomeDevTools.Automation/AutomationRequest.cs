@@ -41,6 +41,7 @@ internal sealed record AutomationRequest(SubmissionAutomationSettings Settings,s
    ??throw new InvalidDataException("Empty automation settings.");
   if(settings.SchemaVersion!=1 || !Enum.IsDefined(settings.Mode))throw new InvalidDataException("Invalid automation mode or schema.");
   if(validateReservation) {
+   AutomationOperatorBindings.Validate(settings);
    AutomationEndurance.ValidateReservation(settings.Endurance);
    AutomationDeploymentEndurance.ValidateConfiguration(settings);
   }

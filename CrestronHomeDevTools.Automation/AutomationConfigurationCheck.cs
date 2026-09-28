@@ -11,6 +11,8 @@ public static class SubmissionAutomationConfiguration
  public static SubmissionAutomationConfigurationReport Check(SubmissionAutomationSettings settings, bool releaseTemplate) {
   ArgumentNullException.ThrowIfNull(settings);
   var missing=new List<string>();
+  try {AutomationOperatorBindings.Validate(settings,releaseTemplate);}
+  catch(InvalidDataException e) {missing.Add(e.Message);}
   if(string.IsNullOrWhiteSpace(settings.CredentialBindings))missing.Add("CredentialBindings");
   if(settings.NUnit.LocalTests.Length==0)missing.Add("NUnit.LocalTests");
   if(settings.NUnit.ProcessorSuites.Length==0)missing.Add("NUnit.ProcessorSuites");

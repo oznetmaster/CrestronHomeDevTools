@@ -122,6 +122,7 @@ internal static class AutomationReleaseDiscovery
   AutomationEndurance.ValidateReservation(settings.Endurance);
   AutomationDeploymentEndurance.ValidateConfiguration(settings);
   AutomationManagedDevices.Validate(settings);
+  AutomationOperatorBindings.Validate(settings);
   return AutomationProbePreparation.Prepare(settings,run,value=>Replace(value,settings.EnduranceFromDeployment,settings.ManagedDevices!=null && settings.EnduranceFromDeployment));
  }
  internal static void Register(string path,SubmissionAutomationRegistration entry) {

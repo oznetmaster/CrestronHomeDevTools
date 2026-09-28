@@ -268,6 +268,21 @@ public sealed class AutomationReleaseDiscoveryTests
   AutomationReleaseDiscovery.Register(registry,entry);AutomationReleaseDiscovery.Register(registry,entry);
   Assert.Throws<InvalidDataException>(()=>AutomationReleaseDiscovery.Register(registry,entry with{SettingsSha256=new('b',64)}));
  }
+ [Test]public void ReleaseExpansionBindsWorkerAndAllPhysicalFixturesToOneInbox() {
+  WithProbeTemplate();
+  var inbox=new SubmissionOperatorInbox("${run}/operator-inbox","${runKey}");
+  var fixture=JsonSerializer.SerializeToElement(new{OperatorInbox=inbox,Manual=new{Inbox=inbox}});
+  var template=AutomationFiles.Read<SubmissionAutomationSettings>(profile.SettingsTemplate.Path) with {
+   OperatorInbox=inbox,InstalledAppFixtureSettings=fixture,PreEnduranceFixtureSettings=fixture,PostEnduranceFixtureSettings=fixture};
+  File.WriteAllBytes(profile.SettingsTemplate.Path,JsonSerializer.SerializeToUtf8Bytes(template,AutomationFiles.Json));
+  profile=profile with{SettingsTemplate=new(profile.SettingsTemplate.Path,AutomationFiles.Hash(profile.SettingsTemplate.Path))};
+  string run=Path.Combine(root,"operator-run");var expanded=ExpandProbe(run);
+  Assert.That(expanded.OperatorInbox,Is.EqualTo(new SubmissionOperatorInbox(run+"/operator-inbox",SubmissionWorkflow.RunKey(expanded.Release))));
+  foreach(var phase in new[]{expanded.InstalledAppFixtureSettings,expanded.PreEnduranceFixtureSettings,expanded.PostEnduranceFixtureSettings}) {
+   Assert.That(phase!.Value.GetProperty("OperatorInbox").Deserialize<SubmissionOperatorInbox>(),Is.EqualTo(expanded.OperatorInbox));
+   Assert.That(phase.Value.GetProperty("Manual").GetProperty("Inbox").Deserialize<SubmissionOperatorInbox>(),Is.EqualTo(expanded.OperatorInbox));
+  }
+ }
  [TestCase("v1.2.3","1.2.3")][TestCase("1.2.3.4","1.2.3.4")]
  public void SupportedVersionTokens(string tag,string expected)=>Assert.That(AutomationReleaseDiscovery.Version(tag),Is.EqualTo(expected));
  [TestCase("v1.2.3/../../x")][TestCase("main")]

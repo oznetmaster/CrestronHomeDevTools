@@ -17,6 +17,16 @@ operator. Use a separate inbox per workflow attempt, retaining its contents with
 the evidence. Keep credentials out of instructions. The run key is the workflow's
 64-character lowercase hexadecimal identity.
 
+Declare `OperatorInbox` in the worker settings as well as each participating fixture.
+Release templates can use `${run}/operator-inbox` and `${runKey}`; normal intake expands
+them once from the pinned release. Preflight verifies that main, additional-initial and
+post-endurance fixture bindings all match the worker's directory and run key. It recognizes
+the reserved `OperatorInbox` property and nested `Inbox` objects containing `Directory`
+or `RunKey`. Mismatches fail before credentials or tests are opened; the tools do not silently
+rewrite a fixture. This also ensures the worker closes the same inbox after review.
+An operator desktop on another host may use a different mount path to that shared storage;
+the worker and its fixture processes must use their same declared path.
+
 ```csharp
 var handle = SubmissionOperatorStep.Create(inbox, runKey, "button-single-press",
     "Selected demonstration button", "Press the selected button once, then choose Done.",

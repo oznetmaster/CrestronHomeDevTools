@@ -62,6 +62,7 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
  {
   if(settings.SchemaVersion!=1 || !Enum.IsDefined(settings.Mode) || c.Checkpoint.Release!=settings.Release || settingsDigest.Length!=64 || !settingsDigest.All(char.IsAsciiHexDigit))
    throw new InvalidDataException("Automation settings do not match the workflow.");
+  AutomationOperatorBindings.Validate(settings);
   if(settings.OperatorInbox is {} declaredInbox && declaredInbox.RunKey!=Path.GetFileName(Path.TrimEndingDirectorySeparator(c.RunDirectory)))
    throw new InvalidDataException("Operator inbox must belong to this exact workflow run.");
   if(role==SubmissionAutomationWorkerRole.Protected) {
