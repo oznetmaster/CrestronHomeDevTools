@@ -26,6 +26,16 @@ public interface ISubmissionManualOutageObserver
  Task<SubmissionOutageRestoredState> RestoreOriginalAsync(SubmissionOutageCapture original, CancellationToken token);
 }
 
+/// <summary>Optional independent proof that a component was restored no later than a bounded
+/// event. For example, a verified NEW boot proves power was restored by the latest possible
+/// boot start. A reply, open port, or an unchanged old boot does not supply such proof.
+/// Each returned capture must retain the raw proof; its LatestUtc caps restoration, while
+/// the operator request remains the lower bound. Unknown or contradictory bounds fail closed.</summary>
+public interface ISubmissionManualRestorationBounds
+{
+ Task<IReadOnlyDictionary<string,SubmissionOutageCapture>> CaptureRestoredByAsync(CancellationToken token);
+}
+
 /// <summary>Adapts a grouped manual action to the recorder's component interface. The operator
 /// attests to physical scope; independent observations verify connectivity/functions. Event bounds
 /// span request publication through acknowledgement/observation, never an invented exact instant.
@@ -36,7 +46,7 @@ public sealed class SubmissionManualOutageHardware : ISubmissionOutageHardware, 
  private readonly ISubmissionManualOutageObserver _observer;
  private readonly string[] _components, _functions;
  private string? _root;
- private Task<SubmissionOutageCapture>? _interruption, _restoration;
+ private Task<IReadOnlyDictionary<string,SubmissionOutageCapture>>? _interruption, _restoration;
  private CancellationTokenSource? _watchLifetime;
  private Task? _watch;
  private Exception? _watchFailure;
@@ -74,10 +84,10 @@ public sealed class SubmissionManualOutageHardware : ISubmissionOutageHardware, 
  private void Component(string component) {
   if(_root==null || !_components.Contains(component,StringComparer.Ordinal))throw new InvalidDataException("Unbound interruption component.");
  }
- public Task<SubmissionOutageCapture> InterruptAsync(string component,CancellationToken token) {
-  Component(component); return _interruption ??= DisconnectAsync(token);
+ public async Task<SubmissionOutageCapture> InterruptAsync(string component,CancellationToken token) {
+  Component(component); return (await (_interruption ??= DisconnectAsync(token)).ConfigureAwait(false))[component];
  }
- private async Task<SubmissionOutageCapture> DisconnectAsync(CancellationToken token) {
+ private async Task<IReadOnlyDictionary<string,SubmissionOutageCapture>> DisconnectAsync(CancellationToken token) {
   var result=await TransitionAsync(false,token).ConfigureAwait(false);
   _watchLifetime=new CancellationTokenSource();
   // Independent of the caller: watch until restoration even after the main observation expires.
@@ -85,12 +95,12 @@ public sealed class SubmissionManualOutageHardware : ISubmissionOutageHardware, 
   catch(Exception error) { _watch=Task.FromException(error); }
   return result;
  }
- public Task<SubmissionOutageCapture> RestoreConnectivityAsync(string component,CancellationToken token) {
+ public async Task<SubmissionOutageCapture> RestoreConnectivityAsync(string component,CancellationToken token) {
   Component(component);
   // The first interruption may have thrown after the operator acted. Always request restoration.
-  return _restoration ??= ReconnectAsync(token);
+  return (await (_restoration ??= ReconnectAsync(token)).ConfigureAwait(false))[component];
  }
- private async Task<SubmissionOutageCapture> ReconnectAsync(CancellationToken token) {
+ private async Task<IReadOnlyDictionary<string,SubmissionOutageCapture>> ReconnectAsync(CancellationToken token) {
   await StopWatchAsync().ConfigureAwait(false);
   return await TransitionAsync(true,token).ConfigureAwait(false);
  }
@@ -105,7 +115,7 @@ public sealed class SubmissionManualOutageHardware : ISubmissionOutageHardware, 
   catch(Exception error) { _watchFailure=error; }
   _watch=null;
  }
- private async Task<SubmissionOutageCapture> TransitionAsync(bool reconnect,CancellationToken token) {
+ private async Task<IReadOnlyDictionary<string,SubmissionOutageCapture>> TransitionAsync(bool reconnect,CancellationToken token) {
   string phase=reconnect?"reconnect":"disconnect";
   SubmissionOperatorHandle? handle=null;
   try {
@@ -120,10 +130,16 @@ public sealed class SubmissionManualOutageHardware : ISubmissionOutageHardware, 
    if(!_components.Order(StringComparer.Ordinal).SequenceEqual(observations.Keys.Order(StringComparer.Ordinal),StringComparer.Ordinal) ||
     observations.Values.Any(c=>c==null || c.LatestUtc<status.Request.CreatedUtc || c.LatestUtc<c.EarliestUtc || c.LatestUtc>DateTimeOffset.UtcNow))
     throw new InvalidDataException("Manual interruption observer returned incomplete scope or stale bounds.");
+   IReadOnlyDictionary<string,SubmissionOutageCapture> restoredBy = reconnect && _observer is ISubmissionManualRestorationBounds bounded
+    ? await bounded.CaptureRestoredByAsync(token).ConfigureAwait(false) : new Dictionary<string,SubmissionOutageCapture>();
+   if(restoredBy.Any(p=>!_components.Contains(p.Key,StringComparer.Ordinal) || p.Value==null ||
+    p.Value.EarliestUtc>p.Value.LatestUtc || p.Value.LatestUtc<status.Request.CreatedUtc ||
+    p.Value.LatestUtc>observations[p.Key].LatestUtc))
+    throw new InvalidDataException("Independent restoration proof is stale, contradictory or outside the observed scope.");
    // Copies reference immutable raw evidence. The enclosing record includes the full operator
    // request/response, so source inbox retention is not needed to interpret these bounds.
    var raw=new Dictionary<string,string>(StringComparer.Ordinal);
-   foreach(var capture in observations.Values) {
+   foreach(var capture in observations.Values.Concat(restoredBy.Values)) {
     if(!SubmissionEvidence.SafeEvidencePath(_root!,capture.Evidence.RelativePath,out string path) ||
      new FileInfo(path).Length>65536)
      throw new InvalidDataException("Manual transition raw observation is missing or exceeds 64 KiB; retain a bounded observation summary.");
@@ -133,7 +149,9 @@ public sealed class SubmissionManualOutageHardware : ISubmissionOutageHardware, 
     raw.TryAdd(capture.Evidence.RelativePath,Convert.ToBase64String(content));
    }
    DateTimeOffset latest=observations.Values.Select(c=>c.LatestUtc).Append(result.Response.RecordedUtc).Max();
-   byte[] bytes=JsonSerializer.SerializeToUtf8Bytes(new { Operator=status, Observations=observations, RawCapturesBase64=raw,
+   var bounds=_components.ToDictionary(c=>c,c=>new { EarliestUtc=status.Request.CreatedUtc,
+    LatestUtc=restoredBy.TryGetValue(c,out var proof)?proof.LatestUtc:latest },StringComparer.Ordinal);
+   byte[] bytes=JsonSerializer.SerializeToUtf8Bytes(new { Operator=status, Observations=observations, RestoredBy=restoredBy, ComponentBounds=bounds, RawCapturesBase64=raw,
     HoldObserverErrorType=reconnect?_watchFailure?.GetType().Name:null,
     PhysicalScope="Operator attestation, independently observed connectivity. Bounds are not exact physical timestamps.",
     EarliestUtc=status.Request.CreatedUtc, LatestUtc=latest },Json);
@@ -141,7 +159,8 @@ public sealed class SubmissionManualOutageHardware : ISubmissionOutageHardware, 
    using(var stream=new FileStream(Path.Combine(_root!,relative),FileMode.CreateNew,FileAccess.Write,FileShare.Read)) {
     stream.Write(bytes);stream.Flush(true);
    }
-   return new(status.Request.CreatedUtc,latest,new(relative,Convert.ToHexStringLower(SHA256.HashData(bytes))));
+   var evidence=new SubmissionEvidenceFile(relative,Convert.ToHexStringLower(SHA256.HashData(bytes)));
+   return bounds.ToDictionary(p=>p.Key,p=>new SubmissionOutageCapture(p.Value.EarliestUtc,p.Value.LatestUtc,evidence),StringComparer.Ordinal);
   } finally {
    if(handle!=null) {
     using var stream=new FileStream(Path.Combine(_root!,"manual-"+phase+"-operator.json"),FileMode.CreateNew);

@@ -171,7 +171,8 @@ public sealed class AutomationReleaseDiscoveryTests
   int checkouts=0;
   Task Checkout(string repo,string commit,string directory,CancellationToken t){checkouts++;Assert.That(repo,Is.EqualTo(profile.Repository));Assert.That(commit,Is.EqualTo(new string('a',40)));Directory.CreateDirectory(directory);return Task.CompletedTask;}
   var first=await AutomationReleaseDiscovery.Tick(profilesFile,registry,new(http),default,Checkout);
-  Assert.That(first.Single().State,Is.EqualTo("Registered"));Assert.That(first.Single().ReleaseId,Is.EqualTo(91));
+  string diagnostic=Path.Combine(profile.PrivateRoot,"discovery-error.json");
+  Assert.That(first.Single().State,Is.EqualTo("Registered"),File.Exists(diagnostic)?File.ReadAllText(diagnostic):JsonSerializer.Serialize(first));Assert.That(first.Single().ReleaseId,Is.EqualTo(91));
   var entry=AutomationFiles.Read<SubmissionAutomationRegistry>(registry).Entries.Single();
   var request=AutomationRequest.Load(["--registry",registry,"--profile","fixture","--release-id","91","--mode","rehearsal"]);
   Assert.That(request.Settings.Release.PackageSha256,Is.EqualTo(Sha));Assert.That(request.Settings.PackageRequirements.DriverVersion,Is.EqualTo("1.2.3.0"));

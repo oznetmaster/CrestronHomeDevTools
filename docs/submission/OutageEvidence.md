@@ -32,7 +32,16 @@ The retained event interval runs from publication of that request through the la
 and independent observation. It deliberately includes operator delay. The transition record embeds
 the request, response and bounded raw connectivity observations (maximum 64 KiB per component),
 so those inputs remain interpretable after the inbox task is cleaned up. This is conservative manual
-timing, not a controller timestamp. Functional and program-load evidence remain separate obligations;
+timing, not a controller timestamp. An observer may also implement `ISubmissionManualRestorationBounds`
+to retain independent proof that a component was restored by an earlier time. For example, a verified
+**new** processor boot bounds power restoration no later than the latest possible boot start. The
+request remains the lower bound, and the complete acknowledgement is retained even when it arrived
+later. Stale, changed, out-of-scope or contradictory proof fails. This refinement must not use an
+unchanged old boot or treat connectivity as program-load evidence.
+
+The source [program uptime reader](../ProcessorProgramUptime.md) can provide a separately identified
+Home program-start window. Its firmware-specific read-only verification is not a physical outage test.
+Functional and program-load evidence remain separate obligations;
 a missing program-load marker still produces Partial. Configure a separately authorized processor
 and explicit protected-host exclusions in the concrete fixture before publishing any request.
 

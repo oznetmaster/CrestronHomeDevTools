@@ -28,8 +28,28 @@ public sealed class SubmissionManualOutageTests
    await Task.Delay(10,timeout.Token);
   }
  }
- private Task<SubmissionOutageRecordingResult> Record(SubmissionManualOutageHardware hardware,CancellationToken token=default)=>
-  SubmissionOutageRecorder.RecordAsync(Plan,hardware,Path.Combine(_root,"recording"),TimeSpan.FromSeconds(20),TimeSpan.FromSeconds(8),token);
+ private Task<SubmissionOutageRecordingResult> Record(SubmissionManualOutageHardware hardware,CancellationToken token=default, bool power=false)=>
+  SubmissionOutageRecorder.RecordAsync(power?Plan with {RecoveryClock=SubmissionOutageRecoveryClock.ProgramLoaded,ProgramComponent="processor"}:Plan,
+   hardware,Path.Combine(_root,"recording"),TimeSpan.FromSeconds(20),TimeSpan.FromSeconds(8),token);
+ [Test] public async Task IndependentNewBootProofKeepsLateAcknowledgementOutOfProgramStartOrdering() {
+  var observer=new Observer{RestorationProof="valid"};await using var hardware=Hardware(observer);
+  var task=Record(hardware,power:true);await Answer("disconnect");
+  var reconnect=await Pending("outage-reconnect");await observer.Recovered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+  await Task.Delay(80);SubmissionOperatorStep.Respond(reconnect,SubmissionOperatorOutcome.Done);
+  var result=await task;
+  Assert.That(result.Passed,Is.True,string.Join(",",result.Issues.Concat(result.Measurements?.Issues??[])));
+  using var doc=System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(_root,"recording","manual-reconnect-capture.json")));
+  var bounds=doc.RootElement.GetProperty("componentBounds");
+  Assert.That(bounds.GetProperty("processor").GetProperty("latestUtc").GetDateTimeOffset(),Is.LessThan(observer.ProgramLoaded!.EarliestUtc));
+  Assert.That(bounds.GetProperty("device").GetProperty("latestUtc").GetDateTimeOffset(),Is.GreaterThan(observer.ProgramLoaded.LatestUtc));
+  Assert.That(doc.RootElement.GetProperty("restoredBy").GetProperty("processor").ValueKind,Is.EqualTo(System.Text.Json.JsonValueKind.Object));
+ }
+ [TestCase("stale")][TestCase("future")][TestCase("unknown")][TestCase("modified")]
+ public async Task InvalidIndependentRestorationProofCannotPassAndStillRestoresOriginal(string error) {
+  var observer=new Observer{RestorationProof=error};await using var hardware=Hardware(observer);
+  var task=Record(hardware);await Answer("disconnect");await Answer("reconnect");var result=await task;
+  Assert.That(result.Passed,Is.False);Assert.That(observer.RestoredOriginal,Is.True);Assert.That(observer.FunctionsChecked,Is.Zero);
+ }
  [Test] public void PolicyPreflightRejectsInsufficientDurationBeforeAnyOperatorRequest() {
   var policy=new SubmissionEvidencePolicy(1,[new("system.network",TimeSpan.FromMinutes(1),false,new("system","outage",SubmissionEvidenceOutcome.Passed,60,true))]);
   Assert.Throws<InvalidDataException>(()=>SubmissionOutageEvidence.ValidatePlanPolicy(Plan,policy));
@@ -85,12 +105,16 @@ public sealed class SubmissionManualOutageTests
   var task=Record(hardware);await Answer("disconnect");await Answer("reconnect");
   Assert.That((await task).Passed,Is.False);Assert.That(observer.RestoredOriginal,Is.True);
  }
- private sealed class Observer:ISubmissionManualOutageObserver {
+ private sealed class Observer:ISubmissionManualOutageObserver,ISubmissionManualRestorationBounds {
   public IReadOnlyList<string> Components=>["processor","device"];
   public IReadOnlyList<string> Functions=>["control"];
   public bool WaitForObservation,EarlyReturn,WrongScope,RestoredOriginal,WatchCancelled;
   public int DisconnectObservations,RestoreObservations,FunctionsChecked;
   public TaskCompletionSource Observed=new(TaskCreationOptions.RunContinuationsAsynchronously);
+  public TaskCompletionSource Recovered=new(TaskCreationOptions.RunContinuationsAsynchronously);
+  public string? RestorationProof;
+  public SubmissionOutageCapture? ProgramLoaded;
+  private SubmissionOutageCapture? _restoredBy;
   private string _root=null!;private int _sequence;
   public Task PreflightAsync(SubmissionOutageRecordingContext context,CancellationToken token) {_root=context.EvidenceDirectory;return Task.CompletedTask;}
   private SubmissionOutageCapture Capture() {
@@ -108,9 +132,22 @@ public sealed class SubmissionManualOutageTests
    try {await Task.Delay(Timeout.Infinite,token);}finally{WatchCancelled=token.IsCancellationRequested;}
   }
   public async Task<IReadOnlyDictionary<string,SubmissionOutageCapture>> ObserveRestoredAsync(CancellationToken token) {
-   RestoreObservations++;await Task.Delay(30,token);return new Dictionary<string,SubmissionOutageCapture>{{"processor",Capture()},{"device",Capture()}};
+   RestoreObservations++;await Task.Delay(30,token);_restoredBy=Capture();await Task.Delay(2,token);ProgramLoaded=Capture();
+   var result=new Dictionary<string,SubmissionOutageCapture>{{"processor",Capture()},{"device",Capture()}};
+   Recovered.TrySetResult();return result;
   }
-  public Task<SubmissionOutageCapture?> ObserveProgramLoadedAsync(string component,CancellationToken token)=>Task.FromResult<SubmissionOutageCapture?>(null);
+  public Task<IReadOnlyDictionary<string,SubmissionOutageCapture>> CaptureRestoredByAsync(CancellationToken token) {
+   var result=new Dictionary<string,SubmissionOutageCapture>();
+   if(RestorationProof!=null) {
+    var proof=_restoredBy!;
+    if(RestorationProof=="stale")proof=proof with {EarliestUtc=proof.EarliestUtc.AddMinutes(-1),LatestUtc=proof.LatestUtc.AddMinutes(-1)};
+    if(RestorationProof=="future")proof=proof with {LatestUtc=proof.LatestUtc.AddMinutes(1)};
+    if(RestorationProof=="modified")File.AppendAllText(Path.Combine(_root,proof.Evidence.RelativePath),"changed");
+    result[RestorationProof=="unknown"?"unknown":"processor"]=proof;
+   }
+   return Task.FromResult<IReadOnlyDictionary<string,SubmissionOutageCapture>>(result);
+  }
+  public Task<SubmissionOutageCapture?> ObserveProgramLoadedAsync(string component,CancellationToken token)=>Task.FromResult(ProgramLoaded);
   public Task<SubmissionOutageFunction> VerifyFunctionAsync(string function,CancellationToken token) {
    FunctionsChecked++;return Task.FromResult(new SubmissionOutageFunction(function,SubmissionEvidenceOutcome.Passed,Capture()));
   }
