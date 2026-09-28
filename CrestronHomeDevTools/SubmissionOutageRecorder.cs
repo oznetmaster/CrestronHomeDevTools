@@ -160,9 +160,10 @@ public static class SubmissionOutageRecorder
 			{
 			if (attempts.Count > 0)
 				{
-				using var recovery = new CancellationTokenSource (restorationTimeout);
 				foreach (string component in attempts.AsEnumerable ().Reverse ())
 					{
+					// A timed-out component must not consume the next component's restoration budget.
+					using var recovery = new CancellationTokenSource (restorationTimeout);
 					try
 						{
 						// Recovery must still be attempted if a progress write failed.

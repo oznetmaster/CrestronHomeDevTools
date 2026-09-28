@@ -23,8 +23,9 @@ The recorder performs these steps:
 6. Restore and independently compare the original device/app state, including collateral changes.
 7. Assess the retained measurements through the same conservative timing validator used by the importer.
 
-Cancellation and observation timeout still enter restoration. Connectivity restoration and
-final state restoration each have their own bounded budget, independent of caller cancellation.
+Cancellation and observation timeout still enter restoration. Each component's connectivity
+restoration and the final state restoration have separate bounded budgets, independent of
+caller cancellation. One component timing out cannot cancel restoration of the next component.
 Bindings must honor cancellation; the recorder cannot safely force-stop a transport that ignores it.
 Process termination or host power loss cannot execute `finally`: retain the incomplete directory
 and require inspection/restoration, never automatically replay the interrupted test. A hardware

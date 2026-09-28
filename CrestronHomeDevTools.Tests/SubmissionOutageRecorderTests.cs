@@ -16,6 +16,7 @@ public sealed class SubmissionOutageRecorderTests
 	private SubmissionOutageMeasurementPlan _plan = null!;
 	private CancellationTokenSource _cancel = null!;
 	private int _holds;
+	private TimeSpan _restorationTimeout;
 
 	[SetUp]
 	public void SetUp ()
@@ -28,6 +29,7 @@ public sealed class SubmissionOutageRecorderTests
 			 "system.network", ["processor", "device"], ["control", "feedback"],
 			 TimeSpan.FromSeconds (60), TimeSpan.FromSeconds (60), SubmissionOutageRecoveryClock.NetworkRestored);
 		_holds = 0;
+		_restorationTimeout = TimeSpan.FromMinutes (1);
 		}
 	[TearDown]
 	public void TearDown ()
@@ -37,7 +39,7 @@ public sealed class SubmissionOutageRecorderTests
 			Directory.Delete (_root, true);
 		}
 	private Task<SubmissionOutageRecordingResult> Run () => SubmissionOutageRecorder.RecordCoreAsync (_plan,
-		 _hardware, _root, TimeSpan.FromMinutes (10), TimeSpan.FromMinutes (1), _clock, (duration, ct) =>
+		 _hardware, _root, TimeSpan.FromMinutes (10), _restorationTimeout, _clock, (duration, ct) =>
 		 {
 			 ct.ThrowIfCancellationRequested ();
 			 _holds++;
@@ -98,6 +100,17 @@ public sealed class SubmissionOutageRecorderTests
 			Assert.That (result.Issues, Does.Contain ("connectivity-restoration:IOException"));
 			Assert.That (_hardware.CheckedFunctions, Is.Empty);
 		});
+		}
+	[Test]
+	public async Task TimedOutRestorationDoesNotCancelTheNextComponent ()
+		{
+		_hardware.Failure = "connectivity-timeout";
+		_restorationTimeout = TimeSpan.FromSeconds (1);
+		var result = await Run ();
+		Assert.That (result.Passed, Is.False);
+		Assert.That (_hardware.Restored, Is.EqualTo (new[] { "device", "processor" }));
+		Assert.That (_hardware.Interrupted, Is.EqualTo (new[] { "device" }));
+		Assert.That (_hardware.RestoreOriginalCalls, Is.EqualTo (1));
 		}
 
 	[TestCase ("function")]
@@ -312,19 +325,21 @@ public sealed class SubmissionOutageRecorderTests
 			_lastInterruption = capture;
 			return Task.FromResult (capture);
 			}
-		public Task<SubmissionOutageCapture> RestoreConnectivityAsync (string component, CancellationToken token)
+		public async Task<SubmissionOutageCapture> RestoreConnectivityAsync (string component, CancellationToken token)
 			{
 			token.ThrowIfCancellationRequested ();
 			Restored.Add (component);
+			if (Failure == "connectivity-timeout" && component == "device")
+				await Task.Delay (Timeout.InfiniteTimeSpan, token);
 			if (Failure == "connectivity" && component == "device")
 				throw new IOException ("synthetic-secret");
 			Interrupted.Remove (component);
 			if (Failure == "early-restoration")
 				{
 				var early = _lastInterruption!.LatestUtc.AddSeconds (20);
-				return Task.FromResult (CaptureAt (early, early));
+				return CaptureAt (early, early);
 				}
-			return Task.FromResult (Capture ());
+			return Capture ();
 			}
 		public Task<SubmissionOutageCapture?> ObserveProgramLoadedAsync (string component, CancellationToken token) =>
 			 Task.FromResult (Failure == "no-load-marker" ? null : Capture ());
