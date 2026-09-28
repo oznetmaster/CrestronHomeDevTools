@@ -28,10 +28,19 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
   :this(settings,settingsSha256,(p,c,r,t)=>WorkflowRunner.RunAsync(p,c,r,token:t),host=> {
    if(!OperatingSystem.IsWindows())throw new PlatformNotSupportedException();
    var saved=DevToolsCredentialBindings.Read(settings.CredentialBindings).Resolve(DevToolsCredentialPurpose.Processor,host);
-   if(saved.CertificateSha256!=settings.NUnit.CertificateSha256 || saved.SshFingerprint!=settings.NUnit.SshFingerprint)
-    throw new InvalidDataException("The saved processor trust pins differ from the reviewed plan.");
+   VerifyProcessorPins(settings,host,saved.CertificateSha256,saved.SshFingerprint);
    return new(saved.UserName,saved.Password);
   },role) { }
+ internal static void VerifyProcessorPins(SubmissionAutomationSettings settings,string host,string? certificate,string? ssh) {
+  string expectedCertificate,expectedSsh;
+  if(host==settings.NUnit.Host) {expectedCertificate=settings.NUnit.CertificateSha256;expectedSsh=settings.NUnit.SshFingerprint;}
+  else if(settings.PreEnduranceSeparateProcessor && settings.PreEnduranceTests is {} additional && host==additional.Host) {
+   AutomationInitialAdditionalTests.Validate(settings);
+   expectedCertificate=additional.CertificateSha256;expectedSsh=additional.SshFingerprint;
+  } else throw new InvalidDataException("Processor is not a declared workflow target.");
+  if(certificate!=expectedCertificate || ssh!=expectedSsh)
+   throw new InvalidDataException("The saved processor trust pins differ from its reviewed plan.");
+ }
  internal SubmissionAutomationStages(SubmissionAutomationSettings settings,string digest,SubmissionAutomationWorkerRole role,AutomationProtectedWorker? installed)
   :this(role==SubmissionAutomationWorkerRole.Protected?(installed??throw new InvalidDataException("Protected role requires its independently pinned installed configuration.")).Bind(settings):settings,digest,role)
   {protectedDigest=installed?.Sha256;}

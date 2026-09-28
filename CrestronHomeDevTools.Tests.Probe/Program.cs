@@ -2,6 +2,17 @@
 // Licensed under the MIT License. See LICENSE in the repository root.
 
 using System.Text.Json.Nodes;
+using CrestronHomeDevTools;
+
+if(args is ["--operator-wait",var operatorDirectory,var requestHash]) {
+ using var timeout=new CancellationTokenSource(TimeSpan.FromSeconds(20));
+ var waiting=SubmissionOperatorStep.WaitAsync(new(operatorDirectory,requestHash),timeout.Token);
+ if(waiting.IsCompleted)return 5;
+ Console.WriteLine("Waiting");
+ var response=await waiting;
+ Console.WriteLine(response.Outcome);
+ return response.Outcome==SubmissionOperatorOutcome.Done?0:4;
+}
 
 if (args is ["--automation-review",var fixtureRoot,var bundledConsole])
  return await SyntheticAutomationReview.Run(fixtureRoot,bundledConsole);

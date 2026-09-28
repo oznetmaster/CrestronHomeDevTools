@@ -1,6 +1,6 @@
 # Bounded outage evidence
 
-Status: implemented in source for the next batched release. This command is not in the 1.20.0 console bundle.
+Status: importer and recorder available starting with 1.21.0. Concrete live hardware bindings still require validation. Planned [operator steps and separate-processor initial tests](OperatorSteps.md) are source additions for the next batched release.
 
 `submission-import-outage-evidence` turns a retained, measured interruption into a normal `SubmissionEvidenceDocument`. It validates evidence and timing; it does **not** disconnect equipment, gather a processor log, operate the app, or establish that a particular hardware scope satisfies the official checklist. The source library also provides `SubmissionOutageRecorder` for capture sequencing and restoration. Its concrete hardware bindings must be implemented and validated before starting the workflow. Neither the importer nor the recorder's offline tests prove a live equipment test.
 

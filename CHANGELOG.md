@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Add durable physical-action requests, a public response command and a Windows desktop inbox. Acknowledgements resume the fixture but never count as a functional pass or signing/delivery approval. Expiry, cancellation and conflicting responses are retained.
+- Allow an explicitly separate processor for additional initial tests, with its own trust pins and installed target. The package and source must match the submission candidate; main-target deployment IDs and managed-child references cannot cross processors.
+- These additions have offline regression coverage. Live sensor/outage fixture integration, interactive desktop validation and automatic inbox-task cleanup remain unfinished; they do not establish a successful end-to-end rehearsal.
+
 ## 1.21.0 - 2026-09-28
 
 This release updates the test workflow to NUnit 5 and adds reusable outage evidence recording and optional stored GitHub authentication.

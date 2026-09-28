@@ -227,6 +227,13 @@ while checking the expected target identity. Otherwise both initial plans must
 identify the same installed target. A separate fixture does not require changing
 or rebuilding the driver being submitted.
 
+The next batched release adds an explicit `PreEnduranceSeparateProcessor` option
+for interruption tests on different equipment. It requires a separate installed
+target and matching candidate, independent trust pins and explicit fixture inputs.
+Main-processor deployment and managed-child IDs cannot be reused. See
+[planned physical actions](OperatorSteps.md) for the source implementation and its
+remaining live-integration limits. This option is not in 1.21.0.
+
 Both fixtures belong to `AppTests`; its `initial-tests.json` completion receipt
 pins both evidence inventories. Additional output lives under `pre-endurance/`.
 List its observations in both `Review.PreEnduranceObservationSources` and final

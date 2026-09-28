@@ -19,15 +19,18 @@ internal static class AutomationInitialAdditionalTests
 		InstalledAppTests = settings.PreEnduranceTests ?? throw new InvalidDataException ("Additional initial tests are not configured."),
 		NUnit = settings.NUnit with
 			{
-			AndroidTests = null
+			AndroidTests = null,
+			Host = settings.PreEnduranceSeparateProcessor ? settings.PreEnduranceTests!.Host : settings.NUnit.Host,
+			CertificateSha256 = settings.PreEnduranceSeparateProcessor ? settings.PreEnduranceTests!.CertificateSha256 : settings.NUnit.CertificateSha256,
+			SshFingerprint = settings.PreEnduranceSeparateProcessor ? settings.PreEnduranceTests!.SshFingerprint : settings.NUnit.SshFingerprint
 			},
-		InstalledAppFixtureSettings = settings.PreEnduranceFixtureSettings ?? settings.InstalledAppFixtureSettings
+		InstalledAppFixtureSettings = settings.PreEnduranceSeparateProcessor ? settings.PreEnduranceFixtureSettings : settings.PreEnduranceFixtureSettings ?? settings.InstalledAppFixtureSettings
 		};
 	internal static void Validate (SubmissionAutomationSettings settings)
 		{
 		if (settings.PreEnduranceTests == null)
 			{
-			if (settings.PreEnduranceFromDeployment || settings.PreEnduranceFixtureSettings != null)
+			if (settings.PreEnduranceFromDeployment || settings.PreEnduranceSeparateProcessor || settings.PreEnduranceFixtureSettings != null)
 				throw new InvalidDataException ("Additional initial bindings require PreEnduranceTests.");
 			return;
 			}
@@ -35,7 +38,13 @@ internal static class AutomationInitialAdditionalTests
 			throw new InvalidDataException ("Additional initial tests require installed-app tests, endurance and review bindings.");
 		if (settings.PreEnduranceFromDeployment && (settings.NUnit.ActualDriver == null || settings.NUnit.ReleaseCandidate == null))
 			throw new InvalidDataException ("Deployment-bound initial tests require the actual candidate deployment.");
-		if (!settings.PreEnduranceFromDeployment && settings.PreEnduranceTests.Target != settings.InstalledAppTests.Target)
+		if (settings.PreEnduranceSeparateProcessor)
+			{
+			if (settings.PreEnduranceFromDeployment || string.Equals(settings.PreEnduranceTests.Host,settings.NUnit.Host,StringComparison.OrdinalIgnoreCase) ||
+			 settings.PreEnduranceFixtureSettings == null || settings.PreEnduranceFixtureSettings.Value.GetRawText().Contains("${managed:",StringComparison.Ordinal))
+				throw new InvalidDataException("Separate-processor initial tests require a distinct host, explicit fixture inputs and concrete target IDs; main-processor deployment or managed-child bindings cannot be reused.");
+			}
+		if (!settings.PreEnduranceSeparateProcessor && !settings.PreEnduranceFromDeployment && settings.PreEnduranceTests.Target != settings.InstalledAppTests.Target)
 			throw new InvalidDataException ("Additional initial tests must select the same installed driver or bind to its deployment receipt.");
 		AutomationInstalledApp.ValidateTemplate (Settings (settings), settings.PreEnduranceFromDeployment);
 		}
@@ -74,7 +83,8 @@ internal static class AutomationInitialAdditionalTests
 			throw new InvalidDataException ("Existing additional initial operation has no safe binding; inspect without replaying.");
 		Directory.CreateDirectory (folder);
 		AutomationFiles.Write (Path.Combine (folder, "initial-app-binding.json"), binding);
-		var resolved = AutomationPostEndurance.ResolveTarget (context, settings, Settings (settings), settings.PreEnduranceFromDeployment, beforeAppTests: true);
+		var resolved = settings.PreEnduranceSeparateProcessor ? Settings(settings) :
+		 AutomationPostEndurance.ResolveTarget (context, settings, Settings (settings), settings.PreEnduranceFromDeployment, beforeAppTests: true);
 		bool attempted = File.Exists (Path.Combine (folder, "installed-app-intent.json"));
 		if (prepared && !attempted)
 			return new (SubmissionWorkflowStatus.OutcomeUnknown, ReasonCode: "inspect-additional-initial-operation-and-leases");

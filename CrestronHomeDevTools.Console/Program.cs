@@ -57,6 +57,8 @@ static async Task<int> RunSafelyAsync (string[] args, bool interactive = false)
 
 static async Task<int> RunAsync (string[] args, bool interactive = false)
 	{
+	if (args.FirstOrDefault () == "submission-operator")
+		return SubmissionOperatorCommand.Run (args[1..], Console.Out, Console.Error);
 	if (args.FirstOrDefault () == "submission-release-intake")
 		{
 		using var deadline = new CancellationTokenSource (TimeSpan.FromMinutes (5));

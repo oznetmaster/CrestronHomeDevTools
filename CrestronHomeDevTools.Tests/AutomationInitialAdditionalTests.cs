@@ -22,6 +22,44 @@ public sealed partial class AutomationInstalledAppTests
 			Review = new (null!, null!, null!, null!, null!, "Synthetic", "Synthetic", [])
 			};
 		}
+ private void ConfigureSeparateInitial() {
+  ConfigureAdditionalInitial();
+  settings=settings with {PreEnduranceSeparateProcessor=true,
+   PreEnduranceTests=settings.PreEnduranceTests! with {Host="outage.example",CertificateSha256=new('9',64),SshFingerprint="outage-pin",
+    Target=settings.PreEnduranceTests.Target with {DeviceId=244}},
+   PreEnduranceFixtureSettings=JsonSerializer.SerializeToElement(new {DeviceId=244,Target="outage.example"})};
+ }
+ [Test]
+ public async Task ExplicitSeparateProcessorPreservesMainTargetAndRetainsBothPlans() {
+  ConfigureSeparateInitial();var hosts=new List<string>();
+  var result=await AdditionalController((p,c,f,t)=> {hosts.Add(p.Host);return Run(p,c,f,t);}).ExecuteAsync(context,default);
+  Assert.That(result.Status,Is.EqualTo(SubmissionWorkflowStatus.Completed));
+  Assert.That(hosts,Is.EqualTo(new[]{"processor.example","outage.example"}));
+  Assert.That(settings.NUnit.Host,Is.EqualTo("processor.example"));
+  var plan=AutomationFiles.Read<InstalledDriverTestPlan>(Path.Combine(context.RunDirectory,"pre-endurance","target-plan.json"));
+  Assert.That(plan.Host,Is.EqualTo("outage.example"));
+  Assert.That(plan.Target.DeviceId,Is.EqualTo(244));
+  Assert.That(plan.PackageSha256,Is.EqualTo(settings.Release.PackageSha256));
+  AutomationInitialAdditionalTests.VerifyRetained(context);
+ }
+ [TestCase("same-host")][TestCase("deployment")][TestCase("managed")][TestCase("no-inputs")][TestCase("candidate")]
+ public async Task SeparateProcessorRejectsAmbiguousOrDifferentCandidateBeforeAnyExecution(string change) {
+  ConfigureSeparateInitial();settings=change switch {
+   "same-host"=>settings with {PreEnduranceTests=settings.PreEnduranceTests! with {Host=settings.NUnit.Host}},
+   "deployment"=>settings with {PreEnduranceFromDeployment=true},
+   "managed"=>settings with {PreEnduranceFixtureSettings=JsonSerializer.SerializeToElement(new {DeviceId="${managed:demo:deviceId}"})},
+   "candidate"=>settings with {PreEnduranceTests=settings.PreEnduranceTests! with {PackageSha256=new('8',64)}},
+   _=>settings with {PreEnduranceFixtureSettings=null}};
+  await Assert.ThrowsAsync<InvalidDataException>(async()=>await AdditionalController().ExecuteAsync(context,default));
+  Assert.That(calls,Is.Zero);
+ }
+ [Test]
+ public void SeparateProcessorCredentialsRequireItsOwnPins() {
+  ConfigureSeparateInitial();
+  Assert.DoesNotThrow(()=>SubmissionAutomationStages.VerifyProcessorPins(settings,"outage.example",new('9',64),"outage-pin"));
+  Assert.Throws<InvalidDataException>(()=>SubmissionAutomationStages.VerifyProcessorPins(settings,"outage.example",settings.NUnit.CertificateSha256,settings.NUnit.SshFingerprint));
+  Assert.Throws<InvalidDataException>(()=>SubmissionAutomationStages.VerifyProcessorPins(settings,"undeclared.example",new('9',64),"outage-pin"));
+ }
 	private SubmissionAutomationStages AdditionalController (
 	 Func<InstalledDriverTestPlan, NetworkCredential, string, CancellationToken, Task<InstalledDriverTestResult>>? runner = null) =>
 	 new (settings, new ('f', 64), (_, _, _, _) => throw new AssertionException ("NUnit must not restart"), _ => new (), installedApp: runner ?? Run);

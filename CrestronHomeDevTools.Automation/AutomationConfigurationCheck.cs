@@ -25,6 +25,9 @@ public static class SubmissionAutomationConfiguration
    missing.Add("PreEnduranceTests requires InstalledAppTests, Endurance and Review");
   if(settings.PreEnduranceFixtureSettings!=null && settings.PreEnduranceTests==null)
    missing.Add("PreEnduranceTests for PreEnduranceFixtureSettings");
+  if(settings.PreEnduranceSeparateProcessor && (settings.PreEnduranceTests==null || settings.PreEnduranceFixtureSettings==null ||
+   settings.PreEnduranceFromDeployment || string.Equals(settings.PreEnduranceTests.Host,settings.NUnit.Host,StringComparison.OrdinalIgnoreCase)))
+   missing.Add("Separate-processor initial tests require a distinct explicit target and fixture inputs without main-target deployment binding");
   if(settings.PreEnduranceFromDeployment && (settings.PreEnduranceTests==null || settings.NUnit.ActualDriver==null || settings.NUnit.ReleaseCandidate==null))
    missing.Add("PreEnduranceTests and actual candidate deployment for PreEnduranceFromDeployment");
   if(settings.ResponseComparison!=null && (settings.PostEnduranceTests==null || settings.Endurance==null || settings.Review==null))
