@@ -96,6 +96,7 @@ public sealed class AutomationWorkerTests
   Assert.That(AutomationWorker.Notification(root,[a,failed],time),Is.Null);
  }
  [TestCase("Waiting","Endurance","endurance-collecting",false)]
+ [TestCase("Waiting","Endurance","endurance-collecting-with-issues",true)]
  [TestCase("Waiting","SignReview","worker-role-handoff",false)]
  [TestCase("Running","WindowsTests",null,false)]
  [TestCase("Completed","Complete",null,false)]

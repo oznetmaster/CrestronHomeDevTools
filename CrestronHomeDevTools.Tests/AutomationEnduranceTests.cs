@@ -21,7 +21,8 @@ public sealed class AutomationEnduranceTests
   public string Reservation="Held";
   public SubmissionEnduranceState State=SubmissionEnduranceState.Collecting;
   public int Starts,Collects,Finishes,Exports;
-  public SubmissionEnduranceCheckpoint Checkpoint()=>new(1,new('a',64),State,DateTimeOffset.UtcNow,[]);
+  public string Reason="";
+  public SubmissionEnduranceCheckpoint Checkpoint()=>new(1,new('a',64),State,DateTimeOffset.UtcNow,[],Reason);
   public Task Start(CancellationToken t){Starts++;Directory.CreateDirectory(Path.Combine(root,"endurance"));return Task.CompletedTask;}
   public SubmissionEnduranceMonitorStatus Read()=>new(Reservation,Checkpoint());
   public Task<SubmissionEnduranceCheckpoint> Collect(CancellationToken t){Collects++;return Task.FromResult(Checkpoint());}
@@ -39,6 +40,15 @@ public sealed class AutomationEnduranceTests
   var second=await AutomationEndurance.Advance(context,true,monitor,default);
   Assert.That(first.Status,Is.EqualTo(SubmissionWorkflowStatus.Completed));Assert.That(second.Receipt,Is.EqualTo(first.Receipt));
   Assert.That(monitor.Finishes,Is.EqualTo(1));Assert.That(monitor.Collects,Is.Zero);
+ }
+ [Test]public async Task InconclusiveObservationSurfacesWhileWorkerKeepsCollecting() {
+  monitor.Reason="inconclusive-observation-retained";
+  for(int i=0;i<2;i++) {
+   var result=await AutomationEndurance.Advance(context,i>0,monitor,default);
+   Assert.That(result.Status,Is.EqualTo(SubmissionWorkflowStatus.Waiting));
+   Assert.That(result.ReasonCode,Is.EqualTo("endurance-collecting-with-issues"));
+  }
+  Assert.That(monitor.Collects,Is.EqualTo(2));Assert.That(monitor.Finishes,Is.Zero);Assert.That(monitor.Exports,Is.Zero);
  }
  [Test]public async Task KnownFailureReleasesReadOnlyReservationAndStaysFailed() {
   await monitor.Start(default);monitor.State=SubmissionEnduranceState.Failed;

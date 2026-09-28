@@ -75,8 +75,10 @@ internal static class AutomationWorker
    return "Submission worker needs attention. Inspect the private worker status for details.";
   // Signing/delivery authorization also uses Waiting, so do not label every
   // waiting state as passive. Only known unattended waits are informational.
-  if(statuses.Any(s=>s.State=="NeedsInput" || s.State=="Waiting" && s.Reason is not ("endurance-collecting" or "worker-role-handoff")))
+  if(statuses.Any(s=>s.State=="NeedsInput" || s.State=="Waiting" && s.Reason is not ("endurance-collecting" or "endurance-collecting-with-issues" or "worker-role-handoff")))
    return "Submission worker requires input or approval. Inspect the private worker status for the required action.";
+  if(statuses.Any(s=>s.State=="Waiting" && s.Reason=="endurance-collecting-with-issues"))
+   return "Endurance collection continues with retained inconclusive observations; automatic acceptance is blocked. Inspect the private worker status and probe evidence. Collection does not require a restart.";
   if(statuses.Length>0 && statuses.All(s=>s.State=="Completed"))
    return "Submission worker completed its configured work. No action required from this notice.";
   if(statuses.Any(s=>s.State=="Waiting" && s.Stage=="Endurance" && s.Reason=="endurance-collecting"))

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Retain per-outlet Kasa/Tapo endurance diagnostics and partial successes without exposing exception messages or credentials. Distinguish unavailable observations from physical identity failures and still verify the installed payload. New immutable endurance plans can opt to continue collecting after inconclusive observations; the worker surfaces the retained issue and never automatically accepts or exports that run as passing. Existing plans and terminal evidence remain unchanged.
+
 - Background submission worker notices include UTC timestamps and say whether action is required. Temporary workflow-lock contention remains in the private journal but no longer produces repeated Busy/Waiting notices; genuine status changes still notify. Routine endurance notices say “No action required”; signing/delivery approvals and errors still request attention.
 
 - Protected automation can select an independently pinned additive unsigned review for later hardware evidence. It preserves original observations and endurance, requires the same candidate and policy, and still waits for exact signing/delivery approvals.

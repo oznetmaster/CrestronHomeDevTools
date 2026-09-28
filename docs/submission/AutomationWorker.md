@@ -511,6 +511,18 @@ This only performs discovery, intake, source checkout and registration. The inst
 
 ## Execution and recovery
 
+New endurance plans may opt into `Endurance.Plan.ContinueAfterInconclusiveObservation`
+in the updated source collector. Only a producer result explicitly classified as
+`Inconclusive`, with valid identity, timing and evidence, permits continuation.
+The worker stays `Waiting` with `endurance-collecting-with-issues`, continues its
+scheduled observations and notifies on that status change. The issue remains
+visible after subsequent passing samples. Completion with any non-passing sample
+is still failed and cannot export as a passing endurance result. Definite failures
+and integrity/cancellation/deadline checks retain their stop behavior. The option
+defaults to false and must be frozen before starting; it cannot resume an existing
+terminal failed journal. A replacement endurance attempt must preserve that journal
+and must not credit its partial duration as an uninterrupted passing run.
+
 For an existing Google Android emulator on a dedicated Windows test worker, see
 [unattended Android setup](AndroidWorkerSetup.md). Its startup task is separate
 from the evidence worker. Complete and verify the Home connection once; emulator

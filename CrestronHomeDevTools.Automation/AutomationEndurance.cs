@@ -39,7 +39,8 @@ internal sealed class AutomationEndurance(string directory, SubmissionEnduranceW
   if(checkpoint?.State is not (SubmissionEnduranceState.Passed or SubmissionEnduranceState.Failed)) {
    checkpoint=await monitor.Collect(token);
    if(checkpoint.State==SubmissionEnduranceState.Collecting)
-    return new(SubmissionWorkflowStatus.Waiting,ReasonCode:"endurance-collecting");
+    return new(SubmissionWorkflowStatus.Waiting,ReasonCode:checkpoint.Reason=="inconclusive-observation-retained"
+     ?"endurance-collecting-with-issues":"endurance-collecting");
    if(checkpoint.State!=SubmissionEnduranceState.Passed && checkpoint.State!=SubmissionEnduranceState.Failed)
     return new(SubmissionWorkflowStatus.OutcomeUnknown,ReasonCode:"inspect-endurance-operation");
   }

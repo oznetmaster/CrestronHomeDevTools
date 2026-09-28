@@ -15,7 +15,7 @@ static class Producer
 {
     public static async Task RunAsync(string[] args)
     {
-        if (args.SequenceEqual(["--self-test"])) { OfflineChecks.Run(); Console.WriteLine("self-test-passed"); return; }
+        if (args.SequenceEqual(["--self-test"])) { OfflineChecks.Run(); await OutletChecks.RunAsync(); Console.WriteLine("self-test-passed"); return; }
         if (args.Length != 0) throw new ArgumentException("Use a probe request on standard input.");
         var json = ProducerJson.CreateOptions();
         var request = JsonSerializer.Deserialize<SubmissionEnduranceProbeRequest>(await Console.In.ReadToEndAsync(), json)
@@ -60,6 +60,7 @@ static class Producer
             var platform = await api.GetDeviceAsync(input.DeviceId, timeout.Token) ?? throw new InvalidDataException("Platform missing.");
             VerifyIdentity(platform, input.DriverName, input.DriverModel, input.LocationId, input.DriverVersion);
             var observed = new List<object>();
+            evidence["children"] = observed;
             foreach (var child in input.Children)
             {
                 evidence["phase"] = "child-state";
@@ -76,9 +77,8 @@ static class Producer
                 }
                 observed.Add(new { child.Alias, child.DeviceId, Values = values, ObservedUtc = DateTimeOffset.UtcNow });
             }
-            evidence["children"] = observed;
             evidence["phase"] = "independent-outlets";
-            evidence["independentOutlets"] = await ReadOutletsAsync(input, timeout.Token);
+            var outletOutcome = await ReadOutletsAsync(input, evidence, timeout.Token);
             evidence["phase"] = "candidate-payload";
             var payload = await DriverPayloadInspection.CompareAsync(input.ProcessorHost, credential, saved.SshFingerprint,
                 input.PackagePath, input.Identity.PackageSha256, input.CatalogueId, TimeSpan.FromMinutes(2), timeout.Token);
@@ -86,13 +86,16 @@ static class Producer
             evidence["comparison"] = "Independent outlet observations and driver values have separate timestamps. This validates identity, availability and value types/ranges, not synchronized equality or measurement freshness. No commands are sent.";
             evidence["lifetimeLimit"] = "TASKSTAT checks the host's managed PID set; PID reuse between samples is not cryptographically detectable.";
             evidence["phase"] = "complete";
-            outcome = SubmissionEvidenceOutcome.Passed;
+            outcome = outletOutcome;
+            if (outcome != SubmissionEvidenceOutcome.Passed)
+                evidence["reason"] = outcome == SubmissionEvidenceOutcome.Inconclusive ? "independent-observation-unavailable" : "physical-identity-check-failed";
         }
         catch (Exception e) when (e is not OutOfMemoryException)
         {
             // External libraries may put credentials in their exception text.
             evidence["reason"] = e is OperationCanceledException ? "probe-cancelled-or-timed-out" : "probe-observation-failed";
             evidence["errorType"] = e.GetType().Name;
+            evidence["diagnostic"] = ProbeDiagnostics.Describe(e);
         }
         var result = new SubmissionEnduranceProbeResult(request.Plan.Identity, request.Plan.ProcessorIdentity, request.Plan.InstallationIdentity,
             request.Plan.ReservationId, request.Plan.ProducerId, runtime.BootIdentity, outcome, JsonSerializer.SerializeToUtf8Bytes(evidence, json));
@@ -113,7 +116,7 @@ static class Producer
             throw new InvalidDataException("Loaded, configured, online or ready check failed.");
     }
 
-    private static async Task<IReadOnlyList<object>> ReadOutletsAsync(ProducerSettingsInput input, CancellationToken token)
+    private static async Task<SubmissionEvidenceOutcome> ReadOutletsAsync(ProducerSettingsInput input, Dictionary<string, object?> evidence, CancellationToken token)
     {
         // The existing restricted fixture file supplies credentials only. Physical
         // identities are pinned separately in the immutable producer settings.
@@ -121,22 +124,30 @@ static class Producer
         using var privateJson = JsonDocument.Parse(await File.ReadAllTextAsync(input.DeviceCredentialsFile, token));
         var credentials = privateJson.RootElement.GetProperty("credentials");
         var login = new DeviceCredentials(credentials.GetProperty("userName").GetString(), credentials.GetProperty("password").GetString());
-        var discovered = await Discover.DiscoverAsync(TimeSpan.FromSeconds(3), cancellationToken: token);
-        var result = new List<object>();
-        foreach (var outlet in input.Outlets)
+        evidence["outletStage"] = "discovery";
+        // Discovery is shared by this sample; retained per-outlet records are created before connecting.
+        var discovery = Discover.DiscoverAsync(TimeSpan.FromSeconds(3), cancellationToken: token);
+        return await OutletObservations.ReadAsync(input.Outlets, evidence, async (outlet, observation, ct) =>
         {
+            observation["stage"] = "discovery";
+            var discovered = await discovery;
+            observation["stage"] = "discovery-identity";
             var matches = discovered.Where(d => string.Equals(d.DeviceId, outlet.DiscoveryId, StringComparison.OrdinalIgnoreCase)).ToArray();
-            if (matches.Length == 0 || matches.Select(d => d.Host).Distinct(StringComparer.OrdinalIgnoreCase).Count() != 1)
-                throw new InvalidDataException("Physical identity unavailable or ambiguous.");
+            observation["discoveryMatches"] = matches.Length;
+            if (matches.Length == 0) throw new OutletObservationException("discovery-not-found");
+            if (matches.Select(d => d.Host).Distinct(StringComparer.OrdinalIgnoreCase).Count() != 1)
+                throw new OutletObservationException("discovery-identity-ambiguous", identityFailure: true);
             var selected = matches.OrderByDescending(d => d.TpapPreferred == true || d.TpapMetadata != null).First();
-            using var physical = await Discover.ConnectAsync(Discover.CreateConfiguration(selected, login, TimeSpan.FromSeconds(15)), token);
+            observation["stage"] = "connect-and-authenticate";
+            using var physical = await Discover.ConnectAsync(Discover.CreateConfiguration(selected, login, TimeSpan.FromSeconds(15)), ct);
+            observation["stage"] = "authenticated-identity";
             if (!string.Equals(physical.SystemInfo?.DeviceId, outlet.AuthenticatedId, StringComparison.OrdinalIgnoreCase))
-                throw new InvalidDataException("Authenticated physical identity changed.");
+                throw new OutletObservationException("authenticated-identity-mismatch", identityFailure: true);
+            observation["stage"] = "power-state";
             bool? power = outlet.ChildId == null ? physical.IsOn : physical.GetChild(outlet.ChildId)?.IsOn;
-            if (power == null) throw new InvalidDataException("Physical outlet state unavailable.");
-            result.Add(new { outlet.Alias, Power = power.Value, ObservedUtc = DateTimeOffset.UtcNow });
-        }
-        return result;
+            if (power == null) throw new OutletObservationException("power-state-unavailable");
+            return power.Value;
+        }, token);
     }
 }
 

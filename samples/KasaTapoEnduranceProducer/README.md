@@ -109,4 +109,35 @@ the run. PID reuse between samples cannot be ruled out. Original failures record
 the observation phase and exception type without forwarding potentially sensitive
 third-party exception messages.
 
+## Observation failures (source update)
+
+Each outlet now retains its alias, start/end times, last operation, outcome and
+safe diagnostic codes, including successful outlets before and after an unavailable
+one. Missing discovery, ambiguous identity, authenticated identity mismatch and
+unavailable power state have distinct codes. External errors retain their type,
+HResult, inner exception types and available socket/HTTP status; raw exception
+messages, response bodies and credentials are excluded. Cancellation still stops
+the probe and retains the outlet reached. Earlier producer versions that saved
+only the exception type cannot retrospectively identify the failing outlet.
+
+An unavailable independent observation returns `Inconclusive`; it is not a driver
+failure diagnosis or a pass. The producer still checks the candidate payload.
+Ambiguous or mismatched physical identity returns `Failed`. Core validation errors,
+cancellation and deadline expiry still fail or interrupt the observation.
+
+For a **new** run with the updated source collector, optionally set
+`Endurance.Plan.ContinueAfterInconclusiveObservation` to `true` before freezing
+the plan. The collector then retains inconclusive samples and continues scheduled
+read-only observations. It reports attention once the issue appears and keeps it
+visible after recovery. Any retained non-passing sample prevents automatic pass
+and export at the end of the planned interval. Actual failures, changed identity,
+processor restart, lost reservation, timeout and excessive gaps still stop.
+Omitting this option preserves the original stop-on-first-nonpass behavior and
+existing plan hashes. Do not change an existing frozen plan or replace its producer.
+
+Offline regression checks cover partial outlet evidence, credential-safe exception
+details, continued observations, cancellation, retained inconclusive samples,
+unchanged old plans, and refusal to export a run containing an inconclusive sample.
+These checks do not establish hardware endurance or repair earlier evidence.
+
 Copyright (c) 2026 Neil Colvin. MIT licensed.

@@ -10,7 +10,13 @@ namespace CrestronHomeDevTools;
 public enum SubmissionEnduranceState { Collecting, ProbePending, Passed, Failed, Interrupted }
 public sealed record SubmissionEndurancePlan (SubmissionEvidenceIdentity Identity, SubmissionRequirement Requirement,
 	string ProcessorIdentity, string InstallationIdentity, string ReservationId, string ProducerId,
-	TimeSpan SampleInterval, TimeSpan ProbeTimeout);
+	TimeSpan SampleInterval, TimeSpan ProbeTimeout)
+	{
+	/// <summary>Keep collecting after an inconclusive observation, retaining it as non-passing evidence.
+	/// Select before starting: this changes the immutable plan. Integrity failures still stop collection.</summary>
+	[JsonIgnore (Condition = JsonIgnoreCondition.WhenWritingDefault)]
+	public bool ContinueAfterInconclusiveObservation { get; init; }
+	}
 public sealed record SubmissionEnduranceProbeResult (SubmissionEvidenceIdentity Identity, string ProcessorIdentity,
 	string InstallationIdentity, string ReservationId, string ProducerId, string BootIdentity,
 	SubmissionEvidenceOutcome Outcome, byte[] Evidence);
@@ -113,12 +119,16 @@ public static class SubmissionEndurance
 			reason = "sample-gap";
 		else if (outcome != SubmissionEvidenceOutcome.Passed)
 			reason = "functional-check-not-passed";
-		if (reason.Length > 0)
+		bool continueObservation = plan.ContinueAfterInconclusiveObservation &&
+			reason == "functional-check-not-passed" && outcome == SubmissionEvidenceOutcome.Inconclusive;
+		if (reason.Length > 0 && !continueObservation)
 			outcome = SubmissionEvidenceOutcome.Failed;
 		var file = journal.Retain (checkpoint.Samples.Count, JsonSerializer.SerializeToUtf8Bytes (
 			new RetainedSample (observed, outcome, reason, result), JsonOptions));
-		checkpoint = checkpoint with { State = reason.Length == 0 ? SubmissionEnduranceState.Collecting : SubmissionEnduranceState.Failed,
+		checkpoint = checkpoint with { State = reason.Length == 0 || continueObservation ? SubmissionEnduranceState.Collecting : SubmissionEnduranceState.Failed,
 			UpdatedUtc = observed, Reason = reason, Samples = [.. checkpoint.Samples, new (observed, outcome, file, result.BootIdentity)] };
+		if (checkpoint.State == SubmissionEnduranceState.Collecting && checkpoint.Samples.Any (s => s.Outcome != SubmissionEvidenceOutcome.Passed))
+			checkpoint = checkpoint with { Reason = "inconclusive-observation-retained" };
 		if (checkpoint.State == SubmissionEnduranceState.Collecting && checkpoint.Samples.Count >= 2 &&
 			observed - checkpoint.Samples[0].ObservedUtc >= plan.Requirement.MinimumDuration)
 			{

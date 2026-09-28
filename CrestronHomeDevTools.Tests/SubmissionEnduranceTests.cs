@@ -99,6 +99,63 @@ public sealed class SubmissionEnduranceTests
 		}
 
 	[Test]
+	public async Task InconclusiveObservationCanRetainLaterRecoveryButNeverAutomaticallyPass ()
+		{
+		var plan = Plan with { ContinueAfterInconclusiveObservation = true,
+			Requirement = Plan.Requirement with { MinimumDuration = TimeSpan.FromSeconds (90) } };
+		await Collect (plan: plan);
+		_clock.Advance (30);
+		var issue = await Collect (Result with { Outcome = SubmissionEvidenceOutcome.Inconclusive }, plan);
+		Assert.That (issue.State, Is.EqualTo (SubmissionEnduranceState.Collecting));
+		Assert.That (issue.Samples[^1].Outcome, Is.EqualTo (SubmissionEvidenceOutcome.Inconclusive));
+		var bytes = File.ReadAllBytes (Path.Combine (_directory, issue.Samples[^1].File.RelativePath));
+		_clock.Advance (30);
+		var recovery = await Collect (plan: plan);
+		Assert.That (recovery.Reason, Is.EqualTo ("inconclusive-observation-retained"));
+		Assert.That (recovery.Samples[^1].Outcome, Is.EqualTo (SubmissionEvidenceOutcome.Passed));
+		Assert.That (SubmissionEndurance.ReadCheckpoint (_directory, plan), Is.Not.Null);
+		_clock.Advance (30);
+		var completed = await Collect (plan: plan);
+		Assert.That (completed.Samples, Has.Count.EqualTo (4));
+		Assert.That (completed.State, Is.EqualTo (SubmissionEnduranceState.Failed));
+		Assert.That (File.ReadAllBytes (Path.Combine (_directory, issue.Samples[1].File.RelativePath)), Is.EqualTo (bytes));
+		Assert.Throws<InvalidOperationException> (() => SubmissionEndurance.Export (_directory, plan, _clock.GetUtcNow ()));
+		}
+
+	[TestCase (false, SubmissionEvidenceOutcome.Inconclusive, "boot-identity", "functional-check-not-passed")]
+	[TestCase (true, SubmissionEvidenceOutcome.Failed, "boot-identity", "functional-check-not-passed")]
+	[TestCase (true, SubmissionEvidenceOutcome.Inconclusive, "different-boot", "processor-restarted-or-unknown")]
+	public async Task ContinuationNeverOverridesStrictPolicyOrDefiniteFailures (bool enabled, SubmissionEvidenceOutcome outcome, string boot, string reason)
+		{
+		var plan = Plan with { ContinueAfterInconclusiveObservation = enabled };
+		await Collect (plan: plan);
+		_clock.Advance (30);
+		var result = await Collect (Result with { Outcome = outcome, BootIdentity = boot }, plan);
+		Assert.That (result.State, Is.EqualTo (SubmissionEnduranceState.Failed));
+		Assert.That (result.Reason, Is.EqualTo (reason));
+		await Collect (plan: plan);
+		Assert.That (_calls, Is.EqualTo (2));
+		}
+
+	[Test]
+	public async Task ContinuationCannotBeEnabledDuringExistingRun ()
+		{
+		await Collect ();
+		Assert.ThrowsAsync<InvalidDataException> (async () => await Collect (plan: Plan with { ContinueAfterInconclusiveObservation = true }));
+		Assert.That (_calls, Is.EqualTo (1));
+		}
+
+	[Test]
+	public void DefaultPlanSerializationPreservesExistingDigest ()
+		{
+		var options = new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase, WriteIndented = true };
+		options.Converters.Add (new System.Text.Json.Serialization.JsonStringEnumConverter ());
+		var originalShape = new { Plan.Identity, Plan.Requirement, Plan.ProcessorIdentity, Plan.InstallationIdentity,
+			Plan.ReservationId, Plan.ProducerId, Plan.SampleInterval, Plan.ProbeTimeout };
+		Assert.That (System.Text.Json.JsonSerializer.Serialize (Plan, options), Is.EqualTo (System.Text.Json.JsonSerializer.Serialize (originalShape, options)));
+		}
+
+	[Test]
 	public async Task DifferentPlanCannotReusePreviousTime ()
 		{
 		await Collect ();
