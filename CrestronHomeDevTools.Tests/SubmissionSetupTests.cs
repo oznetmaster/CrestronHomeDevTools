@@ -209,6 +209,22 @@ public sealed class SubmissionSetupTests
   Assert.That(AutomationFiles.Read<SubmissionAutomationSettings>(profile.SettingsTemplate.Path).Protected,Is.Null);
   Assert.That(profile.Mode,Is.EqualTo(SubmissionAutomationMode.Rehearsal));
  }
+ [TestCase(true)][TestCase(false)]
+ public void OptionalGitHubReferenceComesFromFrozenRunWithoutExposingDeveloperStore(bool named)
+ {
+  RehearsalTemplate(delivery:false);
+  var run=_store.LoadSetupProfile<SubmissionRunProfile>("run");
+  string bindings=Path.Combine(_path,"github-worker.json");
+  File.WriteAllText(bindings,JsonSerializer.Serialize(new DevToolsCredentialBindings(Path.Combine(_path,"separate-worker-store")){GitHub=named?"release-api":null}));
+  run.Value.AutomationGitHubCredentialBindings=bindings;
+  _store.SaveSetupProfile("run",run.Value,run.Revision);
+  _store.CreateSubmissionSetupSnapshot("run","github-rehearsal",SubmissionSetupPurpose.Rehearsal);
+  if(!named){Assert.Throws<InvalidDataException>(()=>SubmissionAutomationSetup.PrepareRehearsal(_store,"github-rehearsal"));return;}
+  var prepared=SubmissionAutomationSetup.PrepareRehearsal(_store,"github-rehearsal");
+  var profiles=AutomationFiles.Read<SubmissionAutomationReleaseProfiles>(prepared.ProfilesPath);
+  Assert.That(profiles.CredentialBindings,Is.EqualTo(bindings));
+  Assert.That(profiles.CredentialBindings,Is.Not.EqualTo(_store.GetSubmissionSetupSnapshotPath("github-rehearsal")));
+ }
  [Test] public void PreparedRehearsalRetainsCapturedBytesAndSnapshotFactsAfterEdits()
  {
   RehearsalTemplate();

@@ -172,6 +172,8 @@ public sealed class SubmissionRunProfile
 	public string AutomationSettingsTemplate { get; set; } = "";
 	[Category("Automation rehearsal"), DisplayName("Reviewed tooling manifest"), Description("Absolute path to the public workflow's tooling manifest. Preparation captures and pins its current bytes.")]
 	public string AutomationToolingManifest { get; set; } = "";
+	[Category("Automation rehearsal"), DisplayName("GitHub API credential bindings (optional)"), Description("Absolute private bindings-file path selecting a named GitHub entry provisioned for the evidence worker. Leave blank for unauthenticated public access. Never enter a token here.")]
+	public string AutomationGitHubCredentialBindings { get; set; } = "";
 	[Category("Automation rehearsal"), DisplayName("Release package asset name"), Description("Exact .pkg asset filename; may include ${version}. No directory path.")]
 	public string AutomationPackageName { get; set; } = "";
 	[Category("Automation rehearsal"), DisplayName("Earliest release publication (UTC)"), Description("Explicit cutoff, for example 2026-09-24T00:00:00Z. Older releases are excluded. Preparation does not start discovery.")]

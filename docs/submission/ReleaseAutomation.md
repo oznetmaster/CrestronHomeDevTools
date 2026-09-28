@@ -76,8 +76,8 @@ Saved setup can prepare either a fresh Rehearsal profile or a Submit profile thr
 the form, CLI or public API; see [profile preparation](SetupApp.md#prepare-a-controller-profile).
 Submit preparation requires a submission-purpose snapshot and preserves explicit
 protected-stage references. It grants no signing/delivery authority and starts no
-worker. Named GitHub API access is supported by the source CLI and release watcher;
-setup-form integration and independent clean-machine/operator validation remain
-separate work.
+worker. Named GitHub API access is supported by the source CLI and release watcher. The
+setup form carries an optional worker bindings reference into the prepared profile;
+provisioning and validation under the actual worker identity remain required.
 
 Copyright (c) 2026 Neil Colvin. MIT licensed.

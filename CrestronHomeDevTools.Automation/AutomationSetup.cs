@@ -42,6 +42,10 @@ public static class SubmissionAutomationSetup
    throw new InvalidDataException("Template source or processor differs from the saved setup. Review its equipment bindings; preparation never retargets hardware.");
   if(string.IsNullOrWhiteSpace(settings.CredentialBindings))
    throw new InvalidDataException("Select the evidence worker's provisioned credential bindings in the template.");
+  string? githubBindings=string.IsNullOrWhiteSpace(run.AutomationGitHubCredentialBindings)?null:run.AutomationGitHubCredentialBindings;
+  if(githubBindings!=null && (!Path.IsPathFullyQualified(githubBindings) ||
+   string.IsNullOrWhiteSpace(DevToolsCredentialBindings.Read(githubBindings).GitHub)))
+   throw new InvalidDataException("Select an absolute private bindings file naming the evidence worker's GitHub credential.");
   // Never substitute the setup store/snapshot here: it can also contain mail and signing secrets.
   // A rehearsal carries no protected-stage configuration, even when its source template did.
   settings=settings with {PrivateRoot=run.PrivateWorkspace,Mode=mode,Protected=mode==SubmissionAutomationMode.Rehearsal?null:settings.Protected,
@@ -65,7 +69,7 @@ public static class SubmissionAutomationSetup
    SourceTemplateSha256=Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(templateBytes)),
    profile.SettingsTemplate,profile.ToolingManifest,Configuration=check});
   AutomationFiles.Write(registry,new SubmissionAutomationRegistry(1,[]));
-  AutomationFiles.Write(profiles,new SubmissionAutomationReleaseProfiles(1,[profile]));
+  AutomationFiles.Write(profiles,new SubmissionAutomationReleaseProfiles(1,[profile]){CredentialBindings=githubBindings});
   return new(profiles,registry,provenance,check);
  }
  private static byte[] ReadInput(string path) {
