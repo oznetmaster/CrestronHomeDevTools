@@ -92,6 +92,14 @@ CrestronHomeDevTools.Console.exe submission-setup snapshot --run example-release
 ```
 
 The corresponding public API overloads take `SubmissionSetupPurpose.Rehearsal`.
+
+The source configuration check also reports declared gaps in initial tests before
+equipment is reserved. Only the explicitly configured endurance, final removal
+and subsequent response-comparison requirements can remain deferred. Removing a
+gap declaration does not satisfy the later evidence gate: validated observations
+are still required. This earlier diagnostic is pending the next tools release;
+1.20.0 enforces the evidence gate before endurance but its setup check only lists
+missing stage bindings.
 The saved purpose is immutable with the snapshot; it is not permission to sign,
 upload or send email.
 

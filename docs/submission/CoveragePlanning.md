@@ -64,6 +64,14 @@ Endurance execution requires a reviewed `maximumSampleGapSeconds`. The generator
 
 These fields are covered by the candidate's policy digest and apply through the existing combined evidence, form-validation and bundle paths. Older policies without `execution` still receive their original structural checks and must not be presented as full submission policies. The separate `execution-contract.json` retains the detailed expectations, source inventory and unresolved producer/approval bindings; it is not itself an approved policy or authenticated observation.
 
+### Outage scope and recovery timing
+
+Read the selected official form before freezing interruption requirements. In the extension checklist, the network test permits disconnecting the device and processor **or** removing router power. Do not turn those alternatives into a requirement to interrupt every router or access point. Record how the selected devices actually lose their network path; a management-console block is not proof of local isolation.
+
+The power test separately names processor, device and network power. A combined power/network action can provide evidence for both items only to the extent it satisfies each item's scope. Describe equipment that remained powered and preserve any qualification. Never reinterpret a narrower retained test as a full pass solely because the draft policy needs one.
+
+Capture the outage duration and recovery deadline separately. The power item's recovery clock begins when the program loads; the network item's begins at network restoration. A later operator reply, an open TCP port, or a successful readiness query does not by itself establish the correct start of that clock. Retain the trigger evidence and subsequent functional evidence with timestamps. Missing instrumentation means timing is unverified, not that the driver failed. Preserve that distinction when reviewing prior evidence or preparing a future test.
+
 ## Approval and execution boundary
 
 The compiler checks source/target/mapping consistency and minimum durations. It cannot decide whether the blueprint covers every official subcondition, authenticate who approved it, measure device response or turn elapsed time into endurance evidence. Those obligations remain in the [submission plan](../CrestronSubmission.md). All generated producers stay null until reviewed executable fixtures are bound by the trusted workflow.

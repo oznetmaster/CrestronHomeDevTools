@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Report declared gaps in initial tests during automation setup/configuration checks, before equipment is reserved. Only the bound endurance, final removal and post-endurance response-comparison requirements may remain deferred. Removing a declaration still does not bypass the evidence gate.
+- Clarify the extension checklist's alternative network-interruption methods and the distinct starting points for power/network recovery timing.
+- Build the public Kasa/Tapo endurance sample against released DevTools 1.20.0.
+
 ## 1.20.0 - 2026-09-28
 
 This release hardens the release-to-submission preview so missing initial evidence, incomplete child-device configuration and broken help links are detected before later stages depend on them.

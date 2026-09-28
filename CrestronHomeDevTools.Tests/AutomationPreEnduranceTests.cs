@@ -111,6 +111,39 @@ public sealed class AutomationPreEnduranceTests
   Observations(initial.Select(id=>id=="button.double"?Observation(id) with{Outcome=SubmissionEvidenceOutcome.NotApplicable,Rationale="No button in this candidate's reviewed scope"}:Observation(id)).ToArray());
   Assert.That(AutomationPreEndurance.Check(context,settings,default).EvidenceChecksPassed,Is.True);
  }
+ [TestCase(SubmissionAutomationMode.Rehearsal)]
+ [TestCase(SubmissionAutomationMode.Submit)]
+ public void ConfigurationReportsKnownInitialGapsBeforeReadingEvidence(SubmissionAutomationMode mode) {
+  // Readiness inspection must work without opening the future worker's paths.
+  File.Delete(P("policy.json"));
+  var draft=settings with{Mode=mode,Review=settings.Review! with{PlannedGaps=[
+   new("system.power","Missing timing"),new("system.network","Missing timing"),new("button.double","Not recorded")]}};
+  var report=SubmissionAutomationConfiguration.Check(draft,releaseTemplate:true);
+  Assert.That(report.AllStageBindingsPresent,Is.False);
+  foreach(string id in new[]{"system.power","system.network","button.double"})
+   Assert.That(report.MissingBindings,Does.Contain("Resolve declared pre-endurance gap: "+id));
+ }
+ [Test]public void ConfigurationDefersOnlyExactlyBoundLaterOperationsNotPlacement() {
+  settings=settings with{Removal=new(null!,"remove","ui.placement"),ResponseComparison=new("performance",[]),
+   Review=settings.Review! with{PlannedGaps=[new("endurance","One-hour rehearsal"),new("remove","After interval"),
+    new("performance","After interval"),new("ui.placement","Missing initial placement"),new("other.endurance","Not bound")]}};
+  var report=SubmissionAutomationConfiguration.Check(settings,true);
+  Assert.That(report.MissingBindings.Where(x=>x.StartsWith("Resolve declared pre-endurance gap:",StringComparison.Ordinal)),
+   Is.EquivalentTo(new[]{"Resolve declared pre-endurance gap: ui.placement","Resolve declared pre-endurance gap: other.endurance"}));
+ }
+ [Test]public void RemovingADeclaredGapDoesNotReplaceTheEvidenceGate() {
+  settings=settings with{Review=settings.Review! with{PlannedGaps=[]}};
+  Assert.That(SubmissionAutomationConfiguration.Check(settings,true).MissingBindings,
+   Has.None.StartsWith("Resolve declared pre-endurance gap:"));
+  Observations(initial.Where(id=>id!="system.network").Select(Observation).ToArray());
+  Assert.That(AutomationPreEndurance.Check(context,settings,default).Issues.Any(i=>i.RequirementId=="system.network" && i.Code=="missing-observation"),Is.True);
+ }
+ [Test]public void MalformedAndRepeatedGapDeclarationsDoNotHideReadinessProblems() {
+  settings=settings with{Review=settings.Review! with{PlannedGaps=[null!,new("","Invalid"),new("system.power","First"),new("system.power","Second")]}};
+  var report=SubmissionAutomationConfiguration.Check(settings,true);
+  Assert.That(report.MissingBindings.Count(x=>x=="Review.PlannedGaps requires an explicit requirement ID"),Is.EqualTo(1));
+  Assert.That(report.MissingBindings.Count(x=>x=="Resolve declared pre-endurance gap: system.power"),Is.EqualTo(1));
+ }
  [Test]public void MissingInitialStageBlocksEvenWhenObservationsPass() {
   context.Checkpoint.CompletedStages.Remove(SubmissionWorkflowStage.ProcessorTests);
   Assert.That(AutomationPreEndurance.Check(context,settings,default).Issues.Single().Code,Is.EqualTo("initial-stage-incomplete"));
