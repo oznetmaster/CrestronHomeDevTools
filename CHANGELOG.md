@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.20.0 - 2026-09-28
+
+This release hardens the release-to-submission preview so missing initial evidence, incomplete child-device configuration and broken help links are detected before later stages depend on them.
+
+- Require valid initial Windows, processor and app evidence for all applicable functional, physical-event and outage checks before starting endurance, in both Rehearsal and Submit. Planned gaps cannot bypass this gate. A shortened rehearsal interval remains disclosed; existing collections and failed evidence are preserved.
+- Add read-only `driver-readiness` checks for the installed platform and its children, including configuration/review flags, loaded/online state, version and native-light controls. Deployment-bound app tests and new endurance collections retain fresh readiness reports. The check does not repair devices automatically.
+- Generate clickable HTTP(S) help links and verify their exact PDF destinations during rendering and packaging, including when consuming older receipts. Printed addresses alone no longer satisfy link validation.
+- Use CrestronHomeNUnit.TestAdapter 1.12.4 for exact selected Explicit Android cases and saved-Home menu navigation. Android evidence auditing applies the same selection rules and still rejects skipped or mismatched execution.
+- Preserve managed children across app testing and endurance, bind their verified native-load identities, and support scoped cleanup and inspected recovery without replaying interrupted creation. Add reviewed platform-tree reload and final driver-removal evidence with app/log observations.
+- Bind post-endurance functional checks and response comparisons to retained deployment evidence. Reviewed source-based N/A decisions, scoped limitations and additive review evidence retain their original candidate/policy identities. Representative hardware coverage does not claim every supported model was physically tested.
+- Retain per-outlet Kasa/Tapo endurance diagnostics and partial successes. New plans can explicitly continue collecting inconclusive observations, but those runs remain nonpassing and require attention; the worker does not automatically accept or export them as passing.
+- Timestamp worker notices, suppress transient lock-contention chatter and distinguish informational updates from required action. Support protected workers under the signed-in owner and normalize trusted Windows storage mounts while rejecting links within a run.
+- Close configuration event sockets with a bounded normal handshake. Validate fresh deployment app plans before their final device IDs exist. Include corrected NuGet documentation links and release-note metadata.
+
+Validation before publication: 1,483 discovered DevTools .NET tests and 266 document-tool tests passed. Protected-stage regression checks exercise approval waits, signing, upload-before-email, retention and recovery without duplicate sending using synthetic documents and fake providers with the real delivery journal. A real LibreOffice help conversion preserved the support/repository PDF links, and the contact page was visually checked. These checks do not establish a new unattended hardware submission.
+
+The complete corrected sequence still requires a fresh end-to-end rehearsal and verification of the separate protected-worker handoff using the released tools. Earlier successful assisted submissions and the earlier one-hour rehearsal remain distinct evidence. Delivery does not establish Crestron acceptance or certification. See [validation boundaries](docs/submission/ValidationStatus.md).
+
+Start with the [single operator guide](docs/submission/START-DRIVER-SUBMISSION.md), [worker setup](docs/submission/AutomationWorker.md) and [help build contract](docs/submission/HelpBuild.md). Existing active runs retain their pinned tooling and inputs; apply the new sequencing/readiness rules to a newly prepared run. Exact signing and delivery authority remains separate from saved credentials.
+
+Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
+
 ## 1.19.1 - 2026-09-25
 
 NuGet-only documentation patch: corrected README links and included package release-note metadata. Runtime binaries and the existing GitHub release remain unchanged.
