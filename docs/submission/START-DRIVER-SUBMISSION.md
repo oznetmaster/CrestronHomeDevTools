@@ -9,6 +9,14 @@ use the 1.20.0 worker's [additive review supplement](ReviewSupplements.md) for
 newly covered requirements on the same candidate. Preserve the original run;
 adding hardware alone is not a reason to repeat endurance.
 
+Newly available equipment does not automatically expand an already reviewed test
+scope. Record the developer's selection or deferral, keep untested models and
+limitations explicit, and do not invent a passing result or an N/A decision from
+availability alone. Reuse earlier physical-event passes only through the
+[reviewed prior-evidence procedure](PriorEvidence.md), with its exact scope,
+identity and change-impact checks; do not ask for a repeat solely because the
+tooling was updated.
+
 The [release automation controller](ReleaseAutomation.md) is a released preview (1.19.0 and later). Use 1.20.0 or later for the initial-evidence gate, readiness checks and help-link validation described here. Its [Windows worker](AutomationWorker.md) connects release discovery, tests, endurance, documents, authorized signing/delivery and retention. A configured rehearsal has now completed actual deployment, Windows/processor/live/app tests, temporary-test cleanup, shortened endurance, export and unsigned review preparation without intervention after startup. Signing/delivery/retention use separate synthetic-authority and test-provider validation. This is not an independent operator validation of this document or a newly published release followed by real submission. See [the precise validation boundaries](ValidationStatus.md). Intake alone does not start tests; the installed watcher advances registered runs. The [setup form](SetupApp.md) can reduce repeated questions, but check availability in the selected published version before prescribing it to another developer.
 
 Saved setup in the complete Windows bundle offers **Prepare rehearsal profile** and
@@ -53,6 +61,17 @@ Read the repository's applicable development instructions. Keep driver-specific 
 If the developer provides a DevTools setup-store path and a run or snapshot name, use the setup app's public APIs and `submission-setup check` before requesting factual information. The setup guide is `docs/submission/SetupApp.md` in DevTools; verify that the selected released version actually includes this feature before using it. Reuse the stored developer identity, support contacts, driver facts, hardware restrictions and named credential bindings. Ask only for missing or changed facts. Frozen snapshots preserve prior input revisions; they do not authorize signing/delivery or establish a test result. Do not print decrypted profiles or credentials into logs.
 
 For a snapshot, `submission-setup prepare --snapshot NAME --store DIRECTORY` creates private help/release-note drafts and operation defaults. Use the returned encrypted `CredentialsPath` directly with existing `--credentials` commands. Review and complete help content, actual test-environment details and UI figures before final generation. Form identity, sender and endpoint defaults come from the saved profile; artifact hashes, evidence, approval and provider receipts must come from the actual workflow. No password or signature image needs to be exported.
+
+### NUnit framework selection
+
+Pin the tooling and each fixture's framework before preparing processor packages.
+CrestronHomeNUnit 2.0.0 defaults new processor packages to NUnit 5.0.0 while
+retaining net472 targets. Existing NUnit 4 fixtures can remain on 4.6.1 with an
+explicit matching `ProcessorNUnitVersion`; a tooling upgrade alone does not
+require a new application-driver release. For NUnit 5 fixtures, follow the public
+[migration guide](https://github.com/oznetmaster/CrestronHomeNUnit/blob/main/docs/NUnit5Migration.md),
+including awaited asynchronous assertions and prerequisite-selection behavior.
+Do not change a frozen run's framework, tools or evidence identities mid-run.
 
 ### Your first session
 

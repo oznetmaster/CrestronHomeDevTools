@@ -20,7 +20,7 @@ the controller.
    endurance producer/policy, document templates, evidence mapping and review
    tools. Use `--check-settings` to list omissions before reserving equipment.
    Binding presence alone does not establish that the configuration is correct.
-   The [setup app](SetupApp.md#prepare-a-controller-rehearsal) can combine a
+   The [setup app](SetupApp.md#prepare-a-controller-profile) can combine a
    frozen factual snapshot with a reviewed settings template and tooling
    manifest to prepare pinned release profiles and an empty registry. It lists
    missing bindings without starting work or exporting saved secrets.

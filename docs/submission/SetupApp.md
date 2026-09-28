@@ -2,14 +2,14 @@
 
 The Windows **CrestronHomeDevTools.Setup** app captures reusable input data before a submission starts. It is a desktop form application, not a web service: no GitHub login, Python knowledge or public form endpoint is involved. Profiles, credentials and signatures stay in the local encrypted DevTools private store.
 
-This is the initial source implementation, not yet included in a published release or independently validated through a complete submission. It covers standard reusable input collection; driver-specific questions and new requirements may still arise. Input readiness is not test completion, authorization or Crestron acceptance.
+The setup app is included in the published Windows console bundle. Use version 1.20.0 or later with the workflow checks documented here. Reusable input collection and packaged startup have been validated; a complete release-to-submission run driven solely by these saved profiles remains unverified. Driver-specific questions and new requirements may still arise. Input readiness is not test completion, authorization or Crestron acceptance.
 
 ## Start and edit
 
-The complete console archive built from this source includes the self-contained
+The complete Windows console release archive includes the self-contained
 `setup/CrestronHomeDevTools.Setup.exe`. Open it to collect and edit profiles; no
 separate SDK or Desktop Runtime installation is needed for the form. Previously
-published archives may not contain it; check the selected version.
+published archives may not contain it; use the version requirement above.
 
 For source development, build `CrestronHomeDevTools.Setup/CrestronHomeDevTools.Setup.csproj`
 on Windows with the .NET 10 SDK, then run it with the .NET 10 Desktop Runtime

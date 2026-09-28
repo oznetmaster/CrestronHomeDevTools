@@ -1,8 +1,8 @@
 # Submission workflow validation
 
-This page records the shared tooling's verified scope, with source-preview updates through 28 September 2026. It contains no driver-specific submission files or progress details. Use the [normal-path runbook](Runbook.md) to configure your own workflow.
+This page records the shared tooling's verified scope, with released-tooling updates through 28 September 2026. It contains no driver-specific submission files or progress details. Use the [normal-path runbook](Runbook.md) to configure your own workflow.
 
-## Release automation source preview
+## Release automation validation
 
 The complete local Release check passed all 1,483 discovered .NET tests with
 zero failures or skips, and all 266 document-tool tests passed. This includes the
@@ -18,12 +18,11 @@ Help generation now embeds HTTP(S) hyperlinks. Forty-four focused tests cover
 generation, rendering and packaging, including rejection of text-only URLs,
 wrong destinations and old receipts that lack working links. A real LibreOffice
 conversion preserved the support and repository link annotations and its contact
-page was visually inspected. These changes are source-preview work pending a
-batched release; previously delivered packages are not rewritten.
+page was visually inspected. These changes are included in DevTools 1.20.0; previously delivered packages are not rewritten.
 
 The initial sequence allowed missing physical-event and outage checks to remain
 declared gaps while starting endurance. That is a workflow defect, not successful
-validation of complete initial coverage. The source now checks the full pinned
+validation of complete initial coverage. DevTools 1.20.0 checks the full pinned
 policy before starting a new collection in either mode. Local regression tests
 exercise missing and non-passing evidence, producer identity and integrity,
 policy-permitted N/A and shortened rehearsal handling. Hardware validation of the
@@ -42,7 +41,7 @@ The same tool revision passed 1,257 local regression tests and 22 bundled accept
 
 ## Released capabilities
 
-DevTools 1.17.1 includes the C# APIs and self-contained Windows console for package inspection, coverage planning, evidence validation and retention, help generation, official checklist generation, exact-form signing, independent delivery approval, upload and SMTP delivery. It also includes named encrypted private inputs and Windows observer scheduling. Driver authors provide their own C# fixtures and reviewed configuration; they do not need to maintain Python or know Linux.
+DevTools 1.20.0 includes the C# APIs and self-contained Windows console for package inspection, coverage planning, evidence validation and retention, help generation, official checklist generation, exact-form signing, independent delivery approval, upload and SMTP delivery. It also includes named encrypted private inputs and Windows observer scheduling. Driver authors provide their own C# fixtures and reviewed configuration; they do not need to maintain Python or know Linux.
 
 The optional [CI templates](WorkflowSetup.md) connect review, signing, delivery preparation and delivery. They are disabled until the consuming developer configures the protected repository, worker, private settings and approvals. Client/library releases and ordinary driver releases remain independent of submission.
 
