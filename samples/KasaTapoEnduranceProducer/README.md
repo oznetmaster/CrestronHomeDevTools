@@ -1,7 +1,7 @@
 # Kasa and Tapo functional endurance producer
 
 This C# sample supplies read-only observations to the public endurance worker.
-It uses released DevTools 1.19.0 and KasaTapoClient 2.0.1. It never sends a power,
+It uses released DevTools 1.20.0 and KasaTapoClient 2.0.1. It never sends a power,
 brightness, configuration, discovery-refresh or other driver/device command.
 It is sample source, not an additional DevTools package release.
 
