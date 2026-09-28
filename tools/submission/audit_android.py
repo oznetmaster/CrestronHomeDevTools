@@ -68,18 +68,19 @@ def xml(data):
     return root
 
 
-def discovery(data, assembly):
+def discovery(data, assembly, allow_explicit=False):
     root = xml(data)
     runs = root.findall(".//test-run")
     require(len(runs) == 1, "Require one NUnit discovery run")
     run = runs[0]
-    require(all(node.get("runstate", "Runnable") == "Runnable" for node in run.iter()), "Discovery contains non-runnable cases")
+    allowed = {"Runnable", "Explicit"} if allow_explicit else {"Runnable"}
+    require(all(node.get("runstate", "Runnable") in allowed for node in run.iter()), "Discovery contains non-runnable cases or Explicit cases without pinned selection")
     suites = run.findall(".//test-suite[@type='Assembly']")
     require(len(suites) == 1 and suites[0].get("name") == assembly, "Discovery assembly differs from the pinned producer")
     cases = run.findall(".//test-case")
     require(cases and int(run.get("testcasecount", "-1")) == len(cases) and
             len({case.get("id") for case in cases}) == len(cases) and
-            all(case.get("id") and case.get("fullname") and case.get("runstate") == "Runnable" for case in cases),
+            all(case.get("id") and case.get("fullname") and case.get("runstate") in allowed for case in cases),
             "Incomplete or duplicate NUnit discovery records")
     return Counter(case.get("fullname") for case in cases)
 
@@ -252,7 +253,7 @@ def audit(candidate_path, candidate_sha256, evidence_root, run_id, assembly, ass
             "Coordinator producer receipt differs from the independent pins")
     discovered = evidence.read("discovery.dump")
     require(sha(discovered) == digest(discovery_sha256), "Discovery differs from the independently retained inventory")
-    expected = discovery(discovered, assembly)
+    expected = discovery(discovered, assembly, allow_explicit=selection_sha256 is not None)
     discovered_count, excluded_count = sum(expected.values()), 0
     if selection_sha256 is not None:
         require(digest(pin.get("SelectionSha256")) == digest(selection_sha256), "Coordinator selection differs from the independent pin")

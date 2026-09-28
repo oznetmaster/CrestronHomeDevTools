@@ -5,13 +5,13 @@ Give this document and the driver's repository URL to the assistant that will pe
 **Validation status:** this starting document is a draft. The underlying tools have validation and real delivery evidence described in the public validation guide, but an independent run beginning with this document has not yet demonstrated the entire procedure. Do not describe that independent validation as complete.
 
 If equipment becomes available after endurance and unsigned review preparation,
-use the source worker's [additive review supplement](ReviewSupplements.md) for
+use the 1.20.0 worker's [additive review supplement](ReviewSupplements.md) for
 newly covered requirements on the same candidate. Preserve the original run;
 adding hardware alone is not a reason to repeat endurance.
 
-The [release automation controller](ReleaseAutomation.md) is a source preview. Its [Windows worker](AutomationWorker.md) connects release discovery, tests, endurance, documents, authorized signing/delivery and retention. A configured rehearsal has now completed actual deployment, Windows/processor/live/app tests, temporary-test cleanup, shortened endurance, export and unsigned review preparation without intervention after startup. Signing/delivery/retention use separate synthetic-authority and test-provider validation. This is not an independent operator validation of this document or a newly published release followed by real submission. See [the precise validation boundaries](ValidationStatus.md). Intake alone does not start tests; the installed watcher advances registered runs. The [setup form](SetupApp.md) can reduce repeated questions, but check availability in the selected published version before prescribing it to another developer.
+The [release automation controller](ReleaseAutomation.md) is a released preview (1.19.0 and later). Use 1.20.0 or later for the initial-evidence gate, readiness checks and help-link validation described here. Its [Windows worker](AutomationWorker.md) connects release discovery, tests, endurance, documents, authorized signing/delivery and retention. A configured rehearsal has now completed actual deployment, Windows/processor/live/app tests, temporary-test cleanup, shortened endurance, export and unsigned review preparation without intervention after startup. Signing/delivery/retention use separate synthetic-authority and test-provider validation. This is not an independent operator validation of this document or a newly published release followed by real submission. See [the precise validation boundaries](ValidationStatus.md). Intake alone does not start tests; the installed watcher advances registered runs. The [setup form](SetupApp.md) can reduce repeated questions, but check availability in the selected published version before prescribing it to another developer.
 
-In this source preview, saved setup offers **Prepare rehearsal profile** and
+Saved setup in the complete Windows bundle offers **Prepare rehearsal profile** and
 **Prepare submission profile**. Select the intended mode before intake. Actual
 submission preparation requires a Submission-purpose snapshot, explicit protected
 stage bindings and the separately installed protected worker. It does not approve
@@ -50,7 +50,7 @@ Read the repository's applicable development instructions. Keep driver-specific 
 
 ### Optional saved input profiles
 
-If the developer provides a DevTools setup-store path and a run or snapshot name, use the setup app's public APIs and `submission-setup check` before requesting factual information. The source-preview guide is `docs/submission/SetupApp.md` in DevTools; verify that the selected released version actually includes this feature before using it. Reuse the stored developer identity, support contacts, driver facts, hardware restrictions and named credential bindings. Ask only for missing or changed facts. Frozen snapshots preserve prior input revisions; they do not authorize signing/delivery or establish a test result. Do not print decrypted profiles or credentials into logs.
+If the developer provides a DevTools setup-store path and a run or snapshot name, use the setup app's public APIs and `submission-setup check` before requesting factual information. The setup guide is `docs/submission/SetupApp.md` in DevTools; verify that the selected released version actually includes this feature before using it. Reuse the stored developer identity, support contacts, driver facts, hardware restrictions and named credential bindings. Ask only for missing or changed facts. Frozen snapshots preserve prior input revisions; they do not authorize signing/delivery or establish a test result. Do not print decrypted profiles or credentials into logs.
 
 For a snapshot, `submission-setup prepare --snapshot NAME --store DIRECTORY` creates private help/release-note drafts and operation defaults. Use the returned encrypted `CredentialsPath` directly with existing `--credentials` commands. Review and complete help content, actual test-environment details and UI figures before final generation. Form identity, sender and endpoint defaults come from the saved profile; artifact hashes, evidence, approval and provider receipts must come from the actual workflow. No password or signature image needs to be exported.
 
@@ -154,6 +154,8 @@ Inspect every applicable official checklist item. Create a coverage table with t
 
 Use the public coverage/evidence guides linked by the runbook. Write necessary driver-specific fixtures in C# against released APIs. Reuse repository fixtures where appropriate. The developer must not need to author or maintain Python workflow code.
 
+For platform drivers, agree representative test devices before freezing coverage. The checklist assesses the expected controls and behavior of that installed configuration; it does not require physical ownership of every supported model, country-specific variant or mains-voltage variant. Document model coverage in the product README. Use the coverage planner's existing `absence` method, supported by runtime inventory evidence, for conditional controls that the selected device types do not expose. Applicable controls must still pass. A missing expected control is a failure; unavailable optional hardware is not. Do not leave the entire control-inventory item unchecked because a different model would expose additional controls. See [installed controls and representative hardware](CoveragePlanning.md#installed-controls-and-representative-hardware).
+
 Store the submission blueprint and generated settings privately even where a generic example uses a `DRIVER/submission/` path. Use supported explicit input paths and recorded source bindings; do not alter the tool's schema or omit source verification. Preserve any required approval boundary around the reviewed policy. A fixed expected test count is not a substitute for discovering and checking the intended test identities and exclusions.
 
 Prepare the required product help and third-party notices with [help generation](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/HelpBuild.md). Include accurate installation, configuration, UI, limitations, tested environment and support information. Obtain unknown product facts from the developer. Generate, render and inspect the help before embedding it through the documented build hooks.
@@ -184,6 +186,22 @@ Do not demand identical values from independently sampled changing telemetry. De
 Clean up temporary test instances and CI-imported test packages through the public workflow after successful use, respecting existing ownership and explicit manual deployments. Retain diagnostics when an operation fails. Verify cleanup; do not delete unrelated catalog items or installed devices.
 
 ## 5. Run and finish endurance
+
+**Entry condition:** all applicable initial functional, configuration, app,
+physical-event and outage/recovery checks must already have valid passing evidence
+or policy-permitted N/A. Complete these through the initial NUnit/installed-app
+workflow, including any attended actions. Declared gaps, skipped fixtures, cached
+state and aggregate test counts cannot satisfy this condition. The source worker's
+[pre-endurance gate](AutomationWorker.md#required-checks-before-endurance) enforces
+the complete policy in both rehearsal and submission. Only endurance itself, the
+configured before/after comparison and final removal remain for later stages.
+Verify this gate is present in the selected public tool version before running;
+an older tool without it does not establish that the sequence is correct.
+
+Existing evidence collected in the wrong order must be retained and assessed
+honestly, not discarded or relabelled. Correct the remaining coverage without
+automatically repeating the endurance interval, and do not describe that run as
+validation of the corrected unattended sequence.
 
 Use the public endurance setup and [monitoring documentation](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/EnduranceNotifications.md). Configure the selected Windows monitor, execution account, resource ownership, startup recovery, collection schedule, retention and operational notifications. Exercise the probe and its failure/cleanup behavior before starting the credited run. Use documented public permission/setup helpers instead of inventing a private remote-execution framework.
 

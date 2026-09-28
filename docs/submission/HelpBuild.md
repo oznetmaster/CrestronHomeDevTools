@@ -8,6 +8,8 @@ The [official Resources page](https://sdkcon78221.crestron.com/sdk/Crestron_Cert
 
 The template covers driver identification, recommendations, requirements, installation, the end-user experience, limitations, supported features, test environment, models, contacts, version history and licensing. Its end-user section requests sample screenshots of every UI page with descriptions. Generating prose alone will not complete that section. Use approved screenshots that exclude private household/device information and credentials.
 
+Include the public support address and repository URL in Contact Information. The generator makes printed HTTP(S) URLs clickable without relying on a PDF reader's automatic URL detection. PDF validation checks that each source URL has a visible link annotation with the same destination; a renderer that drops links fails before packaging. Staging and final package verification repeat this check against the retained source and PDF, including previously generated receipts. This validates embedded destinations, not the availability of external websites.
+
 ## Prepare screenshots before freezing the candidate
 
 Use a separately labelled preparatory driver build to observe the intended UI and record the actual processor, app, device and firmware configuration. Keep its package and observations separate from the submission candidate. This supplies screenshots and factual environment descriptions needed to finish the embedded help; it does not establish that the final candidate passed its tests.

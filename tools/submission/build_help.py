@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 import re
 import sys
+from urllib.parse import urlsplit
 from zipfile import ZipFile
 
 from lxml import etree as ET
@@ -31,6 +32,85 @@ SECTIONS = [
     ("models", 43, "Supported Models"), ("contact", 45, "Contact Information"),
     ("history", 47, "Version History"), ("license", 52, "Licensing and Copyright Information")]
 TEXT_PATTERNS = {"paragraph": 5, "bullet": 10, "heading2": 48, "heading3": 49}
+
+
+def web_links(value):
+    """Yield visible HTTP(S) URL spans, excluding surrounding prose punctuation."""
+    for match in re.finditer(r"https?://[^\s<>\"']+", value):
+        target = match.group().rstrip(".,;:!?")
+        for left, right in (("(", ")"), ("[", "]"), ("{", "}")):
+            while target.endswith(right) and target.count(right) > target.count(left):
+                target = target[:-1]
+        parsed = urlsplit(target)
+        if not parsed.hostname or parsed.username is not None or parsed.password is not None:
+            raise ValueError("Help links require HTTP(S) URLs without embedded credentials")
+        yield match.start(), match.start() + len(target), target
+
+
+def linkify(paragraphs, rels):
+    """Add external hyperlink relationships without changing displayed text."""
+    used = {item.get("Id") for item in rels}
+    targets = {}
+    for paragraph_node in paragraphs:
+        for run in list(paragraph_node.findall("w:r", NS)):
+            # Generated text runs contain only properties, text and line breaks.
+            if any(child.tag not in {f"{{{NS['w']}}}{name}" for name in ("rPr", "t", "br")} for child in run):
+                continue
+            value = "".join("\n" if child.tag == f"{{{NS['w']}}}br" else (child.text or "")
+                            for child in run if child.tag != f"{{{NS['w']}}}rPr")
+            spans = list(web_links(value))
+            if not spans:
+                continue
+            props = run.find("w:rPr", NS)
+            nodes = []
+
+            def append_text(part, parent=None):
+                if not part:
+                    return
+                new_run = ET.Element(f"{{{NS['w']}}}r")
+                if props is not None:
+                    new_run.append(copy.deepcopy(props))
+                if parent is not None:
+                    style = new_run.find("w:rPr", NS)
+                    if style is None:
+                        style = ET.SubElement(new_run, f"{{{NS['w']}}}rPr")
+                    for name, val in (("color", "0563C1"), ("u", "single")):
+                        for old in style.findall("w:" + name, NS):
+                            style.remove(old)
+                        ET.SubElement(style, f"{{{NS['w']}}}{name}", {f"{{{NS['w']}}}val": val})
+                for index, line in enumerate(part.split("\n")):
+                    if index:
+                        ET.SubElement(new_run, f"{{{NS['w']}}}br")
+                    node = ET.SubElement(new_run, f"{{{NS['w']}}}t")
+                    node.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
+                    node.text = line
+                if parent is None:
+                    nodes.append(new_run)
+                else:
+                    parent.append(new_run)
+
+            position = 0
+            for start, end, target in spans:
+                append_text(value[position:start])
+                if target not in targets:
+                    index = len(used) + 1
+                    while f"rIdHelpLink{index}" in used:
+                        index += 1
+                    rid = f"rIdHelpLink{index}"
+                    used.add(rid)
+                    targets[target] = rid
+                    ET.SubElement(rels, f"{{{REL}}}Relationship", Id=rid,
+                                  Type=NS["r"] + "/hyperlink", Target=target, TargetMode="External")
+                link = ET.Element(f"{{{NS['w']}}}hyperlink", {f"{{{NS['r']}}}id": targets[target]})
+                append_text(value[start:end], link)
+                nodes.append(link)
+                position = end
+            append_text(value[position:])
+            index = paragraph_node.index(run)
+            paragraph_node.remove(run)
+            for offset, node in enumerate(nodes):
+                paragraph_node.insert(index + offset, node)
+    return bool(targets)
 
 
 def sha(data):
@@ -235,6 +315,7 @@ def build(template, template_digest, content_path, output, draft=False):
         replacements.append(paragraph(paragraphs[48], "Review items"))
         for item in pending + ["UI screenshot required: " + page for page in missing_pages]:
             replacements.append(paragraph(paragraphs[10], item))
+    links_added = linkify(replacements, rels)
     for child in list(body):
         if child.tag != f"{{{NS['w']}}}sectPr":
             body.remove(child)
@@ -272,8 +353,9 @@ def build(template, template_digest, content_path, output, draft=False):
     if new_parts:
         if not any(item.get("Extension") == "png" for item in types):
             ET.SubElement(types, f"{{{CT}}}Default", Extension="png", ContentType="image/png")
-        parts["word/_rels/document.xml.rels"] = encoded(rels)
         parts["[Content_Types].xml"] = encoded(types)
+    if new_parts or links_added:
+        parts["word/_rels/document.xml.rels"] = encoded(rels)
     output.parent.mkdir(parents=True, exist_ok=True)
     with output.open("xb") as destination:
         with ZipFile(destination, "w") as archive:

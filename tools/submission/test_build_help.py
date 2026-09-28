@@ -88,6 +88,35 @@ class HelpBuilderTests(unittest.TestCase):
             self.build()
         self.assertFalse(self.output.exists())
 
+    def test_contact_links_preserve_text_and_have_external_targets_without_images(self):
+        value = ('Support: https://example.org/support/?a=1&b=2 .\n'
+                 'Source: (https://github.com/example/repo). See https://example.org/wiki/Thing_(name).')
+        self.content['sections']['contact'][0]['text'] = value
+        self.build()
+        with ZipFile(self.output) as archive:
+            doc = help_builder.xml(archive.read('word/document.xml'))
+            rels = help_builder.xml(archive.read('word/_rels/document.xml.rels'))
+        links = doc.xpath('//w:hyperlink', namespaces=help_builder.NS)
+        targets = {r.get('Id'): r for r in rels}
+        self.assertEqual(len(links), 3)
+        self.assertEqual([targets[l.get('{'+help_builder.NS['r']+'}id')].get('Target') for l in links],
+                         ['https://example.org/support/?a=1&b=2', 'https://github.com/example/repo',
+                          'https://example.org/wiki/Thing_(name)'])
+        self.assertTrue(all(r.get('TargetMode') == 'External' for r in targets.values()))
+        paragraph = links[0].getparent()
+        visible = ''.join('\n' if n.tag == '{'+help_builder.NS['w']+'}br' else n.text or ''
+                          for n in paragraph.iter() if n.tag in ('{'+help_builder.NS['w']+'}t', '{'+help_builder.NS['w']+'}br'))
+        self.assertEqual(visible, value)
+
+    def test_links_and_images_keep_distinct_relationships(self):
+        self.add_image()
+        self.content['sections']['contact'][0]['text'] = 'https://example.org/support/'
+        self.build()
+        with ZipFile(self.output) as archive:
+            rels = help_builder.xml(archive.read('word/_rels/document.xml.rels'))
+        self.assertEqual(len({r.get('Id') for r in rels}), len(rels))
+        self.assertEqual({r.get('Type').rsplit('/', 1)[-1] for r in rels}, {'image', 'hyperlink'})
+
     def test_missing_or_unknown_section_is_rejected(self):
         original = copy.deepcopy(self.content)
         for change in ("missing", "unknown"):

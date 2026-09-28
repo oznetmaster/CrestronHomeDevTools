@@ -12,13 +12,17 @@ internal interface IAutomationEndurance
  SubmissionObservation Export();
 }
 
-internal sealed class AutomationEndurance(string directory, SubmissionEnduranceWorkerPlan worker, NetworkCredential credential) : IAutomationEndurance
+internal sealed class AutomationEndurance(string directory, SubmissionEnduranceWorkerPlan worker, NetworkCredential credential,
+ Func<CancellationToken,Task>? preflight=null) : IAutomationEndurance
 {
  internal static void ValidateReservation(SubmissionEnduranceWorkerPlan? worker) {
   if(worker!=null && !Guid.TryParseExact(worker.Plan.ReservationId,"N",out _))
    throw new InvalidDataException("Endurance.Plan.ReservationId must be a unique GUID in N format; release templates can use ${reservationId}.");
  }
- public Task Start(CancellationToken t)=>SubmissionEnduranceMonitor.StartAsync(directory,worker.Plan,worker.Processor,credential,t);
+ public async Task Start(CancellationToken t) {
+  if(preflight!=null)await preflight(t);
+  await SubmissionEnduranceMonitor.StartAsync(directory,worker.Plan,worker.Processor,credential,t);
+ }
  public SubmissionEnduranceMonitorStatus Read()=>SubmissionEnduranceMonitor.ReadStatus(directory,worker.Plan,worker.Processor);
  public Task<SubmissionEnduranceCheckpoint> Collect(CancellationToken t)=>SubmissionEnduranceMonitor.CollectAsync(directory,worker.Plan,worker.Processor,credential,
   ct=>SubmissionEnduranceProcessProbe.RunAsync(worker.Probe,worker.Plan,ct),t);

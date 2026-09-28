@@ -16,7 +16,7 @@ from zipfile import BadZipFile, ZipFile
 from lxml import etree as ET
 
 from build_help import build, keys, sha, strict_object, text
-from render_help import render
+from render_help import render, verify_pdf
 
 
 def read_json(path):
@@ -112,6 +112,7 @@ def checked_help(receipt_path, manifest, content, assembly):
     pdf = (root / (assembly + ".pdf")).read_bytes()
     if sha(docx) != built["docxSha256"] or sha(docx) != rendered["docxSha256"] or sha(pdf) != rendered["pdfSha256"]:
         raise ValueError("Help document differs from the generated and rendered bytes")
+    verify_pdf(docx, io.BytesIO(pdf))
     return receipt, sha(receipt_bytes), pdf
 
 

@@ -18,6 +18,13 @@ public sealed partial class AutomationInstalledAppTests
  [SetUp] public void Setup() {
   root=Path.Combine(TestContext.CurrentContext.WorkDirectory,"installed-app-"+Guid.NewGuid().ToString("N"));
   Directory.CreateDirectory(root);string source=Path.Combine(root,"source");Directory.CreateDirectory(source);
+  // SourceDigest uses Git. Give the fixture its own repository instead of
+  // accidentally depending on whether NUnit's results folder is inside one.
+  var git=new System.Diagnostics.ProcessStartInfo("git"){WorkingDirectory=source,UseShellExecute=false,CreateNoWindow=true,RedirectStandardError=true};
+  git.ArgumentList.Add("init");git.ArgumentList.Add("-q");
+  using(var process=System.Diagnostics.Process.Start(git)!) {
+   string error=process.StandardError.ReadToEnd();process.WaitForExit();Assert.That(process.ExitCode,Is.Zero,error);
+  }
   string project=Path.Combine(source,"Tests.csproj"),adb=Path.Combine(root,"adb.exe"),profile=Path.Combine(root,"profile.json"),package=Path.Combine(root,"candidate.pkg");
   File.WriteAllText(project,"<Project />");File.WriteAllText(adb,"");File.WriteAllText(package,"synthetic package; fake runner only");
   File.WriteAllText(profile,JsonSerializer.Serialize(new AndroidSessionProfile(adb,"emulator-5554","com.crestron.phoenix.app","Example",Path.Combine(root,"android.lock"))));
@@ -32,7 +39,10 @@ public sealed partial class AutomationInstalledAppTests
   context=new(run,new(1,new('e',64),release,SubmissionWorkflowStage.AppTests,SubmissionWorkflowStatus.Running,Guid.NewGuid().ToString("N"),null,[],DateTimeOffset.UtcNow));
   calls=0;
  }
- [TearDown] public void Cleanup()=>Directory.Delete(root,true);
+ [TearDown] public void Cleanup() {
+  foreach(string file in Directory.GetFiles(root,"*",SearchOption.AllDirectories))File.SetAttributes(file,FileAttributes.Normal);
+  Directory.Delete(root,true);
+ }
  private Task<InstalledDriverTestResult> Run(InstalledDriverTestPlan plan,NetworkCredential credential,string folder,CancellationToken token) {
   calls++;Directory.CreateDirectory(folder);
   var result=new InstalledDriverTestResult(new WorkflowTestOutcome(3,0,0,true),true,true,true,true,"synthetic offline result");

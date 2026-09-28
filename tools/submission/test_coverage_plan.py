@@ -130,6 +130,33 @@ class CoveragePlanTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'draft blueprint'):
             self.compile()
 
+    def test_conditional_control_absence_does_not_uncheck_tested_inventory(self):
+        # The source has both controls, but the selected runtime device exposes
+        # only Action. Keep the absent conditional control in source coverage.
+        self.ui = self.ui.replace(b'</controls>', b'<label id="Conditional"/></controls>')
+        (self.root / 'ui.xml').write_bytes(self.ui)
+        self.plan['sources'][0]['sha256'] = sha(self.ui)
+        self.plan['requirements'][0]['checks'].append({
+            **self.check('conditional', ['device/Main/Conditional']),
+            'method': 'absence', 'restore': False,
+            'expectation': 'Verify the selected device capability and retained runtime inventory omit this conditional display.'})
+        policy, mapping, contract = self.compile()
+        results = {'observations': [
+            {'requirementId': r['id'], 'outcome': r['execution']['requiredOutcome'],
+             'rationale': 'Synthetic runtime applicability evidence.'}
+            for r in policy['requirements']]}
+        rows = decisions(self.inventory, self.inventory_digest, mapping, policy, results)
+        self.assertEqual('Passed', next(r for r in rows if r['id'] == 'views')['state'])
+        absent = next(t for t in contract['tasks'] if t['target'] == 'device/Main/Conditional')
+        self.assertEqual('NotApplicable', absent['requiredOutcome'])
+        self.assertIsNone(absent['producer'])  # No fabricated execution.
+        present = next(r for r in policy['requirements'] if r['execution']['target'] == 'device/Main/Action')
+        self.assertFalse(present['allowNotApplicable'])
+        # An expected control cannot be excused by treating it as absent.
+        next(r for r in results['observations'] if r['requirementId'] == present['id'])['outcome'] = 'NotApplicable'
+        with self.assertRaisesRegex(ValueError, 'does not permit non-applicability'):
+            decisions(self.inventory, self.inventory_digest, mapping, policy, results)
+
     def test_source_cannot_escape_checkout(self):
         self.plan['sources'][0]['path'] = '../ui.xml'
         with self.assertRaisesRegex(ValueError, 'relative'):

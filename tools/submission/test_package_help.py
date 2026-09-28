@@ -92,6 +92,23 @@ class PackageHelpTests(unittest.TestCase):
             self.prepare()
         self.assertFalse(self.receipt.exists())
 
+    def test_renderer_losing_links_cannot_create_a_receipt(self):
+        self.fixture.content['sections']['contact'][0]['text'] = 'https://example.org/support/'
+        self.save()
+        with self.assertRaisesRegex(ValueError, 'missing clickable'):
+            self.prepare()
+        self.assertFalse(self.receipt.exists())
+
+    def test_old_text_only_receipt_cannot_bypass_link_validation_at_staging(self):
+        self.fixture.content['sections']['contact'][0]['text'] = 'https://example.org/support/'
+        self.save()
+        # Simulate the old renderer accepting a PDF with all text but no links.
+        with patch.object(render_help, 'verify_pdf', return_value=1):
+            self.prepare()
+        with self.assertRaisesRegex(ValueError, 'missing clickable'):
+            self.stage()
+        self.assertFalse(self.include.exists())
+
     def test_verification_rejects_raw_backslashes_even_on_windows(self):
         self.prepare()
         self.stage()

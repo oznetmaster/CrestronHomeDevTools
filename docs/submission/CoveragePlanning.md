@@ -4,14 +4,14 @@ Command examples use the [bundled submission console](ConsoleTools.md); see that
 
 `submission coverage-plan` expands a reviewed source snapshot and coverage blueprint into a draft evidence policy, a complete form mapping and scoped producer tasks. It does not execute tests, generate observations, approve the policy or fill a form. Use the matching bundled console described above; its internal document runtime is included in the complete console archive, separately from the NuGet configuration library.
 
-Keep the concrete blueprint in the driver repository. Enumerate its UI, configuration, response timing, restoration, outage, endurance and multiple-instance checks. A planning artifact with unresolved execution bindings is not passed self-test evidence.
+Keep the concrete blueprint in the developer's private submission workspace. Enumerate its UI, configuration, response timing, restoration, outage, endurance and multiple-instance checks. A planning artifact with unresolved execution bindings is not passed self-test evidence. Generic examples belong with the shared tools; driver-specific submission settings and evidence do not belong in the public driver repository.
 
 ## Generate a draft
 
 No interpreter setup is required. Supply independently reviewed SHA-256 values for the blueprint and official field inventory. Keep the output private and use a new output directory whose parent already exists:
 
 ```text
-CrestronHomeDevTools.Console.exe submission coverage-plan --plan DRIVER/submission/extension-coverage-plan.json --plan-sha256 REVIEWED_BLUEPRINT_SHA256 --inventory docs/submission/extension-inventory.json --inventory-sha256 REVIEWED_INVENTORY_SHA256 --source-root DRIVER --output PRIVATE_NEW_DIRECTORY
+CrestronHomeDevTools.Console.exe submission coverage-plan --plan PRIVATE_INPUTS/extension-coverage-plan.json --plan-sha256 REVIEWED_BLUEPRINT_SHA256 --inventory docs/submission/extension-inventory.json --inventory-sha256 REVIEWED_INVENTORY_SHA256 --source-root DRIVER --output PRIVATE_NEW_DIRECTORY
 ```
 
 The uppercase values are placeholders. Review changes before updating pins; simply recalculating all digests after source changes does not establish coverage. A source snapshot is distinct from the final Release source-commit/package identity, which must also be pinned by trusted CI.
@@ -49,6 +49,14 @@ Each official item has its inventory `id` and a nonempty `checks` list. A check 
 One check with several targets expands into separate observation IDs. A producer may satisfy several assertions during one carefully controlled sequence and share retained captures, provided it actually asserts each required behavior. Expanding a blueprint is not a request to repeat every physical action separately.
 
 An `absence` proposal requires `NotApplicable` in the generated policy's `execution` requirements. A future producer must inspect the candidate and runtime variants, retain evidence and provide a rationale; static XML absence alone is insufficient for framework-generated controls. Ordinary checks do not permit non-applicability.
+
+### Installed controls and representative hardware
+
+Choose the representative hardware and inspect its actual capabilities before freezing the blueprint. A platform driver's source can define conditional controls for many models; this does not require owning every supported model, regional variant or mains-voltage variant. Record the distinction between supported and physically tested models in the product README. Unavailable hardware alone is not an incomplete checklist test for the installed configuration.
+
+For the control-inventory item, plan normal observations for every expected control of the selected devices. Plan an `absence` check for each source-defined conditional control that those devices do not expose. Keep its target in the mapping and require retained runtime inventory evidence, with `restore: false` and no response deadline when the check is read-only. Do not mark the whole item N/A merely because some conditional controls are absent: passing applicable controls plus justified non-applicable controls produce a checked item. If an expected control is missing, that is a failure, not evidence of non-applicability.
+
+Apply this decision before initial testing and endurance. If applicability was specified incorrectly, retain the original plan and results and create a separately identified, reviewed correction with its reason and evidence provenance. Do not overwrite frozen inputs, relabel a failed test, or claim a fresh execution merely by changing policy hashes. Adding optional hardware later does not by itself require repeating an existing endurance test.
 
 The source evidence validator now enforces each generated policy's `execution` fields. Observations must supply a matching target and method. Required response timestamps must be ordered within the observation interval, meet the deadline, and reference retained trigger/response files. Required restoration records must place original capture before the action and verification after restoration, confirm a match, and reference retained original/verification evidence. A passing summary alone cannot satisfy these checks. Even a non-applicable scoped observation requires retained files.
 

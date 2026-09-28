@@ -1,8 +1,34 @@
 # Submission workflow validation
 
-This page records the shared tooling's verified scope, with source-preview updates through 25 September 2026. It contains no driver-specific submission files or progress details. Use the [normal-path runbook](Runbook.md) to configure your own workflow.
+This page records the shared tooling's verified scope, with source-preview updates through 28 September 2026. It contains no driver-specific submission files or progress details. Use the [normal-path runbook](Runbook.md) to configure your own workflow.
 
 ## Release automation source preview
+
+The complete local Release check passed all 1,483 discovered .NET tests with
+zero failures or skips, and all 266 document-tool tests passed. This includes the
+318-test focused automation and delivery check. A new
+protected-adapter test connects the retained unsigned review to signing, delivery
+and retention, checks both approval waits, and verifies recovery does not repeat
+signing or sending. It uses synthetic document output and a fake transport with
+the real delivery journal; it is not a live signature/provider demonstration.
+Installed-app fixtures now create their own Git repositories, so this test scope
+also runs with its results outside the source checkout.
+
+Help generation now embeds HTTP(S) hyperlinks. Forty-four focused tests cover
+generation, rendering and packaging, including rejection of text-only URLs,
+wrong destinations and old receipts that lack working links. A real LibreOffice
+conversion preserved the support and repository link annotations and its contact
+page was visually inspected. These changes are source-preview work pending a
+batched release; previously delivered packages are not rewritten.
+
+The initial sequence allowed missing physical-event and outage checks to remain
+declared gaps while starting endurance. That is a workflow defect, not successful
+validation of complete initial coverage. The source now checks the full pinned
+policy before starting a new collection in either mode. Local regression tests
+exercise missing and non-passing evidence, producer identity and integrity,
+policy-permitted N/A and shortened rehearsal handling. Hardware validation of the
+corrected full sequence remains pending; earlier evidence is preserved without
+retrospectively claiming correct ordering.
 
 Verified release intake and persistent stage sequencing now have offline tests for duplicate events, waiting for an unfinished asset upload, package/commit identity, frozen-input changes, interrupted stages, unchanged waiting ticks and uncertain delivery outcomes. The console intake retains the candidate but starts no tests or delivery. The stage tests use synthetic adapters; they are not a real release-to-submission demonstration. See [implementation and remaining integrations](ReleaseAutomation.md).
 
@@ -44,7 +70,7 @@ The real submission used the explicitly reviewed declared-gaps route. It demonst
 - Obtain the applicable official templates and configure the help renderer/fonts. Keep candidate packages immutable after validation.
 - Provide private signing material and exact-form authorization, followed by separate approval of the outgoing packet and correspondence.
 - Configure uploader and SMTP credentials for the account that will execute delivery. A credential encrypted for an interactive Windows user is not automatically available to a service account. Check that the worker can read the approved inputs and write its receipts without granting ordinary build jobs that access.
-- Supply any physical interruption equipment or additional device targets required by the chosen verification plan. If a step cannot be completed, deliberately use the [declared-gaps route](DeclaredGaps.md) and disclose it; do not mark it passed.
+- Supply any physical interruption equipment or additional device targets required by the chosen verification plan. Applicable functional, physical-event and outage checks must pass before endurance starts. The [pre-endurance gate](AutomationWorker.md#required-checks-before-endurance) enforces this in both modes. The [declared-gaps route](DeclaredGaps.md) preserves honest disclosure during review of existing evidence; it does not waive initial test prerequisites or prove successful end-to-end validation.
 
 No signature, credential, private receipt or driver-specific test result is distributed with the tools. See the individual guides for supported commands and environment setup. Broad provider-failure coverage is simulated; no universal provider, clean-machine or hardware compatibility guarantee is implied.
 

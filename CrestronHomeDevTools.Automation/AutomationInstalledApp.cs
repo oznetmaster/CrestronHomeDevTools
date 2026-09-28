@@ -84,6 +84,8 @@ internal static class AutomationInstalledApp
  private static SubmissionWorkflowReceipt[] Inventory(string root) {
   string folder=Path.Combine(root,"installed-app");
   var entries=new List<FileSystemInfo>();var pending=new Stack<DirectoryInfo>();pending.Push(new(folder));
+  string readiness=folder+"-readiness";
+  if(Directory.Exists(readiness))pending.Push(new(readiness));
   while(pending.Count>0) {
    var directory=pending.Pop();
    if((directory.Attributes&FileAttributes.ReparsePoint)!=0)throw new InvalidDataException("Installed-app evidence contains a link.");

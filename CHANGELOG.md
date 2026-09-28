@@ -1,43 +1,8 @@
 # Changelog
 
-## Unreleased
+## 1.19.1 - 2026-09-25
 
-- Retain per-outlet Kasa/Tapo endurance diagnostics and partial successes without exposing exception messages or credentials. Distinguish unavailable observations from physical identity failures and still verify the installed payload. New immutable endurance plans can opt to continue collecting after inconclusive observations; the worker surfaces the retained issue and never automatically accepts or exports that run as passing. Existing plans and terminal evidence remain unchanged.
-
-- Background submission worker notices include UTC timestamps and say whether action is required. Temporary workflow-lock contention remains in the private journal but no longer produces repeated Busy/Waiting notices; genuine status changes still notify. Routine endurance notices say “No action required”; signing/delivery approvals and errors still request attention.
-
-- Protected automation can select an independently pinned additive unsigned review for later hardware evidence. It preserves original observations and endurance, requires the same candidate and policy, and still waits for exact signing/delivery approvals.
-
-- The submission worker installer can use the signed-in owner's encrypted inputs with `-CurrentUser`. It resumes at owner sign-in; the existing service mode still starts at Windows startup. Document shared evidence and version compatibility for separate evidence and protected computers.
-- Normalize Windows path spelling when checking the receipt boundary. A trusted storage mount above a run no longer causes valid receipts to be rejected; links within a run remain rejected.
-
-- Include release notes in NuGet metadata and make package README links work outside GitHub.
-
-- Close the processor event socket with a bounded normal WebSocket handshake before aborting an unresponsive connection. This reduces abrupt disconnects during configuration operations; no device commands are retried.
-
-- Fresh deployment-bound app plans can use a zero device ID during preflight. The worker substitutes the verified deployment receipt before execution; standalone installed-app tests still require a real positive ID.
-
-- Add explicit reviewed-tree platform reload through the API and CLI. Recheck descendants and processor dependency scope before reloading children with the parent; parent-only reload remains unchanged. See the protocol reference for recovery verification requirements.
-
-- Added optional persistent managed-child setup before separate installed-app tests. It binds the actual platform deployment, applies reviewed initial configuration, checks required controls and retains children through endurance. App/probe inputs and final removal can use the recorded child/native-load IDs. Interrupted setup is not replayed. Offline regression coverage is available; integrated hardware validation is pending. See [the setup contract](docs/submission/ManagedChildren.md).
-
-- Explicit inspected recovery can remove a successfully created child when readiness validation was interrupted before a completion result. It preserves the original failed attempt and keeps the same ownership, scope and no-replay checks; ordinary automatic cleanup remains unchanged.
-
-- Managed-child commissioning recognizes an immediately created native-light wrapper and returns its verified load ID. A read-only receipt observer can inspect an interrupted setup without repeating commands or rewriting the original outcome. Offline native loads without controls remain not ready. Regression tests cover identity, room, receipt disagreement and incomplete readiness; persistent setup after reload remains under hardware investigation.
-- Journal-owned managed-child cleanup recognizes an activated wrapper with one native light, verifies its managed-device identity, and requires both devices to disappear while preserving unrelated devices. Offline scope and partial-cleanup tests pass, and a CP4-R native-light cleanup check confirmed removal and unrelated-device preservation. Full workflow validation remains pending.
-
-- An optional response-comparison stage pairs retained measurements before and after endurance and includes deltas and ratios in review evidence. Explicit reviewed limits determine pass/fail; absent limits remain a disclosed partial result. Offline integration covers both initial producer routes and retention failures; hardware end-to-end validation is pending. See [the contract](docs/submission/ResponseComparison.md).
-
-Added source APIs for final actual-driver removal validation and read-only processor error-log comparison. Removal checks the exact device tree and unrelated inventory, accepts a caller-supplied app observer, and retains a one-shot journal. The log reader has been checked against real CP4-R output; actual removal with Android remains unverified. See [the API contract and validation limits](docs/DriverRemovalValidation.md).
-
-Added a public baseline/removal coordinator and Home/Room/native-light observer. The worker can now opt into final removal after post-endurance checks and retain its observation for review, without replaying interrupted attempts. A real baseline-only check confirmed selected extension/native-light views, candidate identity, Home restoration and automatic reservation release. Actual removal and the integrated unattended run still require hardware validation.
-
-That retained pre-removal baseline can also satisfy a separately configured placement requirement, without another device operation. The worker checks its saved outcome and selection before emitting Home/Room/native Lights membership evidence; icon artwork and control behavior remain separate assertions.
-
-- Automation plans can run separately configured functional checks after endurance and before preparing review. The worker preserves both phases, binds the later checks to the completed interval, and stops on failed or uncertain restoration. This has offline regression coverage; hardware validation of the new stage is pending.
-- Those post-endurance checks can obtain the installed device and catalogue IDs from the workflow's verified deployment receipts, avoiding manual ID updates and assumptions about catalogue version formatting. Expected identity and room constraints remain enforced, and the resolved plan is retained with the evidence.
-- Saved automation review plans can include source-based N/A decisions before a release's package hash exists. The worker checks the pinned source files against the verified release checkout, retains the dated review and binds the decisions to the actual candidate. Changed source requires a new review. Runtime-dependent decisions and passing test results cannot use this route.
-- Planned, scoped limitations such as shortened rehearsal endurance can also be saved before release. They are bound to the discovered candidate for declared-gaps review, retain the original policy and test outcomes, and do not authorize signing or delivery.
+NuGet-only documentation patch: corrected README links and included package release-note metadata. Runtime binaries and the existing GitHub release remain unchanged.
 
 ## 1.19.0 - 2026-09-25
 
@@ -55,7 +20,7 @@ Start with [the operator guide](docs/submission/START-DRIVER-SUBMISSION.md), [se
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
-## Unreleased
+### Development history included in 1.19.0
 
 - Include release notes in NuGet metadata and make package README links work outside GitHub.
 

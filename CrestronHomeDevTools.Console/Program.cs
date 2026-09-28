@@ -176,6 +176,7 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
               devices                  List installed devices, their IDs, names and room IDs.
               locations                List configured rooms and their IDs.
               driver-configuration --device ID
+              driver-readiness --device ID --model MODEL --version VERSION
                                        Show current settings; honour driver-defined masking.
               eligibility --driver ID  Show installed devices eligible for that driver update.
               reload-scope --device ID Show devices associated with a proposed driver reload.
@@ -328,6 +329,7 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 				"configure" or "discover" => Array.Empty<string> (),
 				"drivers" => ["search"],
 				"driver-configuration" => ["device"],
+				"driver-readiness" => ["device", "model", "version"],
 				"devices" or "locations" or "refresh" or "stored-packages" => [],
 				"move" => ["device", "model", "version", "from-room", "room"],
 				"reboot" => ["confirm-reboot"],
@@ -384,7 +386,7 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 				throw new ArgumentException ("The candidate package file does not exist.");
 			}
 		var deviceId = 0;
-		if (command is "move" or "reload" or "reload-scope" or "remove" or "configure-driver" or "driver-configuration")
+		if (command is "move" or "reload" or "reload-scope" or "remove" or "configure-driver" or "driver-configuration" or "driver-readiness")
 			{
 			if (!int.TryParse (Required ("device"), out deviceId) || deviceId <= 0)
 				throw new ArgumentException ("Device ID must be a positive integer.");
@@ -579,6 +581,9 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 			case "driver-configuration":
 				result = await DriverConfigurationInspection.GetAsync (client, deviceId, cancellation.Token);
 				break;
+			case "driver-readiness":
+				result = await DriverReadiness.InspectAsync(client, deviceId, Required("model"), Required("version"), cancellationToken: cancellation.Token);
+				break;
 			case "remove-created-child":
 				Console.Error.WriteLine ("Removing only the managed child recorded by this journal; checking preservation of other devices.");
 				mutationSubmitted = true;
@@ -695,6 +700,7 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 			}
 		mutationStopped = true;
 		Console.WriteLine (JsonSerializer.Serialize (result, jsonOptions));
+		if (result is DriverReadinessReport readiness) return readiness.Ready ? 0 : 1;
 		if (result is ManagedDeviceResult { State: "ConfigurationRequired" })
 			return 3;
 		return result is OperationResult operation && !operation.Succeeded ? operation.Status == "Failed" ? 1 : 3 : 0;

@@ -14,7 +14,12 @@ public sealed record SubmissionAutomationReviewPlan(SubmissionAutomationInput Po
  SubmissionAutomationPriorEvidence? PriorEvidence=null,SubmissionAutomationApplicability? Applicability=null,
  SubmissionAutomationQualifications? Qualifications=null,
  SubmissionAutomationInput? SourceApplicability=null,
- SubmissionGapDeclaration[]? PlannedGaps=null);
+ SubmissionGapDeclaration[]? PlannedGaps=null)
+{
+ /// <summary>Optional initial producer observations when final review selects post-endurance observations.
+ /// These must cover every prerequisite in the full policy; this is not a list of requirements to waive.</summary>
+ public string[]? PreEnduranceObservationSources { get; init; }
+}
 
 internal static class AutomationReview
 {

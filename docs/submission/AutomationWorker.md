@@ -1,6 +1,6 @@
 # Windows submission automation worker
 
-This source-preview worker connects release discovery, the public Crestron NUnit and endurance APIs, document preparation, authorized signing and delivery, and final retention. A configured real release-to-review rehearsal completed without intervention after startup, with shortened endurance explicitly disclosed. Protected signing/delivery/retention passed separate synthetic validation. A newly published release followed by real submission remains a distinct validation boundary; see [validation status](ValidationStatus.md). No additional NuGet release is required to test this branch.
+This preview worker, included in the complete Windows release bundle, connects release discovery, the public Crestron NUnit and endurance APIs, document preparation, authorized signing and delivery, and final retention. A configured real release-to-review rehearsal completed without intervention after startup, with shortened endurance explicitly disclosed. Protected signing/delivery/retention passed separate synthetic validation. A newly published release followed by real submission remains a distinct validation boundary; see [validation status](ValidationStatus.md). Use 1.20.0 or later for the hardening checks documented here. Keep existing active runs on their pinned tooling.
 
 Observers must check `worker-status.json` as well as the workflow checkpoint and
 the actual scheduled-task/process state. An adapter exception produces worker
@@ -15,6 +15,13 @@ same account. Checkouts created by an administrator can be rejected by Git when
 the service subsequently reads them; do not bypass this with a global trust rule.
 
 ## Build and run
+
+Workers from 1.20.0 check [installed-driver readiness](../DriverReadiness.md)
+before installed-app tests and before starting a new endurance collection. The
+check includes installed children, configuration review flags, expected versions
+and native light controls; an online platform alone is insufficient. It does not
+repair or remove devices. Upgrade the worker normally to adopt this check; an
+already running collection is not modified.
 
 Platform-driver workflows can prepare persistent managed children before the
 separate installed-app stage, retain them through endurance, and bind later
@@ -169,6 +176,41 @@ or a completed separate app producer. Its source must be listed in that producer
 retained receipt; the app receipt, workflow identity and complete app inventory are
 rechecked before composition. A JSON file placed in the run directory later is not
 accepted as completed test evidence.
+
+### Required checks before endurance
+
+Both rehearsal and submission now enforce a pre-endurance evidence gate. Complete
+the applicable functional, configuration, UI, physical-event and outage/recovery
+checks during the initial Windows/processor/installed-app phases. For attended
+checks, establish fixture readiness and configuration prerequisites before asking
+the operator to trigger an event. Passing discovery or cached-state tests does not
+prove a physical event reached the app.
+
+The gate evaluates the **full pinned review policy** against completed producer
+receipts and their retained observation files. Missing, failed, partial, duplicate,
+inconclusive or mismatched evidence blocks collection with
+`pre-endurance-evidence-required`. The detailed report is retained under
+`pre-endurance-attempts/`. Planned gaps and review qualifications cannot waive this
+gate. N/A and reviewed prior passes must meet their existing policy and evidence
+rules. Only the configured endurance requirement, final removal requirement and
+before/after response-comparison requirement may remain pending. Home/Room
+placement must already be verified; it is not deferred with final removal.
+A rehearsal may retain a shorter endurance duration (for example one hour) against
+the full review policy. This does not shorten any initial check or count as the
+submission's full-duration evidence. Submission mode requires the policy duration.
+
+By default the gate uses `Review.ObservationSources`, excluding the separate
+`post-endurance/` sources. If final review selects later observations for the same
+checklist items, set `Review.PreEnduranceObservationSources` to the initial producer
+observation paths. This selects evidence documents, not a smaller requirement
+list. Every referenced file must belong to a completed initial producer inventory.
+Checks repeated after endurance demonstrate continued operation; they do not
+replace the initial checks.
+
+Existing collections remain observable and their evidence is preserved. An older
+run without a pre-endurance gate receipt does not acquire proof of correct ordering
+by upgrading the tools. Do not reset it or claim it validated the corrected sequence.
+Validate the new gate in a fresh rehearsal after the complete plan is ready.
 
 ### Functional checks after endurance
 

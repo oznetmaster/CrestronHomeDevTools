@@ -102,6 +102,22 @@ class AndroidEvidenceTests(unittest.TestCase):
                      self.assembly, self.assembly_hash, self.discovery_hash, self.manifest_hash,
                      self.selection_hash if selection_hash is None else selection_hash)
 
+    def test_explicit_cases_require_pinned_selection_and_complete_passing_results(self):
+        self.prepare_selection()
+        changed = self.discovery.replace('runstate="Runnable"', 'runstate="Explicit"')
+        (self.root / "discovery.dump").write_text(changed, encoding="utf-8")
+        self.discovery_hash = sha(changed.encode())
+        self.pin["DiscoverySha256"] = self.discovery_hash
+        self.write("producer-pin.json", self.pin)
+        self.coverage["DiscoverySha256"] = self.discovery_hash
+        self.write("coverage.json", self.coverage)
+        self.assertEqual(2, self.selected_audit()["executedTests"])
+        with self.assertRaises(ValueError):
+            audit_android.discovery(changed.encode(), self.assembly)
+        for state in ("Ignored", "NotRunnable"):
+            with self.subTest(state=state), self.assertRaises(ValueError):
+                audit_android.discovery(changed.replace('runstate="Explicit"', f'runstate="{state}"', 1).encode(), self.assembly, allow_explicit=True)
+
     def test_selected_run_reports_exclusions_and_preserves_duplicate_names(self):
         self.prepare_selection()
         report = self.selected_audit()

@@ -17,7 +17,7 @@ from zipfile import ZipFile
 
 from pypdf import PdfReader
 
-from build_help import NS, xml
+from build_help import NS, web_links, xml
 
 
 def normalized(value):
@@ -33,9 +33,32 @@ def verify_pdf(docx_bytes, pdf):
     actual = normalized("\n".join(page.extract_text() or "" for page in reader.pages))
     with ZipFile(io.BytesIO(docx_bytes)) as archive:
         document = xml(archive.read("word/document.xml"))
+        expected_links = {target for value in document.xpath("//w:p", namespaces=NS)
+                          for _, _, target in web_links("".join(
+                              "\n" if node.tag == f"{{{NS['w']}}}br" else node.text or ""
+                              for node in value.iter() if node.tag in (f"{{{NS['w']}}}t", f"{{{NS['w']}}}br")))}
+        if "word/_rels/document.xml.rels" in archive.namelist():
+            rels = xml(archive.read("word/_rels/document.xml.rels"))
+            active = set(document.xpath("//w:hyperlink/@r:id", namespaces=NS))
+            expected_links.update(r.get("Target") for r in rels if r.get("Id") in active
+                                  and r.get("Type") == NS["r"] + "/hyperlink"
+                                  and r.get("TargetMode") == "External")
     expected = [normalized(value) for value in document.xpath("//w:t/text()", namespaces=NS) if value.strip()]
     if not expected or any(value not in actual for value in expected):
         raise ValueError("Help PDF text does not contain all source document text")
+    actual_links = set()
+    for page in reader.pages:
+        for reference in page.get("/Annots", []):
+            annotation = reference.get_object()
+            action = annotation.get("/A")
+            action = action.get_object() if action else {}
+            rect = annotation.get("/Rect", [])
+            if (annotation.get("/Subtype") == "/Link" and action.get("/S") == "/URI"
+                    and not int(annotation.get("/F", 0)) & 35
+                    and len(rect) == 4 and rect[2] > rect[0] and rect[3] > rect[1]):
+                actual_links.add(str(action.get("/URI", "")))
+    if expected_links - actual_links:
+        raise ValueError("Help PDF is missing clickable source links: " + ", ".join(sorted(expected_links - actual_links)))
     return len(reader.pages)
 
 
@@ -101,7 +124,7 @@ def render(docx, expected_digest, soffice, output_directory, timeout=120):
             destination.write(data)
     return {"schemaVersion": 1, "docxSha256": digest, "pdfSha256": hashlib.sha256(data).hexdigest(),
             "rendererVersion": version_text, "pageCount": pages, "sourceTextVerified": True,
-            "visualReviewRequired": True}
+            "sourceLinksVerified": True, "visualReviewRequired": True}
 
 
 def main():

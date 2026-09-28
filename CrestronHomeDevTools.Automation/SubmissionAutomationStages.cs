@@ -40,7 +40,11 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
   Func<string,NetworkCredential> credentials,SubmissionAutomationWorkerRole role=SubmissionAutomationWorkerRole.Evidence,
   Func<InstalledDriverTestPlan,NetworkCredential,string,CancellationToken,Task<InstalledDriverTestResult>>? installedApp=null) {
    this.settings=settings;settingsDigest=digest;runNUnit=run;credential=credentials;this.role=role;
-   runInstalledApp=installedApp??((p,c,r,t)=>InstalledDriverTests.RunAsync(p,c,r,t));
+   runInstalledApp=installedApp??(async(p,c,r,t)=>{
+    await AutomationDriverReadiness.Check(p.Host,p.CertificateSha256,c,new(p.Target.DeviceId,p.Target.Model,p.Target.Version,"Existing"),
+     r+"-readiness",t);
+    return await InstalledDriverTests.RunAsync(p,c,r,t);
+   });
   }
 
  public Task<SubmissionWorkflowStepResult> ExecuteAsync(SubmissionWorkflowStepContext c,CancellationToken t)=>Advance(c,false,t);
@@ -244,6 +248,20 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
  }
  private async Task<SubmissionWorkflowStepResult> Endurance(SubmissionWorkflowStepContext c,bool recover,CancellationToken token)
  {
+  // Check before resolving deployment resources or opening a processor connection.
+  // Existing collections remain observable; never restart or discard one to repair ordering.
+  if(!Directory.Exists(Path.Combine(c.RunDirectory,"endurance"))) {
+   var gate=AutomationPreEndurance.Check(c,settings,token);
+   if(!gate.EvidenceChecksPassed) {
+    string reports=Path.Combine(c.RunDirectory,"pre-endurance-attempts");Directory.CreateDirectory(reports);
+    AutomationFiles.Write(Path.Combine(reports,Guid.NewGuid().ToString("N")+".json"),
+     new{c.Checkpoint.InputSha256,ObservedUtc=DateTimeOffset.UtcNow,Report=gate});
+    return new(SubmissionWorkflowStatus.NeedsInput,ReasonCode:"pre-endurance-evidence-required");
+   }
+   AutomationFiles.Write(Path.Combine(c.RunDirectory,"pre-endurance-gate.json"),new{c.Checkpoint.InputSha256,
+    SettingsSha256=settingsDigest,PolicySha256=settings.Review!.Policy.Sha256,
+    InitialStages=c.Checkpoint.CompletedStages,Report=gate});
+  }
   var worker=AutomationDeploymentEndurance.Resolve(c,settings);
   if(worker==null)return new(SubmissionWorkflowStatus.NeedsInput,ReasonCode:"endurance-plan-required");
   SubmissionEnduranceProcessProbe.Validate(worker.Probe,worker.Plan);
@@ -251,6 +269,16 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
    worker.Processor.Host!=settings.NUnit.Host || worker.Processor.SshFingerprint!=settings.NUnit.SshFingerprint)
    throw new InvalidDataException("Endurance plan targets another package.");
   string directory=Path.Combine(c.RunDirectory,"endurance");
-  return await AutomationEndurance.Advance(c,recover,new AutomationEndurance(directory,worker,credential(worker.Processor.Host)),token);
+  var savedCredential=credential(worker.Processor.Host);
+  return await AutomationEndurance.Advance(c,recover,new AutomationEndurance(directory,worker,savedCredential,async ct=>{
+   if(settings.NUnit.ActualDriver==null)return;
+   var installed=AutomationDeploymentEvidence.Read(c,settings).Installed;
+   var controls=new Dictionary<int,string[]>();
+   if(settings.ManagedDevices!=null)
+    foreach(var binding in AutomationManagedDevices.VerifyRetained(c))
+     controls.Add(binding.NativeLoadId??binding.DeviceId,settings.ManagedDevices.Children.Single(child=>child.Alias==binding.Alias).RequiredCommands);
+   await AutomationDriverReadiness.Check(worker.Processor.Host,settings.NUnit.CertificateSha256,savedCredential,installed,
+    Path.Combine(c.RunDirectory,"pre-endurance-readiness"),ct,controls);
+  }),token);
  }
 }

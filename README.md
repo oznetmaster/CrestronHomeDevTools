@@ -17,6 +17,7 @@ Reviewed V1 removal can preserve other instances sharing the same driver code ac
 - [PowerShell prerequisite for Windows automation](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/PowerShell.md)
 - [Library example](#library-example)
 - [Driver configuration](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/DriverConfiguration.md)
+- [Installed-driver readiness before testing](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/DriverReadiness.md) (requires 1.20.0)
 - [Managed-child validation lifecycle](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/ManagedChildValidation.md)
 - [Moving drivers between rooms](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/RoomMoves.md)
 - [Associating Android tiles with installed drivers](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/DriverUiBinding.md)

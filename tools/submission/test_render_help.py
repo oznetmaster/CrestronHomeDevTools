@@ -12,12 +12,13 @@ from unittest.mock import patch
 from zipfile import ZipFile
 
 from pypdf import PdfWriter
+from pypdf.annotations import Link
 from pypdf.generic import DictionaryObject, NameObject, DecodedStreamObject
 
 import render_help
 
 
-def pdf(path, text="Example help text", attachment=False):
+def pdf(path, text="Example help text", attachment=False, links=()):
     writer = PdfWriter()
     page = writer.add_blank_page(width=612, height=792)
     font = DictionaryObject({NameObject("/Type"): NameObject("/Font"), NameObject("/Subtype"): NameObject("/Type1"),
@@ -28,6 +29,8 @@ def pdf(path, text="Example help text", attachment=False):
     page[NameObject("/Contents")] = content
     if attachment:
         writer.add_attachment("private.txt", b"must not be distributed")
+    for target in links:
+        writer.add_annotation(0, Link(rect=(20, 740, 300, 760), url=target))
     writer.write(path)
 
 
@@ -108,6 +111,30 @@ class HelpRendererTests(unittest.TestCase):
         pdf(output, "Some unrelated document")
         with self.assertRaisesRegex(ValueError, "source document text"):
             render_help.verify_pdf(self.docx.read_bytes(), output)
+
+    def test_plain_url_and_wrong_destination_fail_even_when_text_matches(self):
+        target = 'https://example.org/support/'
+        with ZipFile(self.docx, 'w') as archive:
+            archive.writestr('word/document.xml', '<w:document xmlns:w="'+render_help.NS['w']+'"><w:body><w:p><w:r><w:t>'+target+'</w:t></w:r></w:p></w:body></w:document>')
+        output = self.root / 'links.pdf'
+        for links in ((), ('https://example.org/wrong/',)):
+            pdf(output, target, links=links)
+            with self.assertRaisesRegex(ValueError, 'missing clickable'):
+                render_help.verify_pdf(self.docx.read_bytes(), output)
+        pdf(output, target, links=(target,))
+        self.assertEqual(render_help.verify_pdf(self.docx.read_bytes(), output), 1)
+
+    def test_named_hyperlinks_are_checked_against_relationship_target(self):
+        target = 'https://example.org/support/'
+        with ZipFile(self.docx, 'w') as archive:
+            archive.writestr('word/document.xml', '<w:document xmlns:w="'+render_help.NS['w']+'" xmlns:r="'+render_help.NS['r']+'"><w:body><w:p><w:hyperlink r:id="rId1"><w:r><w:t>Contact support</w:t></w:r></w:hyperlink></w:p></w:body></w:document>')
+            archive.writestr('word/_rels/document.xml.rels', '<Relationships><Relationship Id="rId1" Type="'+render_help.NS['r']+'/hyperlink" TargetMode="External" Target="'+target+'"/></Relationships>')
+        output = self.root / 'named.pdf'
+        pdf(output, 'Contact support')
+        with self.assertRaisesRegex(ValueError, 'missing clickable'):
+            render_help.verify_pdf(self.docx.read_bytes(), output)
+        pdf(output, 'Contact support', links=(target,))
+        self.assertEqual(render_help.verify_pdf(self.docx.read_bytes(), output), 1)
 
     def test_embedded_attachment_is_rejected(self):
         output = self.root / "attachment.pdf"
