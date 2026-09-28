@@ -2,7 +2,68 @@
 
 Status: implemented in source for the next batched release. This command is not in the 1.20.0 console bundle.
 
-`submission-import-outage-evidence` turns a retained, measured interruption into a normal `SubmissionEvidenceDocument`. It validates evidence and timing; it does **not** disconnect equipment, gather a processor log, operate the app, or establish that a particular hardware scope satisfies the official checklist. The capture producer and its hardware bindings must be implemented and validated before starting the workflow. Do not describe this importer alone as an automated outage recorder.
+`submission-import-outage-evidence` turns a retained, measured interruption into a normal `SubmissionEvidenceDocument`. It validates evidence and timing; it does **not** disconnect equipment, gather a processor log, operate the app, or establish that a particular hardware scope satisfies the official checklist. The source library also provides `SubmissionOutageRecorder` for capture sequencing and restoration. Its concrete hardware bindings must be implemented and validated before starting the workflow. Neither the importer nor the recorder's offline tests prove a live equipment test.
+
+## Recording from an initial NUnit fixture
+
+`SubmissionOutageRecorder.RecordAsync` accepts the reviewed measurement plan, a trusted
+`ISubmissionOutageHardware` implementation, a new evidence directory, an observation
+timeout and a separate restoration timeout. Call it from the workflow's reserved
+[additional initial fixture](AutomationWorker.md#additional-initial-fixture), before endurance.
+The bindings must identify exactly the plan's component and function names; unknown,
+missing or duplicate bindings are rejected before hardware access.
+
+The recorder performs these steps:
+
+1. Run the binding's read-only preflight and capture original state.
+2. Retain an intent before each interruption command, then retain its evidenced event bounds.
+3. Wait at least the plan's minimum interruption after all components acknowledge interruption.
+4. Restore every attempted component, including a command that threw after possibly changing equipment. A failed restoration does not suppress the other restoration attempts.
+5. Capture the program-load marker when required, then run each named functional assertion.
+6. Restore and independently compare the original device/app state, including collateral changes.
+7. Assess the retained measurements through the same conservative timing validator used by the importer.
+
+Cancellation and observation timeout still enter restoration. Each component's connectivity
+restoration and the final state restoration have separate bounded budgets, independent of
+caller cancellation. One component timing out cannot cancel restoration of the next component.
+Bindings must honor cancellation; the recorder cannot safely force-stop a transport that ignores it.
+Process termination or host power loss cannot execute `finally`: retain the incomplete directory
+and require inspection/restoration, never automatically replay the interrupted test. A hardware
+controller that can restore independently of the test host is an external prerequisite where
+loss of control would otherwise leave equipment disconnected.
+
+Progress captures are immutable numbered JSON files, flushed to disk. An existing output
+directory is rejected. The recorder verifies capture file hashes and timestamp ordering before
+continuing. It stores exception types and the failing phase, not arbitrary transport exception
+messages that could contain credentials. Bindings must themselves keep their raw captures free
+of credentials. They retain raw controller/processor/app evidence under the supplied directory;
+the recorder does not authenticate a provider's factual assertions merely by hashing them.
+
+On a completed capture, `measurements.json` and `assessment.json` are retained even when the
+measurement is Partial or Failed. `recording-result.json` names the importable record. If an
+operation or recording step failed, that path is null and the partial progress and error types
+remain available. `Passed` is true only with no recording errors and a passing measurement.
+If disk writes fail entirely, the method can throw after restoration; absence of a final result
+must never be interpreted as success.
+
+Import any available record using its independently retained plan and record digests, preserve
+nonpassing observations, and make the NUnit fixture fail when `Passed` is false. Include the
+resulting observations and raw captures in its normal producer inventory. No standalone CLI
+hardware provider is installed by this API.
+
+### Hardware binding prerequisites
+
+- Control must remain available when the selected processor and device are disconnected. Do not use the processor being interrupted as the sole controller for its own restoration.
+- Capture actual power/network transition bounds from the controller or instrumentation. Ping failure and a later operator acknowledgement do not establish electrical state or an exact restoration instant.
+- Establish the continuous interruption interval, including any unexpected early restoration. The recorder's hold delay alone does not prove equipment stayed disconnected throughout it.
+- For power recovery, retain a new program-load marker and account for processor clock uncertainty. A successful API call is not that marker.
+- Check real functions and visible app feedback after recovery, using the selected candidate and device identities. A listening port alone is insufficient.
+- Capture and restore all affected device states, app navigation and collateral equipment. Validate the binding with the actual worker account and its permitted equipment before freezing the run.
+
+The recorder currently has synthetic regression coverage for sequencing, cancellation,
+interruption/recording/restoration failures, timing limits and normal evidence import. Concrete
+hardware providers and their live verification remain required; do not remove planned gaps
+solely because this shared recorder is available.
 
 ## Plan before interrupting equipment
 

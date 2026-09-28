@@ -36,13 +36,9 @@ public sealed record SubmissionOutageMeasurementReport (SubmissionEvidenceIdenti
 /// </summary>
 public static class SubmissionOutageMeasurements
 	{
-	public static SubmissionOutageMeasurementReport Assess (SubmissionOutageMeasurementPlan plan,
-		 SubmissionOutageMeasurementRecord record, string evidenceDirectory, DateTimeOffset now,
-		 CancellationToken cancellationToken = default)
+	internal static void ValidatePlan (SubmissionOutageMeasurementPlan plan)
 		{
 		ArgumentNullException.ThrowIfNull (plan);
-		ArgumentNullException.ThrowIfNull (record);
-		cancellationToken.ThrowIfCancellationRequested ();
 		static bool Names (string[]? names) => names is { Length: > 0 and <= 128 } &&
 			 names.All (n => !string.IsNullOrWhiteSpace (n) && n.Length <= 256) &&
 			 names.Distinct (StringComparer.Ordinal).Count () == names.Length;
@@ -53,8 +49,18 @@ public static class SubmissionOutageMeasurements
 			 plan.MinimumInterruption <= TimeSpan.Zero || plan.RecoveryLimit <= TimeSpan.Zero || !Enum.IsDefined (plan.RecoveryClock) ||
 			 (plan.RecoveryClock == SubmissionOutageRecoveryClock.ProgramLoaded &&
 				  !plan.RequiredComponents.Contains (plan.ProgramComponent, StringComparer.Ordinal)) ||
-			 (plan.RecoveryClock == SubmissionOutageRecoveryClock.NetworkRestored && plan.ProgramComponent != null) ||
-			 record.SchemaVersion != 1 || record.Identity != plan.Identity || now == default ||
+			 (plan.RecoveryClock == SubmissionOutageRecoveryClock.NetworkRestored && plan.ProgramComponent != null))
+			throw new InvalidDataException ("Outage measurements require the pinned identity, explicit scope, functions and positive timing limits.");
+		}
+	public static SubmissionOutageMeasurementReport Assess (SubmissionOutageMeasurementPlan plan,
+		 SubmissionOutageMeasurementRecord record, string evidenceDirectory, DateTimeOffset now,
+		 CancellationToken cancellationToken = default)
+		{
+		ValidatePlan (plan);
+		ArgumentNullException.ThrowIfNull (record);
+		cancellationToken.ThrowIfCancellationRequested ();
+		static bool Hex (string? value, int length) => value?.Length == length && value.All (char.IsAsciiHexDigit);
+		if (record.SchemaVersion != 1 || record.Identity != plan.Identity || now == default ||
 			 record.Interruptions is not { Length: <= 128 } || record.Functions is not { Length: <= 128 })
 			throw new InvalidDataException ("Outage measurements require the pinned identity, explicit scope, functions and positive timing limits.");
 		string root = Path.GetFullPath (evidenceDirectory);
