@@ -15,9 +15,9 @@ internal static class SubmissionReleaseIntakeCommand
   if (args.SequenceEqual(["--help"]))
   {
    output.WriteLine("""
-submission-release-intake --settings PRIVATE_JSON [--token-stdin true]
+submission-release-intake --settings PRIVATE_JSON [--credentials PRIVATE_BINDINGS | --token-stdin true]
 Retain and verify a published GitHub package, then open or resume its workflow checkpoint.
-Optional GitHub token: protected standard input only, plain text (never an argument or output).
+Optional GitHub token: named encrypted GitHub entry or protected standard input (never an argument or output).
 Exit 0: candidate retained; 4: awaiting package; 5: release not selected; 2: inspect inputs/failure.
 Source preview: this command does not yet start tests or automatically submit a driver.
 """); return 0;
@@ -26,15 +26,17 @@ Source preview: this command does not yet start tests or automatically submit a 
   {
    var options = new Dictionary<string,string>(StringComparer.Ordinal);
    for (int i=0; i<args.Length; i+=2)
-    if (i+1>=args.Length || args[i] is not ("--settings" or "--token-stdin") || !options.TryAdd(args[i],args[i+1]))
+    if (i+1>=args.Length || args[i] is not ("--settings" or "--token-stdin" or "--credentials") || !options.TryAdd(args[i],args[i+1]))
      throw new ArgumentException();
    if (!options.TryGetValue("--settings",out var path) || !Path.IsPathFullyQualified(path) ||
     new FileInfo(path).Length > 1024*1024 || options.TryGetValue("--token-stdin",out var mode) && mode != "true")
     throw new ArgumentException();
+   if(options.ContainsKey("--credentials") && options.ContainsKey("--token-stdin"))throw new ArgumentException();
    var settings = JsonSerializer.Deserialize<SubmissionReleaseIntakeSettings>(File.ReadAllBytes(path),Json)
     ?? throw new InvalidDataException();
    using var owned = httpClient == null ? new HttpClient() : null;
    var client = httpClient ?? owned!;
+   if(options.TryGetValue("--credentials",out var bindings))DevToolsGitHubAuthentication.ApplyStoredCredential(client,bindings);
    if (options.ContainsKey("--token-stdin"))
    {
     char[] buffer = new char[65537]; int total=0, read;
@@ -48,7 +50,7 @@ Source preview: this command does not yet start tests or automatically submit a 
    output.WriteLine(JsonSerializer.Serialize(result,Json));
    return result.Availability switch { SubmissionReleaseAvailability.Ready=>0, SubmissionReleaseAvailability.AwaitingPackage=>4, _=>5 };
   }
-  catch (Exception e) when (e is ArgumentException or IOException or UnauthorizedAccessException or JsonException or HttpRequestException or OperationCanceledException or InvalidOperationException or KeyNotFoundException)
+  catch (Exception e) when (e is ArgumentException or IOException or UnauthorizedAccessException or JsonException or HttpRequestException or OperationCanceledException or InvalidOperationException or KeyNotFoundException or System.Security.Cryptography.CryptographicException or PlatformNotSupportedException)
   {
    error.WriteLine("Release intake could not finish. Verify the private settings, frozen input digests, GitHub access and existing run. No tests or delivery were started; existing evidence was not reset.");
    return 2;

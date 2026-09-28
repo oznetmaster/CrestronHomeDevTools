@@ -10,6 +10,7 @@ namespace CrestronHomeDevTools;
 public sealed record DevToolsCredentialBindings (string StoreDirectory, string? Smtp = null, string? Windows = null,
 	string? Uploader = null, string? Processor = null, string? Signature = null)
 	{
+	public string? GitHub { get; init; }
 	public static DevToolsCredentialBindings Read (string path)
 		{
 		// The same --credentials input can refer directly to an encrypted setup snapshot.
@@ -42,6 +43,7 @@ public sealed record DevToolsCredentialBindings (string StoreDirectory, string? 
 				DevToolsCredentialPurpose.Windows => Windows,
 				DevToolsCredentialPurpose.Uploader => Uploader,
 				DevToolsCredentialPurpose.Processor => Processor,
+				DevToolsCredentialPurpose.GitHub => GitHub,
 				_ => throw new ArgumentOutOfRangeException (nameof (purpose))
 				};
 		if (string.IsNullOrWhiteSpace (name))

@@ -56,6 +56,12 @@ public sealed class AutomationReleaseDiscoveryTests
   File.WriteAllBytes(profile.SettingsTemplate.Path,JsonSerializer.SerializeToUtf8Bytes(settings,AutomationFiles.Json));
   profile=profile with{SettingsTemplate=new(profile.SettingsTemplate.Path,AutomationFiles.Hash(profile.SettingsTemplate.Path))};
  }
+ [Test]public async Task MissingConfiguredGitHubStoreReportsAttentionWithoutUnauthenticatedFallbackOrRegistration() {
+  File.WriteAllBytes(profilesFile,JsonSerializer.SerializeToUtf8Bytes(new SubmissionAutomationReleaseProfiles(1,[profile]){CredentialBindings=Path.Combine(root,"missing-bindings.json")},AutomationFiles.Json));
+  var result=await AutomationReleaseDiscovery.Tick(profilesFile,registry,null,default);
+  Assert.That(result,Has.Length.EqualTo(1));Assert.That(result[0].State,Is.EqualTo("AttentionRequired"));
+  Assert.That(AutomationFiles.Read<SubmissionAutomationRegistry>(registry).Entries,Is.Empty);
+ }
  private SubmissionAutomationSettings ExpandProbe(string run)=>AutomationReleaseDiscovery.Expand(profile,
   new(profile.Repository,91,"v1.2.3",new('a',40),Sha,new('c',64),new('d',64)),run,Path.Combine(run,"source"),"1.2.3");
  [Test]public void ReleaseExpansionPreparesImmutablePerReleaseProducerAndSettingsBeforeRegistration() {

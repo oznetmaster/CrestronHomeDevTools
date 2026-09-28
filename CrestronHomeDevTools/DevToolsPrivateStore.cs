@@ -14,7 +14,7 @@ namespace CrestronHomeDevTools;
 /// <summary>The purpose of a saved login. Consumers must request the matching purpose and endpoint.</summary>
 public enum DevToolsCredentialPurpose
 	{
-	Processor, Windows, Smtp, Uploader
+	Processor, Windows, Smtp, Uploader, GitHub
 	}
 
 /// <summary>A private login and its endpoint binding. Never log or serialize this object to public output.</summary>

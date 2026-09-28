@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Allow release intake and the unattended release watcher to use an optional named GitHub API credential from the encrypted private store. Bind it to `api.github.com:443`, reject mixed credential sources, and report missing or unreadable selected credentials instead of silently falling back to unauthenticated requests. Public-repository access remains optional and credential-free by default.
 - Move owned DevTools tests and the Android fixture sample to NUnit 5.0.0, and consume CrestronHomeNUnit.TestAdapter 2.0.0. Await asynchronous assertions and retain analyzer checks for unobserved results. Existing frozen runs retain their original tool and framework pins.
 - Document Apple UI testing separately from the released Android integration, including the distinction between an iOS app running on a Mac and testing on a physical iPhone/iPad.
 - Support a separate initial installed-driver fixture before endurance, with deployment-bound identity, independent inputs, no replay after interruption, combined evidence retention and Android/response-comparison review. This permits tooling fixtures without rebuilding the submitted driver; it does not supply a hardware outage recorder.

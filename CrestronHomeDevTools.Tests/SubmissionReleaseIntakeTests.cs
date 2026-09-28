@@ -99,6 +99,19 @@ public sealed class SubmissionReleaseIntakeTests
   Assert.That(code,Is.Zero);Assert.That(h.Tokens.All(t=>t==secret),Is.True);Assert.That(output.ToString()+error,Does.Not.Contain(secret));
   Assert.That(output.ToString(),Does.Contain("candidate-retained"));
  }
+ [Test] public async Task ConsoleUsesNamedGitHubCredentialWithoutStandardInputOrDisclosure()
+ {
+  if(!OperatingSystem.IsWindows()){Assert.Ignore("Windows encrypted credential store.");return;}
+  var settings=Settings();string path=Path.Combine(root,"settings.json");
+  File.WriteAllText(path,JsonSerializer.Serialize(settings,new JsonSerializerOptions{PropertyNamingPolicy=JsonNamingPolicy.CamelCase}));
+  var store=DevToolsPrivateStore.Create(Path.Combine(root,"store"));string secret="SYNTHETIC-STORED-GITHUB-TOKEN";
+  store.SaveCredential("github",new(DevToolsCredentialPurpose.GitHub,"api.github.com","fixture",secret,443));
+  string bindings=Path.Combine(root,"bindings.json");File.WriteAllText(bindings,JsonSerializer.Serialize(new DevToolsCredentialBindings(store.DirectoryPath){GitHub="github"}));
+  using var h=new Handler();using var http=new HttpClient(h);using var output=new StringWriter();using var error=new StringWriter();
+  int code=await SubmissionReleaseIntakeCommand.RunAsync(["--settings",path,"--credentials",bindings],TextReader.Null,output,error,default,http);
+  Assert.That(code,Is.Zero);Assert.That(h.Tokens,Is.Not.Empty);Assert.That(h.Tokens.All(t=>t==secret),Is.True);
+  Assert.That(output.ToString()+error,Does.Not.Contain(secret));
+ }
  [Test] public async Task ConsoleRejectsUnknownSettingsBeforeNetworkAccess()
  {
   string path=Path.Combine(root,"settings.json");File.WriteAllText(path,"{\"executeCommand\":\"bad\"}");
