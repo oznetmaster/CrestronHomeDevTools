@@ -12,15 +12,17 @@ internal sealed class OperatorInboxContext:ApplicationContext
  private readonly Dictionary<string,OperatorWindow> _windows=new(StringComparer.Ordinal);
  private readonly HashSet<string> _shown=new(StringComparer.Ordinal);
  private bool _failed;
+ public bool Completed {get;private set;}
  public OperatorInboxContext(string directory,string runKey) {
   _directory=directory;_runKey=runKey;
   var menu=new ContextMenuStrip();menu.Items.Add("Show pending actions",null,(_,_)=>Check(true));
   menu.Items.Add("Exit action monitor",null,(_,_)=>ExitThread());_tray.ContextMenuStrip=menu;
   _tray.DoubleClick+=(_,_)=>Check(true);
-  _timer.Tick+=(_,_)=>Check(false);_timer.Start();Check(false);
+  _timer.Tick+=(_,_)=>Check(false);_timer.Start();
  }
  private void Check(bool reopen) {
   try {
+   if(SubmissionOperatorInboxLifecycle.IsClosed(new(_directory,_runKey))) {Completed=true;ExitThread();return;}
    var pending=SubmissionOperatorStep.Pending(_directory,_runKey);
    _failed=false;_tray.Text=pending.Count==0?"Crestron: no physical action needed":"Crestron: physical action needed";
    foreach(var handle in pending) {

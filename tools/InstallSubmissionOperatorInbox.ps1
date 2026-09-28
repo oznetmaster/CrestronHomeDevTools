@@ -21,8 +21,10 @@ $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $taskName = "CrestronSubmission-$Name-operator"
 if (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue) { throw 'An action inbox task already exists. Inspect it before updating.' }
 $inboxPath = [IO.Path]::TrimEndingDirectorySeparator($Inbox)
-$arguments = '--operator-inbox "{0}" --run-key {1}' -f $inboxPath, $RunKey
-$action = New-ScheduledTaskAction -Execute $Executable -Argument $arguments -WorkingDirectory (Split-Path $Executable -Parent)
+$watcher = Join-Path $PSScriptRoot 'WatchSubmissionOperatorInbox.ps1'
+if (-not (Test-Path -LiteralPath $watcher -PathType Leaf)) { throw 'The operator watcher must accompany this installer.' }
+$arguments = '-NoProfile -NonInteractive -WindowStyle Hidden -File "{0}" -Executable "{1}" -Inbox "{2}" -RunKey {3} -TaskName {4}' -f $watcher, $Executable, $inboxPath, $RunKey, $taskName
+$action = New-ScheduledTaskAction -Execute (Join-Path $PSHOME 'pwsh.exe') -Argument $arguments -WorkingDirectory (Split-Path $Executable -Parent)
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User $identity.Name
 $principal = New-ScheduledTaskPrincipal -UserId $identity.Name -LogonType Interactive -RunLevel Limited
 # WinExe: no console appears. Only pending physical requests create a visible window.

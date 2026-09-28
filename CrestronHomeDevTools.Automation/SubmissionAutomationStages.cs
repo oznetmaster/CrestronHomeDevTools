@@ -62,6 +62,8 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
  {
   if(settings.SchemaVersion!=1 || !Enum.IsDefined(settings.Mode) || c.Checkpoint.Release!=settings.Release || settingsDigest.Length!=64 || !settingsDigest.All(char.IsAsciiHexDigit))
    throw new InvalidDataException("Automation settings do not match the workflow.");
+  if(settings.OperatorInbox is {} declaredInbox && declaredInbox.RunKey!=Path.GetFileName(Path.TrimEndingDirectorySeparator(c.RunDirectory)))
+   throw new InvalidDataException("Operator inbox must belong to this exact workflow run.");
   if(role==SubmissionAutomationWorkerRole.Protected) {
    if(protectedDigest==null)throw new InvalidDataException("Protected role requires its independently pinned installed configuration.");
    AutomationFiles.Write(Path.Combine(c.RunDirectory,"protected-worker-binding.json"),new{Sha256=protectedDigest});
@@ -123,7 +125,9 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
      var removal=await AutomationRemoval.Advance(c,settings,credential,token);
      if(removal.Status!=SubmissionWorkflowStatus.Completed)return removal;
     }
-    return await AutomationReview.Advance(c,settings,recover,token);
+    var reviewResult=await AutomationReview.Advance(c,settings,recover,token);
+    if(reviewResult.Status==SubmissionWorkflowStatus.Completed && settings.OperatorInbox is {} inbox)SubmissionOperatorInboxLifecycle.Close(inbox);
+    return reviewResult;
    case SubmissionWorkflowStage.SignReview: return await AutomationSigning.Advance(c,settings,recover,token);
    case SubmissionWorkflowStage.Deliver: return await AutomationDelivery.Advance(c,settings,recover,token);
    case SubmissionWorkflowStage.Retain: return AutomationDelivery.Retain(c);

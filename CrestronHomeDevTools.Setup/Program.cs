@@ -10,7 +10,7 @@ internal static class Program
   ApplicationConfiguration.Initialize ();
   if (args.Length == 4 && args[0] == "--operator-inbox" && args[2] == "--run-key")
   {
-   using var inbox = new OperatorInboxContext (args[1], args[3]); Application.Run (inbox); return;
+   using var inbox = new OperatorInboxContext (args[1], args[3]); Application.Run (inbox); Environment.ExitCode = inbox.Completed ? 0 : 4; return;
   }
   if (args.Length == 4 && args[0] == "--operator-request" && args[2] == "--request-sha256")
   {

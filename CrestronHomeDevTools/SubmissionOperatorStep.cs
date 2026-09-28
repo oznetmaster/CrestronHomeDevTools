@@ -34,6 +34,7 @@ public static class SubmissionOperatorStep
    !Text(step,128) || !Text(target,256) || !Text(instructions,4096) || timeout<=TimeSpan.Zero || timeout>TimeSpan.FromDays(1))
    throw new ArgumentException("Operator steps require a private absolute directory, run identity, explicit target/instructions and bounded timeout.");
   var now=clock.GetUtcNow();string id=Guid.NewGuid().ToString("N"),directory=Path.Combine(parentDirectory,id);
+  if(SubmissionOperatorInboxLifecycle.IsClosed(new(parentDirectory,runKey)))throw new InvalidOperationException("Operator inbox is closed for this run.");
   System.IO.Directory.CreateDirectory(directory);
   byte[] bytes=JsonSerializer.SerializeToUtf8Bytes(new SubmissionOperatorRequest(1,id,runKey,step,target,instructions,now,now+timeout),Json);
   WriteNew(Path.Combine(directory,"request.json"),bytes);

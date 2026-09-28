@@ -1,8 +1,9 @@
 # Planned physical actions
 
 Status: source implementation for the next batched release; not included in 1.21.0.
-The shared request protocol, desktop inbox and CLI have offline coverage. Live
-sensor/outage fixtures and service-to-desktop deployment still need validation.
+The shared request protocol, concurrent observation, desktop inbox and CLI have
+offline coverage. Live sensor/outage fixtures and service-to-desktop deployment
+still need validation.
 
 A sensor press or unplugging a processor is a planned test action. It does not
 require an AI session to advance the workflow. A fixture publishes an explicit
@@ -64,8 +65,21 @@ the current signed-in account and exact run key. It starts the windowless inbox
 monitor and resumes it at sign-in; no password is stored. Install it on the
 operator's computer, not necessarily the evidence worker. Its 48-hour execution
 limit bounds one invocation. After the run, stop and unregister that exact
-`CrestronSubmission-NAME-operator` task as part of run cleanup, preserving the
-inbox records. Automatic run-completion cleanup is not wired into the worker yet.
+`CrestronSubmission-NAME-operator` task if abandoning the run, preserving the
+inbox records. For automatic completion, configure the worker's `OperatorInbox`
+with the same directory and exact run key. Successful unsigned review preparation
+closes that inbox. The desktop monitor validates this completion record and exits;
+the accompanying watcher unregisters its own task after checking the task still
+names that watcher and run. Closing the monitor manually is a different exit and
+does not unregister the task. Task cleanup has not yet been validated in a live
+interactive deployment.
+
+`SubmissionPhysicalAction.ObserveAsync` arms an independent observer before it
+publishes the action, then requires both a Done response and a successful
+observation. It cancels the pending prompt if observation fails. Supply an
+observer that honors cancellation and a baseline that rejects stale state. Use
+an independent cancellation budget and a new restoration request in fixture
+cleanup; never reuse the cancelled trigger request for restoration.
 
 A specific request can also be opened with `--operator-request DIRECTORY
 --request-sha256 SHA256`, or inspected/answered through the CLI:

@@ -53,6 +53,8 @@ public sealed record SubmissionAutomationSettings(int SchemaVersion, string Priv
  public SubmissionAutomationRemovalPlan? Removal { get; init; }
  /// <summary>Optional before/after comparison of retained response measurements; no limits means a disclosed partial result.</summary>
  public SubmissionAutomationResponseComparisonPlan? ResponseComparison { get; init; }
+ /// <summary>Optional shared physical-action inbox. Closed only after unsigned review preparation succeeds.</summary>
+ public SubmissionOperatorInbox? OperatorInbox { get; init; }
 }
 
 internal static class AutomationFiles
