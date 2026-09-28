@@ -72,6 +72,8 @@ The power test separately names processor, device and network power. A combined 
 
 Capture the outage duration and recovery deadline separately. The power item's recovery clock begins when the program loads; the network item's begins at network restoration. A later operator reply, an open TCP port, or a successful readiness query does not by itself establish the correct start of that clock. Retain the trigger evidence and subsequent functional evidence with timestamps. Missing instrumentation means timing is unverified, not that the driver failed. Preserve that distinction when reviewing prior evidence or preparing a future test.
 
+The source [bounded outage evidence importer](OutageEvidence.md) checks conservative event bounds and imports retained measurements into the normal evidence format. It preserves incomplete results and does not operate equipment or replace the authenticated capture producer.
+
 ## Approval and execution boundary
 
 The compiler checks source/target/mapping consistency and minimum durations. It cannot decide whether the blueprint covers every official subcondition, authenticate who approved it, measure device response or turn elapsed time into endurance evidence. Those obligations remain in the [submission plan](../CrestronSubmission.md). All generated producers stay null until reviewed executable fixtures are bound by the trusted workflow.

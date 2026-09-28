@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Add a bounded outage measurement API and `submission-import-outage-evidence` command. Preserve common interruption scope, separate power/network recovery clocks, timing uncertainty, raw evidence and nonpassing outcomes when importing into the normal evidence pipeline. This is an offline importer, not a hardware recorder.
 - Report declared gaps in initial tests during automation setup/configuration checks, before equipment is reserved. Only the bound endurance, final removal and post-endurance response-comparison requirements may remain deferred. Removing a declaration still does not bypass the evidence gate.
 - Clarify the extension checklist's alternative network-interruption methods and the distinct starting points for power/network recovery timing.
 - Build the public Kasa/Tapo endurance sample against released DevTools 1.20.0.
