@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add coordinated manual outage prompts with independent endpoint observation, hold monitoring, retained event bounds and restoration after cancellation. Concrete equipment and operator-desktop validation remain required before enabling a run.
+
 - Add durable physical-action requests, a public response command and a Windows desktop inbox. Acknowledgements resume the fixture but never count as a functional pass or signing/delivery approval. Expiry, cancellation and conflicting responses are retained.
 - Allow an explicitly separate processor for additional initial tests, with its own trust pins and installed target. The package and source must match the submission candidate; main-target deployment IDs and managed-child references cannot cross processors.
 - Coordinate operator responses with concurrent independent observation and close the inbox after successful unsigned review preparation. The desktop watcher removes its own task after validating normal completion; evidence is retained.

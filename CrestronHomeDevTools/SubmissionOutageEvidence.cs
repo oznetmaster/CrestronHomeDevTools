@@ -12,6 +12,24 @@ public sealed record SubmissionOutageEvidenceResult (SubmissionOutageMeasurement
 /// approve the plan's hardware scope and authenticate the record's producer independently.</summary>
 public static class SubmissionOutageEvidence
 	{
+	/// <summary>Validate the independently pinned policy before publishing an operator request or
+	/// operating equipment. The caller verifies the policy bytes against Identity.PolicySha256.</summary>
+	public static SubmissionRequirement ValidatePlanPolicy (SubmissionOutageMeasurementPlan plan, SubmissionEvidencePolicy policy)
+		{
+		SubmissionOutageMeasurements.ValidatePlan (plan);
+		ArgumentNullException.ThrowIfNull (policy);
+		var matches = policy.Requirements?.Where (r => r?.Id == plan.RequirementId).ToArray ();
+		if (policy.SchemaVersion != 1 || matches is not { Length: 1 })
+			throw new InvalidDataException ("Pinned policy must contain exactly one matching outage requirement.");
+		var requirement = matches[0];
+		SubmissionExecution.ValidatePolicy (requirement);
+		var contract = requirement.Execution;
+		if (contract is not { Method: "outage", RequiredOutcome: SubmissionEvidenceOutcome.Passed, Restore: true, ResponseLimitSeconds: > 0 } ||
+			 requirement.MinimumDuration > plan.MinimumInterruption || plan.RecoveryLimit.TotalSeconds > contract.ResponseLimitSeconds ||
+			 requirement.PriorEvidence != null)
+			throw new InvalidDataException ("Outage measurement scope must meet the pinned duration, restoration and recovery policy.");
+		return requirement;
+		}
 	private static readonly JsonSerializerOptions Json = new ()
 		{
 		PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -49,16 +67,8 @@ public static class SubmissionOutageEvidence
 		var record = Parse<SubmissionOutageMeasurementRecord> (Read (recordRelativePath, expectedRecordSha256));
 		var measurements = SubmissionOutageMeasurements.Assess (plan, record, root, now, cancellationToken);
 		var policy = Parse<SubmissionEvidencePolicy> (Read (policyRelativePath, plan.Identity.PolicySha256));
-		var matches = policy.Requirements?.Where (r => r?.Id == plan.RequirementId).ToArray ();
-		if (policy.SchemaVersion != 1 || matches is not { Length: 1 })
-			throw new InvalidDataException ("Pinned policy must contain exactly one matching outage requirement.");
-		var requirement = matches[0];
-		SubmissionExecution.ValidatePolicy (requirement);
-		var contract = requirement.Execution;
-		if (contract is not { Method: "outage", RequiredOutcome: SubmissionEvidenceOutcome.Passed, Restore: true, ResponseLimitSeconds: > 0 } ||
-			 requirement.MinimumDuration > plan.MinimumInterruption || plan.RecoveryLimit.TotalSeconds > contract.ResponseLimitSeconds ||
-			 requirement.PriorEvidence != null)
-			throw new InvalidDataException ("Outage measurement scope must meet the pinned duration, restoration and recovery policy.");
+		var requirement = ValidatePlanPolicy (plan, policy);
+		var contract = requirement.Execution!;
 
 		var captures = new List<SubmissionOutageCapture> { record.OriginalState, record.VerifiedState };
 		captures.AddRange (record.Interruptions.SelectMany (i => new[] { i.Interrupted, i.Restored }));

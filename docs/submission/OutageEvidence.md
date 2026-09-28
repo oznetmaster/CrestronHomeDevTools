@@ -6,6 +6,42 @@ Status: importer and recorder available starting with 1.21.0. Concrete live hard
 
 ## Recording from an initial NUnit fixture
 
+### Planned manual interruption
+
+The next batched source release adds `SubmissionManualOutageHardware`. An initial fixture
+supplies an `ISubmissionManualOutageObserver` and `SubmissionManualOutageSettings` containing
+the exact shared operator inbox, target, disconnect/reconnect instructions and response timeout.
+Wrap that binding with the existing recorder. It publishes **one coordinated disconnect request
+and one reconnect request for all selected components**, including when the first operation was
+cancelled or failed after the operator may have acted. It does not require a remotely controlled
+power supply. The operator desktop and evidence collector must remain connected.
+
+Before hardware access, verify the retained policy bytes against the plan's policy digest and
+call `SubmissionOutageEvidence.ValidatePlanPolicy`. The importer repeats this check, but an
+invalid duration, recovery limit or execution contract must be caught before asking for an outage.
+
+The observer independently checks every bound endpoint, watches for an early return during
+the hold, checks real recovery functions and restores original device/app state. Acknowledgement
+alone cannot complete a transition or pass a test. An early return or stopped hold observer prevents
+a pass, but still requests reconnection and performs final restoration. The physical action is an
+operator attestation; connectivity samples alone do not prove electrical isolation. Instructions
+must name all equipment, require confirmation only after completing the action, and require
+leaving it disconnected until the reconnect request.
+
+The retained event interval runs from publication of that request through the later of confirmation
+and independent observation. It deliberately includes operator delay. The transition record embeds
+the request, response and bounded raw connectivity observations (maximum 64 KiB per component),
+so those inputs remain interpretable after the inbox task is cleaned up. This is conservative manual
+timing, not a controller timestamp. Functional and program-load evidence remain separate obligations;
+a missing program-load marker still produces Partial. Configure a separately authorized processor
+and explicit protected-host exclusions in the concrete fixture before publishing any request.
+
+Offline tests cover grouped prompts, acknowledgement without observation, cancellation, Unable,
+early return, incorrect scope and restoration. Actual operator-desktop and equipment validation are
+still required. This source addition is not yet proof that a live rehearsal has succeeded.
+
+### Recorder lifecycle
+
 `SubmissionOutageRecorder.RecordAsync` accepts the reviewed measurement plan, a trusted
 `ISubmissionOutageHardware` implementation, a new evidence directory, an observation
 timeout and a separate restoration timeout. Call it from the workflow's reserved
