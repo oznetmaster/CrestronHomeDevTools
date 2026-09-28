@@ -27,7 +27,7 @@ public sealed class DriverReadinessTests
     public void OnlineRootDoesNotHideBrokenInstalledChild(string key, string reason)
     {
         var child = Device(2, 1); child.PropertyValues[key] = JsonSerializer.SerializeToElement(false);
-        Assert.That(Check(Device(1), child).Issues, Has.Some.Matches<DriverReadinessIssue>(i => i.DeviceId == 2 && i.Reason == reason));
+        Assert.That(Check(Device(1), child).Issues, Has.Some.Matches<DriverReadinessIssue>(i => i != null && i.DeviceId == 2 && i.Reason == reason));
     }
     [Test]
     public void DetectsDifferentBuildAndMissingRoot()

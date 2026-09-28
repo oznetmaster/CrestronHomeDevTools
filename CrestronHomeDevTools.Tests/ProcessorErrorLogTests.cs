@@ -118,10 +118,10 @@ public sealed class ProcessorErrorLogTests
     }
 
     [Test]
-    public void OversizedReadStopsWithoutRetryOrLogClearing()
+    public async System.Threading.Tasks.Task OversizedReadStopsWithoutRetryOrLogClearing ()
     {
         var session = new Session(new string('x', 2 * 1024 * 1024 + 1));
-        Assert.ThrowsAsync<InvalidDataException>(async () => await ProcessorErrorLog.ReadCoreAsync(session, "processor", TimeSpan.FromSeconds(2), default));
+		await Assert.ThrowsAsync<InvalidDataException>(async () => await ProcessorErrorLog.ReadCoreAsync(session, "processor", TimeSpan.FromSeconds(2), default));
         Assert.That(session.Commands, Is.EqualTo(new[] { "err plogcurrent" }));
     }
 }

@@ -32,16 +32,18 @@ public sealed class WeatherLinkProducerTests
   await LifetimeBaselineStore.ReadOrCreateAsync(baselinePath,Plan,input,_=>Task.FromResult(Baseline),default);
   byte[] bytes=File.ReadAllBytes(baselinePath);int calls=0;
   Task<LifetimeBaseline> Acquire(CancellationToken token){calls++;return Task.FromResult(Baseline);}
-  Assert.ThrowsAsync<InvalidDataException>(()=>LifetimeBaselineStore.ReadOrCreateAsync(baselinePath,Plan with{ReservationId="other"},input,Acquire,default));
-  Assert.ThrowsAsync<InvalidDataException>(()=>LifetimeBaselineStore.ReadOrCreateAsync(baselinePath,Plan,input with{DeviceId=102},Acquire,default));
+
+		await Assert.ThrowsAsync<InvalidDataException>(()=>LifetimeBaselineStore.ReadOrCreateAsync(baselinePath,Plan with{ReservationId="other"},input,Acquire,default));
+		await Assert.ThrowsAsync<InvalidDataException>(()=>LifetimeBaselineStore.ReadOrCreateAsync(baselinePath,Plan,input with{DeviceId=102},Acquire,default));
   Assert.That(calls,Is.Zero);Assert.That(File.ReadAllBytes(baselinePath),Is.EqualTo(bytes));
  }
- [Test]public void InterruptedFirstAcquisitionIsRetainedAndCannotSilentlyRestart() {
+ [Test]public async System.Threading.Tasks.Task InterruptedFirstAcquisitionIsRetainedAndCannotSilentlyRestart () {
   int calls=0;
   Task<LifetimeBaseline> Interrupted(CancellationToken token){calls++;throw new IOException("Synthetic interruption");}
-  Assert.ThrowsAsync<IOException>(()=>LifetimeBaselineStore.ReadOrCreateAsync(baselinePath,Plan,input,Interrupted,default));
+
+		await Assert.ThrowsAsync<IOException>(()=>LifetimeBaselineStore.ReadOrCreateAsync(baselinePath,Plan,input,Interrupted,default));
   Assert.That(File.Exists(baselinePath),Is.True);
-  Assert.ThrowsAsync<JsonException>(()=>LifetimeBaselineStore.ReadOrCreateAsync(baselinePath,Plan,input,Interrupted,default));
+		await Assert.ThrowsAsync<JsonException>(()=>LifetimeBaselineStore.ReadOrCreateAsync(baselinePath,Plan,input,Interrupted,default));
   Assert.That(calls,Is.EqualTo(1));
  }
  [Test]public void MutableBaselineCannotChangeThePinnedProducerDirectory() {

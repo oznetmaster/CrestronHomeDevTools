@@ -97,7 +97,7 @@ internal static class AutomationReleaseDiscovery
     return JsonValue.Create(text);
    }
    if(value is JsonObject o)foreach(var key in o.Select(k=>k.Key).ToArray())o[key]=Replace(o[key]?.DeepClone(),deploymentTokens,
-    managedTokens || key.Equals("InstalledAppFixtureSettings",StringComparison.OrdinalIgnoreCase) || key.Equals("PostEnduranceFixtureSettings",StringComparison.OrdinalIgnoreCase));
+    managedTokens || key.Equals("InstalledAppFixtureSettings",StringComparison.OrdinalIgnoreCase) || key.Equals("PreEnduranceFixtureSettings",StringComparison.OrdinalIgnoreCase) || key.Equals("PostEnduranceFixtureSettings",StringComparison.OrdinalIgnoreCase));
    if(value is JsonArray a)for(int i=0;i<a.Count;i++)a[i]=Replace(a[i]?.DeepClone(),deploymentTokens,managedTokens);
    return value;
   }

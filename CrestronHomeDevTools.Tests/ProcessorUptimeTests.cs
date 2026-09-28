@@ -73,28 +73,28 @@ public sealed class ProcessorUptimeTests
 		}
 
 	[Test]
-	public void PreCommandRepliesAreDiscarded ()
+	public async System.Threading.Tasks.Task PreCommandRepliesAreDiscarded ()
 		{
 		var session = new Session { Prompt = Response + "CP4-R>\r\n", Chunks = [] };
-		Assert.CatchAsync<OperationCanceledException> (() => ProcessorUptime.ReadCoreAsync (session, TimeSpan.FromMilliseconds (200), default));
+		await Assert.CatchAsync<OperationCanceledException> (() => ProcessorUptime.ReadCoreAsync (session, TimeSpan.FromMilliseconds (200), default));
 		Assert.That (session.Commands, Has.Count.EqualTo (1));
 		}
 
 	[Test]
-	public void MissingPromptSendsNothing ()
+	public async System.Threading.Tasks.Task MissingPromptSendsNothing ()
 		{
 		var session = new Session { Prompt = "[INFO] no prompt\r\n" };
-		Assert.CatchAsync<OperationCanceledException> (() => ProcessorUptime.ReadCoreAsync (session, TimeSpan.FromMilliseconds (200), default));
+		await Assert.CatchAsync<OperationCanceledException> (() => ProcessorUptime.ReadCoreAsync (session, TimeSpan.FromMilliseconds (200), default));
 		Assert.That (session.Commands, Is.Empty);
 		}
 
 	[TestCase ("write")]
 	[TestCase ("disconnect")]
 	[TestCase ("oversize")]
-	public void FailedRequestIsNeverRepeated (string failure)
+	public async System.Threading.Tasks.Task FailedRequestIsNeverRepeated (string failure)
 		{
 		var session = new Session { Failure = failure, Chunks = [new string ('x', 65537)] };
-		Assert.CatchAsync<Exception> (() => ProcessorUptime.ReadCoreAsync (session, TimeSpan.FromSeconds (1), default));
+		await Assert.CatchAsync<Exception> (() => ProcessorUptime.ReadCoreAsync (session, TimeSpan.FromSeconds (1), default));
 		Assert.That (session.Commands, Has.Count.EqualTo (1));
 		}
 

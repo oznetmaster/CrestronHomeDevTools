@@ -30,7 +30,7 @@ public sealed class ProcessorFailureReceiptTests
 			Assert.That (receipt.RootElement.GetProperty ("Command").GetString (), Is.EqualTo (exception.DiagnosticCommand));
 			Assert.That (receipt.RootElement.GetProperty ("LeaseReceiptFile").GetString (), Is.EqualTo ("owner.json"));
 			Assert.That (JsonElement.DeepEquals (receipt.RootElement.GetProperty ("Response"), exception.DiagnosticResponse.Value), Is.True);
-			Assert.ThrowsAsync<IOException> (async () => await ProcessorFailureReceipt.WriteAsync (leasePath, exception));
+			await Assert.ThrowsAsync<IOException> (async () => await ProcessorFailureReceipt.WriteAsync (leasePath, exception));
 			Assert.That (await File.ReadAllBytesAsync (path), Is.EqualTo (firstBytes));
 			Assert.That (await File.ReadAllTextAsync (leasePath), Is.EqualTo (originalLease));
 			}

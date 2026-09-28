@@ -41,20 +41,20 @@ public sealed class RoomMoveTests
 	[TestCase ("reboot")]
 	[TestCase ("unsupported")]
 	[TestCase ("unloaded")]
-	public void RejectsChangedIdentityOrUnreviewedScopeBeforeMutation (string failure)
+	public async System.Threading.Tasks.Task RejectsChangedIdentityOrUnreviewedScopeBeforeMutation (string failure)
 		{
 		var connection = new Connection { Failure = failure };
-		Assert.CatchAsync<InvalidOperationException> (async () => await new ConfigurationClient (connection).MoveDriverInstanceAsync (17, "Tests", "1.0.0.1", 12, 13, TimeSpan.FromSeconds (1)));
+		await Assert.CatchAsync<InvalidOperationException> (async () => await new ConfigurationClient (connection).MoveDriverInstanceAsync (17, "Tests", "1.0.0.1", 12, 13, TimeSpan.FromSeconds (1)));
 		Assert.That (connection.Writes, Is.Zero);
 		}
 
 	[TestCase ("lost-reply")]
 	[TestCase ("disappeared")]
 	[TestCase ("wrong-destination")]
-	public void UncertainSubmissionIsNeverRepeated (string failure)
+	public async System.Threading.Tasks.Task UncertainSubmissionIsNeverRepeated (string failure)
 		{
 		var connection = new Connection { Failure = failure };
-		Assert.CatchAsync (async () => await new ConfigurationClient (connection).MoveDriverInstanceAsync (17, "Tests", "1.0.0.1", 12, 13, TimeSpan.FromSeconds (1)));
+		await Assert.CatchAsync (async () => await new ConfigurationClient (connection).MoveDriverInstanceAsync (17, "Tests", "1.0.0.1", 12, 13, TimeSpan.FromSeconds (1)));
 		Assert.That (connection.Writes, Is.EqualTo (1));
 		}
 

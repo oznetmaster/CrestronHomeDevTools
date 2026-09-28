@@ -37,6 +37,31 @@ public sealed class AutomationAndroidReviewTests
   context.Checkpoint.CompletedStages[separate?SubmissionWorkflowStage.AppTests:SubmissionWorkflowStage.WindowsTests]=new(receiptName,Hash(receiptName));
  }
  private AutomationAndroidReview.Binding Bind(bool separate)=>AutomationAndroidReview.Bind(context,context.Checkpoint.Release,separate,P("review-inputs/candidate.json"),default);
+ [TestCase(false)][TestCase(true)]
+ public void CombinedInitialReceiptAuditsBothAndroidRunsAndRejectsDuplicateRunIds(bool duplicate) {
+  Arrange(true);
+  string additional="pre-endurance/installed-app/AndroidUI/";
+  foreach(string file in Directory.GetFiles(P(prefix),"*",SearchOption.AllDirectories)) {
+   string copy=P(additional+Path.GetRelativePath(P(prefix),file));
+   Directory.CreateDirectory(Path.GetDirectoryName(copy)!);File.Copy(file,copy);
+  }
+  if(!duplicate)foreach(string file in new[]{"context.json","producer-pin.json"})
+   File.WriteAllText(P(additional+file),File.ReadAllText(P(additional+file)).Replace(new string('f',32),new string('e',32),StringComparison.Ordinal));
+  var files=new[]{prefix,additional}.SelectMany(p=>Directory.GetFiles(P(p),"*",SearchOption.AllDirectories))
+   .Select(p=>new SubmissionWorkflowReceipt(Path.GetRelativePath(root,p),AutomationFiles.Hash(p))).ToArray();
+  receiptName="initial-tests.json";
+  File.WriteAllText(P(receiptName),JsonSerializer.Serialize(new{context.Checkpoint.InputSha256,Files=files}));
+  context.Checkpoint.CompletedStages[SubmissionWorkflowStage.AppTests]=new(receiptName,Hash(receiptName));
+  if(duplicate)Assert.Throws<InvalidDataException>(()=>Bind(true));
+  else {
+   var result=Bind(true);
+   using var pins=JsonDocument.Parse(File.ReadAllBytes(result.PinsPath));
+   Assert.That(pins.RootElement.GetProperty("runs").GetArrayLength(),Is.EqualTo(2));
+   Assert.That(result.Evidence.GetArrayLength(),Is.EqualTo(2));
+   File.AppendAllText(P(additional+"selection.json"),"changed");
+   Assert.Throws<InvalidDataException>(()=>Bind(true));
+  }
+ }
  [TestCase(false,1)][TestCase(false,2)][TestCase(true,1)][TestCase(true,2)]
  public void RetainedCoordinatorPinsBindToCandidateAndSelectedRoute(bool separate,int version) {
   Arrange(separate,version);var binding=Bind(separate);

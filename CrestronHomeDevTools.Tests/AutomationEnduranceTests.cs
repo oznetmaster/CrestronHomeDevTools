@@ -7,11 +7,11 @@ namespace CrestronHomeDevTools.Tests;
 [TestFixture]
 public sealed class AutomationEnduranceTests
 {
- [Test]public void FailedLivePreflightDoesNotCreateOrStartCollection() {
+ [Test]public async System.Threading.Tasks.Task FailedLivePreflightDoesNotCreateOrStartCollection () {
   string path=Path.Combine(TestContext.CurrentContext.WorkDirectory,Guid.NewGuid().ToString("N"));
   var real=new AutomationEndurance(path,null!,new System.Net.NetworkCredential(),
    _=>throw new InvalidDataException("readiness failed"));
-  Assert.ThrowsAsync<InvalidDataException>(async()=>await real.Start(default));
+		await Assert.ThrowsAsync<InvalidDataException>(async()=>await real.Start(default));
   Assert.That(Directory.Exists(path),Is.False);
  }
  private string root=null!;

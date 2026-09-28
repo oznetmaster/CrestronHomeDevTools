@@ -38,9 +38,9 @@ public sealed class WeatherLinkAppFixtureTests
   var selector=new AndroidSelector(AndroidSelectorKind.Text,"Before");
   void Before(AndroidHierarchy h)=>h.RequireUnique(selector);
   void After(AndroidHierarchy h)=>h.RequireUnique(new(AndroidSelectorKind.Text,"After"));
-  Assert.ThrowsAsync<IOException>(async()=>await navigation.TapAsync(h=>h.RequireUnique(selector),Before,After,default));
+		await Assert.ThrowsAsync<IOException>(async()=>await navigation.TapAsync(h=>h.RequireUnique(selector),Before,After,default));
   using(var deadline=new CancellationTokenSource(100))
-   Assert.CatchAsync<OperationCanceledException>(async()=>await navigation.ResolveAsync(deadline.Token));
+			await Assert.CatchAsync<OperationCanceledException>(async()=>await navigation.ResolveAsync(deadline.Token));
   Assert.That(transport.Taps,Is.EqualTo(1));
   transport.After=true;await navigation.ResolveAsync(default);Assert.That(transport.Taps,Is.EqualTo(1));
  }

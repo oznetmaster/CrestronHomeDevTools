@@ -51,11 +51,11 @@ public sealed class AutomationProtectedWorkerTests
   Assert.Throws<InvalidDataException>(()=>trusted.Bind(supplied with{PrivateRoot=root}));
   Assert.Throws<InvalidDataException>(()=>trusted.Bind(supplied with{Release=supplied.Release with{Repository="other/driver"}}));
  }
- [Test]public void PublicProtectedAdapterRequiresTheIndependentConfiguration() {
+ [Test]public async System.Threading.Tasks.Task PublicProtectedAdapterRequiresTheIndependentConfiguration () {
   var adapter=new SubmissionAutomationStages(supplied,new('a',64),SubmissionAutomationWorkerRole.Protected);
   var checkpoint=SubmissionWorkflow.Open(runs,supplied.Release) with{Stage=SubmissionWorkflowStage.SignReview};
   var context=new SubmissionWorkflowStepContext(Path.Combine(runs,SubmissionWorkflow.RunKey(supplied.Release)),checkpoint);
-  Assert.ThrowsAsync<InvalidDataException>(async()=>await adapter.ExecuteAsync(context,default));
+		await Assert.ThrowsAsync<InvalidDataException>(async()=>await adapter.ExecuteAsync(context,default));
   Assert.That(Directory.GetFiles(context.RunDirectory,"*",SearchOption.AllDirectories).Any(f=>f.Contains("signing-request")),Is.False);
  }
 }

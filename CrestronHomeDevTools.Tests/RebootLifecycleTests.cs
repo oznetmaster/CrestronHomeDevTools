@@ -40,10 +40,10 @@ public sealed class RebootLifecycleTests
 		 DriverInstanceLifecycle.EnsureAsync (new (connection), "catalogue", "Example", 12, null, TimeSpan.FromSeconds (3), reboot: handler);
 
 	[Test]
-	public void RebootUpdateIsRefusedWithoutAuthorization ()
+	public async System.Threading.Tasks.Task RebootUpdateIsRefusedWithoutAuthorization ()
 		{
 		var original = new Fake (Catalogue, Inventory ("1.0"), Eligibility ());
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await Ensure (original));
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await Ensure (original));
 		Assert.That (original.Commands.Any (c => c.Contains ("beginSwap")), Is.False);
 		}
 
@@ -74,79 +74,79 @@ public sealed class RebootLifecycleTests
 		}
 
 	[Test]
-	public void LostSubmissionResponseDoesNotInferRebootOrReplay ()
+	public async System.Threading.Tasks.Task LostSubmissionResponseDoesNotInferRebootOrReplay ()
 		{
 		var original = new Fake (Catalogue, Inventory ("1.0"), Eligibility (), Eligibility (), new IOException ());
-		Assert.ThrowsAsync<IOException> (async () => await Ensure (original, new ((_, _) => Task.CompletedTask, (_, _, _) => throw new AssertionException ("Unconfirmed update must not reboot"))));
+		await Assert.ThrowsAsync<IOException> (async () => await Ensure (original, new ((_, _) => Task.CompletedTask, (_, _, _) => throw new AssertionException ("Unconfirmed update must not reboot"))));
 		Assert.That (original.Commands.Count (c => c.Contains ("beginSwap")), Is.EqualTo (1));
 		Assert.That (original.SwapWaited, Is.False);
 		}
 
 	[Test]
-	public void MissingSwapCompletionDoesNotReboot ()
+	public async System.Threading.Tasks.Task MissingSwapCompletionDoesNotReboot ()
 		{
 		var original = new Fake (Catalogue, Inventory ("1.0"), Eligibility (), Eligibility (), "op") { SwapFailure = new TimeoutException () };
-		Assert.ThrowsAsync<TimeoutException> (async () => await Ensure (original, new ((_, _) => Task.CompletedTask, (_, _, _) => throw new AssertionException ("Unconfirmed swap must not reboot"))));
+		await Assert.ThrowsAsync<TimeoutException> (async () => await Ensure (original, new ((_, _) => Task.CompletedTask, (_, _, _) => throw new AssertionException ("Unconfirmed swap must not reboot"))));
 		Assert.That (original.Commands.Count (c => c.Contains ("beginSwap")), Is.EqualTo (1));
 		}
 
 	[TestCase (false, false)]
 	[TestCase (true, true)]
-	public void UnconfirmedRebootOrRequiredReconfigurationStopsBeforeReboot (bool rebootRequired, bool reconfigure)
+	public async System.Threading.Tasks.Task UnconfirmedRebootOrRequiredReconfigurationStopsBeforeReboot (bool rebootRequired, bool reconfigure)
 		{
 		var original = new Fake (Catalogue, Inventory ("1.0"), Eligibility (), Eligibility (), "op") { RebootRequired = rebootRequired, ReconfigurationIds = reconfigure ? [17] : [] };
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await Ensure (original, new ((_, _) => Task.CompletedTask, (_, _, _) => throw new AssertionException ("Unexpected reboot"))));
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await Ensure (original, new ((_, _) => Task.CompletedTask, (_, _, _) => throw new AssertionException ("Unexpected reboot"))));
 		Assert.That (original.Commands.Count (c => c.Contains ("beginSwap")), Is.EqualTo (1));
 		}
 
 	[Test]
-	public void FailureToSaveAuthorizationPreventsUpdate ()
+	public async System.Threading.Tasks.Task FailureToSaveAuthorizationPreventsUpdate ()
 		{
 		var original = new Fake (Catalogue, Inventory ("1.0"), Eligibility ());
-		Assert.ThrowsAsync<IOException> (async () => await Ensure (original, new ((_, _) => throw new IOException (), (_, _, _) => throw new AssertionException ("Unexpected operation"))));
+		await Assert.ThrowsAsync<IOException> (async () => await Ensure (original, new ((_, _) => throw new IOException (), (_, _, _) => throw new AssertionException ("Unexpected operation"))));
 		Assert.That (original.Commands.Any (c => c.Contains ("beginSwap")), Is.False);
 		}
 
 	[Test]
-	public void RebootUpdateCannotExpandScope ()
+	public async System.Threading.Tasks.Task RebootUpdateCannotExpandScope ()
 		{
 		var original = new Fake (Catalogue, Inventory ("1.0"), Eligibility (true, 17, 18));
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await Ensure (original, new ((_, _) => throw new AssertionException ("Unexpected operation"), (_, _, _) => throw new AssertionException ("Unexpected operation"))));
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await Ensure (original, new ((_, _) => throw new AssertionException ("Unexpected operation"), (_, _, _) => throw new AssertionException ("Unexpected operation"))));
 		Assert.That (original.Commands.Any (c => c.Contains ("beginSwap")), Is.False);
 		}
 
 	[Test]
-	public void ChangedRebootRequirementDuringRecheckPreventsSubmission ()
+	public async System.Threading.Tasks.Task ChangedRebootRequirementDuringRecheckPreventsSubmission ()
 		{
 		var original = new Fake (Eligibility (false));
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await new ConfigurationClient (original).BeginDriverUpdateAsync (new ("catalogue", Eligibility ()), allowProcessorReboot: true));
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await new ConfigurationClient (original).BeginDriverUpdateAsync (new ("catalogue", Eligibility ()), allowProcessorReboot: true));
 		Assert.That (original.Commands.Any (c => c.Contains ("beginSwap")), Is.False);
 		}
 
 	[Test]
-	public void UnknownRebootRequirementIsNotAuthorizedByGlobalOptIn ()
+	public async System.Threading.Tasks.Task UnknownRebootRequirementIsNotAuthorizedByGlobalOptIn ()
 		{
 		var original = new Fake ();
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await new ConfigurationClient (original).BeginDriverUpdateAsync (new ("catalogue", Eligibility (null)), allowProcessorReboot: true));
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await new ConfigurationClient (original).BeginDriverUpdateAsync (new ("catalogue", Eligibility (null)), allowProcessorReboot: true));
 		Assert.That (original.Commands, Is.Empty);
 		}
 
 	[Test]
-	public void WrongDriverAfterRestartFailsActivation ()
+	public async System.Threading.Tasks.Task WrongDriverAfterRestartFailsActivation ()
 		{
 		var original = new Fake (Catalogue, Inventory ("1.0"), Eligibility (), Eligibility (), "op");
 		var fresh = new Fake (Device ("1.1"), Device ("1.1") with
 			{
 			Model = "Wrong driver"
 			});
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await Ensure (original, new ((_, _) => Task.CompletedTask, (_, _, _) => Task.FromResult (new ConfigurationClient (fresh)))));
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await Ensure (original, new ((_, _) => Task.CompletedTask, (_, _, _) => Task.FromResult (new ConfigurationClient (fresh)))));
 		}
 
 	[Test]
-	public void FailedReconnectionDoesNotRepeatUpdate ()
+	public async System.Threading.Tasks.Task FailedReconnectionDoesNotRepeatUpdate ()
 		{
 		var original = new Fake (Catalogue, Inventory ("1.0"), Eligibility (), Eligibility (), "op");
-		Assert.ThrowsAsync<TimeoutException> (async () => await Ensure (original, new ((_, _) => Task.CompletedTask, (_, _, _) => throw new TimeoutException ())));
+		await Assert.ThrowsAsync<TimeoutException> (async () => await Ensure (original, new ((_, _) => Task.CompletedTask, (_, _, _) => throw new TimeoutException ())));
 		Assert.That (original.Commands.Count (c => c.Contains ("beginSwap")), Is.EqualTo (1));
 		}
 
@@ -192,10 +192,10 @@ public sealed class RebootLifecycleTests
 		}
 
 	[Test]
-	public void ExplicitRemovalCannotAffectOtherInstances ()
+	public async System.Threading.Tasks.Task ExplicitRemovalCannotAffectOtherInstances ()
 		{
 		var original = new Fake (Device ("1.0"), new[] { 17, 18 });
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await new ConfigurationClient (original).RemoveDriverInstanceAsync (17, "Example", "1.0", TimeSpan.FromSeconds (3), rebootHandler:
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await new ConfigurationClient (original).RemoveDriverInstanceAsync (17, "Example", "1.0", TimeSpan.FromSeconds (3), rebootHandler:
 			 new ((_, _) => throw new AssertionException ("Unexpected operation"), (_, _, _) => throw new AssertionException ("Unexpected operation"))
 				 {
 				 RebootAfterRemoval = true
@@ -286,10 +286,10 @@ public sealed class RebootLifecycleTests
 	[TestCase (new[] { -1 }, true)]
 	[TestCase (new[] { 19 }, true)]
 	[TestCase (new[] { 18 }, false)]
-	public void SharedRemovalRejectsUnreviewedOrInvalidScope (int[] reviewed, bool reboot)
+	public async System.Threading.Tasks.Task SharedRemovalRejectsUnreviewedOrInvalidScope (int[] reviewed, bool reboot)
 		{
 		var original = new Fake (Device ("1.0", reboot), new[] { 17, 18 });
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await new ConfigurationClient (original).RemoveDriverInstanceAsync (17, "Example", "1.0", TimeSpan.FromSeconds (3), rebootHandler:
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await new ConfigurationClient (original).RemoveDriverInstanceAsync (17, "Example", "1.0", TimeSpan.FromSeconds (3), rebootHandler:
 			 new ((_, _) => throw new AssertionException ("Unexpected authorization"), (_, _, _) => throw new AssertionException ("Unexpected reboot"))
 				 {
 				 RebootAfterRemoval = reboot,
@@ -302,7 +302,7 @@ public sealed class RebootLifecycleTests
 	[TestCase ("model")]
 	[TestCase ("version")]
 	[TestCase ("loading")]
-	public void SharedRemovalRequiresHealthyOriginalInstances (string problem)
+	public async System.Threading.Tasks.Task SharedRemovalRequiresHealthyOriginalInstances (string problem)
 		{
 		var other = Device (problem == "version" ? "2.0" : "1.0") with
 			{
@@ -312,7 +312,7 @@ public sealed class RebootLifecycleTests
 		if (problem == "loading")
 			other.PropertyValues["cp.driverConfiguration:driverLoadingStatus"] = JsonSerializer.SerializeToElement ("Loading");
 		var original = new Fake (Device ("1.0"), new[] { 17, 18 }, problem == "missing" ? null : other);
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await new ConfigurationClient (original).RemoveDriverInstanceAsync (17, "Example", "1.0", TimeSpan.FromSeconds (3), rebootHandler:
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await new ConfigurationClient (original).RemoveDriverInstanceAsync (17, "Example", "1.0", TimeSpan.FromSeconds (3), rebootHandler:
 			 new ((_, _) => throw new AssertionException ("Unexpected operation"), (_, _, _) => throw new AssertionException ("Unexpected reboot"))
 				 {
 				 RebootAfterRemoval = true,
@@ -322,10 +322,10 @@ public sealed class RebootLifecycleTests
 		}
 
 	[Test]
-	public void MissingRestartTimesOutWithoutConnectingOrRebooting ()
+	public async System.Threading.Tasks.Task MissingRestartTimesOutWithoutConnectingOrRebooting ()
 		{
 		var original = new Fake ();
-		Assert.ThrowsAsync<TimeoutException> (async () => await ProcessorRestartRecovery.WaitAsync (new (original), _ => throw new AssertionException ("Unexpected operation"), TimeSpan.FromMilliseconds (50)));
+		await Assert.ThrowsAsync<TimeoutException> (async () => await ProcessorRestartRecovery.WaitAsync (new (original), _ => throw new AssertionException ("Unexpected operation"), TimeSpan.FromMilliseconds (50)));
 		Assert.That (original.Commands, Is.Empty);
 		}
 
@@ -370,12 +370,12 @@ public sealed class RebootLifecycleTests
 		}
 
 	[Test]
-	public void AuthenticationFailureStopsRecovery ()
+	public async System.Threading.Tasks.Task AuthenticationFailureStopsRecovery ()
 		{
 		var original = new Fake ();
 		original.Disconnected.SetResult ();
 		var connects = 0;
-		Assert.ThrowsAsync<ProcessorApiException> (async () => await ProcessorRestartRecovery.WaitAsync (new (original), _ => { connects++; throw new ProcessorApiException ("Authentication failed"); }, TimeSpan.FromSeconds (1)));
+		await Assert.ThrowsAsync<ProcessorApiException> (async () => await ProcessorRestartRecovery.WaitAsync (new (original), _ => { connects++; throw new ProcessorApiException ("Authentication failed"); }, TimeSpan.FromSeconds (1)));
 		Assert.That (connects, Is.EqualTo (1));
 		}
 

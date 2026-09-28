@@ -65,6 +65,10 @@ For a snapshot, `submission-setup prepare --snapshot NAME --store DIRECTORY` cre
 ### NUnit framework selection
 
 Pin the tooling and each fixture's framework before preparing processor packages.
+Use NUnit 5 for new owned Windows, processor and UI fixtures, with matching
+processor test-host versions. Migrate an existing fixture in a new run before
+freezing its inputs; preserve NUnit 4 only for deliberate compatibility coverage
+or retained historical runs.
 CrestronHomeNUnit 2.0.0 defaults new processor packages to NUnit 5.0.0 while
 retaining net472 targets. Existing NUnit 4 fixtures can remain on 4.6.1 with an
 explicit matching `ProcessorNUnitVersion`; a tooling upgrade alone does not

@@ -61,7 +61,7 @@ public sealed class SubmissionWorkflowTests
  {
   SubmissionWorkflow.Open(root,release);
   var steps=new Steps { Start=c=>c.Checkpoint.Stage==SubmissionWorkflowStage.Deliver ? throw new IOException("simulated lost acknowledgement") : Steps.Complete(c) };
-  Assert.ThrowsAsync<IOException>(async()=>await SubmissionWorkflow.AdvanceAsync(root,release,steps));
+		await Assert.ThrowsAsync<IOException>(async()=>await SubmissionWorkflow.AdvanceAsync(root,release,steps));
   var interrupted=SubmissionWorkflow.Read(root,release);
   Assert.That(interrupted.Status,Is.EqualTo(SubmissionWorkflowStatus.Running));
   steps.Recover=_=>new(SubmissionWorkflowStatus.OutcomeUnknown,ReasonCode:"inspect-provider-journal");
@@ -89,20 +89,20 @@ public sealed class SubmissionWorkflowTests
   SubmissionWorkflow.Open(root,release);var steps=new Steps { Start=c=>c.Checkpoint.Stage==SubmissionWorkflowStage.ProcessorTests ? new(SubmissionWorkflowStatus.NeedsInput,ReasonCode:"equipment-unavailable") : Steps.Complete(c) };
   await SubmissionWorkflow.AdvanceAsync(root,release,steps);
   File.AppendAllText(Path.Combine(RunDirectory,"WindowsTests.json"),"changed");
-  Assert.ThrowsAsync<InvalidDataException>(async()=>await SubmissionWorkflow.AdvanceAsync(root,release,steps));
+		await Assert.ThrowsAsync<InvalidDataException>(async()=>await SubmissionWorkflow.AdvanceAsync(root,release,steps));
  }
 
- [Test] public void AnotherWorkerCannotEnterTheSameRun()
+ [Test] public async System.Threading.Tasks.Task AnotherWorkerCannotEnterTheSameRun ()
  {
   SubmissionWorkflow.Open(root,release);using var held=new FileStream(Path.Combine(RunDirectory,"run.lock"),FileMode.Open,FileAccess.ReadWrite,FileShare.None);
-  Assert.ThrowsAsync<IOException>(async()=>await SubmissionWorkflow.AdvanceAsync(root,release,new Steps()));
+		await Assert.ThrowsAsync<IOException>(async()=>await SubmissionWorkflow.AdvanceAsync(root,release,new Steps()));
  }
 
- [Test] public void ReceiptOutsideTheRunIsRejected()
+ [Test] public async System.Threading.Tasks.Task ReceiptOutsideTheRunIsRejected ()
  {
   SubmissionWorkflow.Open(root,release);var outside=Path.Combine(root,"outside.json");File.WriteAllText(outside,"{}");
   var steps=new Steps {Start=_=>new(SubmissionWorkflowStatus.Completed,new("../outside.json",Hash(outside)))};
-  Assert.ThrowsAsync<InvalidDataException>(async()=>await SubmissionWorkflow.AdvanceAsync(root,release,steps));
+		await Assert.ThrowsAsync<InvalidDataException>(async()=>await SubmissionWorkflow.AdvanceAsync(root,release,steps));
  }
 
  [TestCase(false)][TestCase(true)][Platform("Win")]
@@ -123,14 +123,14 @@ public sealed class SubmissionWorkflowTests
  }
 
  [Test][Platform("Win")]
- public void ReceiptLinkInsideRunRemainsRejected()
+ public async System.Threading.Tasks.Task ReceiptLinkInsideRunRemainsRejected ()
  {
   SubmissionWorkflow.Open(root,release);
   string target=Path.Combine(root,"outside.json"),link=Path.Combine(RunDirectory,"linked.json");
   File.WriteAllText(target,"{}");File.CreateSymbolicLink(link,target);
   try {
    var steps=new Steps{Start=_=>new(SubmissionWorkflowStatus.Completed,new("linked.json",Hash(target)))};
-   Assert.ThrowsAsync<InvalidDataException>(async()=>await SubmissionWorkflow.AdvanceAsync(root,release,steps));
+			await Assert.ThrowsAsync<InvalidDataException>(async()=>await SubmissionWorkflow.AdvanceAsync(root,release,steps));
   } finally {File.Delete(link);}
  }
 }

@@ -93,7 +93,7 @@ public sealed class SubmissionEnduranceProcessProbeTests
 		{
 		File.WriteAllText (_program.SettingsFile!, mode);
 		using var deadline = new CancellationTokenSource (TimeSpan.FromSeconds (20));
-		var error = Assert.ThrowsAsync<InvalidDataException> (async () =>
+		var error = await Assert.ThrowsAsync<InvalidDataException> (async () =>
 			await SubmissionEnduranceProcessProbe.RunAsync (_program, _plan, deadline.Token));
 		Assert.That (error!.ToString (), Does.Not.Contain ("PRIVATE-SECRET"));
 		AssertStopped ();
@@ -110,7 +110,7 @@ public sealed class SubmissionEnduranceProcessProbeTests
 			while (!File.Exists (_program.SettingsFile + ".pid"))
 				await Task.Delay (20, cancel.Token);
 			cancel.Cancel ();
-			Assert.ThrowsAsync<OperationCanceledException> (async () => await running);
+			await Assert.ThrowsAsync<OperationCanceledException> (async () => await running);
 			AssertStopped ();
 			}
 		finally { cancel.Cancel (); try { await running; } catch (OperationCanceledException) { } }
@@ -118,7 +118,7 @@ public sealed class SubmissionEnduranceProcessProbeTests
 	[TestCase ("changed")]
 	[TestCase ("extra")]
 	[TestCase ("missing")]
-	public void ChangedMissingOrAddedBundleFilePreventsProcessStart (string change)
+	public async System.Threading.Tasks.Task ChangedMissingOrAddedBundleFilePreventsProcessStart (string change)
 		{
 		string file = Path.Combine (_program.Directory, _program.Files[0].RelativePath);
 		if (change == "changed")
@@ -127,7 +127,7 @@ public sealed class SubmissionEnduranceProcessProbeTests
 			File.WriteAllText (Path.Combine (_program.Directory, "unreviewed.dll"), "extra");
 		else
 			File.Delete (file);
-		Assert.ThrowsAsync<InvalidDataException> (async () => await SubmissionEnduranceProcessProbe.RunAsync (_program, _plan));
+		await Assert.ThrowsAsync<InvalidDataException> (async () => await SubmissionEnduranceProcessProbe.RunAsync (_program, _plan));
 		Assert.That (File.Exists (_program.SettingsFile + ".pid"), Is.False);
 		}
 	[Test]
@@ -290,7 +290,7 @@ public sealed class SubmissionEnduranceProcessProbeTests
 		{
 		string run = Path.Combine (_root, "uncertain-run");
 		var endpoint = new SubmissionEnduranceProcessor ("processor.invalid", "pin");
-		Assert.ThrowsAsync<IOException> (async () => await SubmissionEnduranceMonitor.StartCoreAsync (run, _plan, endpoint,
+		await Assert.ThrowsAsync<IOException> (async () => await SubmissionEnduranceMonitor.StartCoreAsync (run, _plan, endpoint,
 			_ => Task.FromException<IProcessorOperationLease> (new IOException ("Synthetic uncertain acquisition."))));
 		int result = await EnduranceCommands.RunAsync ("endurance-tick", run, new (_plan, endpoint, _program), endpoint,
 			new System.Net.NetworkCredential ("unused", "unused"), CancellationToken.None);

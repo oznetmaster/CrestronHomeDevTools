@@ -41,20 +41,20 @@ public sealed class ManagedDeviceCommissioningTests
 		}
 
 	[Test]
-	public void UncertainCommissionCannotBeRepeatedWithTheSameJournal ()
+	public async System.Threading.Tasks.Task UncertainCommissionCannotBeRepeatedWithTheSameJournal ()
 		{
 		var connection = new Connection (Journal) { FailCommission = true };
-		Assert.ThrowsAsync<IOException> (async () => await Run (connection));
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await Run (connection));
+		await Assert.ThrowsAsync<IOException> (async () => await Run (connection));
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await Run (connection));
 		Assert.That (connection.Commands.Count, Is.EqualTo (1));
 		Assert.That (File.Exists (Path.Combine (Journal, "commission-intent.json")), Is.True);
 		}
 
 	[Test]
-	public void UncertainConfigurationRetainsTheCreatedChildForReconciliation ()
+	public async System.Threading.Tasks.Task UncertainConfigurationRetainsTheCreatedChildForReconciliation ()
 		{
 		var connection = new Connection (Journal) { FailEntry = true };
-		Assert.ThrowsAsync<IOException> (async () => await Run (connection));
+		await Assert.ThrowsAsync<IOException> (async () => await Run (connection));
 		Assert.That (connection.Commands.Count, Is.EqualTo (2));
 		Assert.That (File.Exists (Path.Combine (Journal, "created-child.json")), Is.True);
 		Assert.That (File.Exists (Path.Combine (Journal, "configuration-entry-intent.json")), Is.True);
@@ -62,27 +62,27 @@ public sealed class ManagedDeviceCommissioningTests
 		}
 
 	[Test]
-	public void ReadinessTimeoutDoesNotRepeatEitherCommand ()
+	public async System.Threading.Tasks.Task ReadinessTimeoutDoesNotRepeatEitherCommand ()
 		{
 		var connection = new Connection (Journal) { RemainOffline = true };
-		Assert.ThrowsAsync<TimeoutException> (async () => await ManagedDeviceCommissioning.CommissionAsync (new (connection), REQUEST, Journal, TimeSpan.FromMilliseconds (80)));
+		await Assert.ThrowsAsync<TimeoutException> (async () => await ManagedDeviceCommissioning.CommissionAsync (new (connection), REQUEST, Journal, TimeSpan.FromMilliseconds (80)));
 		Assert.That (connection.Commands.Count, Is.EqualTo (2));
 		Assert.That (File.Exists (Path.Combine (Journal, "result.json")), Is.False);
 		}
 
 	[Test]
-	public void ExistingChildIdReturnedByProcessorIsNotInitialized ()
+	public async System.Threading.Tasks.Task ExistingChildIdReturnedByProcessorIsNotInitialized ()
 		{
 		var connection = new Connection (Journal) { ReuseParentId = true };
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await Run (connection));
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await Run (connection));
 		Assert.That (connection.Commands.Count, Is.EqualTo (1));
 		}
 
 	[Test]
-	public void ChangedParentIsRejectedBeforeCommission ()
+	public async System.Threading.Tasks.Task ChangedParentIsRejectedBeforeCommission ()
 		{
 		var connection = new Connection (Journal) { WrongParent = true };
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await Run (connection));
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await Run (connection));
 		Assert.That (connection.Commands, Is.Empty);
 		}
 
@@ -111,7 +111,7 @@ public sealed class ManagedDeviceCommissioningTests
 		var connection = new Connection (Journal) { Native = true };
 		await Run (connection);
 		File.WriteAllText (Path.Combine (Journal, "commission-response.json"), "{\"Response\":{\"Id\":999,\"CommissioningResult\":\"Success\"}}");
-		Assert.ThrowsAsync<InvalidDataException> (async () => await ManagedDeviceCommissioning.ObserveCreatedAsync (new (connection), Journal));
+		await Assert.ThrowsAsync<InvalidDataException> (async () => await ManagedDeviceCommissioning.ObserveCreatedAsync (new (connection), Journal));
 		Assert.That (connection.Commands.Count, Is.EqualTo (1));
 		}
 
@@ -119,19 +119,19 @@ public sealed class ManagedDeviceCommissioningTests
 	[TestCase ("room")]
 	[TestCase ("ambiguous")]
 	[TestCase ("preexisting")]
-	public void NativeCommissioningCannotAcceptAnotherLoad (string fault)
+	public async System.Threading.Tasks.Task NativeCommissioningCannotAcceptAnotherLoad (string fault)
 		{
 		var connection = new Connection (Journal) { Native = true, NativeFault = fault };
-		Assert.ThrowsAsync<InvalidDataException> (async () => await Run (connection));
+		await Assert.ThrowsAsync<InvalidDataException> (async () => await Run (connection));
 		Assert.That (connection.Commands.Count, Is.EqualTo (1));
 		Assert.That (File.Exists (Path.Combine (Journal, "result.json")), Is.False);
 		}
 
 	[Test]
-	public void OfflineNativeWrapperDoesNotCountAsReady ()
+	public async System.Threading.Tasks.Task OfflineNativeWrapperDoesNotCountAsReady ()
 		{
 		var connection = new Connection (Journal) { Native = true, RemainOffline = true };
-		Assert.ThrowsAsync<TimeoutException> (async () => await ManagedDeviceCommissioning.CommissionAsync (new (connection), REQUEST, Journal, TimeSpan.FromMilliseconds (150)));
+		await Assert.ThrowsAsync<TimeoutException> (async () => await ManagedDeviceCommissioning.CommissionAsync (new (connection), REQUEST, Journal, TimeSpan.FromMilliseconds (150)));
 		Assert.That (connection.Commands.Count, Is.EqualTo (1));
 		}
 
@@ -145,7 +145,7 @@ public sealed class ManagedDeviceCommissioningTests
 		Assert.That (observed.State, Is.EqualTo ("NotReady"));
 		Assert.That (connection.Commands.Count, Is.EqualTo (1));
 		connection.NativeFault = "room";
-		Assert.ThrowsAsync<InvalidDataException> (async () => await ManagedDeviceCommissioning.ObserveCreatedAsync (new (connection), Journal));
+		await Assert.ThrowsAsync<InvalidDataException> (async () => await ManagedDeviceCommissioning.ObserveCreatedAsync (new (connection), Journal));
 		}
 
 	private sealed class Connection (string journal) : IConfigurationConnection

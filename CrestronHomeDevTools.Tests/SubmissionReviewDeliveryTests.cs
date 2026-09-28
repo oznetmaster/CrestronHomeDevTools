@@ -68,10 +68,10 @@ public sealed class SubmissionReviewDeliveryTests
 	public async Task UnknownOutcomeRequiresReconciliationBeforeContinuing (SubmissionDeliveryStep step)
 		{
 		_transport.Fail = step;
-		Assert.ThrowsAsync<IOException> (async () => await Execute ());
+		await Assert.ThrowsAsync<IOException> (async () => await Execute ());
 		Assert.That (SubmissionDelivery.ReadReview (_root, _plan)!.Delivery.State, Is.EqualTo (SubmissionDeliveryState.OutcomeUnknown));
 		_transport.Fail = null;
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await Execute ());
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await Execute ());
 		SubmissionDelivery.ReconcileReview (_root, _plan, step, true, "Synthetic provider lookup confirms the accepted request",
 			step == SubmissionDeliveryStep.Upload ? Upload : null, step == SubmissionDeliveryStep.Send ? Mail : null);
 		Assert.That ((await Execute ()).Delivery.State, Is.EqualTo (SubmissionDeliveryState.Submitted));
@@ -83,12 +83,12 @@ public sealed class SubmissionReviewDeliveryTests
 	[TestCase ("omissions")]
 	[TestCase ("signature")]
 	[TestCase ("mode")]
-	public void ChangingReviewInvalidatesApprovalBeforeAnyProviderCall (string change)
+	public async System.Threading.Tasks.Task ChangingReviewInvalidatesApprovalBeforeAnyProviderCall (string change)
 		{
 		string approved = SubmissionDelivery.ReviewPlanDigest (_plan);
 		_plan = Change (change);
 		Assert.That (SubmissionDelivery.ReviewPlanDigest (_plan), Is.Not.EqualTo (approved));
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await Execute ((_, _) =>
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await Execute ((_, _) =>
 			Task.FromResult (new SubmissionDeliveryAuthorization (approved, DateTimeOffset.UtcNow.AddMinutes (2)))));
 		Assert.That ((_transport.Uploads, _transport.Sends), Is.EqualTo ((0, 0)));
 		}
@@ -108,7 +108,7 @@ public sealed class SubmissionReviewDeliveryTests
 		{
 		await Execute ();
 		_plan = Change ("mode");
-		Assert.ThrowsAsync<InvalidDataException> (async () => await Execute ());
+		await Assert.ThrowsAsync<InvalidDataException> (async () => await Execute ());
 		var legacy = new SubmissionDeliveryPlan (_plan.CandidateSha256, _plan.ReviewSha256, _plan.AuthorizationSha256,
 			_plan.PackageSha256, _plan.AttachmentSha256, _plan.PackageFileName, _plan.AttachmentFileName, _plan.Sender, _plan.Recipient);
 		Assert.Throws<InvalidDataException> (() => SubmissionDelivery.Read (_root, legacy));
@@ -118,7 +118,7 @@ public sealed class SubmissionReviewDeliveryTests
 	[Test]
 	public async Task ExpiredSendApprovalPreservesConfirmedUploadAndNeverSends ()
 		{
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await Execute ((step, _) => Task.FromResult (
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await Execute ((step, _) => Task.FromResult (
 			new SubmissionDeliveryAuthorization (SubmissionDelivery.ReviewPlanDigest (_plan),
 				DateTimeOffset.UtcNow.AddMinutes (step == SubmissionDeliveryStep.Upload ? 2 : -2)))));
 		Assert.That ((_transport.Uploads, _transport.Sends), Is.EqualTo ((1, 0)));
@@ -133,7 +133,7 @@ public sealed class SubmissionReviewDeliveryTests
 	[TestCase ("unknown-kind")]
 	[TestCase ("missing-pin")]
 	[TestCase ("header-injection")]
-	public void InvalidOrConcealedOmissionsCannotBeDelivered (string change)
+	public async System.Threading.Tasks.Task InvalidOrConcealedOmissionsCannotBeDelivered (string change)
 		{
 		_plan = change switch
 			{
@@ -144,15 +144,15 @@ public sealed class SubmissionReviewDeliveryTests
 			"missing-pin" => _plan with { DeclarationsSha256 = null },
 			_ => _plan with { GapSummary = "test\r\nBcc: other@example.test" }
 			};
-		Assert.ThrowsAsync<ArgumentException> (async () => await Execute ());
+		await Assert.ThrowsAsync<ArgumentException> (async () => await Execute ());
 		Assert.That ((_transport.Uploads, _transport.Sends), Is.EqualTo ((0, 0)));
 		}
 
 	[Test]
-	public void AttachmentTamperingIsRejectedBeforeAuthorizationOrUpload ()
+	public async System.Threading.Tasks.Task AttachmentTamperingIsRejectedBeforeAuthorizationOrUpload ()
 		{
 		File.AppendAllText (_attachment, "changed");
-		Assert.ThrowsAsync<InvalidDataException> (async () => await Execute ((_, _) => throw new AssertionException ("No approval before byte verification")));
+		await Assert.ThrowsAsync<InvalidDataException> (async () => await Execute ((_, _) => throw new AssertionException ("No approval before byte verification")));
 		Assert.That ((_transport.Uploads, _transport.Sends), Is.EqualTo ((0, 0)));
 		}
 

@@ -27,29 +27,29 @@ public sealed class ConfigurationRebootTests
 
 	[TestCase (false)]
 	[TestCase (true)]
-	public void MissingOrAmbiguousCapabilityPreventsSubmission (bool ambiguous)
+	public async System.Threading.Tasks.Task MissingOrAmbiguousCapabilityPreventsSubmission (bool ambiguous)
 		{
 		var fake = new Fake (Inventory (ambiguous ? [Target (), Target (11)] : []));
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await new ConfigurationClient (fake).RequestProcessorRebootAsync ((_, _) => throw new AssertionException ("Cannot confirm an ambiguous target"), "test"));
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await new ConfigurationClient (fake).RequestProcessorRebootAsync ((_, _) => throw new AssertionException ("Cannot confirm an ambiguous target"), "test"));
 		Assert.That (fake.Writes, Is.Zero);
 		}
 
 	[Test]
-	public void ChangedIdentityAfterConfirmationStopsReboot ()
+	public async System.Threading.Tasks.Task ChangedIdentityAfterConfirmationStopsReboot ()
 		{
 		var fake = new Fake (Inventory (Target ()), Target () with
 			{
 			Model = "Other"
 			});
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await new ConfigurationClient (fake).RequestProcessorRebootAsync ((_, _) => Task.FromResult (true), "test"));
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await new ConfigurationClient (fake).RequestProcessorRebootAsync ((_, _) => Task.FromResult (true), "test"));
 		Assert.That (fake.Writes, Is.Zero);
 		}
 
 	[Test]
-	public void LostResponseDoesNotRepeatReboot ()
+	public async System.Threading.Tasks.Task LostResponseDoesNotRepeatReboot ()
 		{
 		var fake = new Fake (Inventory (Target ()), Target (), new IOException ());
-		Assert.ThrowsAsync<IOException> (async () => await new ConfigurationClient (fake).RequestProcessorRebootAsync ((_, _) => Task.FromResult (true), "test"));
+		await Assert.ThrowsAsync<IOException> (async () => await new ConfigurationClient (fake).RequestProcessorRebootAsync ((_, _) => Task.FromResult (true), "test"));
 		Assert.That (fake.Writes, Is.EqualTo (1));
 		}
 

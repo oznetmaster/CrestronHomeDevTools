@@ -52,11 +52,11 @@ public sealed class InstanceLifecycleTests
 	[TestCase ("{\"CommissioningResult\":\"Success\",\"Id\":\"17\"}")]
 	[TestCase ("{\"CommissioningResult\":\"Success\"}")]
 	[TestCase ("null")]
-	public void UnconfirmedInstallationRetainsReplyWithoutRepeatingTheCommand (string responseJson)
+	public async System.Threading.Tasks.Task UnconfirmedInstallationRetainsReplyWithoutRepeatingTheCommand (string responseJson)
 		{
 		var response = JsonSerializer.Deserialize<JsonElement> (responseJson);
 		var transport = new Fake (Catalogue, new Dictionary<string, DeviceInfo> (), "Success", response);
-		var exception = Assert.ThrowsAsync<ProcessorApiException> (async () => await Run (transport))!;
+		var exception = (await Assert.ThrowsAsync<ProcessorApiException> (async () => await Run (transport)))!;
 		Assert.That (exception.DiagnosticCommand, Is.EqualTo ("cp.platformDriverController:commissionDevice"));
 		Assert.That (exception.DiagnosticResponse.HasValue, Is.True);
 		Assert.That (JsonElement.DeepEquals (exception.DiagnosticResponse!.Value, response), Is.True);
@@ -65,10 +65,10 @@ public sealed class InstanceLifecycleTests
 		}
 
 	[Test]
-	public void FailedPreparationRetainsReplyAndNeverCommissions ()
+	public async System.Threading.Tasks.Task FailedPreparationRetainsReplyAndNeverCommissions ()
 		{
 		var transport = new Fake (Catalogue, new Dictionary<string, DeviceInfo> (), "Unavailable");
-		var exception = Assert.ThrowsAsync<ProcessorApiException> (async () => await Run (transport))!;
+		var exception = (await Assert.ThrowsAsync<ProcessorApiException> (async () => await Run (transport)))!;
 		Assert.That (exception.DiagnosticCommand, Is.EqualTo ("cp.platformDriverController:prepareDriverForUse"));
 		Assert.That (exception.DiagnosticResponse!.Value.GetString (), Is.EqualTo ("Unavailable"));
 		Assert.That (transport.Commands.Any (command => command.EndsWith (":commissionDevice")), Is.False);
@@ -118,34 +118,34 @@ public sealed class InstanceLifecycleTests
 		}
 
 	[Test]
-	public void UpgradeCannotSilentlyAffectAnotherInstance ()
+	public async System.Threading.Tasks.Task UpgradeCannotSilentlyAffectAnotherInstance ()
 		{
 		var transport = new Fake (Catalogue, Inventory ("1.0"), Eligible (17, 18));
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await Run (transport));
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await Run (transport));
 		Assert.That (transport.Commands.Any (command => command.Contains ("beginSwap")), Is.False);
 		}
 
 	[Test]
-	public void ExistingNewerVersionIsNotAutomaticallyDowngraded ()
+	public async System.Threading.Tasks.Task ExistingNewerVersionIsNotAutomaticallyDowngraded ()
 		{
 		var transport = new Fake (Catalogue, Inventory ("2.0"));
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await Run (transport));
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await Run (transport));
 		Assert.That (transport.Commands.Count, Is.EqualTo (1));
 		}
 
 	[Test]
-	public void MissingExpectedIdCannotAdoptDifferentInstance ()
+	public async System.Threading.Tasks.Task MissingExpectedIdCannotAdoptDifferentInstance ()
 		{
 		var transport = new Fake (Catalogue, Inventory ("1.1"));
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await DriverInstanceLifecycle.EnsureAsync (new ConfigurationClient (transport), "catalogue", "Example Tests", 12, 99, TimeSpan.FromSeconds (2)));
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await DriverInstanceLifecycle.EnsureAsync (new ConfigurationClient (transport), "catalogue", "Example Tests", 12, 99, TimeSpan.FromSeconds (2)));
 		Assert.That (transport.Commands.Count, Is.EqualTo (1));
 		}
 
 	[Test]
-	public void LongInstanceNameFailsBeforeProcessorRequest ()
+	public async System.Threading.Tasks.Task LongInstanceNameFailsBeforeProcessorRequest ()
 		{
 		var transport = new Fake ();
-		Assert.ThrowsAsync<ArgumentException> (async () => await DriverInstanceLifecycle.EnsureAsync (new ConfigurationClient (transport), "catalogue", new string ('x', 33), 12, null, TimeSpan.FromSeconds (2)));
+		await Assert.ThrowsAsync<ArgumentException> (async () => await DriverInstanceLifecycle.EnsureAsync (new ConfigurationClient (transport), "catalogue", new string ('x', 33), 12, null, TimeSpan.FromSeconds (2)));
 		Assert.That (transport.Commands, Is.Empty);
 		}
 

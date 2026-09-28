@@ -36,7 +36,7 @@ public sealed class SubmissionDeliveryAuthorizationTests
 	[TestCase ("exact-expiry")]
 	[TestCase ("different-plan")]
 	[TestCase ("missing")]
-	public void InvalidApprovalCannotAttemptUpload (string failure)
+	public async System.Threading.Tasks.Task InvalidApprovalCannotAttemptUpload (string failure)
 		{
 		var approval = failure switch
 			{
@@ -45,17 +45,17 @@ public sealed class SubmissionDeliveryAuthorizationTests
 			"different-plan" => Approval () with { PlanSha256 = new ('d', 64) },
 			_ => null
 			};
-		Assert.ThrowsAsync<InvalidOperationException> (() => Execute ((_, _) => Task.FromResult (approval!)));
+		await Assert.ThrowsAsync<InvalidOperationException> (() => Execute ((_, _) => Task.FromResult (approval!)));
 		Assert.That ((_transport.Uploads, _transport.Sends), Is.EqualTo ((0, 0)));
 		Assert.That (SubmissionDelivery.Read (_root, _plan)!.State, Is.EqualTo (SubmissionDeliveryState.Prepared));
 		}
 	[Test]
-	public void ExpiryDuringUploadPreservesReceiptWithoutSending ()
+	public async System.Threading.Tasks.Task ExpiryDuringUploadPreservesReceiptWithoutSending ()
 		{
 		var approval = Approval ();
 		_transport.AfterUpload = () => _clock.Now = approval.ExpiresUtc;
 		var steps = new List<SubmissionDeliveryStep> ();
-		Assert.ThrowsAsync<InvalidOperationException> (() => Execute ((step, _) => { steps.Add (step); return Task.FromResult (approval); }));
+		await Assert.ThrowsAsync<InvalidOperationException> (() => Execute ((step, _) => { steps.Add (step); return Task.FromResult (approval); }));
 		Assert.That (steps, Is.EqualTo (new[] { SubmissionDeliveryStep.Upload, SubmissionDeliveryStep.Send }));
 		Assert.That ((_transport.Uploads, _transport.Sends), Is.EqualTo ((1, 0)));
 		var receipt = SubmissionDelivery.Read (_root, _plan)!;
@@ -67,7 +67,7 @@ public sealed class SubmissionDeliveryAuthorizationTests
 	public async Task TemporarilyUnavailableReviewResumesOnlyEmailWithSameValidApproval ()
 		{
 		var approval = Approval ();
-		Assert.ThrowsAsync<IOException> (() => Execute ((step, _) => step == SubmissionDeliveryStep.Send
+		await Assert.ThrowsAsync<IOException> (() => Execute ((step, _) => step == SubmissionDeliveryStep.Send
 			? throw new IOException ("Synthetic unavailable evidence store") : Task.FromResult (approval)));
 		Assert.That (SubmissionDelivery.Read (_root, _plan)!.State, Is.EqualTo (SubmissionDeliveryState.Uploaded));
 		var steps = new List<SubmissionDeliveryStep> ();
@@ -77,10 +77,10 @@ public sealed class SubmissionDeliveryAuthorizationTests
 		}
 	[TestCase (SubmissionDeliveryStep.Upload)]
 	[TestCase (SubmissionDeliveryStep.Send)]
-	public void CancellationDuringRevalidationCannotStartThatStep (SubmissionDeliveryStep cancelAt)
+	public async System.Threading.Tasks.Task CancellationDuringRevalidationCannotStartThatStep (SubmissionDeliveryStep cancelAt)
 		{
 		using var cancel = new CancellationTokenSource ();
-		Assert.CatchAsync<OperationCanceledException> (() => Execute ((step, _) =>
+		await Assert.CatchAsync<OperationCanceledException> (() => Execute ((step, _) =>
 			{ if (step == cancelAt) cancel.Cancel (); return Task.FromResult (Approval ()); }, cancel.Token));
 		Assert.That (_transport.Uploads, Is.EqualTo (cancelAt == SubmissionDeliveryStep.Upload ? 0 : 1));
 		Assert.That (_transport.Sends, Is.Zero);
@@ -96,12 +96,12 @@ public sealed class SubmissionDeliveryAuthorizationTests
 		Assert.That ((_transport.Uploads, _transport.Sends), Is.EqualTo ((1, 1)));
 		}
 	[Test]
-	public void UnknownUploadCannotBeBypassedWithFreshRevalidation ()
+	public async System.Threading.Tasks.Task UnknownUploadCannotBeBypassedWithFreshRevalidation ()
 		{
 		_transport.AfterUpload = () => throw new IOException ("Synthetic uncertain upload");
-		Assert.ThrowsAsync<IOException> (() => Execute ((_, _) => Task.FromResult (Approval ())));
+		await Assert.ThrowsAsync<IOException> (() => Execute ((_, _) => Task.FromResult (Approval ())));
 		Assert.That (SubmissionDelivery.Read (_root, _plan)!.State, Is.EqualTo (SubmissionDeliveryState.OutcomeUnknown));
-		Assert.ThrowsAsync<InvalidOperationException> (() => Execute ((_, _) => throw new AssertionException ("Must not reauthorize an uncertain attempt")));
+		await Assert.ThrowsAsync<InvalidOperationException> (() => Execute ((_, _) => throw new AssertionException ("Must not reauthorize an uncertain attempt")));
 		Assert.That ((_transport.Uploads, _transport.Sends), Is.EqualTo ((1, 0)));
 		}
 	[TestCase (SubmissionDeliveryStep.Upload)]
@@ -109,7 +109,7 @@ public sealed class SubmissionDeliveryAuthorizationTests
 	public async Task ApprovalExpiringDuringIntentPersistenceCannotEnterProvider (SubmissionDeliveryStep step)
 		{
 		_clock.ExpireOnRead = step == SubmissionDeliveryStep.Upload ? 2 : 4;
-		Assert.ThrowsAsync<InvalidOperationException> (() => Execute ((_, _) => Task.FromResult (Approval ())));
+		await Assert.ThrowsAsync<InvalidOperationException> (() => Execute ((_, _) => Task.FromResult (Approval ())));
 		Assert.That ((_transport.Uploads, _transport.Sends), Is.EqualTo ((step == SubmissionDeliveryStep.Upload ? 0 : 1, 0)));
 		var receipt = SubmissionDelivery.Read (_root, _plan)!;
 		Assert.That (receipt.State, Is.EqualTo (step == SubmissionDeliveryStep.Upload ? SubmissionDeliveryState.Prepared : SubmissionDeliveryState.Uploaded));
@@ -120,13 +120,13 @@ public sealed class SubmissionDeliveryAuthorizationTests
 		}
 
 	[Test]
-	public void PermanentlyBlockedIntentDoesNotCallUpload ()
+	public async Task PermanentlyBlockedIntentDoesNotCallUpload ()
 		{
 		if (!OperatingSystem.IsWindows ()) Assert.Ignore ("Windows sharing semantics");
 		FileStream? blocker = null;
 		try
 			{
-			var failure = Assert.CatchAsync<Exception> (() => Execute ((_, _) =>
+			var failure = await Assert.CatchAsync<Exception> (() => Execute ((_, _) =>
 				{
 				var receipt = Directory.GetFiles (_root, "*.json").Single ();
 				blocker = new FileStream (receipt, FileMode.Open, FileAccess.Read, FileShare.Read);

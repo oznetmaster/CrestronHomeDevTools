@@ -65,10 +65,10 @@ public sealed class SubmissionSmtpMailerTests
 	[TestCase ("connection", false, 0)]
 	[TestCase ("send", true, 1)]
 	[TestCase ("timeout", true, 1)]
-	public void FailuresDoNotResendAndPreserveUncertainOutcome (string mode, bool attempted, int sends)
+	public async Task FailuresDoNotResendAndPreserveUncertainOutcome (string mode, bool attempted, int sends)
 		{
 		var session = new Session { Failure = mode, DisposeFails = true };
-		var error = Assert.ThrowsAsync<InvalidDataException> (() => Create (session, TimeSpan.FromSeconds (1)).SendAsync (_plan, Upload, new MemoryStream (Form), MessageId));
+		var error = await Assert.ThrowsAsync<InvalidDataException> (() => Create (session, TimeSpan.FromSeconds (1)).SendAsync (_plan, Upload, new MemoryStream (Form), MessageId));
 		Assert.That (error!.Message, Does.Not.Contain ("synthetic-password"));
 		Assert.That (session.Sends, Is.EqualTo (sends));
 		using var failure = JsonDocument.Parse (File.ReadAllText (Path.Combine (Directory.GetDirectories (_root).Single (), "failed.json")));
@@ -77,10 +77,10 @@ public sealed class SubmissionSmtpMailerTests
 		}
 
 	[Test]
-	public void ServerRejectionRetainsPrivateStatusAndRedactsThePassword ()
+	public async Task ServerRejectionRetainsPrivateStatusAndRedactsThePassword ()
 		{
 		var session = new Session { Failure = "rejected" };
-		var error = Assert.ThrowsAsync<InvalidDataException> (() => Create (session).SendAsync (_plan, Upload, new MemoryStream (Form), MessageId));
+		var error = await Assert.ThrowsAsync<InvalidDataException> (() => Create (session).SendAsync (_plan, Upload, new MemoryStream (Form), MessageId));
 		Assert.That (session.Sends, Is.EqualTo (1));
 		Assert.That (error!.Message, Does.Not.Contain ("Policy refused"));
 		string saved = File.ReadAllText (Path.Combine (Directory.GetDirectories (_root).Single (), "failed.json"));
@@ -96,13 +96,13 @@ public sealed class SubmissionSmtpMailerTests
 	[TestCase ("sender")]
 	[TestCase ("message-id")]
 	[TestCase ("link")]
-	public void InvalidApprovedInputsNeverConnect (string mode)
+	public async System.Threading.Tasks.Task InvalidApprovedInputsNeverConnect (string mode)
 		{
 		var session = new Session ();
 		var mailer = Create (session);
 		var plan = mode == "sender" ? _plan with { Sender = "other@example.test" } : _plan;
 		var upload = mode == "link" ? Upload with { DownloadUrl = "http://upload.example.test/private" } : Upload;
-		Assert.ThrowsAsync<InvalidDataException> (() => mailer.SendAsync (plan, upload,
+		await Assert.ThrowsAsync<InvalidDataException> (() => mailer.SendAsync (plan, upload,
 			new MemoryStream (mode == "form" ? "different"u8.ToArray () : Form), mode == "message-id" ? "<different@example.test>" : MessageId));
 		Assert.That (session.Connects, Is.Zero);
 		Assert.That (Directory.GetDirectories (_root), Is.Empty);
@@ -170,7 +170,7 @@ public sealed class SubmissionSmtpMailerTests
 		string digest = SubmissionDelivery.ReviewPlanDigest (plan);
 		var changed = plan with { CorrespondenceOverride = new ("Driver Submission Package", body + "Changed text") };
 		var rejected = new Session ();
-		Assert.ThrowsAsync<InvalidDataException> (() => Create (rejected).SendReviewAsync (changed, Upload,
+		await Assert.ThrowsAsync<InvalidDataException> (() => Create (rejected).SendReviewAsync (changed, Upload,
 			new MemoryStream (Form), "<crestron-" + digest + "@submission.local>"));
 		Assert.That (rejected.Connects, Is.Zero);
 		var session = new Session ();
@@ -197,13 +197,13 @@ public sealed class SubmissionSmtpMailerTests
 
 	[TestCase ("attachment")]
 	[TestCase ("disclosure")]
-	public void ChangedReviewCannotConnectToMailServer (string change)
+	public async System.Threading.Tasks.Task ChangedReviewCannotConnectToMailServer (string change)
 		{
 		var plan = ReviewPlan (SubmissionReviewAttachmentKind.UnsignedSelfTest);
 		string messageId = "<crestron-" + SubmissionDelivery.ReviewPlanDigest (plan) + "@submission.local>";
 		var session = new Session ();
 		if (change == "disclosure") plan = plan with { DocumentOmissions = "Different reviewed omission" };
-		Assert.ThrowsAsync<InvalidDataException> (() => Create (session).SendReviewAsync (plan, Upload,
+		await Assert.ThrowsAsync<InvalidDataException> (() => Create (session).SendReviewAsync (plan, Upload,
 			new MemoryStream (change == "attachment" ? "different"u8.ToArray () : Form), messageId));
 		Assert.That (session.Connects, Is.Zero);
 		}
@@ -216,7 +216,7 @@ public sealed class SubmissionSmtpMailerTests
 			"The document or signature omission is deliberately disclosed in this synthetic fixture.");
 
 	[Test]
-	public void DeliveryJournalPreservesUploadAndBlocksRetryAfterLostMailAcknowledgement ()
+	public async System.Threading.Tasks.Task DeliveryJournalPreservesUploadAndBlocksRetryAfterLostMailAcknowledgement ()
 		{
 		byte[] package = "synthetic package"u8.ToArray ();
 		_plan = _plan with { PackageSha256 = Hash (package) };
@@ -228,12 +228,12 @@ public sealed class SubmissionSmtpMailerTests
 		var transport = new Transport (Create (session));
 		string journal = Path.Combine (_root, "journal");
 		Directory.CreateDirectory (journal);
-		Assert.ThrowsAsync<InvalidDataException> (() => SubmissionDelivery.ExecuteAsync (journal, _plan, packagePath, formPath, transport));
+		await Assert.ThrowsAsync<InvalidDataException> (() => SubmissionDelivery.ExecuteAsync (journal, _plan, packagePath, formPath, transport));
 		var receipt = SubmissionDelivery.Read (journal, _plan)!;
 		Assert.That (receipt.State, Is.EqualTo (SubmissionDeliveryState.OutcomeUnknown));
 		Assert.That (receipt.Upload, Is.EqualTo (Upload));
 		session.Failure = "";
-		Assert.ThrowsAsync<InvalidOperationException> (() => SubmissionDelivery.ExecuteAsync (journal, _plan, packagePath, formPath, transport));
+		await Assert.ThrowsAsync<InvalidOperationException> (() => SubmissionDelivery.ExecuteAsync (journal, _plan, packagePath, formPath, transport));
 		Assert.That (session.Sends, Is.EqualTo (1));
 		Assert.That (transport.Uploads, Is.EqualTo (1));
 		}
@@ -255,9 +255,9 @@ public sealed class SubmissionSmtpMailerTests
 			transport, (_, _) => Task.FromResult (new SubmissionDeliveryAuthorization (SubmissionDelivery.ReviewPlanDigest (plan), DateTimeOffset.UtcNow.AddMinutes (2))));
 		if (loseAcknowledgement)
 			{
-			Assert.ThrowsAsync<InvalidDataException> (async () => await Execute ());
+			await Assert.ThrowsAsync<InvalidDataException> (async () => await Execute ());
 			session.Failure = "";
-			Assert.ThrowsAsync<InvalidOperationException> (async () => await Execute ());
+			await Assert.ThrowsAsync<InvalidOperationException> (async () => await Execute ());
 			}
 		else
 			{

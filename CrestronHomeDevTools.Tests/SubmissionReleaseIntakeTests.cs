@@ -70,25 +70,25 @@ public sealed class SubmissionReleaseIntakeTests
   Assert.That(File.ReadAllText(unrelated),Is.EqualTo("retained error"));
  }
  [TestCase("digest")][TestCase("long")][TestCase("short")][TestCase("tag")]
- public void IncorrectOrChangedArtifactNeverStartsRunAndCleansPartialDownload(string failure)
+ public async System.Threading.Tasks.Task IncorrectOrChangedArtifactNeverStartsRunAndCleansPartialDownload (string failure)
  {
   var settings=Settings();using var h=new Handler{Download=failure switch{"digest"=>[9,8,7,6],"long"=>[1,2,3,4,5],"short"=>[1,2],_=>Package},MoveTagAfterTransfer=failure=="tag"};
   using var http=new HttpClient(h);
-  Assert.ThrowsAsync<InvalidDataException>(async()=>await SubmissionReleaseIntake.PrepareAsync(settings,new(http)));
+		await Assert.ThrowsAsync<InvalidDataException>(async()=>await SubmissionReleaseIntake.PrepareAsync(settings,new(http)));
   Assert.That(Directory.GetFiles(root,"state.json",SearchOption.AllDirectories),Is.Empty);
   Assert.That(Directory.GetFiles(root,"candidate.pkg",SearchOption.AllDirectories),Is.Empty);
   Assert.That(Directory.GetFiles(root,"*.download",SearchOption.AllDirectories),Is.Empty);
  }
- [Test] public void ChangedFrozenInputFailsBeforeGitHubRequest()
+ [Test] public async System.Threading.Tasks.Task ChangedFrozenInputFailsBeforeGitHubRequest ()
  {
   var settings=Settings();File.AppendAllText(settings.ProfileSnapshotPath,"changed");using var h=new Handler();using var http=new HttpClient(h);
-  Assert.ThrowsAsync<InvalidDataException>(async()=>await SubmissionReleaseIntake.PrepareAsync(settings,new(http)));Assert.That(h.Requests,Is.Zero);
+		await Assert.ThrowsAsync<InvalidDataException>(async()=>await SubmissionReleaseIntake.PrepareAsync(settings,new(http)));Assert.That(h.Requests,Is.Zero);
  }
  [Test] public async Task ChangedRetainedPackageIsNotSilentlyReplaced()
  {
   var settings=Settings();using var h=new Handler();using var http=new HttpClient(h);
   var original=await SubmissionReleaseIntake.PrepareAsync(settings,new(http));File.WriteAllBytes(Path.Combine(original.RunDirectory!,"candidate.pkg"),[9,8,7,6]);
-  Assert.ThrowsAsync<InvalidDataException>(async()=>await SubmissionReleaseIntake.PrepareAsync(settings,new(http)));Assert.That(h.Downloads,Is.EqualTo(1));
+		await Assert.ThrowsAsync<InvalidDataException>(async()=>await SubmissionReleaseIntake.PrepareAsync(settings,new(http)));Assert.That(h.Downloads,Is.EqualTo(1));
  }
  [Test] public async Task ConsoleAcceptsProtectedLongTokenWithoutPrintingIt()
  {

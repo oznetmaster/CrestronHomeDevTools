@@ -59,19 +59,20 @@ public sealed partial class AutomationInstalledAppTests
   Assert.Throws<InvalidDataException>(()=>AutomationInstalledApp.VerifyRetained(context.RunDirectory));
  }
  [TestCase("host")][TestCase("package")][TestCase("commit")][TestCase("combined")]
- public void WrongCandidateOrAmbiguousModeStopsBeforeAnyTests(string difference) {
+ public async System.Threading.Tasks.Task WrongCandidateOrAmbiguousModeStopsBeforeAnyTests (string difference) {
   settings=difference switch {
    "host"=>settings with{InstalledAppTests=settings.InstalledAppTests! with{Host="another.example"}},
    "package"=>settings with{InstalledAppTests=settings.InstalledAppTests! with{PackageSha256=new('f',64)}},
    "commit"=>settings with{InstalledAppTests=settings.InstalledAppTests! with{PackageSourceCommit=new('f',40)}},
    _=>settings with{NUnit=settings.NUnit with{AndroidTests=settings.InstalledAppTests!.AndroidTests}}};
-  Assert.ThrowsAsync<InvalidDataException>(async()=>await Advance());Assert.That(calls,Is.Zero);
+		await Assert.ThrowsAsync<InvalidDataException>(async()=>await Advance());Assert.That(calls,Is.Zero);
  }
  [Test] public async Task InterruptedInvocationRetainsUncertaintyWithoutReplaying() {
   async Task<InstalledDriverTestResult> Interrupted(InstalledDriverTestPlan p,NetworkCredential c,string f,CancellationToken t) {
    calls++;await Task.Yield();throw new IOException("synthetic interruption");
   }
-  Assert.ThrowsAsync<IOException>(async()=>await AutomationInstalledApp.Advance(context,settings,false,Interrupted,_=>new(),default));
+
+		await Assert.ThrowsAsync<IOException>(async()=>await AutomationInstalledApp.Advance(context,settings,false,Interrupted,_=>new(),default));
   var recovered=await Advance(true);Assert.That(recovered.Status,Is.EqualTo(SubmissionWorkflowStatus.OutcomeUnknown));Assert.That(calls,Is.EqualTo(1));
  }
  [TestCase(false,true,true,true)][TestCase(true,false,true,true)][TestCase(true,true,false,true)][TestCase(true,true,true,false)]
@@ -99,24 +100,25 @@ public sealed partial class AutomationInstalledAppTests
   AutomationInstalledApp.VerifyRetained(context.RunDirectory);
   File.Delete(Path.Combine(context.RunDirectory,"app-fixture-settings.json"));
   Assert.Throws<InvalidDataException>(()=>AutomationInstalledApp.VerifyRetained(context.RunDirectory));
-  Assert.ThrowsAsync<InvalidDataException>(async()=>await Advance(true));Assert.That(calls,Is.EqualTo(1));
+		await Assert.ThrowsAsync<InvalidDataException>(async()=>await Advance(true));Assert.That(calls,Is.EqualTo(1));
  }
  [Test] public async Task ChangedFixtureDataIsNeverUsedToRecoverOrReplayAnAttempt() {
   settings=settings with{InstalledAppFixtureSettings=JsonSerializer.SerializeToElement(new{DeviceId=2})};
   await Advance();settings=settings with{InstalledAppFixtureSettings=JsonSerializer.SerializeToElement(new{DeviceId=3})};
-  Assert.ThrowsAsync<InvalidDataException>(async()=>await Advance(true));Assert.That(calls,Is.EqualTo(1));
+		await Assert.ThrowsAsync<InvalidDataException>(async()=>await Advance(true));Assert.That(calls,Is.EqualTo(1));
  }
- [Test] public void FixtureMutationDuringExecutionCannotProduceCompletionReceipt() {
+ [Test] public async System.Threading.Tasks.Task FixtureMutationDuringExecutionCannotProduceCompletionReceipt () {
   settings=settings with{InstalledAppFixtureSettings=JsonSerializer.SerializeToElement(new{DeviceId=2})};
   Task<InstalledDriverTestResult> Mutate(InstalledDriverTestPlan p,NetworkCredential c,string f,CancellationToken t) {
    File.WriteAllText(Path.Combine(context.RunDirectory,"app-fixture-settings.json"),"{}");return Run(p,c,f,t);
   }
-  Assert.ThrowsAsync<InvalidDataException>(async()=>await AutomationInstalledApp.Advance(context,settings,false,Mutate,_=>new(),default));
+
+		await Assert.ThrowsAsync<InvalidDataException>(async()=>await AutomationInstalledApp.Advance(context,settings,false,Mutate,_=>new(),default));
   Assert.That(File.Exists(Path.Combine(context.RunDirectory,"installed-app-tests.json")),Is.False);
  }
- [Test] public void NonObjectFixtureSettingsAreRejectedBeforeTests() {
+ [Test] public async System.Threading.Tasks.Task NonObjectFixtureSettingsAreRejectedBeforeTests () {
   settings=settings with{InstalledAppFixtureSettings=JsonSerializer.SerializeToElement("wrong shape")};
-  Assert.ThrowsAsync<InvalidDataException>(async()=>await Advance());Assert.That(calls,Is.Zero);
+		await Assert.ThrowsAsync<InvalidDataException>(async()=>await Advance());Assert.That(calls,Is.Zero);
  }
  [Test] public void ConfigurationCheckListsLaterGapsWithoutCallingTestsOrReadingCredentials() {
   var report=SubmissionAutomationConfiguration.Check(settings with{CredentialBindings="private-store-not-opened"});
@@ -189,12 +191,12 @@ public sealed partial class AutomationInstalledAppTests
   settings=settings with{InstalledAppTests=plan with{Target=target,PackageSha256=difference=="package"?new('f',64):plan.PackageSha256}};
   Assert.Catch(()=>AutomationInstalledApp.ValidateTemplate(settings,true));Assert.That(calls,Is.Zero);
  }
- [Test] public void ExistingInstanceRouteNeverAcceptsZeroIdentity() {
+ [Test] public async System.Threading.Tasks.Task ExistingInstanceRouteNeverAcceptsZeroIdentity () {
   ConfigurePostDeployment();
   settings=settings with{InstalledAppTests=settings.InstalledAppTests! with{Target=settings.InstalledAppTests.Target with{DeviceId=0}}};
   Assert.Throws<ArgumentException>(()=>AutomationInstalledApp.ValidateTemplate(settings,false));
   Assert.DoesNotThrow(()=>AutomationInstalledApp.ValidateTemplate(settings,true));
-  Assert.ThrowsAsync<ArgumentException>(async()=>await Advance());Assert.That(calls,Is.Zero);
+		await Assert.ThrowsAsync<ArgumentException>(async()=>await Advance());Assert.That(calls,Is.Zero);
  }
  private Task<SubmissionWorkflowStepResult> Remove(bool pass=true,bool interrupt=false,bool baseline=false,string placementBaseline="passed")=>AutomationRemoval.Advance(context,settings,_=>new("synthetic","synthetic"),default,
   (plan,credential,folder,token)=>{
@@ -231,14 +233,14 @@ public sealed partial class AutomationInstalledAppTests
  }
  [TestCase("failed")][TestCase("unrestored")][TestCase("changed")][TestCase("missing")]
  public async Task PlacementRejectsInvalidOrMissingBaselineWithoutReplayingRemoval(string condition) {
-  await ConfigurePlacement();var error=Assert.CatchAsync(async()=>await Remove(placementBaseline:condition));
+  await ConfigurePlacement();var error=await Assert.CatchAsync(async()=>await Remove(placementBaseline:condition));
   Assert.That(error,Is.InstanceOf<InvalidDataException>().Or.InstanceOf<IOException>());
   Assert.That(File.Exists(Path.Combine(context.RunDirectory,"removal-evidence.json")),Is.False);
   Assert.That((await Remove()).Status,Is.EqualTo(SubmissionWorkflowStatus.OutcomeUnknown));Assert.That(calls,Is.EqualTo(1));
  }
  [Test] public async Task PlacementCannotReuseTheRemovalRequirement() {
   await ConfigureRemoval();settings=settings with{Removal=settings.Removal! with{PlacementRequirementId="system.removal"}};
-  Assert.ThrowsAsync<InvalidDataException>(async()=>await Remove());Assert.That(calls,Is.Zero);
+		await Assert.ThrowsAsync<InvalidDataException>(async()=>await Remove());Assert.That(calls,Is.Zero);
  }
  [Test] public async Task FinalRemovalUsesDeploymentAndCannotRunTwice() {
   await ConfigureRemoval();var first=await Remove();Assert.That(first.Status,Is.EqualTo(SubmissionWorkflowStatus.Completed));
@@ -251,7 +253,8 @@ public sealed partial class AutomationInstalledAppTests
   Assert.Throws<InvalidDataException>(()=>AutomationRemoval.VerifyRetained(context));
  }
  [Test] public async Task InterruptedRemovalCannotBeReissued() {
-  await ConfigureRemoval();Assert.ThrowsAsync<IOException>(async()=>await Remove(interrupt:true));
+  await ConfigureRemoval();
+		await Assert.ThrowsAsync<IOException>(async()=>await Remove(interrupt:true));
   Assert.That((await Remove()).Status,Is.EqualTo(SubmissionWorkflowStatus.OutcomeUnknown));Assert.That(calls,Is.EqualTo(1));
  }
  [Test] public async Task RemovalFailureRemainsFailedDuringRecovery() {
@@ -265,7 +268,7 @@ public sealed partial class AutomationInstalledAppTests
  }
  [Test] public async Task MissingOrChangedPrecedingEvidenceStopsRemoval() {
   await ConfigureRemoval();File.AppendAllText(Path.Combine(context.RunDirectory,"post-endurance","installed-app","raw.xml"),"changed");
-  Assert.ThrowsAsync<InvalidDataException>(async()=>await Remove());Assert.That(calls,Is.Zero);
+		await Assert.ThrowsAsync<InvalidDataException>(async()=>await Remove());Assert.That(calls,Is.Zero);
  }
  [Test] public async Task PostEnduranceUsesVerifiedDeploymentIdsAndRetainsTheResolvedPlan() {
   ConfigurePostDeployment();
@@ -284,18 +287,18 @@ public sealed partial class AutomationInstalledAppTests
   Assert.Throws<InvalidDataException>(()=>AutomationPostEndurance.VerifyRetained(context));
  }
  [TestCase("receipt")][TestCase("expected-device")][TestCase("room")][TestCase("name")]
- public void PostDeploymentMismatchStopsBeforeAnyControls(string difference) {
+ public async System.Threading.Tasks.Task PostDeploymentMismatchStopsBeforeAnyControls (string difference) {
   ConfigurePostDeployment();
   if(difference=="receipt")File.AppendAllText(Path.Combine(context.RunDirectory,"nunit","actual-import.json")," ");
   else if(difference=="expected-device")settings=settings with{NUnit=settings.NUnit with{ActualDriver=settings.NUnit.ActualDriver! with{ExpectedDeviceId=99}}};
   else settings=settings with{PostEnduranceTests=settings.PostEnduranceTests! with{Target=difference=="room"
    ?settings.PostEnduranceTests.Target with{LocationId=9}:settings.PostEnduranceTests.Target with{Name="Another instance"}}};
-  Assert.ThrowsAsync<InvalidDataException>(async()=>await Post());Assert.That(calls,Is.Zero);
+		await Assert.ThrowsAsync<InvalidDataException>(async()=>await Post());Assert.That(calls,Is.Zero);
  }
  [Test] public async Task MissingRetainedPostTargetIsNotReconstructedOnRecovery() {
   ConfigurePostDeployment();await Post();
   string path=Path.Combine(context.RunDirectory,"post-endurance","target-plan.json");File.Delete(path);
-  Assert.ThrowsAsync<InvalidDataException>(async()=>await Post(true));
+		await Assert.ThrowsAsync<InvalidDataException>(async()=>await Post(true));
   Assert.That(File.Exists(path),Is.False);Assert.That(calls,Is.EqualTo(1));
  }
  [Test] public async Task PostEnduranceUsesSeparateEvidenceAndRecoveryDoesNotRepeatControls() {
@@ -310,22 +313,23 @@ public sealed partial class AutomationInstalledAppTests
   File.AppendAllText(Path.Combine(context.RunDirectory,"post-endurance","installed-app","raw.xml"),"changed");
   Assert.Throws<InvalidDataException>(()=>AutomationPostEndurance.VerifyRetained(context));
  }
- [TestCase(false)][TestCase(true)] public void PostEnduranceRequiresCompletedUnchangedSegment(bool changed) {
+ [TestCase(false)][TestCase(true)] public async System.Threading.Tasks.Task PostEnduranceRequiresCompletedUnchangedSegment (bool changed) {
   ConfigurePostEndurance();
   if(changed)File.AppendAllText(Path.Combine(context.RunDirectory,"endurance-result.json"),"changed");
   else context.Checkpoint.CompletedStages.Clear();
-  Assert.ThrowsAsync<InvalidDataException>(async()=>await Post());Assert.That(calls,Is.Zero);
+		await Assert.ThrowsAsync<InvalidDataException>(async()=>await Post());Assert.That(calls,Is.Zero);
  }
- [Test] public void PostEnduranceRejectsAnotherCandidateBeforeCallingRunner() {
+ [Test] public async System.Threading.Tasks.Task PostEnduranceRejectsAnotherCandidateBeforeCallingRunner () {
   ConfigurePostEndurance();settings=settings with{PostEnduranceTests=settings.PostEnduranceTests! with{PackageSourceCommit=new('f',40)}};
-  Assert.ThrowsAsync<InvalidDataException>(async()=>await Post());Assert.That(calls,Is.Zero);
+		await Assert.ThrowsAsync<InvalidDataException>(async()=>await Post());Assert.That(calls,Is.Zero);
  }
  [Test] public async Task PostEnduranceDoesNotReplayAnInterruptedInvocation() {
   ConfigurePostEndurance();
   Task<InstalledDriverTestResult> Interrupted(InstalledDriverTestPlan p,NetworkCredential c,string f,CancellationToken t) {
    calls++;throw new IOException("synthetic lost runner connection");
   }
-  Assert.ThrowsAsync<IOException>(async()=>await AutomationPostEndurance.Advance(context,settings,false,Interrupted,_=>new(),default));
+
+		await Assert.ThrowsAsync<IOException>(async()=>await AutomationPostEndurance.Advance(context,settings,false,Interrupted,_=>new(),default));
   Assert.That((await Post(true)).Status,Is.EqualTo(SubmissionWorkflowStatus.OutcomeUnknown));
   Assert.That(calls,Is.EqualTo(1));
  }

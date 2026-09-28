@@ -44,7 +44,7 @@ public sealed class ConfigurationTests
 	[TestCase ("noDevices")]
 	[TestCase ("missingDevices")]
 	[TestCase ("missingVersion")]
-	public void Update_RejectsUnconfirmedPlanBeforeAnyRequest (string scenario)
+	public async System.Threading.Tasks.Task Update_RejectsUnconfirmedPlanBeforeAnyRequest (string scenario)
 		{
 		var eligibility = scenario switch
 			{
@@ -58,7 +58,7 @@ public sealed class ConfigurationTests
 				};
 		var connection = new FakeConnection ();
 		var client = new ConfigurationClient (connection);
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await client.BeginDriverUpdateAsync (new ("driver", eligibility)));
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await client.BeginDriverUpdateAsync (new ("driver", eligibility)));
 		Assert.That (connection.Calls, Is.Empty);
 		}
 
@@ -67,7 +67,7 @@ public sealed class ConfigurationTests
 	[TestCase ("installedVersion")]
 	[TestCase ("availableVersion")]
 	[TestCase ("reboot")]
-	public void Update_RejectsChangedEligibilityWithoutSubmitting (string change)
+	public async System.Threading.Tasks.Task Update_RejectsChangedEligibilityWithoutSubmitting (string change)
 		{
 		var current = change switch
 			{
@@ -79,15 +79,15 @@ public sealed class ConfigurationTests
 				};
 		var connection = new FakeConnection (current);
 		var client = new ConfigurationClient (connection);
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await client.BeginDriverUpdateAsync (new ("driver", Eligible (17))));
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await client.BeginDriverUpdateAsync (new ("driver", Eligible (17))));
 		Assert.That (connection.Calls.Count, Is.EqualTo (1));
 		}
 
 	[Test]
-	public void Plan_MissingEligibilityIsNotPermissionToUpdate ()
+	public async System.Threading.Tasks.Task Plan_MissingEligibilityIsNotPermissionToUpdate ()
 		{
 		var client = new ConfigurationClient (new FakeConnection ((object?)null));
-		Assert.ThrowsAsync<ProcessorApiException> (async () => await client.PlanDriverUpdateAsync ("driver"));
+		await Assert.ThrowsAsync<ProcessorApiException> (async () => await client.PlanDriverUpdateAsync ("driver"));
 		}
 
 	[Test]
@@ -109,18 +109,18 @@ public sealed class ConfigurationTests
 		}
 
 	[Test]
-	public void Reload_MissingCapabilitiesDoesNotSubmit ()
+	public async System.Threading.Tasks.Task Reload_MissingCapabilitiesDoesNotSubmit ()
 		{
 		var connection = new FakeConnection (new DeviceInfo { Id = 17 });
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await new ConfigurationClient (connection).BeginReloadDriverAsync (17));
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await new ConfigurationClient (connection).BeginReloadDriverAsync (17));
 		Assert.That (connection.Calls, Is.Empty);
 		}
 
 	[TestCase ("")]
 	[TestCase (null)]
-	public void MissingOperationIdDoesNotReportSuccessfulSubmission (string? operationId)
+	public async System.Threading.Tasks.Task MissingOperationIdDoesNotReportSuccessfulSubmission (string? operationId)
 		{
-		Assert.ThrowsAsync<ProcessorApiException> (async () => await new ConfigurationClient (new FakeConnection (operationId)).BeginLocalDriverRefreshAsync ());
+		await Assert.ThrowsAsync<ProcessorApiException> (async () => await new ConfigurationClient (new FakeConnection (operationId)).BeginLocalDriverRefreshAsync ());
 		}
 
 	private static DeviceInfo[] ReloadTree () =>
@@ -146,17 +146,17 @@ public sealed class ConfigurationTests
 
 	[TestCase (new[] { 17, 18 })]
 	[TestCase (new[] { 17, 18, 19, 20 })]
-	public void ReloadTree_RejectsChangedTreeBeforeSubmitting (int[] reviewed)
+	public async System.Threading.Tasks.Task ReloadTree_RejectsChangedTreeBeforeSubmitting (int[] reviewed)
 		{
 		var connection = new FakeConnection (ReloadTree ().ToDictionary (device => device.Id.ToString ()));
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await new ConfigurationClient (connection).BeginReloadDriverTreeAsync (17, reviewed));
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await new ConfigurationClient (connection).BeginReloadDriverTreeAsync (17, reviewed));
 		Assert.That (connection.Calls, Is.Empty);
 		}
 
 	[TestCase ("unsupported")]
 	[TestCase ("reboot")]
 	[TestCase ("unknown")]
-	public void ReloadTree_RequiresExplicitRebootFreeCapability (string condition)
+	public async System.Threading.Tasks.Task ReloadTree_RequiresExplicitRebootFreeCapability (string condition)
 		{
 		var devices = ReloadTree ();
 		if (condition == "unknown") devices[0].PropertyValues.Clear ();
@@ -164,27 +164,27 @@ public sealed class ConfigurationTests
 			? "cp.driverConfiguration:swapDriverRequiresReboot" : "cp.driverConfiguration:supportsUnloadReloadDriver"]
 			= JsonSerializer.SerializeToElement (condition == "reboot");
 		var connection = new FakeConnection (devices.ToDictionary (device => device.Id.ToString ()));
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await new ConfigurationClient (connection).BeginReloadDriverTreeAsync (17, [17, 18, 19]));
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await new ConfigurationClient (connection).BeginReloadDriverTreeAsync (17, [17, 18, 19]));
 		Assert.That (connection.Calls, Is.Empty);
 		}
 
 	[TestCase (new[] { 17, 20 })]
 	[TestCase (new[] { 18 })]
 	[TestCase (new[] { 17, 17 })]
-	public void ReloadTree_RejectsUnexpectedDependencyScope (int[] affected)
+	public async System.Threading.Tasks.Task ReloadTree_RejectsUnexpectedDependencyScope (int[] affected)
 		{
 		var connection = new FakeConnection (ReloadTree ().ToDictionary (device => device.Id.ToString ()), affected);
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await new ConfigurationClient (connection).BeginReloadDriverTreeAsync (17, [17, 18, 19]));
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await new ConfigurationClient (connection).BeginReloadDriverTreeAsync (17, [17, 18, 19]));
 		Assert.That (connection.Calls.Select (call => call.Command), Does.Not.Contain ("cp.platformDriverController:beginReloadDrivers"));
 		}
 
 	[TestCase (new[] { 18, 19 })]
 	[TestCase (new[] { 17, 17, 18, 19 })]
 	[TestCase (new[] { 17, 0 })]
-	public void ReloadTree_RejectsInvalidReviewedIds (int[] reviewed)
+	public async System.Threading.Tasks.Task ReloadTree_RejectsInvalidReviewedIds (int[] reviewed)
 		{
 		var connection = new FakeConnection ();
-		Assert.ThrowsAsync<ArgumentException> (async () => await new ConfigurationClient (connection).BeginReloadDriverTreeAsync (17, reviewed));
+		await Assert.ThrowsAsync<ArgumentException> (async () => await new ConfigurationClient (connection).BeginReloadDriverTreeAsync (17, reviewed));
 		Assert.That (connection.Calls, Is.Empty);
 		}
 
@@ -235,10 +235,10 @@ public sealed class ConfigurationTests
 		}
 
 	[Test]
-	public void CatalogueLongSearch_MissingLaterResponseDoesNotReturnPartialMatches ()
+	public async System.Threading.Tasks.Task CatalogueLongSearch_MissingLaterResponseDoesNotReturnPartialMatches ()
 		{
 		var connection = new FakeConnection (new[] { new DriverInfo { Id = "candidate" } }, null);
-		Assert.ThrowsAsync<ProcessorApiException> (async () => await new ConfigurationClient (connection).GetDriversAsync ("WeatherLink Live Weather Station"));
+		await Assert.ThrowsAsync<ProcessorApiException> (async () => await new ConfigurationClient (connection).GetDriversAsync ("WeatherLink Live Weather Station"));
 		Assert.That (connection.Calls.Count, Is.EqualTo (2));
 		}
 
@@ -251,10 +251,10 @@ public sealed class ConfigurationTests
 		}
 
 	[Test]
-	public void CatalogueMissingCategories_ReportsProtocolFailure ()
+	public async System.Threading.Tasks.Task CatalogueMissingCategories_ReportsProtocolFailure ()
 		{
 		var connection = new FakeConnection ((object?)null);
-		Assert.ThrowsAsync<ProcessorApiException> (async () => await new ConfigurationClient (connection).GetDriversAsync ());
+		await Assert.ThrowsAsync<ProcessorApiException> (async () => await new ConfigurationClient (connection).GetDriversAsync ());
 		Assert.That (connection.Calls.Count, Is.EqualTo (1));
 		}
 
@@ -278,7 +278,7 @@ public sealed class ConfigurationTests
 		var client = new ConfigurationClient (connection);
 		if (sharedScope)
 			{
-			Assert.ThrowsAsync<InvalidOperationException> (async () => await client.RemoveDriverInstanceAsync (17, "Example Tests", "1.1", TimeSpan.FromSeconds (1)));
+			await Assert.ThrowsAsync<InvalidOperationException> (async () => await client.RemoveDriverInstanceAsync (17, "Example Tests", "1.1", TimeSpan.FromSeconds (1)));
 			Assert.That (connection.Calls.Count, Is.EqualTo (1));
 			return;
 			}
@@ -289,10 +289,10 @@ public sealed class ConfigurationTests
 		}
 
 	[Test]
-	public void RemovalRefusesChangedModelBeforeSubmitting ()
+	public async System.Threading.Tasks.Task RemovalRefusesChangedModelBeforeSubmitting ()
 		{
 		var connection = new FakeConnection (new DeviceInfo { Id = 17, Model = "Actual Driver" });
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await new ConfigurationClient (connection).RemoveDriverInstanceAsync (17, "Example Tests", "1.1", TimeSpan.FromSeconds (1)));
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await new ConfigurationClient (connection).RemoveDriverInstanceAsync (17, "Example Tests", "1.1", TimeSpan.FromSeconds (1)));
 		Assert.That (connection.Calls, Is.Empty);
 		}
 
@@ -315,10 +315,10 @@ public sealed class ConfigurationTests
 		}
 
 	[Test]
-	public void RequestedVersionLoadFailureStopsVerificationImmediately ()
+	public async Task RequestedVersionLoadFailureStopsVerificationImmediately ()
 		{
 		var connection = new FakeConnection (VersionState (17, "1.003.0009.0000", "FailedToLoad"));
-		var error = Assert.ThrowsAsync<InvalidOperationException> (async () =>
+		var error = await Assert.ThrowsAsync<InvalidOperationException> (async () =>
 			await new ConfigurationClient (connection).WaitForDriverVersionAsync ([17], "1.3.9.0", TimeSpan.FromSeconds (5)));
 		Assert.That (error!.Message, Does.Contain ("17").And.Contain ("FailedToLoad").And.Contain ("1.3.9.0"));
 		Assert.That (connection.Calls, Is.Empty, "Observing a load failure must not issue another command.");
@@ -343,16 +343,16 @@ public sealed class ConfigurationTests
 		};
 
 	[Test]
-	public void MissingDriverStateCannotVerifyAnUpdate ()
+	public async System.Threading.Tasks.Task MissingDriverStateCannotVerifyAnUpdate ()
 		{
 		var connection = new FakeConnection (new DeviceInfo { Id = 17 });
-		Assert.CatchAsync<OperationCanceledException> (async () => await new ConfigurationClient (connection).WaitForDriverVersionAsync ([17], "1.1", TimeSpan.FromMilliseconds (30)));
+		await Assert.CatchAsync<OperationCanceledException> (async () => await new ConfigurationClient (connection).WaitForDriverVersionAsync ([17], "1.1", TimeSpan.FromMilliseconds (30)));
 		}
 
 	[Test]
-	public void EmptyUpdateScopeCannotPassVerification ()
+	public async System.Threading.Tasks.Task EmptyUpdateScopeCannotPassVerification ()
 		{
-		Assert.ThrowsAsync<ArgumentException> (async () => await new ConfigurationClient (new FakeConnection ()).WaitForDriverVersionAsync ([], "1.1", TimeSpan.FromSeconds (1)));
+		await Assert.ThrowsAsync<ArgumentException> (async () => await new ConfigurationClient (new FakeConnection ()).WaitForDriverVersionAsync ([], "1.1", TimeSpan.FromSeconds (1)));
 		}
 
 	[Test]
@@ -407,21 +407,21 @@ public sealed class ConnectionTests
 	[TestCase (HttpStatusCode.Unauthorized)]
 	[TestCase (HttpStatusCode.Found)]
 	[TestCase (HttpStatusCode.UnprocessableEntity)]
-	public void Failure_DoesNotRetryWriteOrExposeResponseBody (HttpStatusCode status)
+	public async Task Failure_DoesNotRetryWriteOrExposeResponseBody (HttpStatusCode status)
 		{
 		var handler = new StubHandler (status, "private-password-sentinel");
 		var connection = Create (handler);
-		var error = Assert.ThrowsAsync<ProcessorApiException> (async () => await connection.ExecuteAsync<string> (17, "change"));
+		var error = await Assert.ThrowsAsync<ProcessorApiException> (async () => await connection.ExecuteAsync<string> (17, "change"));
 		Assert.That (handler.Count, Is.EqualTo (1));
 		Assert.That (error!.Message, Does.StartWith ("Configuration command failed with HTTP"));
 		Assert.That (error.ToString (), Does.Not.Contain ("private-password-sentinel"));
 		}
 
 	[Test]
-	public void ApiError_IsNotSuccessfulNullResultAndDoesNotExposePrivateText ()
+	public async Task ApiError_IsNotSuccessfulNullResultAndDoesNotExposePrivateText ()
 		{
 		var connection = Create (new StubHandler (HttpStatusCode.OK, "{\"Result\":null,\"Error\":{\"DebugText\":\"private-password-sentinel\"}}"));
-		var error = Assert.ThrowsAsync<ProcessorApiException> (async () => await connection.ExecuteAsync<string> (17, "change"));
+		var error = await Assert.ThrowsAsync<ProcessorApiException> (async () => await connection.ExecuteAsync<string> (17, "change"));
 		Assert.That (error!.ToString (), Does.Not.Contain ("private-password-sentinel"));
 		}
 
@@ -429,10 +429,10 @@ public sealed class ConnectionTests
 	[TestCase ("//elsewhere.example/steal")]
 	[TestCase ("v2/../../elsewhere")]
 	[TestCase ("v2/%2e%2e/elsewhere")]
-	public void CallerCannotRedirectAuthenticatedRequestOutsideApi (string path)
+	public async System.Threading.Tasks.Task CallerCannotRedirectAuthenticatedRequestOutsideApi (string path)
 		{
 		var handler = new StubHandler (HttpStatusCode.OK, "{}");
-		Assert.ThrowsAsync<ArgumentException> (async () => await Create (handler).GetAsync<string> (path));
+		await Assert.ThrowsAsync<ArgumentException> (async () => await Create (handler).GetAsync<string> (path));
 		Assert.That (handler.Count, Is.Zero);
 		}
 
@@ -528,25 +528,25 @@ public sealed class OperationTests
 		using var cancellation = new CancellationTokenSource ();
 		var pending = tracker.WaitAsync ("op", TimeSpan.FromSeconds (1), cancellation.Token);
 		cancellation.Cancel ();
-		Assert.CatchAsync<OperationCanceledException> (async () => await pending);
+		await Assert.CatchAsync<OperationCanceledException> (async () => await pending);
 		Event (tracker, "Succeeded");
 		Assert.That ((await tracker.WaitAsync ("op", TimeSpan.FromSeconds (1), default)).Succeeded, Is.True);
 		}
 
 	[Test]
-	public void ConnectionLossFailsPendingAndFutureWaits ()
+	public async System.Threading.Tasks.Task ConnectionLossFailsPendingAndFutureWaits ()
 		{
 		var tracker = new OperationTracker ();
 		var pending = tracker.WaitAsync ("op", TimeSpan.FromSeconds (1), default);
 		tracker.Fail (new IOException ("disconnected"));
-		Assert.ThrowsAsync<IOException> (async () => await pending);
-		Assert.ThrowsAsync<IOException> (async () => await tracker.WaitAsync ("other", TimeSpan.FromSeconds (1), default));
+		await Assert.ThrowsAsync<IOException> (async () => await pending);
+		await Assert.ThrowsAsync<IOException> (async () => await tracker.WaitAsync ("other", TimeSpan.FromSeconds (1), default));
 		}
 
 	[Test]
-	public void TimeoutDoesNotPretendOperationFailedOnProcessor ()
+	public async System.Threading.Tasks.Task TimeoutDoesNotPretendOperationFailedOnProcessor ()
 		{
 		var tracker = new OperationTracker ();
-		Assert.ThrowsAsync<TimeoutException> (async () => await tracker.WaitAsync ("op", TimeSpan.FromMilliseconds (20), default));
+		await Assert.ThrowsAsync<TimeoutException> (async () => await tracker.WaitAsync ("op", TimeSpan.FromMilliseconds (20), default));
 		}
 	}

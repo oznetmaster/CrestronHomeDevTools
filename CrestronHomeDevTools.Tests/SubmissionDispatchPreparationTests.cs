@@ -91,35 +91,35 @@ public sealed class SubmissionDispatchPreparationTests
 	[TestCase ("expiresUtc", "\"2000-01-01T00:00:00Z\"")]
 	[TestCase ("state", "\"SignedReviewPrepared\"")]
 	[TestCase ("authorizationSha256", "\"wrong\"")]
-	public void InvalidReviewedPreparationDoesNotProduceSettings (string field, string json)
+	public async System.Threading.Tasks.Task InvalidReviewedPreparationDoesNotProduceSettings (string field, string json)
 		{
 		var receipt = JsonNode.Parse (File.ReadAllText (_receipt))!;
 		receipt[field] = JsonNode.Parse (json);
 		File.WriteAllText (_receipt, receipt.ToJsonString ());
 		RepinReceipt ();
-		Assert.ThrowsAsync<InvalidDataException> (() => Prepare ());
+		await Assert.ThrowsAsync<InvalidDataException> (() => Prepare ());
 		}
 	[TestCase ("dotnet")]
 	[TestCase ("validator")]
 	[TestCase ("Dotnet")]
-	public void PreparationCannotOverrideBundledValidator (string field)
+	public async System.Threading.Tasks.Task PreparationCannotOverrideBundledValidator (string field)
 		{
 		var preparation = JsonNode.Parse (File.ReadAllText (_settings.PreparationSettingsPath))!;
 		preparation[field] = "untrusted";
 		File.WriteAllText (_settings.PreparationSettingsPath, preparation.ToJsonString ());
-		Assert.ThrowsAsync<InvalidDataException> (() => Prepare ());
+		await Assert.ThrowsAsync<InvalidDataException> (() => Prepare ());
 		}
 	[TestCase ("review")]
 	[TestCase ("signed")]
 	[TestCase ("console")]
 	[TestCase ("prepared")]
-	public void MutableReceiptStorageCannotOverlapInputs (string directory)
+	public async System.Threading.Tasks.Task MutableReceiptStorageCannotOverlapInputs (string directory)
 		{
 		_settings = _settings with
 			{
 			MailReceiptDirectory = Path.Combine (_root, directory)
 			};
-		Assert.ThrowsAsync<InvalidDataException> (() => Prepare ());
+		await Assert.ThrowsAsync<InvalidDataException> (() => Prepare ());
 		}
 	[Test]
 	public void LegacyAndBundledConfigurationCannotBeMixed ()
@@ -129,14 +129,14 @@ public sealed class SubmissionDispatchPreparationTests
 		Assert.Throws<InvalidDataException> (() => SubmissionDispatchCommand.Validate (settings with { BundledRevalidation = null }));
 		}
 	[Test]
-	public void IncompleteConsoleAndDifferentPreparationOutputAreRefused ()
+	public async System.Threading.Tasks.Task IncompleteConsoleAndDifferentPreparationOutputAreRefused ()
 		{
 		File.Delete (Path.Combine (_console, "CrestronHomeDevTools.Console.exe"));
-		Assert.ThrowsAsync<InvalidDataException> (() => Prepare ());
+		await Assert.ThrowsAsync<InvalidDataException> (() => Prepare ());
 		File.WriteAllText (Path.Combine (_console, "CrestronHomeDevTools.Console.exe"), "synthetic");
 		var preparation = JsonNode.Parse (File.ReadAllText (_settings.PreparationSettingsPath))!;
 		preparation["output"] = _root;
 		File.WriteAllText (_settings.PreparationSettingsPath, preparation.ToJsonString ());
-		Assert.ThrowsAsync<InvalidDataException> (() => Prepare ());
+		await Assert.ThrowsAsync<InvalidDataException> (() => Prepare ());
 		}
 	}

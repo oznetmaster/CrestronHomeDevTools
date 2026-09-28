@@ -25,17 +25,21 @@ internal static class AutomationPostEndurance
  }
  internal static SubmissionAutomationSettings Resolve(SubmissionWorkflowStepContext context,SubmissionAutomationSettings settings) {
   var resolved=Settings(settings);
+  return ResolveTarget(context,settings,resolved,settings.PostEnduranceFromDeployment);
+ }
+ internal static SubmissionAutomationSettings ResolveTarget(SubmissionWorkflowStepContext context,SubmissionAutomationSettings settings,
+  SubmissionAutomationSettings resolved,bool fromDeployment,bool beforeAppTests=false) {
   if(settings.ManagedDevices!=null && resolved.InstalledAppFixtureSettings is {} fixture)
    resolved=resolved with{InstalledAppFixtureSettings=AutomationManagedDevices.RenderInputs(fixture,AutomationManagedDevices.VerifyRetained(context))};
-  if(!settings.PostEnduranceFromDeployment)return resolved;
-  var deployment=AutomationDeploymentEvidence.Read(context,settings);
+  if(!fromDeployment)return resolved;
+  var deployment=AutomationDeploymentEvidence.Read(context,settings,beforeAppTests);
   var plan=resolved.InstalledAppTests!;
   var target=plan.Target;
   var actual=settings.NUnit.ActualDriver!;
   if(target.Name!=actual.InstanceName || target.LocationId!=actual.LocationId ||
    target.Model!=deployment.Installed.Model || Version.Parse(target.Version)!=Version.Parse(deployment.Installed.Version) ||
    (actual.ExpectedDeviceId is {} expected && expected!=deployment.Installed.DeviceId))
-   throw new InvalidDataException("Post-endurance expectations differ from the actual deployment.");
+   throw new InvalidDataException("Additional app-test expectations differ from the actual deployment.");
   return resolved with{InstalledAppTests=plan with{Target=target with{
    DeviceId=deployment.Installed.DeviceId,CatalogueId=deployment.Imported.CatalogueId}}};
  }

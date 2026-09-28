@@ -127,46 +127,46 @@ public sealed class SubmissionEnduranceNotifierTests
 		{
 		await Notifier (new Session ()).NotifyAsync (Report ());
 		var replay = new Session ();
-		Assert.ThrowsAsync<InvalidDataException> (() => Notifier (replay, _settings with { Recipient = "someoneelse@example.test" }).NotifyAsync (Report ()));
-		Assert.ThrowsAsync<ArgumentException> (() => Notifier (replay).NotifyAsync (Report () with { PlanSha256 = new ('b', 64) }));
+		await Assert.ThrowsAsync<InvalidDataException> (() => Notifier (replay, _settings with { Recipient = "someoneelse@example.test" }).NotifyAsync (Report ()));
+		await Assert.ThrowsAsync<ArgumentException> (() => Notifier (replay).NotifyAsync (Report () with { PlanSha256 = new ('b', 64) }));
 		File.Delete (Path.Combine (_root, "notification.json"));
-		Assert.ThrowsAsync<InvalidDataException> (() => Notifier (replay).NotifyAsync (Report ()));
+		await Assert.ThrowsAsync<InvalidDataException> (() => Notifier (replay).NotifyAsync (Report ()));
 		Assert.That (replay.Connects, Is.Zero);
 		}
 
 	[Test]
-	public void LostAcceptanceWriteRequiresInspectionInsteadOfResending ()
+	public async System.Threading.Tasks.Task LostAcceptanceWriteRequiresInspectionInsteadOfResending ()
 		{
 		var session = new Session { AfterSend = () =>
 			{
 			File.Delete (Path.Combine (_root, "notification.json"));
 			Directory.CreateDirectory (Path.Combine (_root, "notification.json"));
 			} };
-		var error = Assert.CatchAsync<Exception> (() => Notifier (session).NotifyAsync (Report ()));
+		var error = await Assert.CatchAsync<Exception> (() => Notifier (session).NotifyAsync (Report ()));
 		Assert.That (error, Is.InstanceOf<IOException> ().Or.InstanceOf<UnauthorizedAccessException> ());
 		Assert.That (session.Sends, Is.EqualTo (1));
 		var replay = new Session ();
-		Assert.ThrowsAsync<InvalidDataException> (() => Notifier (replay).NotifyAsync (Report ()));
+		await Assert.ThrowsAsync<InvalidDataException> (() => Notifier (replay).NotifyAsync (Report ()));
 		Assert.That (replay.Connects, Is.Zero);
 		}
 
 	[Test]
-	public void ExclusiveObserverLockPreventsConcurrentSend ()
+	public async System.Threading.Tasks.Task ExclusiveObserverLockPreventsConcurrentSend ()
 		{
 		using var held = File.Open (Path.Combine (_root, "notification.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
 		var session = new Session ();
-		Assert.ThrowsAsync<IOException> (() => Notifier (session).NotifyAsync (Report ()));
+		await Assert.ThrowsAsync<IOException> (() => Notifier (session).NotifyAsync (Report ()));
 		Assert.That (session.Connects, Is.Zero);
 		}
 
 	[Test]
-	public void MalformedOrStaleReportsAreRejectedBeforeConnecting ()
+	public async System.Threading.Tasks.Task MalformedOrStaleReportsAreRejectedBeforeConnecting ()
 		{
 		var session = new Session ();
 		foreach (var report in new[] { Report () with { EvaluatedUtc = DateTimeOffset.UtcNow.AddMinutes (-6) },
 			Report () with { EvaluatedUtc = DateTimeOffset.UtcNow.AddMinutes (1) }, Report () with { Reasons = ["raw\r\nPRIVATE-PASSWORD"] },
 			Report (SubmissionEnduranceHealthState.Collecting) with { Reasons = ["task-disabled"] }, Report () with { Reasons = [] } })
-			Assert.ThrowsAsync<ArgumentException> (() => Notifier (session).NotifyAsync (report));
+			await Assert.ThrowsAsync<ArgumentException> (() => Notifier (session).NotifyAsync (report));
 		Assert.That (session.Connects, Is.Zero);
 		}
 

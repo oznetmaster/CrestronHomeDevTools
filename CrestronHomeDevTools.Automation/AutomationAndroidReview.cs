@@ -13,9 +13,10 @@ internal static class AutomationAndroidReview
  internal static Binding Bind(SubmissionWorkflowStepContext c,SubmissionWorkflowRelease release,
   bool separate,string candidatePath,CancellationToken token)
  {
-  string prefix=separate?"installed-app/AndroidUI/":"nunit/AndroidUI/";
   string receiptName=separate?"installed-app-tests.json":"windows-tests.json";
   var stage=separate?SubmissionWorkflowStage.AppTests:SubmissionWorkflowStage.WindowsTests;
+  if(separate && c.Checkpoint.CompletedStages.TryGetValue(stage,out var combined) && combined.RelativePath==AutomationInitialAdditionalTests.ReceiptName)
+   receiptName=AutomationInitialAdditionalTests.ReceiptName;
   if(!c.Checkpoint.CompletedStages.TryGetValue(stage,out var completed) || completed.RelativePath!=receiptName ||
    AutomationFiles.Hash(Path.Combine(c.RunDirectory,receiptName))!=completed.Sha256)
    throw new InvalidDataException("Android review requires an unchanged completed coordinator receipt.");
@@ -24,6 +25,13 @@ internal static class AutomationAndroidReview
    throw new InvalidDataException("Android coordinator receipt belongs to another workflow.");
   var retained=receipt.RootElement.GetProperty("Files").EnumerateArray().ToDictionary(
    f=>f.GetProperty("RelativePath").GetString()!.Replace('\\','/'),f=>f.GetProperty("Sha256").GetString()!,StringComparer.Ordinal);
+  var runs=new List<Dictionary<string,object>>();
+  var locations=new List<object>();
+  var runIds=new HashSet<string>(StringComparer.Ordinal);
+  string[] prefixes=receiptName==AutomationInitialAdditionalTests.ReceiptName
+   ? ["installed-app/AndroidUI/",AutomationInitialAdditionalTests.DirectoryName+"/installed-app/AndroidUI/"]
+   : [separate?"installed-app/AndroidUI/":"nunit/AndroidUI/"];
+  foreach(string prefix in prefixes) {
   foreach(var file in retained.Where(f=>f.Key.StartsWith(prefix,StringComparison.Ordinal))) {
    token.ThrowIfCancellationRequested();
    if(!SubmissionEvidence.SafeEvidencePath(c.RunDirectory,file.Key,out var path) || !Same(AutomationFiles.Hash(path),file.Value))
@@ -65,9 +73,12 @@ internal static class AutomationAndroidReview
   var run=new Dictionary<string,object>{["runId"]=runId,["assembly"]=assembly,["assemblySha256"]=assemblyHash,
    ["discoverySha256"]=discoveryHash,["producerManifestSha256"]=manifestHash};
   if(selectionHash!=null)run.Add("selectionSha256",selectionHash);
+  if(!runIds.Add(runId))throw new InvalidDataException("Additional Android fixtures must retain distinct run identities.");
+  runs.Add(run);locations.Add(new{runId,path=Path.GetDirectoryName(PathFor("context.json"))!});
+  }
   string pins=Path.Combine(c.RunDirectory,"review-inputs","android-pins.json");
-  AutomationReview.WriteDocument(pins,new{schemaVersion=1,candidateSha256=AutomationFiles.Hash(candidatePath),runs=new[]{run}});
-  var evidence=JsonSerializer.SerializeToElement(new[]{new{runId,path=Path.GetDirectoryName(PathFor("context.json"))!}},AutomationReview.DocumentJson);
+  AutomationReview.WriteDocument(pins,new{schemaVersion=1,candidateSha256=AutomationFiles.Hash(candidatePath),runs});
+  var evidence=JsonSerializer.SerializeToElement(locations,AutomationReview.DocumentJson);
   return new(pins,evidence);
  }
  private static bool Same(string? a,string? b)=>a!=null && b!=null && a.Equals(b,StringComparison.OrdinalIgnoreCase);

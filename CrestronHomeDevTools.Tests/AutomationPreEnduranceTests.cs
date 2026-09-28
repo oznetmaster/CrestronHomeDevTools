@@ -47,6 +47,35 @@ public sealed class AutomationPreEnduranceTests
   }
  }
  [TearDown]public void Cleanup()=>Directory.Delete(root,true);
+ [TestCase(SubmissionEvidenceOutcome.Passed,true)]
+ [TestCase(SubmissionEvidenceOutcome.Partial,false)]
+ public void AdditionalInitialEvidenceFeedsGateOnlyFromVerifiedInventory(SubmissionEvidenceOutcome outcome,bool passed) {
+  string requirement=initial[0];
+  Observations(initial.Where(id=>id!=requirement).Select(Observation).ToArray());
+  Directory.CreateDirectory(P("installed-app"));
+  Write("installed-app-tests.json",new{context.Checkpoint.InputSha256,Files=Array.Empty<SubmissionWorkflowReceipt>()});
+  var app=new SubmissionWorkflowReceipt("installed-app-tests.json",Hash("installed-app-tests.json"));
+  context.Checkpoint.CompletedStages.Remove(SubmissionWorkflowStage.AppTests);
+  Directory.CreateDirectory(P("pre-endurance/installed-app"));
+  Write("pre-endurance/initial-app-binding.json",new{context.Checkpoint.InputSha256,AppTests=app});
+  Write("pre-endurance/installed-app-intent.json",new{Synthetic=true});
+  File.WriteAllText(P("pre-endurance/installed-app/trace.txt"),"Synthetic additional initial evidence");
+  Write("pre-endurance/installed-app/observations.json",new SubmissionEvidenceDocument(1,
+   [Observation(requirement) with{Outcome=outcome,Files=[new("installed-app/trace.txt",Hash("pre-endurance/installed-app/trace.txt"))]}]));
+  Write("pre-endurance/installed-app-tests.json",new{context.Checkpoint.InputSha256,Files=new[]{
+   new SubmissionWorkflowReceipt(Path.Combine("installed-app","observations.json"),Hash("pre-endurance/installed-app/observations.json")),
+   new(Path.Combine("installed-app","trace.txt"),Hash("pre-endurance/installed-app/trace.txt"))}});
+  context.Checkpoint.CompletedStages[SubmissionWorkflowStage.AppTests]=AutomationInitialAdditionalTests.Complete(context).Receipt!;
+  // This gate test starts after a synthetic completed producer; it does not execute this plan.
+  settings=settings with{PreEnduranceTests=new(){Host=settings.NUnit.Host,CertificateSha256=settings.NUnit.CertificateSha256,
+   SshFingerprint=settings.NUnit.SshFingerprint,PackagePath="unused.pkg",PackageSha256=settings.Release.PackageSha256,
+   SourceRoots=[root],Target=new(2,-1,"Example","Model",1,"1.0.0.0","catalogue","Example","IP"),
+   AndroidTests=new("unused.csproj","unused.json")},Review=settings.Review! with{
+    ObservationSources=["nunit/observations.json","pre-endurance/installed-app/observations.json"]}};
+  Assert.That(AutomationPreEndurance.Check(context,settings,default).EvidenceChecksPassed,Is.EqualTo(passed));
+  File.AppendAllText(P("pre-endurance/installed-app/trace.txt"),"changed");
+  Assert.Throws<InvalidDataException>(()=>AutomationPreEndurance.Check(context,settings,default));
+ }
  [Test]public void CompletedInitialCoverageAllowsEnduranceWithoutEnduranceEvidence() {
   Assert.That(AutomationPreEndurance.Check(context,settings,default).EvidenceChecksPassed,Is.True);
  }

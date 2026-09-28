@@ -75,12 +75,12 @@ public sealed class SubmissionEnduranceWindowsObserverTests
 		Assert.That (report.LastSampleUtc, Is.Null);
 		}
 	[Test]
-	public void ExplicitCancellationDoesNotBecomeAHealthyOrSyntheticObservation ()
+	public async System.Threading.Tasks.Task ExplicitCancellationDoesNotBecomeAHealthyOrSyntheticObservation ()
 		{
 		using var cancelled = new CancellationTokenSource ();
 		cancelled.Cancel ();
 		int calls = 0;
-		Assert.ThrowsAsync<OperationCanceledException> (() => SubmissionEnduranceWindowsObserver.AssessCoreAsync (Plan,
+		await Assert.ThrowsAsync<OperationCanceledException> (() => SubmissionEnduranceWindowsObserver.AssessCoreAsync (Plan,
 			_ => { calls++; throw new IOException (); }, cancelled.Token));
 		Assert.That (calls, Is.Zero);
 		}

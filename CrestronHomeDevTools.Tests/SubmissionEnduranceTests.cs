@@ -141,7 +141,7 @@ public sealed class SubmissionEnduranceTests
 	public async Task ContinuationCannotBeEnabledDuringExistingRun ()
 		{
 		await Collect ();
-		Assert.ThrowsAsync<InvalidDataException> (async () => await Collect (plan: Plan with { ContinueAfterInconclusiveObservation = true }));
+		await Assert.ThrowsAsync<InvalidDataException> (async () => await Collect (plan: Plan with { ContinueAfterInconclusiveObservation = true }));
 		Assert.That (_calls, Is.EqualTo (1));
 		}
 
@@ -159,7 +159,7 @@ public sealed class SubmissionEnduranceTests
 	public async Task DifferentPlanCannotReusePreviousTime ()
 		{
 		await Collect ();
-		Assert.ThrowsAsync<InvalidDataException> (async () => await Collect (plan: Plan with { ProducerId = "changed" }));
+		await Assert.ThrowsAsync<InvalidDataException> (async () => await Collect (plan: Plan with { ProducerId = "changed" }));
 		Assert.That (_calls, Is.EqualTo (1));
 		}
 
@@ -181,7 +181,7 @@ public sealed class SubmissionEnduranceTests
 		var checkpoint = await Collect ();
 		File.WriteAllText (Path.Combine (_directory, checkpoint.Samples[0].File.RelativePath), "changed");
 		_clock.Advance (30);
-		Assert.ThrowsAsync<InvalidDataException> (async () => await Collect ());
+		await Assert.ThrowsAsync<InvalidDataException> (async () => await Collect ());
 		Assert.That (_calls, Is.EqualTo (1));
 		}
 
@@ -194,7 +194,7 @@ public sealed class SubmissionEnduranceTests
 		checkpoint["samples"]![0]!["observedUtc"] = _clock.GetUtcNow ().AddSeconds (25).ToString ("O");
 		File.WriteAllText (path, checkpoint.ToJsonString ());
 		_clock.Advance (60);
-		Assert.ThrowsAsync<InvalidDataException> (async () => await Collect ());
+		await Assert.ThrowsAsync<InvalidDataException> (async () => await Collect ());
 		Assert.That (_calls, Is.EqualTo (1));
 		}
 
@@ -225,7 +225,8 @@ public sealed class SubmissionEnduranceTests
 		var finish = new TaskCompletionSource<SubmissionEnduranceProbeResult> (TaskCreationOptions.RunContinuationsAsynchronously);
 		var first = SubmissionEndurance.CollectAsync (_directory, Plan, _ => { entered.SetResult (); return finish.Task; }, _clock);
 		await entered.Task;
-		try { Assert.ThrowsAsync<IOException> (async () => await Collect ()); }
+		try {
+			await Assert.ThrowsAsync<IOException> (async () => await Collect ()); }
 		finally { finish.SetResult (Result); await first; }
 		Assert.That (_calls, Is.Zero);
 		}
@@ -260,7 +261,7 @@ public sealed class SubmissionEnduranceTests
 		}
 
 	[Test]
-	public void PolicyMustLeaveTimeForFunctionalObservation () => Assert.ThrowsAsync<ArgumentException> (async () =>
+	public async System.Threading.Tasks.Task PolicyMustLeaveTimeForFunctionalObservation () => await Assert.ThrowsAsync<ArgumentException> (async () =>
 		await Collect (plan: Plan with { SampleInterval = TimeSpan.FromSeconds (40) }));
 
 	private sealed class Clock : TimeProvider

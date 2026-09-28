@@ -21,7 +21,8 @@ internal static class AutomationResponseComparison
             plan.Pairs is not { Length: > 0 and <= 32 } ||
             plan.Pairs.Any(p => p == null || string.IsNullOrWhiteSpace(p.Name) || string.IsNullOrWhiteSpace(p.Before) || string.IsNullOrWhiteSpace(p.After) ||
                 !p.After.StartsWith("post-endurance/installed-app/", StringComparison.Ordinal) ||
-                !(p.Before.StartsWith("nunit/", StringComparison.Ordinal) || p.Before.StartsWith("installed-app/", StringComparison.Ordinal))) ||
+                !(p.Before.StartsWith("nunit/", StringComparison.Ordinal) || p.Before.StartsWith("installed-app/", StringComparison.Ordinal) ||
+                    (settings.PreEnduranceTests != null && p.Before.StartsWith("pre-endurance/installed-app/", StringComparison.Ordinal)))) ||
             plan.Pairs.Select(p => p.Name).Distinct(StringComparer.Ordinal).Count() != plan.Pairs.Length ||
             plan.Pairs.SelectMany(p => new[] { p.Before, p.After }).Distinct(StringComparer.Ordinal).Count() != plan.Pairs.Length * 2 ||
             AutomationFiles.Hash(review.Policy.Path) != review.Policy.Sha256)
@@ -45,11 +46,13 @@ internal static class AutomationResponseComparison
         var afterFiles = AutomationPostEndurance.RetainedFiles(context).ToArray();
         bool installed = settings.InstalledAppTests != null;
         string receiptName = installed ? "installed-app-tests.json" : "windows-tests.json";
+        if (installed && settings.PreEnduranceTests != null) receiptName = AutomationInitialAdditionalTests.ReceiptName;
         var stage = installed ? SubmissionWorkflowStage.AppTests : SubmissionWorkflowStage.WindowsTests;
         if (!context.Checkpoint.CompletedStages.TryGetValue(stage, out var initialReceipt) || initialReceipt.RelativePath != receiptName ||
             AutomationFiles.Hash(Path.Combine(root, receiptName)) != initialReceipt.Sha256)
             throw new InvalidDataException("The initial measurement producer must have an intact completed receipt.");
         if (installed) AutomationInstalledApp.VerifyRetained(root); else SubmissionAutomationStages.VerifyRetainedNUnit(root);
+        if (settings.PreEnduranceTests != null) AutomationInitialAdditionalTests.VerifyRetained(context);
         using var initial = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(root, receiptName)));
         var retained = initial.RootElement.GetProperty("Files").EnumerateArray().ToDictionary(
             f => f.GetProperty("RelativePath").GetString()!.Replace('\\', '/'), f => f.GetProperty("Sha256").GetString()!, StringComparer.Ordinal);

@@ -56,10 +56,10 @@ public sealed class CrestronSubmissionUploaderTests
 	[TestCase ("duplicate-query", 1)]
 	[TestCase ("wrong-bytes", 1)]
 	[TestCase ("extra-bytes", 1)]
-	public void UnconfirmedResponsesNeverProduceAReceiptOrRetry (string mode, int posts)
+	public async Task UnconfirmedResponsesNeverProduceAReceiptOrRetry (string mode, int posts)
 		{
 		var handler = new Handler { Mode = mode }; using var uploader = Create (handler);
-		var error = Assert.ThrowsAsync<InvalidDataException> (() => uploader.UploadAsync (new MemoryStream (Package), Filename));
+		var error = await Assert.ThrowsAsync<InvalidDataException> (() => uploader.UploadAsync (new MemoryStream (Package), Filename));
 		Assert.That (handler.Posts, Is.EqualTo (posts));
 		Assert.That (handler.Paths.All (path => path.StartsWith (Origin, StringComparison.Ordinal)), Is.True);
 		string directory = Directory.GetDirectories (_root).Single ();
@@ -73,7 +73,7 @@ public sealed class CrestronSubmissionUploaderTests
 	public async Task RetainedResponseVerificationDoesNotRepeatPostOrEraseFailure ()
 		{
 		var handler = new Handler { Mode = "wrong-bytes" }; using var uploader = Create (handler);
-		Assert.ThrowsAsync<InvalidDataException> (() => uploader.UploadAsync (new MemoryStream (Package), Filename));
+		await Assert.ThrowsAsync<InvalidDataException> (() => uploader.UploadAsync (new MemoryStream (Package), Filename));
 		string original = Directory.GetDirectories (_root).Single ();
 		byte[] failed = File.ReadAllBytes (Path.Combine (original, "failed.json"));
 		handler.Mode = "valid";
@@ -85,20 +85,20 @@ public sealed class CrestronSubmissionUploaderTests
 		}
 
 	[Test]
-	public void RetainedResponseCannotVerifyDifferentPackageBytes ()
+	public async System.Threading.Tasks.Task RetainedResponseCannotVerifyDifferentPackageBytes ()
 		{
 		var handler = new Handler { Mode = "wrong-bytes" }; using var uploader = Create (handler);
-		Assert.ThrowsAsync<InvalidDataException> (() => uploader.UploadAsync (new MemoryStream (Package), Filename));
+		await Assert.ThrowsAsync<InvalidDataException> (() => uploader.UploadAsync (new MemoryStream (Package), Filename));
 		string original = Directory.GetDirectories (_root).Single (); int requests = handler.Paths.Count;
-		Assert.ThrowsAsync<InvalidDataException> (() => uploader.VerifyRetainedUploadAsync (new MemoryStream ("different"u8.ToArray ()), Filename, Path.GetFileName (original)));
+		await Assert.ThrowsAsync<InvalidDataException> (() => uploader.VerifyRetainedUploadAsync (new MemoryStream ("different"u8.ToArray ()), Filename, Path.GetFileName (original)));
 		Assert.That (handler.Paths.Count, Is.EqualTo (requests));
 		}
 
 	[Test]
-	public void DeadlineStopsTheOnlyPendingRequest ()
+	public async System.Threading.Tasks.Task DeadlineStopsTheOnlyPendingRequest ()
 		{
 		var handler = new Handler { Mode = "hang" }; using var uploader = Create (handler, TimeSpan.FromSeconds (1));
-		Assert.ThrowsAsync<InvalidDataException> (() => uploader.UploadAsync (new MemoryStream (Package), Filename));
+		await Assert.ThrowsAsync<InvalidDataException> (() => uploader.UploadAsync (new MemoryStream (Package), Filename));
 		Assert.That (handler.Cancelled, Is.True); Assert.That (handler.Paths, Has.Count.EqualTo (1));
 		}
 
@@ -110,10 +110,10 @@ public sealed class CrestronSubmissionUploaderTests
 		var plan = new SubmissionDeliveryPlan (new ('a', 64), new ('b', 64), new ('c', 64), Hash (Package), Hash (File.ReadAllBytes (form)), Filename, "signed.pdf", "sender@example.test", "recipient@example.test");
 		var handler = new Handler { Mode = "wrong-bytes" }; using var uploader = new CrestronSubmissionUploader (new NetworkCredential ("synthetic", "fake"), Hash ("form"u8.ToArray ()), Hash ("terms"u8.ToArray ()), receipts, TimeSpan.FromSeconds (5), handler);
 		var transport = new Transport (uploader);
-		Assert.ThrowsAsync<InvalidDataException> (() => SubmissionDelivery.ExecuteAsync (journal, plan, package, form, transport));
+		await Assert.ThrowsAsync<InvalidDataException> (() => SubmissionDelivery.ExecuteAsync (journal, plan, package, form, transport));
 		Assert.That (SubmissionDelivery.Read (journal, plan)!.State, Is.EqualTo (SubmissionDeliveryState.OutcomeUnknown));
 		handler.Mode = "valid";
-		Assert.ThrowsAsync<InvalidOperationException> (() => SubmissionDelivery.ExecuteAsync (journal, plan, package, form, transport));
+		await Assert.ThrowsAsync<InvalidOperationException> (() => SubmissionDelivery.ExecuteAsync (journal, plan, package, form, transport));
 		Assert.That (handler.Posts, Is.EqualTo (1)); Assert.That (transport.Sends, Is.Zero);
 		await Task.CompletedTask;
 		}

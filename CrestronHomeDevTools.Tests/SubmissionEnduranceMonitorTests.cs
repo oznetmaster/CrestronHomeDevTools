@@ -116,7 +116,7 @@ public sealed class SubmissionEnduranceMonitorTests
 		{
 		await Start ();
 		await Collect (_ => throw new OperationCanceledException ());
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await SubmissionEnduranceMonitor.StopCoreAsync (_directory, _plan, _processor, Resume));
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await SubmissionEnduranceMonitor.StopCoreAsync (_directory, _plan, _processor, Resume));
 		Assert.That (_releases, Is.Zero);
 		}
 
@@ -143,9 +143,9 @@ public sealed class SubmissionEnduranceMonitorTests
 		}
 
 	[Test]
-	public void CollectBeforeStartCannotAcquireImplicitly ()
+	public async System.Threading.Tasks.Task CollectBeforeStartCannotAcquireImplicitly ()
 		{
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await Collect ());
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await Collect ());
 		Assert.That (_acquires + _resumes + _probes, Is.Zero);
 		}
 
@@ -153,18 +153,18 @@ public sealed class SubmissionEnduranceMonitorTests
 	public async Task RestartCannotStartAnExistingMonitorAgain ()
 		{
 		await Start ();
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await Start ());
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await Start ());
 		Assert.That (_acquires, Is.EqualTo (1));
 		Assert.That (_held, Is.True);
 		}
 
 	[Test]
-	public void UncertainAcquisitionIsNotReplayedAfterRestart ()
+	public async System.Threading.Tasks.Task UncertainAcquisitionIsNotReplayedAfterRestart ()
 		{
-		Assert.ThrowsAsync<IOException> (async () => await SubmissionEnduranceMonitor.StartCoreAsync (_directory, _plan, _processor,
+		await Assert.ThrowsAsync<IOException> (async () => await SubmissionEnduranceMonitor.StartCoreAsync (_directory, _plan, _processor,
 			async token => { _ = await Acquire (token); throw new IOException ("Synthetic lost response after acquisition."); }));
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await Start ());
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await Collect ());
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await Start ());
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await Collect ());
 		Assert.That (_acquires, Is.EqualTo (1));
 		Assert.That (_held, Is.True);
 		}
@@ -174,7 +174,7 @@ public sealed class SubmissionEnduranceMonitorTests
 	public async Task EndpointOrPlanChangeIsRejectedBeforeNetworkOrProbe (bool changePlan)
 		{
 		await Start ();
-		Assert.ThrowsAsync<InvalidDataException> (async () => await SubmissionEnduranceMonitor.CollectCoreAsync (_directory,
+		await Assert.ThrowsAsync<InvalidDataException> (async () => await SubmissionEnduranceMonitor.CollectCoreAsync (_directory,
 			changePlan ? _plan with { ProducerId = "different-producer" } : _plan,
 			changePlan ? _processor : _processor with { Host = "other.invalid" }, Resume, Probe, _clock));
 		Assert.That (_resumes + _probes, Is.Zero);
@@ -211,8 +211,8 @@ public sealed class SubmissionEnduranceMonitorTests
 		try
 			{
 			await entered.Task.WaitAsync (TimeSpan.FromSeconds (5));
-			Assert.ThrowsAsync<IOException> (async () => await Collect ());
-			Assert.ThrowsAsync<IOException> (async () => await Finish ());
+			await Assert.ThrowsAsync<IOException> (async () => await Collect ());
+			await Assert.ThrowsAsync<IOException> (async () => await Finish ());
 			}
 		finally { proceed.SetResult (); await first; }
 		Assert.That (_probes, Is.EqualTo (1));
@@ -224,7 +224,7 @@ public sealed class SubmissionEnduranceMonitorTests
 		await Start ();
 		var result = await Collect (_ => Task.FromException<SubmissionEnduranceProbeResult> (new OperationCanceledException ()));
 		Assert.That (result.State, Is.EqualTo (SubmissionEnduranceState.Interrupted));
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await Finish ());
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await Finish ());
 		await Collect ();
 		Assert.That (_resumes, Is.EqualTo (1));
 		Assert.That (_held, Is.True);
@@ -234,7 +234,7 @@ public sealed class SubmissionEnduranceMonitorTests
 	public async Task ActiveObservationIntervalCannotBeFinishedEarly ()
 		{
 		await Start (); await Collect ();
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await Finish ());
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await Finish ());
 		Assert.That (_held, Is.True);
 		}
 
@@ -254,9 +254,9 @@ public sealed class SubmissionEnduranceMonitorTests
 	public async Task UncertainReleaseIsNeverRepeatedByTheNextWorker ()
 		{
 		await Start (); await Complete (); _uncertainRelease = true;
-		Assert.ThrowsAsync<IOException> (async () => await Finish ());
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await Finish ());
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await Collect ());
+		await Assert.ThrowsAsync<IOException> (async () => await Finish ());
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await Finish ());
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await Collect ());
 		Assert.That (_releases, Is.EqualTo (1));
 		Assert.That (_held, Is.False, "The first release happened, but its response was uncertain.");
 		}

@@ -33,7 +33,7 @@ public sealed class ManagedDeviceCleanupTests
 		Assert.That (result, Is.EqualTo (new ManagedDeviceCleanupResult (18, true, true)));
 		Assert.That (connection.RemovalCalls, Is.EqualTo (1));
 		Assert.That (File.Exists (Path.Combine (_journal, "cleanup", "result.json")), Is.True);
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await Remove (connection));
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await Remove (connection));
 		Assert.That (connection.RemovalCalls, Is.EqualTo (1));
 		}
 
@@ -45,62 +45,62 @@ public sealed class ManagedDeviceCleanupTests
 	[TestCase ("descendant")]
 	[TestCase ("reboot")]
 	[TestCase ("absent")]
-	public void UnconfirmedChildOrPlatformIsNeverRemoved (string fault)
+	public async System.Threading.Tasks.Task UnconfirmedChildOrPlatformIsNeverRemoved (string fault)
 		{
 		var connection = new Connection (_journal) { Fault = fault };
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await Remove (connection));
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await Remove (connection));
 		Assert.That (connection.RemovalCalls, Is.Zero);
 		Assert.That (File.Exists (Path.Combine (_journal, "cleanup", "remove-intent.json")), Is.False);
 		}
 
 	[Test]
-	public void ReceiptMismatchIsRejectedBeforeProcessorAccess ()
+	public async System.Threading.Tasks.Task ReceiptMismatchIsRejectedBeforeProcessorAccess ()
 		{
 		File.WriteAllText (Path.Combine (_journal, "commission-response.json"), JsonSerializer.Serialize (new { Response = new { Id = 99, CommissioningResult = "Success" } }));
 		var connection = new Connection (_journal);
-		Assert.ThrowsAsync<InvalidDataException> (async () => await Remove (connection));
+		await Assert.ThrowsAsync<InvalidDataException> (async () => await Remove (connection));
 		Assert.That (connection.Reads, Is.Zero);
 		Assert.That (connection.RemovalCalls, Is.Zero);
 		}
 
 	[Test]
-	public void IncompleteCommissioningIsNotAutomaticallyCleanedUp ()
+	public async System.Threading.Tasks.Task IncompleteCommissioningIsNotAutomaticallyCleanedUp ()
 		{
 		File.Delete (Path.Combine (_journal, "result.json"));
 		var connection = new Connection (_journal);
-		Assert.ThrowsAsync<FileNotFoundException> (async () => await Remove (connection));
+		await Assert.ThrowsAsync<FileNotFoundException> (async () => await Remove (connection));
 		Assert.That (connection.Reads, Is.Zero);
 		Assert.That (connection.RemovalCalls, Is.Zero);
 		}
 
 	[Test]
-	public void LostRemovalReplyIsNotReplayedEvenIfDeviceDisappeared ()
+	public async System.Threading.Tasks.Task LostRemovalReplyIsNotReplayedEvenIfDeviceDisappeared ()
 		{
 		var connection = new Connection (_journal) { Fault = "lost-reply" };
-		Assert.ThrowsAsync<IOException> (async () => await Remove (connection));
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await Remove (connection));
+		await Assert.ThrowsAsync<IOException> (async () => await Remove (connection));
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await Remove (connection));
 		Assert.That (connection.RemovalCalls, Is.EqualTo (1));
 		Assert.That (File.Exists (Path.Combine (_journal, "cleanup", "remove-intent.json")), Is.True);
 		Assert.That (File.Exists (Path.Combine (_journal, "cleanup", "result.json")), Is.False);
 		}
 
 	[Test]
-	public void ChangedOtherDeviceDoesNotProduceSuccessfulCleanup ()
+	public async System.Threading.Tasks.Task ChangedOtherDeviceDoesNotProduceSuccessfulCleanup ()
 		{
 		var connection = new Connection (_journal) { Fault = "other-changed" };
-		Assert.ThrowsAsync<InvalidDataException> (async () => await Remove (connection));
+		await Assert.ThrowsAsync<InvalidDataException> (async () => await Remove (connection));
 		Assert.That (connection.RemovalCalls, Is.EqualTo (1));
 		Assert.That (File.Exists (Path.Combine (_journal, "cleanup", "after.json")), Is.True);
 		Assert.That (File.Exists (Path.Combine (_journal, "cleanup", "result.json")), Is.False);
 		}
 
 	[Test]
-	public void RemovalTimeoutKeepsIntentAndDoesNotRetry ()
+	public async System.Threading.Tasks.Task RemovalTimeoutKeepsIntentAndDoesNotRetry ()
 		{
 		var connection = new Connection (_journal) { Fault = "remains" };
-		Assert.ThrowsAsync<TimeoutException> (async () => await ManagedDeviceCommissioning.RemoveCreatedAsync (new (connection), _journal, TimeSpan.FromSeconds (2)));
+		await Assert.ThrowsAsync<TimeoutException> (async () => await ManagedDeviceCommissioning.RemoveCreatedAsync (new (connection), _journal, TimeSpan.FromSeconds (2)));
 		Assert.That (connection.RemovalCalls, Is.EqualTo (1));
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await Remove (connection));
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await Remove (connection));
 		Assert.That (connection.RemovalCalls, Is.EqualTo (1));
 		}
 
@@ -123,10 +123,10 @@ public sealed class ManagedDeviceCleanupTests
 	[TestCase ("native-extra-load")]
 	[TestCase ("native-descendant")]
 	[TestCase ("native-not-light")]
-	public void NativeCleanupRejectsUnconfirmedTopology (string fault)
+	public async System.Threading.Tasks.Task NativeCleanupRejectsUnconfirmedTopology (string fault)
 		{
 		var connection = new Connection (_journal) { Native = true, Fault = fault };
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await Remove (connection));
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await Remove (connection));
 		Assert.That (connection.RemovalCalls, Is.Zero);
 		}
 
@@ -141,27 +141,27 @@ public sealed class ManagedDeviceCleanupTests
 		Assert.That (File.Exists (Path.Combine (_journal, "result.json")), Is.False);
 		using var record = JsonDocument.Parse (File.ReadAllText (Path.Combine (_journal, "cleanup", "request.json")));
 		Assert.That (record.RootElement.GetProperty ("InspectedIncompleteReadiness").GetBoolean (), Is.True);
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await ManagedDeviceCommissioning.RemoveCreatedAfterInspectionAsync (new (connection), _journal, TimeSpan.FromSeconds (2)));
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await ManagedDeviceCommissioning.RemoveCreatedAfterInspectionAsync (new (connection), _journal, TimeSpan.FromSeconds (2)));
 		Assert.That (connection.RemovalCalls, Is.EqualTo (1));
 		}
 
 	[TestCase ("response")]
 	[TestCase ("result")]
-	public void InspectedCleanupStillRejectsContradictoryReceipts (string fault)
+	public async System.Threading.Tasks.Task InspectedCleanupStillRejectsContradictoryReceipts (string fault)
 		{
 		if (fault == "response") File.WriteAllText (Path.Combine (_journal, "commission-response.json"), "{\"Response\":{\"Id\":99,\"CommissioningResult\":\"Success\"}}");
 		else File.WriteAllText (Path.Combine (_journal, "result.json"), JsonSerializer.Serialize (new ManagedDeviceResult (99, "Ready")));
 		var connection = new Connection (_journal);
-		Assert.ThrowsAsync<InvalidDataException> (async () => await ManagedDeviceCommissioning.RemoveCreatedAfterInspectionAsync (new (connection), _journal, TimeSpan.FromSeconds (2)));
+		await Assert.ThrowsAsync<InvalidDataException> (async () => await ManagedDeviceCommissioning.RemoveCreatedAfterInspectionAsync (new (connection), _journal, TimeSpan.FromSeconds (2)));
 		Assert.That (connection.Reads, Is.Zero);
 		Assert.That (connection.RemovalCalls, Is.Zero);
 		}
 
 	[Test]
-	public void RetainedWrapperDoesNotCountAsSuccessfulNativeCleanup ()
+	public async System.Threading.Tasks.Task RetainedWrapperDoesNotCountAsSuccessfulNativeCleanup ()
 		{
 		var connection = new Connection (_journal) { Native = true, Fault = "native-wrapper-remains" };
-		Assert.ThrowsAsync<TimeoutException> (async () => await ManagedDeviceCommissioning.RemoveCreatedAsync (new (connection), _journal, TimeSpan.FromMilliseconds (100)));
+		await Assert.ThrowsAsync<TimeoutException> (async () => await ManagedDeviceCommissioning.RemoveCreatedAsync (new (connection), _journal, TimeSpan.FromMilliseconds (100)));
 		Assert.That (connection.RemovalCalls, Is.EqualTo (1));
 		Assert.That (File.Exists (Path.Combine (_journal, "cleanup", "result.json")), Is.False);
 		}

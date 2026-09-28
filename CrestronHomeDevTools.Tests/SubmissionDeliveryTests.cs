@@ -56,12 +56,12 @@ public sealed class SubmissionDeliveryTests
 	public async Task AmbiguousProviderFailureStopsAllAutomaticReplay (SubmissionDeliveryStep step)
 		{
 		_transport.Fail = step;
-		Assert.ThrowsAsync<IOException> (async () => await Execute ());
+		await Assert.ThrowsAsync<IOException> (async () => await Execute ());
 		var receipt = SubmissionDelivery.Read (_root, _plan)!;
 		Assert.That (receipt.State, Is.EqualTo (SubmissionDeliveryState.OutcomeUnknown));
 		Assert.That (receipt.PendingStep, Is.EqualTo (step));
 		_transport.Fail = null;
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await Execute ());
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await Execute ());
 		Assert.That (_transport.UploadCalls, Is.EqualTo (1));
 		Assert.That (_transport.SendCalls, Is.EqualTo (step == SubmissionDeliveryStep.Send ? 1 : 0));
 		SubmissionDelivery.Reconcile (_root, _plan, step, true, "Synthetic provider lookup confirms acceptance",
@@ -75,7 +75,7 @@ public sealed class SubmissionDeliveryTests
 	public async Task ConfirmedNonDeliveryAllowsOnlyTheOutstandingStep (SubmissionDeliveryStep step)
 		{
 		_transport.Fail = step;
-		Assert.ThrowsAsync<IOException> (async () => await Execute ());
+		await Assert.ThrowsAsync<IOException> (async () => await Execute ());
 		Assert.Throws<InvalidOperationException> (() => SubmissionDelivery.Reconcile (_root, _plan,
 			step == SubmissionDeliveryStep.Upload ? SubmissionDeliveryStep.Send : SubmissionDeliveryStep.Upload, false, "wrong step"));
 		Assert.Throws<ArgumentException> (() => SubmissionDelivery.Reconcile (_root, _plan, step, false, ""));
@@ -88,13 +88,13 @@ public sealed class SubmissionDeliveryTests
 
 	[TestCase (SubmissionDeliveryStep.Upload)]
 	[TestCase (SubmissionDeliveryStep.Send)]
-	public void PersistedPendingIntentFromTerminatedProcessCannotReplay (SubmissionDeliveryStep step)
+	public async System.Threading.Tasks.Task PersistedPendingIntentFromTerminatedProcessCannotReplay (SubmissionDeliveryStep step)
 		{
 		_transport.Fail = step;
-		Assert.ThrowsAsync<IOException> (async () => await Execute ());
+		await Assert.ThrowsAsync<IOException> (async () => await Execute ());
 		EditReceipt (json => json["state"] = step == SubmissionDeliveryStep.Upload ? "UploadPending" : "SendPending");
 		_transport.Fail = null;
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await Execute ());
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await Execute ());
 		Assert.That (_transport.UploadCalls, Is.EqualTo (1));
 		}
 
@@ -103,7 +103,7 @@ public sealed class SubmissionDeliveryTests
 		{
 		using var cancel = new CancellationTokenSource ();
 		_transport.BeforeUpload = () => { cancel.Cancel (); return Task.CompletedTask; };
-		Assert.ThrowsAsync<OperationCanceledException> (async () => await Execute (cancel.Token));
+		await Assert.ThrowsAsync<OperationCanceledException> (async () => await Execute (cancel.Token));
 		Assert.That (SubmissionDelivery.Read (_root, _plan)!.State, Is.EqualTo (SubmissionDeliveryState.Uploaded));
 		Assert.That ((await Execute ()).State, Is.EqualTo (SubmissionDeliveryState.Submitted));
 		Assert.That ((_transport.UploadCalls, _transport.SendCalls), Is.EqualTo ((1, 1)));
@@ -119,7 +119,7 @@ public sealed class SubmissionDeliveryTests
 		try
 			{
 			await entered.Task.WaitAsync (TimeSpan.FromSeconds (5));
-			Assert.ThrowsAsync<IOException> (async () => await Execute ());
+			await Assert.ThrowsAsync<IOException> (async () => await Execute ());
 			Assert.That (_transport.UploadCalls, Is.EqualTo (1));
 			}
 		finally { release.TrySetResult (); await first; }
@@ -130,15 +130,15 @@ public sealed class SubmissionDeliveryTests
 		{
 		await Execute ();
 		_plan = _plan with { AuthorizationSha256 = new ('d', 64) };
-		Assert.ThrowsAsync<InvalidDataException> (async () => await Execute ());
+		await Assert.ThrowsAsync<InvalidDataException> (async () => await Execute ());
 		Assert.That (_transport.SendCalls, Is.EqualTo (1));
 		}
 
 	[Test]
-	public void AlteredFileFailsBeforeAnyExternalRequest ()
+	public async System.Threading.Tasks.Task AlteredFileFailsBeforeAnyExternalRequest ()
 		{
 		File.AppendAllText (_form, " changed");
-		Assert.ThrowsAsync<InvalidDataException> (async () => await Execute ());
+		await Assert.ThrowsAsync<InvalidDataException> (async () => await Execute ());
 		Assert.That ((_transport.UploadCalls, _transport.SendCalls), Is.EqualTo ((0, 0)));
 		Assert.That (SubmissionDelivery.Read (_root, _plan), Is.Null);
 		}
@@ -152,10 +152,10 @@ public sealed class SubmissionDeliveryTests
 		}
 
 	[Test]
-	public void MissingProviderReceiptIsAnUnknownOutcome ()
+	public async System.Threading.Tasks.Task MissingProviderReceiptIsAnUnknownOutcome ()
 		{
 		_transport.UploadResult = new ("http://unsafe.example.test/", "");
-		Assert.ThrowsAsync<InvalidDataException> (async () => await Execute ());
+		await Assert.ThrowsAsync<InvalidDataException> (async () => await Execute ());
 		Assert.That (SubmissionDelivery.Read (_root, _plan)!.State, Is.EqualTo (SubmissionDeliveryState.OutcomeUnknown));
 		Assert.That (_transport.SendCalls, Is.Zero);
 		}
@@ -165,7 +165,7 @@ public sealed class SubmissionDeliveryTests
 		{
 		await Execute ();
 		EditReceipt (json => json["mail"] = null);
-		Assert.ThrowsAsync<InvalidDataException> (async () => await Execute ());
+		await Assert.ThrowsAsync<InvalidDataException> (async () => await Execute ());
 		Assert.That (_transport.SendCalls, Is.EqualTo (1));
 		}
 

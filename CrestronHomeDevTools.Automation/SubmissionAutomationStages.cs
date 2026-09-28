@@ -63,6 +63,8 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
    AutomationInstalledApp.VerifyRetained(c.RunDirectory);
   if(settings.ManagedDevices!=null && c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.AppTests))
    _=AutomationManagedDevices.VerifyRetained(c);
+  if(settings.PreEnduranceTests!=null && c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.AppTests))
+   AutomationInitialAdditionalTests.VerifyRetained(c);
   if(c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.PrepareReview)) AutomationReview.VerifyRetained(c.RunDirectory);
   if(settings.PostEnduranceTests!=null && c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.PrepareReview))
    AutomationPostEndurance.VerifyRetained(c);
@@ -88,14 +90,19 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
    case SubmissionWorkflowStage.WindowsTests: return await NUnit(c,recover,token);
    case SubmissionWorkflowStage.ProcessorTests: return VerifyNUnit(c,"Processor");
    case SubmissionWorkflowStage.AppTests:
+    AutomationInitialAdditionalTests.Validate(settings);
+    SubmissionWorkflowStepResult initial;
     if(settings.ManagedDevices!=null) {
      var setup=await AutomationManagedDevices.Advance(c,settings,credential,token);
      if(setup.Status!=SubmissionWorkflowStatus.Completed)return setup;
      var resolved=AutomationManagedDevices.BindApp(c,settings);
      AutomationFiles.Write(Path.Combine(c.RunDirectory,"target-plan.json"),resolved.InstalledAppTests);
-     return await AutomationInstalledApp.Advance(c,resolved,recover && File.Exists(Path.Combine(c.RunDirectory,"installed-app-intent.json")),runInstalledApp,credential,token);
+     initial=await AutomationInstalledApp.Advance(c,resolved,recover && File.Exists(Path.Combine(c.RunDirectory,"installed-app-intent.json")),runInstalledApp,credential,token);
     }
-    return settings.InstalledAppTests==null ? VerifyApp(c) : await AutomationInstalledApp.Advance(c,settings,recover,runInstalledApp,credential,token);
+    else initial=settings.InstalledAppTests==null ? VerifyApp(c) : await AutomationInstalledApp.Advance(c,settings,recover,runInstalledApp,credential,token);
+    if(initial.Status!=SubmissionWorkflowStatus.Completed || settings.PreEnduranceTests==null)return initial;
+    var additional=await AutomationInitialAdditionalTests.Advance(c,settings,runInstalledApp,credential,token);
+    return additional;
    case SubmissionWorkflowStage.Endurance: return await Endurance(c,recover,token);
    case SubmissionWorkflowStage.PrepareReview:
     if(settings.PostEnduranceTests!=null) {
@@ -138,6 +145,7 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
    _=AutomationSourceApplicability.Prepare(c.RunDirectory,settings,token);
   if(settings.InstalledAppTests!=null) AutomationInstalledApp.ValidateTemplate(settings,settings.ManagedDevices!=null);
   AutomationPostEndurance.Validate(settings);
+  AutomationInitialAdditionalTests.Validate(settings);
   if(settings.Removal!=null)AutomationRemoval.Validate(settings);
   if(settings.ResponseComparison!=null)AutomationResponseComparison.Validate(settings);
   if(settings.Review is {PriorEvidence:not null} review)

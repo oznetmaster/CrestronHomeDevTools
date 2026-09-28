@@ -94,11 +94,11 @@ public sealed partial class SubmissionReviewFilesTests
 	[TestCase ("bundle-report.json")]
 	[TestCase ("delivery/request.pdf")]
 	[TestCase ("COMPLETE")]
-	public void ChangedRequestBeforeSendRetainsUploadAndBlocksEmail (string file)
+	public async System.Threading.Tasks.Task ChangedRequestBeforeSendRetainsUploadAndBlocksEmail (string file)
 		{
 		var plan = PrepareRequest ();
 		var transport = new RequestTransport { AfterUpload = () => File.AppendAllText (PathFor (file), "changed") };
-		Assert.ThrowsAsync<InvalidDataException> (async () => await DeliverRequest (plan, transport));
+		await Assert.ThrowsAsync<InvalidDataException> (async () => await DeliverRequest (plan, transport));
 		Assert.That ((transport.Uploads, transport.Sends), Is.EqualTo ((1, 0)));
 		Assert.That (SubmissionDelivery.ReadReview (PathFor ("journal"), plan)!.Delivery.State, Is.EqualTo (SubmissionDeliveryState.Uploaded));
 		}
@@ -109,7 +109,7 @@ public sealed partial class SubmissionReviewFilesTests
 	[TestCase ("deliveryAttempted")]
 	[TestCase ("schemaVersion")]
 	[TestCase ("evidenceVerificationStatus")]
-	public void ApprovalCannotAuthorizeAnInconsistentPreparedReceipt (string field)
+	public async System.Threading.Tasks.Task ApprovalCannotAuthorizeAnInconsistentPreparedReceipt (string field)
 		{
 		var plan = PrepareRequest ();
 		var json = System.Text.Json.Nodes.JsonNode.Parse (File.ReadAllText (PathFor ("request-receipt.json")))!;
@@ -120,7 +120,7 @@ public sealed partial class SubmissionReviewFilesTests
 		File.WriteAllText (PathFor ("COMPLETE"), Digest ("request-receipt.json"));
 		plan = ApproveRequest (plan with { ReviewSha256 = Digest ("request-receipt.json") });
 		var transport = new RequestTransport ();
-		Assert.ThrowsAsync<InvalidDataException> (async () => await DeliverRequest (plan, transport));
+		await Assert.ThrowsAsync<InvalidDataException> (async () => await DeliverRequest (plan, transport));
 		Assert.That ((transport.Uploads, transport.Sends), Is.EqualTo ((0, 0)));
 		}
 	}

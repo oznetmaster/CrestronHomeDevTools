@@ -68,20 +68,20 @@ public sealed class SubmissionDeliveryRevalidationTests
 	[TestCase ("wrong-plan-file")]
 	[TestCase ("stale-result")]
 	[TestCase ("future-result")]
-	public void InvalidProcessResultsDoNotAuthorizeDelivery (string mode)
+	public async Task InvalidProcessResultsDoNotAuthorizeDelivery (string mode)
 		{
 		File.WriteAllText (Path.Combine (_tools, "revalidate_delivery.py"), mode);
-		var error = Assert.ThrowsAsync<InvalidDataException> (() => SubmissionDeliveryRevalidation.CheckAsync (Settings (), _plan, SubmissionDeliveryStep.Upload));
+		var error = await Assert.ThrowsAsync<InvalidDataException> (() => SubmissionDeliveryRevalidation.CheckAsync (Settings (), _plan, SubmissionDeliveryStep.Upload));
 		Assert.That (error!.Message, Does.Not.Contain ("PRIVATE-SYNTHETIC"));
 		Assert.That (File.Exists (Path.Combine (Directory.GetDirectories (_attempts).Single (), "finished.json")), Is.True);
 		}
 	[TestCase ("hang")]
 	[TestCase ("stdout-limit")]
 	[TestCase ("stderr-limit")]
-	public void FailedOrOversizedProcessesExitBeforeTheAttemptIsFinished (string mode)
+	public async System.Threading.Tasks.Task FailedOrOversizedProcessesExitBeforeTheAttemptIsFinished (string mode)
 		{
 		File.WriteAllText (Path.Combine (_tools, "revalidate_delivery.py"), mode);
-		Assert.ThrowsAsync<InvalidDataException> (() => SubmissionDeliveryRevalidation.CheckAsync (Settings () with { Timeout = TimeSpan.FromSeconds (1) }, _plan, SubmissionDeliveryStep.Upload));
+		await Assert.ThrowsAsync<InvalidDataException> (() => SubmissionDeliveryRevalidation.CheckAsync (Settings () with { Timeout = TimeSpan.FromSeconds (1) }, _plan, SubmissionDeliveryStep.Upload));
 		string attempt = Directory.GetDirectories (_attempts).Single ();
 		using var identity = JsonDocument.Parse (File.ReadAllBytes (Path.Combine (attempt, "process.json")));
 		int id = identity.RootElement.GetProperty ("Id").GetInt32 ();
@@ -95,34 +95,34 @@ public sealed class SubmissionDeliveryRevalidationTests
 	[TestCase ("validator")]
 	[TestCase ("settings")]
 	[TestCase ("extra-file")]
-	public void ChangedInputsFailBeforeStartingAProcess (string change)
+	public async System.Threading.Tasks.Task ChangedInputsFailBeforeStartingAProcess (string change)
 		{
 		var settings = Settings ();
 		string path = change switch { "tools" => Path.Combine (_tools, "revalidate_delivery.py"), "validator" => Path.Combine (_validator, "validator.dll"), "settings" => _preparation, _ => Path.Combine (_tools, "extra.py") };
 		File.AppendAllText (path, "changed");
-		Assert.ThrowsAsync<InvalidDataException> (() => SubmissionDeliveryRevalidation.CheckAsync (settings, _plan, SubmissionDeliveryStep.Upload));
+		await Assert.ThrowsAsync<InvalidDataException> (() => SubmissionDeliveryRevalidation.CheckAsync (settings, _plan, SubmissionDeliveryStep.Upload));
 		Assert.That (Directory.GetDirectories (_attempts), Is.Empty);
 		}
 	[Test]
-	public void PartiallyWrittenTerminalRecordCannotPermitANewAttempt ()
+	public async System.Threading.Tasks.Task PartiallyWrittenTerminalRecordCannotPermitANewAttempt ()
 		{
 		string previous = Path.Combine (_attempts, "unfinished"); Directory.CreateDirectory (previous);
 		File.WriteAllText (Path.Combine (previous, "finished.json"), "{");
-		Assert.CatchAsync<Exception> (() => SubmissionDeliveryRevalidation.CheckAsync (Settings (), _plan, SubmissionDeliveryStep.Upload));
+		await Assert.CatchAsync<Exception> (() => SubmissionDeliveryRevalidation.CheckAsync (Settings (), _plan, SubmissionDeliveryStep.Upload));
 		Assert.That (Directory.GetDirectories (_attempts), Has.Length.EqualTo (1));
 		}
 	[Test]
-	public void CancellationBeforePinningDoesNotStartAProcess ()
+	public async System.Threading.Tasks.Task CancellationBeforePinningDoesNotStartAProcess ()
 		{
 		using var cancelled = new CancellationTokenSource (); cancelled.Cancel ();
-		Assert.CatchAsync<OperationCanceledException> (() => SubmissionDeliveryRevalidation.CheckAsync (Settings (), _plan, SubmissionDeliveryStep.Upload, cancelled.Token));
+		await Assert.CatchAsync<OperationCanceledException> (() => SubmissionDeliveryRevalidation.CheckAsync (Settings (), _plan, SubmissionDeliveryStep.Upload, cancelled.Token));
 		Assert.That (Directory.GetDirectories (_attempts), Is.Empty);
 		}
 	[Test]
-	public void UnfinishedPriorProcessCannotBeBypassedByNewAttempt ()
+	public async System.Threading.Tasks.Task UnfinishedPriorProcessCannotBeBypassedByNewAttempt ()
 		{
 		Directory.CreateDirectory (Path.Combine (_attempts, "unfinished"));
-		Assert.ThrowsAsync<InvalidOperationException> (() => SubmissionDeliveryRevalidation.CheckAsync (Settings (), _plan, SubmissionDeliveryStep.Upload));
+		await Assert.ThrowsAsync<InvalidOperationException> (() => SubmissionDeliveryRevalidation.CheckAsync (Settings (), _plan, SubmissionDeliveryStep.Upload));
 		Assert.That (Directory.GetDirectories (_attempts), Has.Length.EqualTo (1));
 		}
 	}

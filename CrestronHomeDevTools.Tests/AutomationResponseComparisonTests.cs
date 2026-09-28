@@ -50,6 +50,23 @@ public sealed partial class AutomationInstalledAppTests
   return AutomationFiles.Read<SubmissionEvidenceDocument>(Path.Combine(context.RunDirectory,source.RelativePath)).Observations.Single();
  }
  [TestCase(false)][TestCase(true)]
+ public async Task ResponseComparisonAcceptsCombinedInitialReceiptAndChecksBothInventories(bool additionalMeasurement) {
+  await ConfigureComparison();
+  context.Checkpoint.CompletedStages.Remove(SubmissionWorkflowStage.AppTests);
+  settings=settings with{PreEnduranceTests=settings.InstalledAppTests};
+  var additional=await AutomationInitialAdditionalTests.Advance(context,settings,(p,c,f,t)=>{
+   string measurements=Path.Combine(f,"AndroidUI");Directory.CreateDirectory(measurements);
+   File.Copy(Path.Combine(context.RunDirectory,"installed-app","AndroidUI","response.json"),Path.Combine(measurements,"response.json"));
+   return Run(p,c,f,t);
+  },_=>new(),default);
+  context.Checkpoint.CompletedStages[SubmissionWorkflowStage.AppTests]=additional.Receipt!;
+  if(additionalMeasurement) settings=settings with{ResponseComparison=settings.ResponseComparison! with{Pairs=[new("outlet",
+   "pre-endurance/installed-app/AndroidUI/response.json","post-endurance/installed-app/AndroidUI/response.json")]}};
+  Assert.That(CompareResponses().Outcome,Is.EqualTo(SubmissionEvidenceOutcome.Passed));
+  File.AppendAllText(Path.Combine(context.RunDirectory,"pre-endurance","installed-app","raw.xml"),"changed");
+  Assert.Throws<InvalidDataException>(()=>CompareResponses());
+ }
+ [TestCase(false)][TestCase(true)]
  public async Task ResponseComparisonUsesRetainedInitialAndPostEvidenceWithoutReplaying(bool nunitProducer) {
   await ConfigureComparison(nunitProducer:nunitProducer);
   int initialCalls=calls;

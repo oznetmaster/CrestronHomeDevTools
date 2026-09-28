@@ -30,7 +30,7 @@ internal static class AutomationManagedDevices
   if(settings.NUnit.ActualDriver==null || settings.NUnit.ReleaseCandidate==null || settings.InstalledAppTests==null || settings.NUnit.AndroidTests!=null)
    throw new InvalidDataException("Persistent managed children require release deployment and separate installed-app tests.");
   ValidatePlan(plan);
-  foreach(var fixture in new[]{settings.InstalledAppFixtureSettings,settings.PostEnduranceFixtureSettings})
+  foreach(var fixture in new[]{settings.InstalledAppFixtureSettings,settings.PreEnduranceFixtureSettings,settings.PostEnduranceFixtureSettings})
    if(fixture is {} value)ValidateReferences(value,plan);
  }
  internal static bool IsReference(string text)=>System.Text.RegularExpressions.Regex.IsMatch(text,@"\A\$\{managed:[A-Za-z0-9_-]{1,64}:(deviceId|nativeLoadId)\}\z");

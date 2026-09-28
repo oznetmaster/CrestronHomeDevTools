@@ -43,7 +43,7 @@ public sealed class WindowsRunnerSetupTests
 	public async Task InterruptedRegistrationIsNotReplayedEvenWhenRetryHasFreshToken ()
 		{
 		var operations = new FakeOperations { FailConfigure = true };
-		Assert.ThrowsAsync<IOException> (() => Apply (operations));
+		await Assert.ThrowsAsync<IOException> (() => Apply (operations));
 		operations.FailConfigure = false;
 		Assert.That ((await Apply (operations)).State, Is.EqualTo ("InspectionRequired"));
 		Assert.That (operations.Configurations, Is.EqualTo (1));
@@ -58,11 +58,11 @@ public sealed class WindowsRunnerSetupTests
 		Assert.That (operations.Configurations + operations.Installs, Is.Zero);
 		}
 	[Test]
-	public void ChangedPlanAndWrongComputerCannotStartOperations ()
+	public async System.Threading.Tasks.Task ChangedPlanAndWrongComputerCannotStartOperations ()
 		{
 		var operations = new FakeOperations ();
 		string digest = WindowsRunnerSetup.Digest (_plan);
-		Assert.ThrowsAsync<InvalidOperationException> (() => WindowsRunnerSetup.ApplyCoreAsync (_plan with
+		await Assert.ThrowsAsync<InvalidOperationException> (() => WindowsRunnerSetup.ApplyCoreAsync (_plan with
 			{
 			RunnerName = "changed"
 			}, digest,
@@ -71,7 +71,7 @@ public sealed class WindowsRunnerSetupTests
 			{
 			MachineName = "other-machine"
 			};
-		Assert.ThrowsAsync<InvalidOperationException> (() => WindowsRunnerSetup.ApplyCoreAsync (other, WindowsRunnerSetup.Digest (other),
+		await Assert.ThrowsAsync<InvalidOperationException> (() => WindowsRunnerSetup.ApplyCoreAsync (other, WindowsRunnerSetup.Digest (other),
 			Path.Combine (_root, "state"), new ("secret"), operations, null, default));
 		Assert.That (operations.Inspections, Is.Zero);
 		}
@@ -101,8 +101,8 @@ public sealed class WindowsRunnerSetupTests
 				writer.Write ("escape");
 			}
 		string hash = Convert.ToHexString (SHA256.HashData (File.ReadAllBytes (archive)));
-		Assert.ThrowsAsync<InvalidDataException> (() => WindowsRunnerSetupOperations.ExtractVerifiedAsync (archive, new string ('0', 64), target, default));
-		Assert.ThrowsAsync<InvalidDataException> (() => WindowsRunnerSetupOperations.ExtractVerifiedAsync (archive, hash, target, default));
+		await Assert.ThrowsAsync<InvalidDataException> (() => WindowsRunnerSetupOperations.ExtractVerifiedAsync (archive, new string ('0', 64), target, default));
+		await Assert.ThrowsAsync<InvalidDataException> (() => WindowsRunnerSetupOperations.ExtractVerifiedAsync (archive, hash, target, default));
 		Assert.That (Directory.Exists (target), Is.False);
 		Assert.That (File.Exists (Path.Combine (_root, "outside.txt")), Is.False);
 		string valid = Path.Combine (_root, "valid.zip");

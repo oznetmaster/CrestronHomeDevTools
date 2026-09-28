@@ -51,7 +51,7 @@ public sealed class DriverConfigurationTests
 			Assert.That (await DriverConfiguration.ApplyAsync (new (connection), TARGET, input, default), Is.True);
 		else
 			{
-			var error = Assert.CatchAsync<InvalidOperationException> (async () => await DriverConfiguration.ApplyAsync (new (connection), TARGET, input, default));
+			var error = await Assert.CatchAsync<InvalidOperationException> (async () => await DriverConfiguration.ApplyAsync (new (connection), TARGET, input, default));
 			Assert.That (error!.ToString (), Does.Not.Contain ("private-value"));
 			}
 		Assert.That (connection.Writes, Is.EqualTo (expectedWrites));
@@ -91,7 +91,7 @@ public sealed class DriverConfigurationTests
 	[TestCase ("version")]
 	[TestCase ("readonly")]
 	[TestCase ("unknown")]
-	public void ChangedOrUnsupportedTargetSubmitsNothing (string failure)
+	public async System.Threading.Tasks.Task ChangedOrUnsupportedTargetSubmitsNothing (string failure)
 		{
 		var device = Device (false);
 		if (failure == "model")
@@ -104,16 +104,16 @@ public sealed class DriverConfigurationTests
 		if (failure == "readonly")
 			device.PropertyValues["cp.driverConfiguration:configurationItems"] = JsonSerializer.SerializeToElement (new[] { new { Id = "Secret", Value = new { ReadOnly = true } } });
 		var connection = new Connection (device, null);
-		Assert.CatchAsync<InvalidOperationException> (async () => await DriverConfiguration.ApplyAsync (new (connection), TARGET,
+		await Assert.CatchAsync<InvalidOperationException> (async () => await DriverConfiguration.ApplyAsync (new (connection), TARGET,
 			new Dictionary<string, string> { [failure == "unknown" ? "Unknown" : "Secret"] = "private-value" }, default));
 		Assert.That (connection.Submissions, Is.Zero);
 		}
 
 	[Test]
-	public void ValidationErrorsDoNotExposeSecretsOrReplayCommand ()
+	public async System.Threading.Tasks.Task ValidationErrorsDoNotExposeSecretsOrReplayCommand ()
 		{
 		var connection = new Connection (Device (false), JsonSerializer.SerializeToElement (new[] { new { ItemId = "Secret", ErrorMessage = "private-value" } }));
-		var exception = Assert.CatchAsync<InvalidOperationException> (async () => await DriverConfiguration.ApplyAsync (new (connection), TARGET,
+		var exception = await Assert.CatchAsync<InvalidOperationException> (async () => await DriverConfiguration.ApplyAsync (new (connection), TARGET,
 			new Dictionary<string, string> { ["Secret"] = "private-value" }, default));
 		Assert.That (exception!.ToString (), Does.Not.Contain ("private-value"));
 		Assert.That (connection.Submissions, Is.EqualTo (1));
@@ -156,10 +156,10 @@ public sealed class DriverConfigurationTests
 		}
 
 	[Test]
-	public void UnconfirmedConfigurationTimesOutWithoutRepeatingWrite ()
+	public async System.Threading.Tasks.Task UnconfirmedConfigurationTimesOutWithoutRepeatingWrite ()
 		{
 		var connection = new Connection (Device (false), null);
-		Assert.ThrowsAsync<TimeoutException> (async () => await DriverConfiguration.ConfigureAsync (new (connection), TARGET,
+		await Assert.ThrowsAsync<TimeoutException> (async () => await DriverConfiguration.ConfigureAsync (new (connection), TARGET,
 			new (new Dictionary<string, string> { ["Secret"] = "private-value" }, null), TimeSpan.FromMilliseconds (50)));
 		Assert.That (connection.Submissions, Is.EqualTo (1));
 		}

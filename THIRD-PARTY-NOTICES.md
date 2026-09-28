@@ -9,10 +9,11 @@ Original CrestronHomeDevTools code is copyright (c) 2026 Neil Colvin and distrib
 | MailKit | 4.18.0 | Optional submission SMTP sending | MIT; [license text](licenses/MailKit-LICENSE.txt) |
 | MimeKit | 4.18.0 | Submission MIME composition | MIT; [license text](licenses/MimeKit-LICENSE.txt) |
 | BouncyCastle.Cryptography | 2.7.0 | Transitive MimeKit cryptography dependency | MIT; [license text](licenses/BouncyCastle-LICENSE.txt) |
-| NUnit | 4.6.1 | Offline tests only | MIT |
+| NUnit | 5.0.0 | Owned offline tests and Android fixture sample | MIT |
+| NUnit.Analyzers | 4.15.0 | Test-source analysis only | MIT |
 | NUnit3TestAdapter | 6.3.0 | Visual Studio/VSTest discovery and execution of offline tests | MIT |
 | Microsoft.NET.Test.Sdk | 18.9.0 | Offline test infrastructure | MIT |
-| CrestronHomeNUnit.TestAdapter public workflow/client/Android/transport assemblies | 1.12.1 | Bundled automation worker's test coordination | MIT; [license text](licenses/CrestronHomeNUnit-LICENSE.txt) |
+| CrestronHomeNUnit.TestAdapter public workflow/client/Android/transport assemblies | 2.0.0 | Bundled automation worker's test coordination | MIT; [license text](licenses/CrestronHomeNUnit-LICENSE.txt) |
 | Common.Logging and Common.Logging.Core | 3.4.1 | Automation discovery dependency | Apache-2.0; [license text](licenses/Common.Logging-LICENSE.txt) |
 | Makaretu.Dns | 2.0.1 | Automation DNS models | MIT; [license text](licenses/Makaretu.Dns-LICENSE.txt) |
 | Makaretu.Dns.Multicast | 0.27.0 | Automation processor discovery | MIT; [license text](licenses/Makaretu.Dns.Multicast-LICENSE.txt) |

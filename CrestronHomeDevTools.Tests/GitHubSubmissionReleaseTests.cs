@@ -46,9 +46,9 @@ public sealed class GitHubSubmissionReleaseTests
   var result=await new GitHubSubmissionRelease(client).InspectAsync("example/driver",22,"Example_IP.pkg");
   Assert.That(result.Availability,Is.EqualTo(SubmissionReleaseAvailability.AwaitingPackage));Assert.That(result.ReasonCode,Is.EqualTo(reason));Assert.That(h.Requests.Count,Is.EqualTo(1));
  }
- [Test] public void MalformedDigestIsRejected()
+ [Test] public async System.Threading.Tasks.Task MalformedDigestIsRejected ()
  {
   using var h=new Handler(Release(digest:"sha256:invalid"));using var client=new HttpClient(h);
-  Assert.ThrowsAsync<InvalidDataException>(async()=>await new GitHubSubmissionRelease(client).InspectAsync("example/driver",22,"Example_IP.pkg"));
+		await Assert.ThrowsAsync<InvalidDataException>(async()=>await new GitHubSubmissionRelease(client).InspectAsync("example/driver",22,"Example_IP.pkg"));
  }
 }

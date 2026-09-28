@@ -36,6 +36,10 @@ public sealed record SubmissionAutomationSettings(int SchemaVersion, string Priv
  public SubmissionManagedDevicesPlan? ManagedDevices { get; init; }
  /// <summary>Resolve the endurance probe target from retained actual-driver deployment receipts before collection.</summary>
  public bool EnduranceFromDeployment { get; init; }
+ /// <summary>Additional installed-candidate tests after the main app fixture and before the initial evidence gate.</summary>
+ public InstalledDriverTestPlan? PreEnduranceTests { get; init; }
+ public bool PreEnduranceFromDeployment { get; init; }
+ public JsonElement? PreEnduranceFixtureSettings { get; init; }
  /// <summary>Optional functional checks after endurance, before review. Uses the installed candidate without redeployment.</summary>
  public InstalledDriverTestPlan? PostEnduranceTests { get; init; }
  /// <summary>Bind the post-endurance device and catalogue IDs to this workflow's verified actual deployment.</summary>

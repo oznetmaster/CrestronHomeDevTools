@@ -50,14 +50,14 @@ public sealed class SubmissionAutomationTests
   using var receipt=JsonDocument.Parse(File.ReadAllBytes(Path.Combine(context.RunDirectory,completed.Receipt!.RelativePath)));
   Assert.That(receipt.RootElement.GetProperty("Files").EnumerateArray().Any(f=>f.GetProperty("RelativePath").GetString()==AutomationAppFixture.FileName),Is.True);
   File.AppendAllText(fixture," ");
-  Assert.ThrowsAsync<InvalidDataException>(async()=>await adapter.RecoverAsync(context,default));
+		await Assert.ThrowsAsync<InvalidDataException>(async()=>await adapter.RecoverAsync(context,default));
   Assert.That(executions,Is.EqualTo(1));
  }
- [Test]public void DeploymentFixtureMutationCannotProduceAPassingReceipt() {
+ [Test]public async System.Threading.Tasks.Task DeploymentFixtureMutationCannotProduceAPassingReceipt () {
   settings=settings with{NUnit=settings.NUnit with{AndroidTests=new("unused","unused")},
    InstalledAppFixtureSettings=JsonSerializer.SerializeToElement(new{DeviceId=0})};
   var adapter=Stages(duringRun:()=>File.WriteAllText(Path.Combine(context.RunDirectory,AutomationAppFixture.FileName),"{}"));
-  Assert.ThrowsAsync<InvalidDataException>(async()=>await adapter.ExecuteAsync(context,default));
+		await Assert.ThrowsAsync<InvalidDataException>(async()=>await adapter.ExecuteAsync(context,default));
   Assert.That(File.Exists(Path.Combine(context.RunDirectory,"windows-tests.json")),Is.False);
  }
  [Test]public void FixtureInputsWithoutAnAppRouteAreRejected() {
@@ -116,10 +116,11 @@ public sealed class SubmissionAutomationTests
   var adapter=Stages();var windows=await adapter.ExecuteAsync(context,default);
   File.AppendAllText(Path.Combine(context.RunDirectory,"nunit","individual-results.xml"),"changed");
   context=context with{Checkpoint=context.Checkpoint with{Stage=SubmissionWorkflowStage.ProcessorTests,CompletedStages=new(){[SubmissionWorkflowStage.WindowsTests]=windows.Receipt!}}};
-  Assert.ThrowsAsync<InvalidDataException>(async()=>await adapter.ExecuteAsync(context,default));Assert.That(executions,Is.EqualTo(1));
+		await Assert.ThrowsAsync<InvalidDataException>(async()=>await adapter.ExecuteAsync(context,default));Assert.That(executions,Is.EqualTo(1));
  }
- [Test]public void DirtySourceCannotLaunchNUnit() {
-  File.AppendAllText(Path.Combine(source,"test.csproj"),"changed");Assert.ThrowsAsync<InvalidDataException>(async()=>await Stages().ExecuteAsync(context,default));Assert.That(executions,Is.Zero);
+ [Test]public async System.Threading.Tasks.Task DirtySourceCannotLaunchNUnit () {
+  File.AppendAllText(Path.Combine(source,"test.csproj"),"changed");
+		await Assert.ThrowsAsync<InvalidDataException>(async()=>await Stages().ExecuteAsync(context,default));Assert.That(executions,Is.Zero);
  }
  [Test]public async Task GeneratedDebugRevisionCanRecoverButFunctionalSourceChangesCannot() {
   string manifest=Path.Combine(source,"test.json");
@@ -131,7 +132,7 @@ public sealed class SubmissionAutomationTests
   File.WriteAllText(manifest,"{\"DriverVersion\":\"1.0.000.0001\",\"VersionDate\":\"generated\",\"Model\":\"fixture\"}");
   Assert.That((await adapter.RecoverAsync(context,default)).Status,Is.EqualTo(SubmissionWorkflowStatus.Completed));
   File.WriteAllText(manifest,"{\"DriverVersion\":\"1.0.001.0001\",\"VersionDate\":\"generated\",\"Model\":\"fixture\"}");
-  Assert.ThrowsAsync<InvalidDataException>(async()=>await adapter.RecoverAsync(context,default));Assert.That(executions,Is.EqualTo(1));
+		await Assert.ThrowsAsync<InvalidDataException>(async()=>await adapter.RecoverAsync(context,default));Assert.That(executions,Is.EqualTo(1));
  }
  [Test]public async Task MissingAppBindingIsExplicitAndNeverAPass() {
   context=context with{Checkpoint=context.Checkpoint with{Stage=SubmissionWorkflowStage.AppTests}};

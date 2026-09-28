@@ -50,18 +50,18 @@ public sealed class DriverNameChallengeTests
 	[TestCase ("unloaded")]
 	[TestCase ("unsupported")]
 	[TestCase ("duplicate")]
-	public void IneligibleOrAmbiguousTargetNeverRenames (string failure)
+	public async System.Threading.Tasks.Task IneligibleOrAmbiguousTargetNeverRenames (string failure)
 		{
 		_connection.Failure = failure;
-		Assert.ThrowsAsync<InvalidDataException> (async () => await Run ());
+		await Assert.ThrowsAsync<InvalidDataException> (async () => await Run ());
 		Assert.That (_connection.Names, Is.Empty);
 		}
 
 	[Test]
-	public void FailedUiAssertionRestoresNameAndPreservesOriginalFailure ()
+	public async Task FailedUiAssertionRestoresNameAndPreservesOriginalFailure ()
 		{
 		var expected = new InvalidOperationException ("UI mismatch");
-		var actual = Assert.ThrowsAsync<InvalidOperationException> (async () => await Run ((o, _) =>
+		var actual = await Assert.ThrowsAsync<InvalidOperationException> (async () => await Run ((o, _) =>
 			{ if (o.Phase == DriverNameChallengePhase.Challenge) throw expected; return Task.CompletedTask; }));
 		Assert.That (actual, Is.SameAs (expected));
 		Assert.That (_connection.Name, Is.EqualTo ("Original"));
@@ -69,10 +69,10 @@ public sealed class DriverNameChallengeTests
 		}
 
 	[Test]
-	public void CancelledUiAssertionUsesIndependentRestorationToken ()
+	public async System.Threading.Tasks.Task CancelledUiAssertionUsesIndependentRestorationToken ()
 		{
 		using var cancel = new CancellationTokenSource ();
-		Assert.ThrowsAsync<OperationCanceledException> (async () => await Run ((o, token) =>
+		await Assert.ThrowsAsync<OperationCanceledException> (async () => await Run ((o, token) =>
 			{
 			if (o.Phase == DriverNameChallengePhase.Challenge) { cancel.Cancel (); token.ThrowIfCancellationRequested (); }
 			if (o.Phase == DriverNameChallengePhase.Restored) Assert.That (token.IsCancellationRequested, Is.False);
@@ -82,19 +82,19 @@ public sealed class DriverNameChallengeTests
 		}
 
 	[Test]
-	public void LostReplyWithObservedChangedNameRestoresWithoutReplayingChallenge ()
+	public async System.Threading.Tasks.Task LostReplyWithObservedChangedNameRestoresWithoutReplayingChallenge ()
 		{
 		_connection.Failure = "lost-after-change";
-		Assert.ThrowsAsync<IOException> (async () => await Run ());
+		await Assert.ThrowsAsync<IOException> (async () => await Run ());
 		Assert.That (_connection.Names, Has.Count.EqualTo (2));
 		Assert.That (_connection.Name, Is.EqualTo ("Original"));
 		}
 
 	[Test]
-	public void UnobservedLostReplyRemainsUncertainAndIsNeverReplayed ()
+	public async System.Threading.Tasks.Task UnobservedLostReplyRemainsUncertainAndIsNeverReplayed ()
 		{
 		_connection.Failure = "lost-before-change";
-		Assert.ThrowsAsync<AggregateException> (async () => await Run ());
+		await Assert.ThrowsAsync<AggregateException> (async () => await Run ());
 		Assert.That (_connection.Names, Has.Count.EqualTo (1));
 		Assert.That (_observations, Has.Count.EqualTo (1));
 		using var result = JsonDocument.Parse (File.ReadAllText (Directory.GetFiles (_directory, "*-result.json").Single ()));
@@ -102,18 +102,18 @@ public sealed class DriverNameChallengeTests
 		}
 
 	[Test]
-	public void ExternalRenameIsNotOverwritten ()
+	public async System.Threading.Tasks.Task ExternalRenameIsNotOverwritten ()
 		{
-		Assert.ThrowsAsync<InvalidDataException> (async () => await Run ((o, _) =>
+		await Assert.ThrowsAsync<InvalidDataException> (async () => await Run ((o, _) =>
 			{ if (o.Phase == DriverNameChallengePhase.Challenge) _connection.Name = "External name"; return Task.CompletedTask; }));
 		Assert.That (_connection.Name, Is.EqualTo ("External name"));
 		Assert.That (_connection.Names, Has.Count.EqualTo (1));
 		}
 
 	[Test]
-	public void LostReservationPreventsAnyFurtherWrite ()
+	public async System.Threading.Tasks.Task LostReservationPreventsAnyFurtherWrite ()
 		{
-		Assert.ThrowsAsync<AggregateException> (async () => await Run ((o, _) =>
+		await Assert.ThrowsAsync<AggregateException> (async () => await Run ((o, _) =>
 			{ if (o.Phase == DriverNameChallengePhase.Challenge) _held = false; return Task.CompletedTask; }));
 		Assert.That (_connection.Names, Has.Count.EqualTo (1));
 		}

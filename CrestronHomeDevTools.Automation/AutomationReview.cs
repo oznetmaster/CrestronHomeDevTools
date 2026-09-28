@@ -80,7 +80,8 @@ internal static class AutomationReview
   var retained=producer.RootElement.GetProperty("Files").EnumerateArray().ToDictionary(x=>x.GetProperty("RelativePath").GetString()!.Replace('\\','/'),x=>x.GetProperty("Sha256").GetString()!,StringComparer.Ordinal);
   // Installed-app tests run after the Windows/processor producer has closed its
   // inventory. Accept their independent receipt only after that stage completed.
-  if(c.Checkpoint.CompletedStages.TryGetValue(SubmissionWorkflowStage.AppTests,out var app) && app.RelativePath=="installed-app-tests.json") {
+  if(c.Checkpoint.CompletedStages.TryGetValue(SubmissionWorkflowStage.AppTests,out var app) &&
+   app.RelativePath is "installed-app-tests.json" or AutomationInitialAdditionalTests.ReceiptName) {
    string receipt=Path.Combine(root,app.RelativePath);
    if(AutomationFiles.Hash(receipt)!=app.Sha256)throw new InvalidDataException("Completed app receipt changed.");
    AutomationInstalledApp.VerifyRetained(root);
@@ -92,6 +93,10 @@ internal static class AutomationReview
      throw new InvalidDataException("Producer evidence paths overlap.");
   }
   var sources=new List<SubmissionEvidenceFile>();
+  if(settings.PreEnduranceTests!=null)
+   foreach(var file in AutomationInitialAdditionalTests.RetainedFiles(c))
+    if(!retained.TryAdd(file.RelativePath,file.Sha256) && retained[file.RelativePath]!=file.Sha256)
+     throw new InvalidDataException("Additional initial evidence paths overlap.");
   if(settings.ResponseComparison!=null)sources.Add(AutomationResponseComparison.VerifyRetained(c));
   if(settings.Removal!=null)sources.Add(AutomationRemoval.VerifyRetained(c));
   if(settings.PostEnduranceTests!=null)
@@ -112,11 +117,13 @@ internal static class AutomationReview
   foreach(string relative in plan.ObservationSources) {
    if(!retained.TryGetValue(relative,out var hash) || !SubmissionEvidence.SafeEvidencePath(root,relative,out var path) || AutomationFiles.Hash(path)!=hash)
     throw new InvalidDataException("Observation source is not retained verified producer output.");
-   if(relative.StartsWith(AutomationPostEndurance.DirectoryName+"/",StringComparison.Ordinal)) {
+   string? phase=new[]{AutomationInitialAdditionalTests.DirectoryName,AutomationPostEndurance.DirectoryName}
+    .SingleOrDefault(name=>relative.StartsWith(name+"/",StringComparison.Ordinal));
+   if(phase!=null) {
     var document=AutomationFiles.Read<SubmissionEvidenceDocument>(path);
-    if(document.SchemaVersion!=1)throw new InvalidDataException("Unsupported post-endurance observation document.");
-    string rebased="review-inputs/post-endurance-"+sources.Count.ToString("D3",System.Globalization.CultureInfo.InvariantCulture)+".json";
-    WriteDocument(Path.Combine(root,rebased),new SubmissionEvidenceDocument(1,document.Observations.Select(o=>Rebase(o,AutomationPostEndurance.DirectoryName)).ToArray()));
+    if(document.SchemaVersion!=1)throw new InvalidDataException("Unsupported additional-test observation document.");
+    string rebased="review-inputs/"+phase+"-"+sources.Count.ToString("D3",System.Globalization.CultureInfo.InvariantCulture)+".json";
+    WriteDocument(Path.Combine(root,rebased),new SubmissionEvidenceDocument(1,document.Observations.Select(o=>Rebase(o,phase)).ToArray()));
     sources.Add(new(rebased,AutomationFiles.Hash(Path.Combine(root,rebased))));
    } else sources.Add(new(relative,hash));
   }
@@ -166,7 +173,7 @@ internal static class AutomationReview
   if(policy.SchemaVersion!=1 || gaps.Any(g=>!policy.Requirements.Any(r=>r.Id==g.RequirementId)))
    throw new InvalidDataException("Every planned gap must belong to the reviewed policy.");
  }
- private static SubmissionObservation Rebase(SubmissionObservation o,string root) {
+ internal static SubmissionObservation Rebase(SubmissionObservation o,string root) {
   string P(string path)=>root+"/"+path;
   var e=o.Execution;
   return o with { Files=o.Files.Select(f=>f with{RelativePath=P(f.RelativePath)}).ToArray(),Execution=e==null?null:e with {

@@ -107,7 +107,10 @@ public sealed class AutomationReleaseDiscoveryTests
   Assert.That(Expand(release with{ReleaseId=92},"next-release"),Is.Not.EqualTo(first));
   Assert.That(Expand(release with{ProfileSnapshotSha256=new('e',64)},"next-profile"),Is.Not.EqualTo(first));
  }
- [TestCase(true)][TestCase(false)]public void ManagedReferencesSurviveReleaseIntakeOnlyForReviewedAliases(bool known) {
+ [TestCase(true,"main")][TestCase(false,"main")]
+ [TestCase(true,"pre")][TestCase(false,"pre")]
+ [TestCase(true,"post")][TestCase(false,"post")]
+ public void ManagedReferencesSurviveReleaseIntakeOnlyForReviewedAliases(bool known,string phase) {
   WithProbeTemplate();
   var original=AutomationFiles.Read<SubmissionAutomationSettings>(profile.SettingsTemplate.Path);
   string input=Path.Combine(root,"probe-settings-template.json");
@@ -120,12 +123,15 @@ public sealed class AutomationReleaseDiscoveryTests
   var template=original with{NUnit=nunit,InstalledAppTests=app,EnduranceFromDeployment=true,EnduranceProbeSettingsTemplate=new(input,AutomationFiles.Hash(input)),
    ManagedDevices=new([new("sensor","physical-id","Demo Sensor","Model",1,[],["extension:doCommand"])]),
    InstalledAppFixtureSettings=JsonSerializer.SerializeToElement(new{Sensor=known?"${managed:sensor:deviceId}":"${managed:unknown:deviceId}"})};
+  if(phase=="pre")template=template with{PreEnduranceFixtureSettings=template.InstalledAppFixtureSettings,InstalledAppFixtureSettings=null};
+  if(phase=="post")template=template with{PostEnduranceFixtureSettings=template.InstalledAppFixtureSettings,InstalledAppFixtureSettings=null};
   File.WriteAllBytes(profile.SettingsTemplate.Path,JsonSerializer.SerializeToUtf8Bytes(template,AutomationFiles.Json));
   profile=profile with{SettingsTemplate=new(profile.SettingsTemplate.Path,AutomationFiles.Hash(profile.SettingsTemplate.Path))};
   string run=Path.Combine(root,"managed-run");
   if(!known){Assert.Throws<InvalidDataException>(()=>ExpandProbe(run));Assert.That(Directory.Exists(run),Is.False);return;}
   var expanded=ExpandProbe(run);
-  Assert.That(expanded.InstalledAppFixtureSettings!.Value.GetProperty("Sensor").GetString(),Is.EqualTo("${managed:sensor:deviceId}"));
+  var fixture=phase switch {"pre"=>expanded.PreEnduranceFixtureSettings,"post"=>expanded.PostEnduranceFixtureSettings,_=>expanded.InstalledAppFixtureSettings};
+  Assert.That(fixture!.Value.GetProperty("Sensor").GetString(),Is.EqualTo("${managed:sensor:deviceId}"));
   using var producer=JsonDocument.Parse(File.ReadAllBytes(expanded.Endurance!.Probe.SettingsFile!));
   Assert.That(producer.RootElement.GetProperty("Sensor").GetString(),Is.EqualTo("${managed:sensor:deviceId}"));
  }

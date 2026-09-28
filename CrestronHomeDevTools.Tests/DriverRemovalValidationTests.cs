@@ -66,48 +66,48 @@ public sealed class DriverRemovalValidationTests
     }
 
     [TestCase("ui")][TestCase("home")][TestCase("evidence")][TestCase("identity")][TestCase("changed")]
-    public void IncompletePreflightSendsNoRemoval(string reason)
+    public async System.Threading.Tasks.Task IncompletePreflightSendsNoRemoval (string reason)
     {
         if (reason == "ui") beforePass = false;
         if (reason == "home") home = false;
         if (reason == "evidence") evidence = false;
         if (reason == "identity") current = [Root with { Name = "Different" }, Child, Grandchild, Other];
         if (reason == "changed") inventory = i => i == 1 ? current : [Root, Child, Grandchild, Other with { LocationId = 30 }];
-        Assert.ThrowsAsync<InvalidDataException>(async () => await Run());
+		await Assert.ThrowsAsync<InvalidDataException>(async () => await Run());
         Assert.That(removes, Is.Zero); Assert.That(File.Exists(Path.Combine(folder, "removal-intent.json")), Is.False);
     }
 
     [Test]
-    public void UncertainRemovalCannotBeReplayed()
+    public async System.Threading.Tasks.Task UncertainRemovalCannotBeReplayed ()
     {
         throwOnRemove = true;
-        Assert.ThrowsAsync<IOException>(async () => await Run());
+		await Assert.ThrowsAsync<IOException>(async () => await Run());
         Assert.That(File.ReadAllText(Path.Combine(folder, "stopped.json")), Does.Contain("\"RemovalAttempted\":true"));
-        Assert.ThrowsAsync<InvalidOperationException>(async () => await Run());
+		await Assert.ThrowsAsync<InvalidOperationException>(async () => await Run());
         Assert.That(removes, Is.EqualTo(1));
     }
 
     [Test]
-    public void UnrelatedDeviceLossFailsEvenWhenTargetDisappears()
+    public async System.Threading.Tasks.Task UnrelatedDeviceLossFailsEvenWhenTargetDisappears ()
     {
         inventory = _ => removes == 0 ? current : [];
-        Assert.ThrowsAsync<InvalidDataException>(async () => await Run());
+		await Assert.ThrowsAsync<InvalidDataException>(async () => await Run());
         Assert.That(removes, Is.EqualTo(1));
     }
 
     [Test]
-    public void NewOrphanOfRemovedTreePreventsCompletion()
+    public async System.Threading.Tasks.Task NewOrphanOfRemovedTreePreventsCompletion ()
     {
         inventory = _ => removes == 0 ? current : [Other, new(103, 101, "Orphan", "Native", 10, null, null)];
-        Assert.CatchAsync<OperationCanceledException>(async () => await Run(TimeSpan.FromMilliseconds(700)));
+		await Assert.CatchAsync<OperationCanceledException>(async () => await Run(TimeSpan.FromMilliseconds(700)));
         Assert.That(removes, Is.EqualTo(1)); Assert.That(File.Exists(Path.Combine(folder, "result.json")), Is.False);
     }
 
     [Test]
-    public void InventoryIsCheckedAgainAfterUiObservation()
+    public async System.Threading.Tasks.Task InventoryIsCheckedAgainAfterUiObservation ()
     {
         afterUiAction = () => current = [Other with { LocationId = 40 }];
-        Assert.ThrowsAsync<InvalidDataException>(async () => await Run());
+		await Assert.ThrowsAsync<InvalidDataException>(async () => await Run());
         Assert.That(File.Exists(Path.Combine(folder, "final-inventory.json")), Is.True);
     }
 

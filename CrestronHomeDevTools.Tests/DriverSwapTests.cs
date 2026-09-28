@@ -35,24 +35,24 @@ public sealed class DriverSwapTests
 		}
 
 	[Test]
-	public void WrongDriverCannotAuthorizeReboot ()
+	public async System.Threading.Tasks.Task WrongDriverCannotAuthorizeReboot ()
 		{
 		var tracker = new DriverSwapTracker ();
 		tracker.Accept (Completed (driver: "other"));
-		Assert.ThrowsAsync<ProcessorApiException> (async () => await tracker.WaitAsync ("op", "driver", TimeSpan.FromSeconds (1), default));
+		await Assert.ThrowsAsync<ProcessorApiException> (async () => await tracker.WaitAsync ("op", "driver", TimeSpan.FromSeconds (1), default));
 		}
 
 	[Test]
-	public void OtherOperationCannotCompleteWait ()
+	public async System.Threading.Tasks.Task OtherOperationCannotCompleteWait ()
 		{
 		var tracker = new DriverSwapTracker ();
 		tracker.Accept (Completed (operation: "other"));
-		Assert.ThrowsAsync<TimeoutException> (async () => await tracker.WaitAsync ("op", "driver", TimeSpan.FromMilliseconds (30), default));
+		await Assert.ThrowsAsync<TimeoutException> (async () => await tracker.WaitAsync ("op", "driver", TimeSpan.FromMilliseconds (30), default));
 		}
 
 	[TestCase ("Succeeded")]
 	[TestCase ("Ended")]
-	public void GenericTerminalStatusDoesNotConfirmSwap (string status)
+	public async System.Threading.Tasks.Task GenericTerminalStatusDoesNotConfirmSwap (string status)
 		{
 		var tracker = new DriverSwapTracker ();
 		tracker.Accept (JsonSerializer.SerializeToElement (new
@@ -61,12 +61,12 @@ public sealed class DriverSwapTests
 			OperationId = "op",
 			LatestStatus = status
 			}));
-		Assert.ThrowsAsync<TimeoutException> (async () => await tracker.WaitAsync ("op", "driver", TimeSpan.FromMilliseconds (30), default));
+		await Assert.ThrowsAsync<TimeoutException> (async () => await tracker.WaitAsync ("op", "driver", TimeSpan.FromMilliseconds (30), default));
 		}
 
 	[TestCase ("cp.platformDriverController:swapDriverFailed")]
 	[TestCase ("cp.types:operationStatusChanged")]
-	public void FailureCannotBeOverwrittenByLaterCompletion (string eventType)
+	public async System.Threading.Tasks.Task FailureCannotBeOverwrittenByLaterCompletion (string eventType)
 		{
 		var tracker = new DriverSwapTracker ();
 		tracker.Accept (JsonSerializer.SerializeToElement (new
@@ -76,26 +76,26 @@ public sealed class DriverSwapTests
 			LatestStatus = "Failed"
 			}));
 		tracker.Accept (Completed ());
-		Assert.ThrowsAsync<ProcessorApiException> (async () => await tracker.WaitAsync ("op", "driver", TimeSpan.FromSeconds (1), default));
+		await Assert.ThrowsAsync<ProcessorApiException> (async () => await tracker.WaitAsync ("op", "driver", TimeSpan.FromSeconds (1), default));
 		}
 
 	[TestCase ("IsRebootRequired")]
 	[TestCase ("DeviceIdsRequiringReconfiguration")]
-	public void MissingCompletionFieldsCannotAuthorizeReboot (string field)
+	public async System.Threading.Tasks.Task MissingCompletionFieldsCannotAuthorizeReboot (string field)
 		{
 		var message = JsonSerializer.Deserialize<Dictionary<string, JsonElement>> (Completed ().GetRawText ())!;
 		message.Remove (field);
 		var tracker = new DriverSwapTracker ();
 		tracker.Accept (JsonSerializer.SerializeToElement (message));
-		Assert.ThrowsAsync<ProcessorApiException> (async () => await tracker.WaitAsync ("op", "driver", TimeSpan.FromSeconds (1), default));
+		await Assert.ThrowsAsync<ProcessorApiException> (async () => await tracker.WaitAsync ("op", "driver", TimeSpan.FromSeconds (1), default));
 		}
 
 	[Test]
-	public void LostConnectionEndsPendingWaitWithoutSuccess ()
+	public async System.Threading.Tasks.Task LostConnectionEndsPendingWaitWithoutSuccess ()
 		{
 		var tracker = new DriverSwapTracker ();
 		var wait = tracker.WaitAsync ("op", "driver", TimeSpan.FromSeconds (1), default);
 		tracker.Fail (new IOException ());
-		Assert.ThrowsAsync<IOException> (async () => await wait);
+		await Assert.ThrowsAsync<IOException> (async () => await wait);
 		}
 	}

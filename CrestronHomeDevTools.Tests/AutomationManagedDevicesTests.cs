@@ -37,16 +37,17 @@ public sealed class AutomationManagedDevicesTests
   Assert.That((await Advance()).Receipt,Is.EqualTo(result.Receipt));Assert.That(calls,Is.EqualTo(1));
   Assert.That(AutomationManagedDevices.VerifyRetained(context),Is.EqualTo(Bindings()));
   File.AppendAllText(Path.Combine(root,"managed-devices","operation","raw.json"),"tampered");
-  Assert.ThrowsAsync<InvalidDataException>(async()=>await Advance());Assert.That(calls,Is.EqualTo(1));
+		await Assert.ThrowsAsync<InvalidDataException>(async()=>await Advance());Assert.That(calls,Is.EqualTo(1));
  }
  [Test]public async Task UncertainCreationCannotBeRepeated() {
   Task<AutomationManagedDevices.Outcome> Crash(AutomationManagedDevices.Operation p,NetworkCredential c,string f,CancellationToken t) {calls++;throw new IOException("synthetic connection interruption");}
-  Assert.ThrowsAsync<IOException>(async()=>await Advance(Crash));
+
+		await Assert.ThrowsAsync<IOException>(async()=>await Advance(Crash));
   Assert.That((await Advance()).Status,Is.EqualTo(SubmissionWorkflowStatus.OutcomeUnknown));Assert.That(calls,Is.EqualTo(1));
  }
  [Test]public async Task ChangedPlanCannotRecoverAnEarlierAttempt() {
   await Advance();operation=operation with{Parent=operation.Parent with{DeviceId=99}};
-  Assert.ThrowsAsync<InvalidDataException>(async()=>await Advance());Assert.That(calls,Is.EqualTo(1));
+		await Assert.ThrowsAsync<InvalidDataException>(async()=>await Advance());Assert.That(calls,Is.EqualTo(1));
  }
  [TestCase(false,true,SubmissionWorkflowStatus.Failed)]
  [TestCase(true,false,SubmissionWorkflowStatus.OutcomeUnknown)]

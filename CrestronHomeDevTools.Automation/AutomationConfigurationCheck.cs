@@ -21,6 +21,12 @@ public static class SubmissionAutomationConfiguration
   if(settings.EnduranceFromDeployment && (settings.NUnit.ActualDriver==null || settings.NUnit.ReleaseCandidate==null || settings.EnduranceProbeSettingsTemplate==null))
    missing.Add("EnduranceFromDeployment requires NUnit.ActualDriver, NUnit.ReleaseCandidate and EnduranceProbeSettingsTemplate");
   if(settings.Review==null)missing.Add("Review");
+  if(settings.PreEnduranceTests!=null && (settings.InstalledAppTests==null || settings.Endurance==null || settings.Review==null))
+   missing.Add("PreEnduranceTests requires InstalledAppTests, Endurance and Review");
+  if(settings.PreEnduranceFixtureSettings!=null && settings.PreEnduranceTests==null)
+   missing.Add("PreEnduranceTests for PreEnduranceFixtureSettings");
+  if(settings.PreEnduranceFromDeployment && (settings.PreEnduranceTests==null || settings.NUnit.ActualDriver==null || settings.NUnit.ReleaseCandidate==null))
+   missing.Add("PreEnduranceTests and actual candidate deployment for PreEnduranceFromDeployment");
   if(settings.ResponseComparison!=null && (settings.PostEnduranceTests==null || settings.Endurance==null || settings.Review==null))
    missing.Add("ResponseComparison requires Endurance, PostEnduranceTests and Review");
   if(settings.PostEnduranceFixtureSettings!=null && settings.PostEnduranceTests==null)

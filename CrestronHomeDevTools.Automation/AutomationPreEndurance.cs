@@ -55,6 +55,10 @@ internal static class AutomationPreEndurance
     retained[relative]=file.Sha256;
    }
   }
+  if(settings.PreEnduranceTests!=null)
+   foreach(var file in AutomationInitialAdditionalTests.RetainedFiles(context))
+    if(!retained.TryAdd(file.RelativePath,file.Sha256) && retained[file.RelativePath]!=file.Sha256)
+     throw new InvalidDataException("Additional initial evidence paths overlap.");
   if(settings.ResponseComparison is {} comparison && comparison.Pairs.Any(p=>!retained.ContainsKey(p.Before)))
    return Missing("response-baseline-missing","Retain the configured initial response measurements before endurance.");
   var observations=new List<SubmissionObservation>();
@@ -68,7 +72,9 @@ internal static class AutomationPreEndurance
    var document=AutomationFiles.Read<SubmissionEvidenceDocument>(path);
    if(document.SchemaVersion!=1 || document.Observations.Count is <1 or >1024)
     throw new InvalidDataException("Invalid initial observation document.");
-   foreach(var observation in document.Observations) {
+   foreach(var raw in document.Observations) {
+    var observation=relative.StartsWith(AutomationInitialAdditionalTests.DirectoryName+"/",StringComparison.Ordinal)
+     ? AutomationReview.Rebase(raw,AutomationInitialAdditionalTests.DirectoryName) : raw;
     if(observation.Files.Any(f=>!retained.TryGetValue(f.RelativePath.Replace('\\','/'),out var pin) || pin!=f.Sha256))
      throw new InvalidDataException("Initial observation references evidence outside its completed producer inventory.");
     observations.Add(observation);

@@ -212,6 +212,38 @@ run without a pre-endurance gate receipt does not acquire proof of correct order
 by upgrading the tools. Do not reset it or claim it validated the corrected sequence.
 Validate the new gate in a fresh rehearsal after the complete plan is ready.
 
+### Additional initial fixture
+
+Source preview, pending the next packaged release: use `PreEnduranceTests` for a
+separate installed-driver fixture that must finish after the main app fixture and
+before endurance, for example an instrumented outage recorder. It uses the same
+processor and frozen candidate. Supply `PreEnduranceFixtureSettings` for its own
+inputs, or omit that property to reuse the main fixture settings. Managed-child
+selectors are resolved from the retained managed-device inventory.
+
+Set `PreEnduranceFromDeployment: true` when the workflow deploys the candidate.
+The worker resolves device and catalogue IDs from the verified deployment receipts
+while checking the expected target identity. Otherwise both initial plans must
+identify the same installed target. A separate fixture does not require changing
+or rebuilding the driver being submitted.
+
+Both fixtures belong to `AppTests`; its `initial-tests.json` completion receipt
+pins both evidence inventories. Additional output lives under `pre-endurance/`.
+List its observations in both `Review.PreEnduranceObservationSources` and final
+`Review.ObservationSources`, for example
+`pre-endurance/installed-app/AndroidUI/observations.json`. Paths inside that
+document are relative to the additional phase directory; the worker rebases them
+when checking and composing evidence. Android review retains each run's separate
+selection and result pins. Response comparisons may use measurements from either
+initial fixture.
+
+Failed tests or restoration prevent stage completion. Interrupted attempts are
+inspected without replaying either fixture. Passing the fixture does not waive
+the pre-endurance policy gate: missing or partial outage observations still block
+endurance. This configuration is a producer binding, not a hardware recorder;
+the fixture must gather trustworthy measurements for the
+[outage importer](OutageEvidence.md).
+
 ### Functional checks after endurance
 
 Configure `PostEnduranceTests` when the test plan requires controls or response

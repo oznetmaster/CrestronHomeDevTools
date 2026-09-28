@@ -21,6 +21,7 @@ Reviewed V1 removal can preserve other instances sharing the same driver code ac
 - [Managed-child validation lifecycle](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/ManagedChildValidation.md)
 - [Moving drivers between rooms](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/RoomMoves.md)
 - [Associating Android tiles with installed drivers](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/DriverUiBinding.md)
+- [Mac and iPhone UI testing: scope and integration status](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/AppleUiTesting.md)
 - [Deployment and tests](#deployment-and-tests)
 - [Submission preparation console](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/ConsoleTools.md) (no Python setup)
 - [Submission runbook](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/Runbook.md) (normal path, expected results and resuming work)

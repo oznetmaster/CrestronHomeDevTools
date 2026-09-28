@@ -50,11 +50,11 @@ public sealed class RebootTests
 		}
 
 	[Test]
-	public void CancellationDuringConfirmationSendsNothing ()
+	public async System.Threading.Tasks.Task CancellationDuringConfirmationSendsNothing ()
 		{
 		using var cancellation = new CancellationTokenSource ();
 		var session = new FakeSession ();
-		Assert.ThrowsAsync<OperationCanceledException> (async () => await Run (session, (_, _) =>
+		await Assert.ThrowsAsync<OperationCanceledException> (async () => await Run (session, (_, _) =>
 		{
 			cancellation.Cancel ();
 			return Task.FromResult (true);
@@ -63,25 +63,25 @@ public sealed class RebootTests
 		}
 
 	[Test]
-	public void ConfirmationFailureSendsNothing ()
+	public async System.Threading.Tasks.Task ConfirmationFailureSendsNothing ()
 		{
 		var session = new FakeSession ();
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await Run (session, (_, _) => throw new InvalidOperationException ()));
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await Run (session, (_, _) => throw new InvalidOperationException ()));
 		Assert.That (session.Commands, Is.Empty);
 		}
 
 	[Test]
-	public void MissingPromptDoesNotAskForConfirmationOrSend ()
+	public async System.Threading.Tasks.Task MissingPromptDoesNotAskForConfirmationOrSend ()
 		{
 		var session = new FakeSession { NoPrompt = true };
-		Assert.ThrowsAsync<TimeoutException> (async () => await Run (session, (_, _) => throw new AssertionException ("Unexpected confirmation")));
+		await Assert.ThrowsAsync<TimeoutException> (async () => await Run (session, (_, _) => throw new AssertionException ("Unexpected confirmation")));
 		Assert.That (session.Commands, Is.Empty);
 		}
 
 	[Test]
-	public void MissingPinFailsBeforeConnection ()
+	public async System.Threading.Tasks.Task MissingPinFailsBeforeConnection ()
 		{
-		Assert.ThrowsAsync<ArgumentException> (async () => await ProcessorReboot.RequestAsync (Target, new NetworkCredential (), "", (_, _) => Task.FromResult (true), TimeSpan.FromSeconds (1)));
+		await Assert.ThrowsAsync<ArgumentException> (async () => await ProcessorReboot.RequestAsync (Target, new NetworkCredential (), "", (_, _) => Task.FromResult (true), TimeSpan.FromSeconds (1)));
 		}
 
 	[TestCase ("REBOOT 192.0.2.1", true)]

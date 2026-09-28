@@ -54,20 +54,20 @@ public sealed class DriverRemovalAppObserverTests
     }
 
     [Test]
-    public void LostOwnershipSendsNoAppInput()
+    public async System.Threading.Tasks.Task LostOwnershipSendsNoAppInput ()
     {
         var adb = new FakeAdb();
         var observer = new DriverRemovalAppObserver(Plan, _ => throw new IOException("Owner lost"), adb);
-        Assert.ThrowsAsync<IOException>(async () => await observer.ObserveAsync(Tree, false, folder));
+		await Assert.ThrowsAsync<IOException>(async () => await observer.ObserveAsync(Tree, false, folder));
         Assert.That(adb.Inputs, Is.Zero);
     }
 
     [Test]
-    public void UncertainGestureIsNotRepeated()
+    public async System.Threading.Tasks.Task UncertainGestureIsNotRepeated ()
     {
         var adb = new FakeAdb { FailInput = true };
         var observer = new DriverRemovalAppObserver(Plan, _ => Task.CompletedTask, adb);
-        Assert.ThrowsAsync<IOException>(async () => await observer.ObserveAsync(Tree, false, folder));
+		await Assert.ThrowsAsync<IOException>(async () => await observer.ObserveAsync(Tree, false, folder));
         Assert.That(adb.Inputs, Is.EqualTo(1));
         Assert.That(File.Exists(Path.Combine(folder, "outcome.json")), Is.False);
     }

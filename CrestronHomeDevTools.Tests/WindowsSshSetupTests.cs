@@ -43,7 +43,7 @@ public sealed class WindowsSshSetupTests
 	public async Task InterruptedInstallationRequiresInspectionBeforeRetrying ()
 		{
 		var operations = new FakeOperations { FailInstall = true };
-		Assert.ThrowsAsync<IOException> (() => Apply (operations));
+		await Assert.ThrowsAsync<IOException> (() => Apply (operations));
 		Assert.That (JsonSerializer.Deserialize<WindowsSshSetupState> (File.ReadAllBytes (Path.Combine (_directory, "state.json")))!.State, Is.EqualTo ("Applying"));
 		operations.FailInstall = false;
 		Assert.That ((await Apply (operations)).State, Is.EqualTo ("InspectionRequired"));
@@ -52,16 +52,16 @@ public sealed class WindowsSshSetupTests
 		Assert.That (operations.Installs, Is.EqualTo (2));
 		}
 	[Test]
-	public void WrongMachineOrChangedPlanCannotInspectOrMutate ()
+	public async System.Threading.Tasks.Task WrongMachineOrChangedPlanCannotInspectOrMutate ()
 		{
 		var operations = new FakeOperations ();
 		string reviewed = WindowsSshSetup.Digest (_plan);
-		Assert.ThrowsAsync<InvalidOperationException> (() => WindowsSshSetup.ApplyCoreAsync (_plan with { RemoteAddress = "192.0.2.5" }, reviewed, _directory, operations, null, default));
+		await Assert.ThrowsAsync<InvalidOperationException> (() => WindowsSshSetup.ApplyCoreAsync (_plan with { RemoteAddress = "192.0.2.5" }, reviewed, _directory, operations, null, default));
 		var wrong = _plan with
 			{
 			MachineName = "other-computer"
 			};
-		Assert.ThrowsAsync<InvalidOperationException> (() => WindowsSshSetup.ApplyCoreAsync (wrong, WindowsSshSetup.Digest (wrong), _directory, operations, null, default));
+		await Assert.ThrowsAsync<InvalidOperationException> (() => WindowsSshSetup.ApplyCoreAsync (wrong, WindowsSshSetup.Digest (wrong), _directory, operations, null, default));
 		Assert.That (operations.Inspections + operations.Installs, Is.Zero);
 		}
 	[Test]

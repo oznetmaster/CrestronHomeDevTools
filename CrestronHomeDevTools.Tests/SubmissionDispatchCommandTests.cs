@@ -201,10 +201,10 @@ public sealed class SubmissionDispatchCommandTests
 		}
 	[TestCase (SubmissionDeliveryStep.Upload, 0)]
 	[TestCase (SubmissionDeliveryStep.Send, 1)]
-	public void RefusedRevalidationStopsThatExternalStep (SubmissionDeliveryStep denied, int uploads)
+	public async System.Threading.Tasks.Task RefusedRevalidationStopsThatExternalStep (SubmissionDeliveryStep denied, int uploads)
 		{
 		var transport = new Transport ();
-		Assert.ThrowsAsync<InvalidOperationException> (() => SubmissionDispatchCommand.DispatchAsync (_settings, transport,
+		await Assert.ThrowsAsync<InvalidOperationException> (() => SubmissionDispatchCommand.DispatchAsync (_settings, transport,
 			(step, _) => step == denied ? throw new InvalidOperationException ("Approval refused") :
 				Task.FromResult (new SubmissionDeliveryAuthorization (SubmissionDelivery.PlanDigest (_settings.Plan), DateTimeOffset.UtcNow.AddMinutes (1))), default));
 		Assert.That ((transport.Uploads, transport.Sends), Is.EqualTo ((uploads, 0)));

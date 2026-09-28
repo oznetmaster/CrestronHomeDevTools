@@ -34,13 +34,20 @@ public sealed class AutomationReviewTests
   context=new(root,new(1,new('d',64),release,SubmissionWorkflowStage.PrepareReview,SubmissionWorkflowStatus.Running,"operation",null,[],DateTimeOffset.UtcNow));executions=0;
  }
  [TearDown]public void Cleanup()=>Directory.Delete(root,true);
- [Test]public void PostEnduranceObservationsAreRebasedFromTheirVerifiedSeparateInventory() {
-  const string folder="post-endurance";
+ [TestCase("post-endurance")][TestCase("pre-endurance")]
+ public void AdditionalObservationsAreRebasedFromTheirVerifiedSeparateInventory(string folder) {
   Directory.CreateDirectory(P(folder+"/installed-app"));
   File.WriteAllText(P("endurance-result.json"),"synthetic completed endurance receipt");
   var endurance=new SubmissionWorkflowReceipt("endurance-result.json",Hash("endurance-result.json"));
   context.Checkpoint.CompletedStages[SubmissionWorkflowStage.Endurance]=endurance;
-  AutomationFiles.Write(P(folder+"/endurance-binding.json"),new{context.Checkpoint.InputSha256,Endurance=endurance});
+  if(folder=="post-endurance")AutomationFiles.Write(P(folder+"/endurance-binding.json"),new{context.Checkpoint.InputSha256,Endurance=endurance});
+  else {
+   Directory.CreateDirectory(P("installed-app"));
+   AutomationFiles.Write(P("installed-app-tests.json"),new{context.Checkpoint.InputSha256,Files=Array.Empty<SubmissionWorkflowReceipt>()});
+   var initial=new SubmissionWorkflowReceipt("installed-app-tests.json",Hash("installed-app-tests.json"));
+   AutomationFiles.Write(P(folder+"/initial-app-binding.json"),new{context.Checkpoint.InputSha256,AppTests=initial});
+   Write(folder+"/installed-app-intent.json",new{Synthetic=true});
+  }
   File.WriteAllText(P(folder+"/installed-app/trace.txt"),"synthetic post-endurance capture");
   var identity=new SubmissionEvidenceIdentity(settings.Release.PackageSha256,settings.Release.SourceCommit,Hash("policy.json"),Hash("template.pdf"));
   var now=DateTimeOffset.UtcNow.AddSeconds(-1);
@@ -49,6 +56,7 @@ public sealed class AutomationReviewTests
   AutomationFiles.Write(P(folder+"/installed-app-tests.json"),new{context.Checkpoint.InputSha256,Files=new[]{
    new SubmissionWorkflowReceipt(Path.Combine("installed-app","trace.txt"),Hash(folder+"/installed-app/trace.txt")),
    new(Path.Combine("installed-app","observations.json"),Hash(folder+"/installed-app/observations.json"))}.OrderBy(f=>f.RelativePath,StringComparer.Ordinal).ToArray()});
+  if(folder=="pre-endurance")context.Checkpoint.CompletedStages[SubmissionWorkflowStage.AppTests]=AutomationInitialAdditionalTests.Complete(context).Receipt!;
   // This composition test starts after the fake installed-app runner gate;
   // the plan is never executed here.
   settings=settings with{PostEnduranceTests=new(){Host=settings.NUnit.Host,
@@ -57,8 +65,9 @@ public sealed class AutomationReviewTests
    Target=new(2,-1,"Example","Model",1,"1.0.0.0","catalogue","Example","IP"),
    AndroidTests=new(P("unused.csproj"),P("unused-profile.json"))},
    Review=settings.Review! with{ObservationSources=[folder+"/installed-app/observations.json"]}};
+  if(folder=="pre-endurance")settings=settings with{PreEnduranceTests=settings.PostEnduranceTests,PostEnduranceTests=null};
   AutomationReview.PrepareInputs(context,settings,settings.Review!,default);
-  var rebased=AutomationFiles.Read<SubmissionEvidenceDocument>(Directory.GetFiles(P("review-inputs"),"post-endurance-*.json").Single());
+  var rebased=AutomationFiles.Read<SubmissionEvidenceDocument>(Directory.GetFiles(P("review-inputs"),folder+"-*.json").Single());
   Assert.That(rebased.Observations.Single().Files.Single().RelativePath,Is.EqualTo(folder+"/installed-app/trace.txt"));
   Assert.That(rebased.Observations.Single().Identity,Is.EqualTo(identity));
   File.AppendAllText(P(folder+"/installed-app/trace.txt"),"changed");
@@ -146,7 +155,7 @@ public sealed class AutomationReviewTests
   await AutomationReview.Advance(context,settings,false,default,Prepare);
   File.AppendAllText(P("review/self-test.review.pdf"),"changed");
   Assert.Throws<InvalidDataException>(()=>AutomationReview.VerifyRetained(root));
-  Assert.ThrowsAsync<InvalidDataException>(async()=>await AutomationReview.Advance(context,settings,true,default,Prepare));
+		await Assert.ThrowsAsync<InvalidDataException>(async()=>await AutomationReview.Advance(context,settings,true,default,Prepare));
  }
  [Test]public async Task ProcessFailureIsNotACompletedReview() {
   var result=await AutomationReview.Advance(context,settings,false,default,(_,_,_,_)=>Task.FromResult(2));

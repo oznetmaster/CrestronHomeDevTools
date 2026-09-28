@@ -36,7 +36,7 @@ public sealed class ManagedDeviceConfigurationTests
 	[TestCase ("version")]
 	[TestCase ("capability")]
 	[TestCase ("id")]
-	public void ChangedChildIsRejectedBeforeConfiguration (string change)
+	public async System.Threading.Tasks.Task ChangedChildIsRejectedBeforeConfiguration (string change)
 		{
 		var connection = new Connection (false);
 		connection.Device = change switch
@@ -48,23 +48,23 @@ public sealed class ManagedDeviceConfigurationTests
 			_ => connection.Device
 			};
 		if (change == "version") connection.Device.PropertyValues["cp.driverInformation:version"] = JsonSerializer.SerializeToElement ("2.0.0.1");
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await DriverConfiguration.BeginManagedDeviceAsync (new (connection), CHILD, 17));
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await DriverConfiguration.BeginManagedDeviceAsync (new (connection), CHILD, 17));
 		Assert.That (connection.Commands, Is.Zero);
 		}
 
 	[Test]
-	public void ExistingInstanceIsRejected ()
+	public async System.Threading.Tasks.Task ExistingInstanceIsRejected ()
 		{
 		var connection = new Connection (true);
-		Assert.ThrowsAsync<ArgumentException> (async () => await DriverConfiguration.BeginManagedDeviceAsync (new (connection), CHILD with { Action = "Existing" }, 17));
+		await Assert.ThrowsAsync<ArgumentException> (async () => await DriverConfiguration.BeginManagedDeviceAsync (new (connection), CHILD with { Action = "Existing" }, 17));
 		Assert.That (connection.Commands, Is.Zero);
 		}
 
 	[Test]
-	public void FailedEntryIsNeverAutomaticallyRepeated ()
+	public async System.Threading.Tasks.Task FailedEntryIsNeverAutomaticallyRepeated ()
 		{
 		var connection = new Connection (false) { Fail = true };
-		Assert.ThrowsAsync<IOException> (async () => await DriverConfiguration.BeginManagedDeviceAsync (new (connection), CHILD, 17));
+		await Assert.ThrowsAsync<IOException> (async () => await DriverConfiguration.BeginManagedDeviceAsync (new (connection), CHILD, 17));
 		Assert.That (connection.Commands, Is.EqualTo (1));
 		}
 

@@ -52,20 +52,20 @@ public sealed class ManagedDeviceValidationTests
 		}
 
 	[Test]
-	public void TestExceptionDoesNotGuessRestorationOrRemoveChildren ()
+	public async System.Threading.Tasks.Task TestExceptionDoesNotGuessRestorationOrRemoveChildren ()
 		{
 		var fake = new Scenario (Journal) { Fault = "test" };
-		Assert.ThrowsAsync<IOException> (async () => await Run (fake));
+		await Assert.ThrowsAsync<IOException> (async () => await Run (fake));
 		Assert.That (fake.Removals, Is.Zero);
 		Assert.That (File.Exists (Path.Combine (Journal, "stopped.json")), Is.True);
 		Assert.That (File.Exists (Path.Combine (Journal, "result.json")), Is.False);
 		}
 
 	[Test]
-	public void LostOwnershipPreventsCleanupEvenAfterReportedRestoration ()
+	public async System.Threading.Tasks.Task LostOwnershipPreventsCleanupEvenAfterReportedRestoration ()
 		{
 		var fake = new Scenario (Journal) { Fault = "ownership" };
-		Assert.ThrowsAsync<IOException> (async () => await Run (fake));
+		await Assert.ThrowsAsync<IOException> (async () => await Run (fake));
 		Assert.That (fake.Removals, Is.Zero);
 		}
 
@@ -80,58 +80,58 @@ public sealed class ManagedDeviceValidationTests
 		}
 
 	[Test]
-	public void PartialCommissioningKeepsCreatedBindingAndDoesNotRunTests ()
+	public async System.Threading.Tasks.Task PartialCommissioningKeepsCreatedBindingAndDoesNotRunTests ()
 		{
 		var fake = new Scenario (Journal) { Fault = "second" };
-		Assert.ThrowsAsync<IOException> (async () => await Run (fake));
+		await Assert.ThrowsAsync<IOException> (async () => await Run (fake));
 		Assert.That (File.Exists (Path.Combine (Journal, "binding-first.json")), Is.True);
 		Assert.That (fake.Events, Is.EqualTo (new[] { "create:first", "create:second" }));
-		Assert.ThrowsAsync<InvalidOperationException> (async () => await Run (fake));
+		await Assert.ThrowsAsync<InvalidOperationException> (async () => await Run (fake));
 		Assert.That (fake.Created, Is.EqualTo (2));
 		}
 
 	[Test]
-	public void DuplicateReturnedDeviceIdsAreNotGivenToTests ()
+	public async System.Threading.Tasks.Task DuplicateReturnedDeviceIdsAreNotGivenToTests ()
 		{
 		var fake = new Scenario (Journal) { Fault = "duplicate" };
-		Assert.ThrowsAsync<InvalidDataException> (async () => await Run (fake));
+		await Assert.ThrowsAsync<InvalidDataException> (async () => await Run (fake));
 		Assert.That (fake.Events, Is.EqualTo (new[] { "create:first", "create:second" }));
 		}
 
 	[Test]
-	public void CleanupFailureDoesNotRemoveAnotherChildOrClaimSuccess ()
+	public async System.Threading.Tasks.Task CleanupFailureDoesNotRemoveAnotherChildOrClaimSuccess ()
 		{
 		var fake = new Scenario (Journal) { Fault = "cleanup" };
-		Assert.ThrowsAsync<IOException> (async () => await Run (fake));
+		await Assert.ThrowsAsync<IOException> (async () => await Run (fake));
 		Assert.That (fake.Removals, Is.EqualTo (1));
 		Assert.That (File.Exists (Path.Combine (Journal, "result.json")), Is.False);
 		}
 
 	[Test]
-	public void CleanupIdentityMismatchIsNotAccepted ()
+	public async System.Threading.Tasks.Task CleanupIdentityMismatchIsNotAccepted ()
 		{
 		var fake = new Scenario (Journal) { Fault = "cleanup-id" };
-		Assert.ThrowsAsync<InvalidDataException> (async () => await Run (fake));
+		await Assert.ThrowsAsync<InvalidDataException> (async () => await Run (fake));
 		Assert.That (fake.Removals, Is.EqualTo (1));
 		}
 
 	[TestCase ("../escape")]
 	[TestCase ("FIRST")]
-	public void UnsafeOrDuplicateAliasesFailBeforeAnyOperation (string second)
+	public async System.Threading.Tasks.Task UnsafeOrDuplicateAliasesFailBeforeAnyOperation (string second)
 		{
 		var fake = new Scenario (Journal);
-		Assert.ThrowsAsync<ArgumentException> (async () => await Run (fake, [Target ("first"), Target (second)]));
+		await Assert.ThrowsAsync<ArgumentException> (async () => await Run (fake, [Target ("first"), Target (second)]));
 		Assert.That (fake.Events, Is.Empty);
 		Assert.That (Directory.Exists (Journal), Is.False);
 		}
 
 	[Test]
-	public void PreCancelledRunDoesNotCommissionChildren ()
+	public async System.Threading.Tasks.Task PreCancelledRunDoesNotCommissionChildren ()
 		{
 		var fake = new Scenario (Journal);
 		using var cancelled = new CancellationTokenSource ();
 		cancelled.Cancel ();
-		Assert.ThrowsAsync<OperationCanceledException> (async () => await ManagedDeviceValidation.RunCoreAsync ([Target ("first")], Journal,
+		await Assert.ThrowsAsync<OperationCanceledException> (async () => await ManagedDeviceValidation.RunCoreAsync ([Target ("first")], Journal,
 			fake.Verify, fake.Tests, fake.Commission, fake.Cleanup, cancelled.Token));
 		Assert.That (fake.Events, Is.Empty);
 		}

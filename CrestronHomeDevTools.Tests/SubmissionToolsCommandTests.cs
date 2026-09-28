@@ -40,21 +40,21 @@ public sealed class SubmissionToolsCommandTests
 		File.WriteAllText (Path.Combine (_root, "manifest.json"), "untrusted disk manifest");
 		await Verify ();
 		File.WriteAllText (Path.Combine (_root, "scripts", "entry.py"), "changed fixture");
-		Assert.ThrowsAsync<InvalidDataException> (() => Verify ());
+		await Assert.ThrowsAsync<InvalidDataException> (() => Verify ());
 		}
 
 	[Test]
-	public void UnlistedModuleIsRejectedBeforeInterpreterStarts ()
+	public async System.Threading.Tasks.Task UnlistedModuleIsRejectedBeforeInterpreterStarts ()
 		{
 		File.WriteAllText (Path.Combine (_root, "scripts", "json.py"), "unexpected shadow module");
-		Assert.ThrowsAsync<InvalidDataException> (() => Verify ());
+		await Assert.ThrowsAsync<InvalidDataException> (() => Verify ());
 		}
 
 	[Test]
-	public void MissingPinnedFileIsRejected ()
+	public async System.Threading.Tasks.Task MissingPinnedFileIsRejected ()
 		{
 		File.Delete (Path.Combine (_root, "scripts", "entry.py"));
-		Assert.CatchAsync<IOException> (() => Verify ());
+		await Assert.CatchAsync<IOException> (() => Verify ());
 		}
 
 	[TestCase ("../escape.py")]
@@ -66,24 +66,23 @@ public sealed class SubmissionToolsCommandTests
 	[TestCase ("scripts/entry.py.")]
 	[TestCase ("scripts/entry.py ")]
 	[TestCase ("scripts\\entry.py")]
-	public void UnsafeInventoryPathsAreRejected (string path)
+	public async System.Threading.Tasks.Task UnsafeInventoryPathsAreRejected (string path)
 		{
 		byte[] manifest = JsonSerializer.SerializeToUtf8Bytes (new
 			{
 			schemaVersion = 1, platform = "win-x64", files = new[] { new { path, sha256 = new string ('a', 64) } }
 			});
-		Assert.ThrowsAsync<InvalidDataException> (() => Verify (manifest));
+		await Assert.ThrowsAsync<InvalidDataException> (() => Verify (manifest));
 		}
 
 	[TestCase ("{}")]
 	[TestCase ("{\"schemaVersion\":1,\"platform\":\"win-x64\",\"files\":null}")]
 	[TestCase ("{\"schemaVersion\":1,\"platform\":\"win-x64\",\"files\":[null]}")]
 	[TestCase ("{\"schemaVersion\":1,\"platform\":\"win-x64\",\"files\":[{}]}")]
-	public void IncompleteInventoriesHaveActionableFailure (string json) =>
-		Assert.ThrowsAsync<InvalidDataException> (() => Verify (Encoding.UTF8.GetBytes (json)));
+	public async System.Threading.Tasks.Task IncompleteInventoriesHaveActionableFailure (string json) => await Assert.ThrowsAsync<InvalidDataException> (() => Verify (Encoding.UTF8.GetBytes (json)));
 
 	[Test]
-	public void CaseInsensitiveDuplicateIsRejected ()
+	public async System.Threading.Tasks.Task CaseInsensitiveDuplicateIsRejected ()
 		{
 		using var document = JsonDocument.Parse (_manifest);
 		var file = document.RootElement.GetProperty ("files")[0];
@@ -93,12 +92,11 @@ public sealed class SubmissionToolsCommandTests
 			schemaVersion = 1, platform = "win-x64",
 			files = new[] { new { path = "scripts/entry.py", sha256 = hash }, new { path = "SCRIPTS/ENTRY.PY", sha256 = hash } }
 			});
-		Assert.ThrowsAsync<InvalidDataException> (() => Verify (manifest));
+		await Assert.ThrowsAsync<InvalidDataException> (() => Verify (manifest));
 		}
 
 	[Test]
-	public void CancellationStopsVerification () =>
-		Assert.CatchAsync<OperationCanceledException> (() => Verify (token: new CancellationToken (canceled: true)));
+	public async System.Threading.Tasks.Task CancellationStopsVerification () => await Assert.CatchAsync<OperationCanceledException> (() => Verify (token: new CancellationToken (canceled: true)));
 
 	[Test]
 	public async Task SourceOnlyBuildReportsMissingRuntimeWithoutUnhandledException ()

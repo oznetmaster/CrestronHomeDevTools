@@ -59,9 +59,9 @@ public sealed class DevToolsPrivateStoreTransferTests
 		byte[] bytes = _source.ExportSelectedEntry ("mail", "mail");
 		try
 			{
-			Assert.ThrowsAsync<InvalidDataException> (() => _destination.ReceiveAsync ("other", new MemoryStream (bytes)));
+			await Assert.ThrowsAsync<InvalidDataException> (() => _destination.ReceiveAsync ("other", new MemoryStream (bytes)));
 			await _destination.ReceiveAsync ("mail", new MemoryStream (bytes));
-			Assert.ThrowsAsync<IOException> (() => _destination.ReceiveAsync ("mail", new MemoryStream (bytes)));
+			await Assert.ThrowsAsync<IOException> (() => _destination.ReceiveAsync ("mail", new MemoryStream (bytes)));
 			await _destination.ReceiveAsync ("mail", new MemoryStream (bytes), replace: true);
 			}
 		finally { CryptographicOperations.ZeroMemory (bytes); }

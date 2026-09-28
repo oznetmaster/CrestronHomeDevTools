@@ -58,10 +58,10 @@ public sealed class DriverPayloadInspectionTests
 		}
 
 	[Test]
-	public void IncorrectPackagePinIsRejectedBeforeRemoteAccess ()
+	public async System.Threading.Tasks.Task IncorrectPackagePinIsRejectedBeforeRemoteAccess ()
 		{
 		using var package = Package ();
-		Assert.ThrowsAsync<InvalidDataException> (() => DriverPayloadInspection.ReadPackageAsync (package, new string ('0', 64), default));
+		await Assert.ThrowsAsync<InvalidDataException> (() => DriverPayloadInspection.ReadPackageAsync (package, new string ('0', 64), default));
 		}
 
 	[TestCase ("chdriver.example.platform.ip.developer.1.002.0003.0000")]
@@ -83,7 +83,7 @@ public sealed class DriverPayloadInspectionTests
 		{
 		var expected = await Prepared ();
 		var source = new Source ();
-		Assert.ThrowsAsync<InvalidDataException> (() => DriverPayloadInspection.CompareCoreAsync (expected, catalogueId, source, default));
+		await Assert.ThrowsAsync<InvalidDataException> (() => DriverPayloadInspection.CompareCoreAsync (expected, catalogueId, source, default));
 		Assert.That (source.Opened, Is.Empty);
 		}
 
@@ -94,11 +94,10 @@ public sealed class DriverPayloadInspectionTests
 	[TestCase ("C:/file.txt")]
 	[TestCase ("Translations/EN-US.json")]
 	[TestCase ("Example.dll/child")]
-	public void UnsafeDuplicateOrCollidingCandidateEntryIsRejected (string path) =>
-		Assert.ThrowsAsync<InvalidDataException> (() => Prepared (zip => zip.CreateEntry (path)));
+	public async System.Threading.Tasks.Task UnsafeDuplicateOrCollidingCandidateEntryIsRejected (string path) => await Assert.ThrowsAsync<InvalidDataException> (() => Prepared (zip => zip.CreateEntry (path)));
 
 	[Test]
-	public void CandidateSymlinkIsRejected () => Assert.ThrowsAsync<InvalidDataException> (() =>
+	public async System.Threading.Tasks.Task CandidateSymlinkIsRejected () => await Assert.ThrowsAsync<InvalidDataException> (() =>
 		Prepared (zip => zip.CreateEntry ("link").ExternalAttributes = 0xA1FF << 16));
 
 	[TestCase ("changed")]
@@ -116,7 +115,8 @@ public sealed class DriverPayloadInspectionTests
 			case "extra": source.Files.Add ("unexpected.cfg", "private"u8.ToArray ()); break;
 			case "case": source.Files.Add ("Example.DLL", source.Files["Example.dll"]); source.Files.Remove ("Example.dll"); break;
 			}
-		Assert.ThrowsAsync<InvalidDataException> (() => DriverPayloadInspection.CompareCoreAsync (expected, KEY, source, default));
+
+		await Assert.ThrowsAsync<InvalidDataException> (() => DriverPayloadInspection.CompareCoreAsync (expected, KEY, source, default));
 		Assert.That (source.Opened, Does.Not.Contain (ROOT + "/unexpected.cfg"));
 		}
 
@@ -127,7 +127,7 @@ public sealed class DriverPayloadInspectionTests
 		{
 		var expected = await Prepared ();
 		var source = new Source { Link = level == 0 ? ROOT[..ROOT.LastIndexOf ('/')] : level == 1 ? ROOT : ROOT + "/Example.dll" };
-		Assert.ThrowsAsync<InvalidDataException> (() => DriverPayloadInspection.CompareCoreAsync (expected, KEY, source, default));
+		await Assert.ThrowsAsync<InvalidDataException> (() => DriverPayloadInspection.CompareCoreAsync (expected, KEY, source, default));
 		Assert.That (source.Opened, Is.Empty);
 		}
 
@@ -139,7 +139,7 @@ public sealed class DriverPayloadInspectionTests
 		{
 		var expected = await Prepared ();
 		var source = new Source ();
-		Assert.ThrowsAsync<ArgumentException> (() => DriverPayloadInspection.CompareCoreAsync (expected, id, source, default));
+		await Assert.ThrowsAsync<ArgumentException> (() => DriverPayloadInspection.CompareCoreAsync (expected, id, source, default));
 		Assert.That (source.Listed, Is.Empty);
 		}
 
@@ -149,7 +149,7 @@ public sealed class DriverPayloadInspectionTests
 		{
 		var expected = await Prepared ();
 		var source = new Source { AlterStream = grow ? [1, 2, 3] : [1] };
-		Assert.ThrowsAsync<InvalidDataException> (() => DriverPayloadInspection.CompareCoreAsync (expected, KEY, source, default));
+		await Assert.ThrowsAsync<InvalidDataException> (() => DriverPayloadInspection.CompareCoreAsync (expected, KEY, source, default));
 		}
 
 	[Test]
@@ -157,7 +157,7 @@ public sealed class DriverPayloadInspectionTests
 		{
 		var expected = await Prepared ();
 		var source = new Source ();
-		Assert.CatchAsync<OperationCanceledException> (() => DriverPayloadInspection.CompareCoreAsync (expected, KEY, source, new CancellationToken (true)));
+		await Assert.CatchAsync<OperationCanceledException> (() => DriverPayloadInspection.CompareCoreAsync (expected, KEY, source, new CancellationToken (true)));
 		Assert.That (source.Opened, Is.Empty);
 		}
 
