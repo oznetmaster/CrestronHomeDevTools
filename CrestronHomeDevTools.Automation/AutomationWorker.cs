@@ -93,8 +93,7 @@ internal static class AutomationWorker
   if(profilesPath!=null && role!=SubmissionAutomationWorkerRole.Evidence)throw new InvalidDataException("Only the evidence worker can discover releases.");
   if(profilesPath!=null && now>=nextDiscovery) {
    using var limit=CancellationTokenSource.CreateLinkedTokenSource(token);limit.CancelAfter(TimeSpan.FromMinutes(30));
-   using var http=new HttpClient();
-   var discovered=await (discover??(t=>AutomationReleaseDiscovery.Tick(profilesPath,registryPath,new GitHubSubmissionRelease(http),t)))(limit.Token);
+   var discovered=await (discover??(t=>AutomationReleaseDiscovery.Tick(profilesPath,registryPath,null,t)))(limit.Token);
    SaveStatus(Path.Combine(statusDirectory,"release-discovery"),discovered.Select(s=>new Status(s.Profile,s.ReleaseId??0,s.Mode,s.State,"ReleaseIntake",s.Reason)).ToArray());
    nextDiscovery=(observedUtc??DateTimeOffset.UtcNow).AddMinutes(15);
   }

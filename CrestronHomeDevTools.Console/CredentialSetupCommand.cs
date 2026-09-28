@@ -16,7 +16,7 @@ internal static class CredentialSetupCommand
 			output.WriteLine ("""
             credentials create [--store DIRECTORY] [--service-reader WINDOWS_SID]
               Create a private encrypted store. A service reader explicitly grants access to that account.
-            credentials configure --name NAME --kind Processor|Windows|Smtp|Uploader [--store DIRECTORY] [--replace true]
+            credentials configure --name NAME --kind Processor|Windows|Smtp|Uploader|GitHub [--store DIRECTORY] [--replace true]
               Prompt privately for a login and endpoint. No connection or email is made.
             credentials import --name NAME [--store DIRECTORY] [--replace true]
               Read one credential JSON object from protected stdin; never print it.
@@ -85,7 +85,7 @@ internal static class CredentialSetupCommand
 					string host = Prompt ("Endpoint hostname or IP"), user = Prompt ("Username");
 					error.Write ("Password: ");
 					string password = ProfileSetup.ReadPassword ();
-					int? port = kind is DevToolsCredentialPurpose.Smtp or DevToolsCredentialPurpose.Windows ? int.Parse (Prompt ("Port")) : null;
+					int? port = kind == DevToolsCredentialPurpose.GitHub ? 443 : kind is DevToolsCredentialPurpose.Smtp or DevToolsCredentialPurpose.Windows ? int.Parse (Prompt ("Port")) : null;
 					string? sender = kind == DevToolsCredentialPurpose.Smtp ? Prompt ("Approved sender email address") : null;
 					string? certificate = kind == DevToolsCredentialPurpose.Processor ? Prompt ("Verified certificate SHA-256") : null;
 					string? ssh = kind is DevToolsCredentialPurpose.Processor or DevToolsCredentialPurpose.Windows ? Prompt ("Verified SSH SHA-256 fingerprint") : null;

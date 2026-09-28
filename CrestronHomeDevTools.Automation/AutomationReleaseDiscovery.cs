@@ -10,12 +10,16 @@ namespace CrestronHomeDevTools.Automation;
 public sealed record SubmissionAutomationReleaseProfile(string Name,string Repository,DateTimeOffset NotBeforeUtc,
  string PrivateRoot,string PackageNameTemplate,SubmissionAutomationInput SettingsTemplate,
  SubmissionAutomationInput ToolingManifest,SubmissionAutomationMode Mode=SubmissionAutomationMode.Rehearsal,bool AllowPrerelease=false);
-public sealed record SubmissionAutomationReleaseProfiles(int SchemaVersion,SubmissionAutomationReleaseProfile[] Profiles);
+public sealed record SubmissionAutomationReleaseProfiles(int SchemaVersion,SubmissionAutomationReleaseProfile[] Profiles)
+{
+ /// <summary>Optional absolute named credential bindings, provisioned for this evidence worker. No token is stored here.</summary>
+ public string? CredentialBindings { get; init; }
+}
 
 internal static class AutomationReleaseDiscovery
 {
  internal sealed record Status(string Profile,long? ReleaseId,string State,string Reason,SubmissionAutomationMode Mode);
- internal static async Task<Status[]> Tick(string profilesPath,string registryPath,GitHubSubmissionRelease github,CancellationToken token,
+ internal static async Task<Status[]> Tick(string profilesPath,string registryPath,GitHubSubmissionRelease? github,CancellationToken token,
   Func<string,string,string,CancellationToken,Task>? checkout=null)
  {
   var profiles=AutomationFiles.Read<SubmissionAutomationReleaseProfiles>(profilesPath);
@@ -26,7 +30,9 @@ internal static class AutomationReleaseDiscovery
    bool validProfile=false;
    try {
     Validate(p);validProfile=true;Verify(p.SettingsTemplate);Verify(p.ToolingManifest);
-    var releases=await github.ListPublishedAsync(p.Repository,p.NotBeforeUtc,p.AllowPrerelease,token);
+    using var owned=github==null?CreateClient(profiles):null;
+    var selected=github??new GitHubSubmissionRelease(owned!);
+    var releases=await selected.ListPublishedAsync(p.Repository,p.NotBeforeUtc,p.AllowPrerelease,token);
     foreach(var published in releases) {
      token.ThrowIfCancellationRequested();
      var registry=AutomationFiles.Read<SubmissionAutomationRegistry>(registryPath);
@@ -45,7 +51,7 @@ internal static class AutomationReleaseDiscovery
      string profileHash=Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(profileBytes));
      string frozen=Path.Combine(profileDir,profileHash+".json");AutomationFiles.Write(frozen,p);
      var intake=await SubmissionReleaseIntake.PrepareAsync(new(1,p.Repository,published.ReleaseId,package,p.PrivateRoot,frozen,profileHash,
-      p.ToolingManifest.Path,p.ToolingManifest.Sha256,p.AllowPrerelease),github,token);
+      p.ToolingManifest.Path,p.ToolingManifest.Sha256,p.AllowPrerelease),selected,token);
      if(intake.Availability!=SubmissionReleaseAvailability.Ready) {statuses.Add(new(p.Name,published.ReleaseId,"Waiting",intake.ReasonCode,p.Mode));continue;}
      var release=intake.Checkpoint!.Release;string run=intake.RunDirectory!,source=Path.Combine(run,"source");
      using(var setupGate=new FileStream(Path.Combine(run,"registration.lock"),FileMode.OpenOrCreate,FileAccess.Write,FileShare.None)) {
@@ -75,6 +81,13 @@ internal static class AutomationReleaseDiscovery
    }
   }
   return statuses.ToArray();
+ }
+ internal static HttpClient CreateClient(SubmissionAutomationReleaseProfiles profiles, HttpMessageHandler? handler=null) {
+  var client=handler==null?new HttpClient():new HttpClient(handler);
+  try {
+   if(profiles.CredentialBindings!=null)DevToolsGitHubAuthentication.ApplyStoredCredential(client,profiles.CredentialBindings);
+   return client;
+  } catch {client.Dispose();throw;}
  }
  internal static SubmissionAutomationSettings Expand(SubmissionAutomationReleaseProfile p,SubmissionWorkflowRelease release,string run,string source,string version) {
   Verify(p.SettingsTemplate);

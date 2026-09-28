@@ -35,8 +35,8 @@ try
  if((role==SubmissionAutomationWorkerRole.Protected)!=(protection!=null))throw new InvalidDataException("Protected role requires its independently pinned installed configuration; evidence role cannot use it.");
  if(args is ["--intake-releases",var profiles,"--registry",var intakeRegistry]) {
   if(role!=SubmissionAutomationWorkerRole.Evidence)throw new InvalidDataException("Release intake belongs to the evidence worker.");
-  using var http=new HttpClient();using var limit=new CancellationTokenSource(TimeSpan.FromMinutes(30));
-  var result=await AutomationReleaseDiscovery.Tick(profiles,intakeRegistry,new GitHubSubmissionRelease(http),limit.Token);
+  using var limit=new CancellationTokenSource(TimeSpan.FromMinutes(30));
+  var result=await AutomationReleaseDiscovery.Tick(profiles,intakeRegistry,null,limit.Token);
   Console.WriteLine(JsonSerializer.Serialize(result,AutomationFiles.Json));
   return result.Any(r=>r.State=="AttentionRequired")?3:0;
  }

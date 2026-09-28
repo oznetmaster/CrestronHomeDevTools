@@ -139,6 +139,23 @@ Signature entries also remain available through `LoadSignature` for C# callers; 
 
 The complete `submission prepare-signed-review` stage accepts the same final `--credentials PRIVATE_BINDINGS` pair. Omit `signatureImage` from its settings when using the store. All review and authorization pins remain required, and the stage still revalidates evidence before signing. It rejects simultaneous stored-image and file-image sources.
 
+## Optional GitHub API access
+
+The current source adds a `GitHub` credential purpose and optional `GitHub` name in a bindings file. This is pending the next batched release after 1.20.0. Public-repository inspection still works without a token within GitHub's unauthenticated limits.
+
+Use `credentials configure --name release-api --kind GitHub --store C:\Private\Store` to collect the token privately. Enter `api.github.com` as the host, the account name as username, and the token at the password prompt; port 443 is assigned. The account label is not sent as HTTP authentication. Existing protected-stdin import and explicit service provisioning also support this purpose. Saving an entry grants no release, signature or delivery authority.
+
+```json
+{
+  "storeDirectory": "C:/Private/Store",
+  "gitHub": "release-api"
+}
+```
+
+Use that file with `submission-release-intake --settings PRIVATE_JSON --credentials C:/Private/github-bindings.json`. For unattended discovery, add `credentialBindings` with the same absolute path to the top-level release-profiles document, alongside `schemaVersion` and `profiles`. These files contain references only, never the token. The configured entry must match purpose `GitHub` and endpoint `api.github.com:443`; failures stop intake without prompting or falling back. Provision and verify it under the actual evidence-worker account. No environment variable is required. The setup form does not yet collect this optional GitHub binding.
+
+This authenticates GitHub API release inspection and asset download only. It does not configure Git credentials for source checkout, extend repository permissions, or establish private-repository support for the whole workflow. C# callers may use `DevToolsGitHubAuthentication.ApplyStoredCredential` with a dedicated API client they own; do not reuse that client for other services or log its headers.
+
 ## Inventory and workstation setup
 
 The public `DevToolsResourceInventory` API represents any number of processors and Windows computers with permitted roles, named credential references and capability evidence. A planned resource cannot be selected. Selecting among several matching resources requires a name. Inventory selection does not acquire an execution lease or authorize an operation.

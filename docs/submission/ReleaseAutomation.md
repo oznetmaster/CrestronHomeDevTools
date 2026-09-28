@@ -51,7 +51,7 @@ Build the console with .NET 10. Keep the following settings in an access-restric
 CrestronHomeDevTools.Console.exe submission-release-intake --settings C:/CI/Private/intake.json
 ```
 
-For authenticated access, the caller can supply a token on protected standard input with `--token-stdin true`. Never put the token in a command argument, driver repository or log. The current CLI has no named GitHub-token-store integration; that is a remaining setup integration task. C# callers can supply an authenticated `HttpClient` directly. No GitHub credential is required for public-repository inspection within GitHub's unauthenticated limits.
+For authenticated access, the current source supports `--credentials C:/CI/Private/github-bindings.json`, selecting a named encrypted GitHub entry provisioned for the executing Windows account. See [stored GitHub access](../PrivateInputs.md#optional-github-api-access). Alternatively supply a token on protected standard input with `--token-stdin true`; the two sources cannot be combined. Never put a token in a command argument, driver repository or log. C# callers can supply an authenticated `HttpClient` directly. Authentication remains optional for public-repository inspection within GitHub's unauthenticated limits. Stored access awaits the next batched release; it is not in 1.20.0.
 
 Exit codes: `0` means the candidate was retained and its checkpoint opened; `4` means waiting for the package/digest; `5` means an unselected release; `2` means an input/access/transfer problem requiring inspection. A successful intake is **not** a completed submission or passed test. Repeat the same settings to resume intake. Changed inputs under the same release ID are rejected rather than silently starting over. API metadata without an asset digest remains waiting; this preview does not support legacy assets lacking that digest.
 
@@ -76,7 +76,8 @@ Saved setup can prepare either a fresh Rehearsal profile or a Submit profile thr
 the form, CLI or public API; see [profile preparation](SetupApp.md#prepare-a-controller-profile).
 Submit preparation requires a submission-purpose snapshot and preserves explicit
 protected-stage references. It grants no signing/delivery authority and starts no
-worker. Named GitHub access and independent clean-machine/operator validation
-remain separate integration work.
+worker. Named GitHub API access is supported by the source CLI and release watcher;
+setup-form integration and independent clean-machine/operator validation remain
+separate work.
 
 Copyright (c) 2026 Neil Colvin. MIT licensed.
