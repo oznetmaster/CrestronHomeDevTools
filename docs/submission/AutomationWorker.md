@@ -234,6 +234,13 @@ Main-processor deployment and managed-child IDs cannot be reused. See
 [planned physical actions](OperatorSteps.md) for the source implementation and its
 remaining live-integration limits. This option is not in 1.21.0.
 
+For workflows with planned physical actions, provision the persistent operator
+listener described on that page once for the trusted registry and selected profiles.
+It discovers newly registered release inboxes automatically; a per-run installation
+by an AI is not part of normal intake. Confirm the operator's signed-in desktop and
+a synthetic prompt before scheduling physical fixtures. Manual acknowledgement is
+not a passing test and grants no signature or delivery authority.
+
 Both fixtures belong to `AppTests`; its `initial-tests.json` completion receipt
 pins both evidence inventories. Additional output lives under `pre-endurance/`.
 List its observations in both `Review.PreEnduranceObservationSources` and final

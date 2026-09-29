@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Add a persistent signed-in operator listener for explicitly selected trusted release profiles. It discovers each run's pinned inbox automatically, displays physical-action requests and stays quiet between releases. Include all operator installer/watcher scripts in the complete console bundle; live desktop deployment remains to be validated.
 - Route separate initial-processor authentication through explicit `PreEnduranceCredentialBindings`, including readiness validation. Main-processor credentials are never used as an implicit fallback for that host.
 
 - Reject mismatched worker and fixture operator inboxes before hardware access. Release intake expands a common run key and directory through all fixture phases; readiness checks report inconsistent templates without changing them.

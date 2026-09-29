@@ -16,6 +16,9 @@ $versionProperties = @()
 if ($Version) { $versionProperties += "-p:Version=$Version" }
 dotnet publish (Join-Path $root 'CrestronHomeDevTools.Console/CrestronHomeDevTools.Console.csproj') -c Release -r win-x64 --self-contained true -o $output -p:RuntimeFrameworkVersion=10.0.12 -p:DebugType=None -p:DebugSymbols=false "-p:SubmissionBundleDirectory=$bundle" @versionProperties
 if ($LASTEXITCODE -ne 0) { throw 'Console publish failed.' }
+foreach ($script in @('InstallSubmissionOperatorListener.ps1','InstallSubmissionOperatorInbox.ps1','WatchSubmissionOperatorInbox.ps1')) {
+    if (-not (Test-Path -LiteralPath (Join-Path $output "scripts/automation/$script") -PathType Leaf)) { throw "Missing operator deployment script: $script" }
+}
 # Ship the continuation worker with its own runtime/dependencies so installing the
 # complete archive does not require an SDK or a separate source build. Keep its
 # NUnit dependencies separate from the protected document console's dependencies.

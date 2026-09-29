@@ -8,6 +8,10 @@ internal static class Program
  private static void Main (string[] args)
  {
   ApplicationConfiguration.Initialize ();
+  if (args.Length == 4 && args[0] == "--operator-registry" && args[2] == "--profiles")
+  {
+   using var inbox = new OperatorInboxContext (args[1], args[3].Split(',')); Application.Run (inbox); return;
+  }
   if (args.Length == 4 && args[0] == "--operator-inbox" && args[2] == "--run-key")
   {
    using var inbox = new OperatorInboxContext (args[1], args[3]); Application.Run (inbox); Environment.ExitCode = inbox.Completed ? 0 : 4; return;
@@ -17,7 +21,7 @@ internal static class Program
    Application.Run (new OperatorWindow (new (args[1], args[3]))); return;
   }
   string directory = args.Length == 2 && args[0] == "--store" ? Path.GetFullPath (args[1]) : DevToolsPrivateStore.DefaultDirectory;
-  if (args.Length != 0 && !(args.Length == 2 && args[0] == "--store")) { MessageBox.Show ("Use --store DIRECTORY, --operator-request DIRECTORY --request-sha256 SHA256, --operator-inbox DIRECTORY --run-key RUNKEY, or launch without arguments."); return; }
+  if (args.Length != 0 && !(args.Length == 2 && args[0] == "--store")) { MessageBox.Show ("Use --store DIRECTORY, --operator-request DIRECTORY --request-sha256 SHA256, --operator-inbox DIRECTORY --run-key RUNKEY, --operator-registry FILE --profiles NAME[,NAME], or launch without arguments."); return; }
   Application.Run (new SetupWindow (directory));
  }
 }

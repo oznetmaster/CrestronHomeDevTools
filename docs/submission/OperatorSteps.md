@@ -55,6 +55,42 @@ the hardware-specific restoration or timing observations itself.
 
 ## Operator desktop
 
+For release-triggered workflows, install the persistent listener **once**, using
+the evidence worker's private registry and an explicit list of trusted profile names:
+
+```powershell
+./scripts/automation/InstallSubmissionOperatorListener.ps1 `
+  -Executable 'C:/Tools/DevTools/setup/CrestronHomeDevTools.Setup.exe' `
+  -Registry 'C:/PrivateSubmission/registry.json' -Profiles 'driver-rehearsal','driver-submit' `
+  -Name 'DriverActions'
+```
+
+Install it as the authorized operator account, in a signed-in Windows desktop.
+The named interactive task resumes at sign-in without storing a password. It runs
+the windowless setup executable directly, so no empty console appears. An active
+desktop session is a prerequisite; task registration alone does not prove the
+operator can see a prompt.
+
+Every ten seconds the listener reads registrations for the selected profiles,
+checks the frozen settings digest, release/mode and common inbox bindings, and
+discovers the actual expanded run key. New releases require no per-run listener
+installation or AI handoff. It stays quiet between releases, ignores inboxes not
+yet created and skips completed ones. Changed or unreadable records produce an
+attention notification and close stale action windows until verification succeeds.
+The registry, frozen settings and inbox paths must resolve on the operator host;
+this mode does not translate another host's drive paths. Do not expose that private
+registry publicly or give arbitrary users write access. Discovery neither reads
+saved credentials nor starts tests or advances a workflow.
+
+The task `CrestronSubmission-DriverActions-operator-listener` is intentionally
+persistent across releases. When retiring it, stop and unregister that exact task;
+retain the evidence. It does not accumulate a new task for each run. Only one
+listener should cover each set of profiles. Live task/desktop validation remains
+required before relying on this mode for unattended release intake.
+
+For a single already-known run, or a shared inbox mounted at a different local path,
+use the per-run mode instead:
+
 Run the setup application in the signed-in operator desktop session, using the
 same shared inbox (its local mount path may differ from the worker's):
 
@@ -70,7 +106,7 @@ again. An inaccessible inbox produces an attention notification rather than a
 fabricated response. This application requires an interactive Windows session;
 do not launch it as LocalService or in a noninteractive service desktop.
 
-`tools/InstallSubmissionOperatorInbox.ps1` installs an explicitly named task for
+`scripts/automation/InstallSubmissionOperatorInbox.ps1` (under `tools/` in source) installs an explicitly named task for
 the current signed-in account and exact run key. It starts the windowless inbox
 monitor and resumes it at sign-in; no password is stored. Install it on the
 operator's computer, not necessarily the evidence worker. Its 48-hour execution
