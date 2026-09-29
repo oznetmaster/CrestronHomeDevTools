@@ -1,5 +1,29 @@
 # Development history
 
+## 29 September 2026 - Mixed manual selection and finite worker closeout
+
+An actual app run passed twelve ordinary cases while omitting five selected
+explicit physical-action cases. Coverage correctly rejected it before endurance.
+The public NUnit 2.1.2 correction uses exact legacy selection with relaxed explicit
+handling; actual adapter regressions cover ordinary, explicit and mixed sets and
+prove unselected failing tests remain excluded. DevTools consumes that public package.
+
+Finite owner workers now archive and remove their exact scheduled task after
+terminal status validation. Fifteen offline guard cases passed. A synthetic
+Windows task verified real self-removal and retained receipt/definition. The first
+live probe exposed Task Scheduler shortening an account name; verification now
+compares SIDs and includes that case. Failed or superseded independent watchers
+still need explicit retirement and are not relabelled successful.
+
+Local full-suite validation exposed inline runsettings path escaping and native
+Windows long-path limits in the validation directory. The launcher now writes an
+XML settings file; validation uses a short native path. One subsequent local run
+passed 1,705 of 1,706 cases with a file-replacement access denial in a worker
+notification test. All 34 worker cases passed unchanged on isolated recheck;
+the cause of the access denial was not established. Release validation still
+requires a complete passing discovered suite. These results are not evidence of
+a complete hardware rehearsal.
+
 ## 27 September 2026 - Additive unsigned review selection
 
 Additional sensor hardware can arrive after the automated evidence run has

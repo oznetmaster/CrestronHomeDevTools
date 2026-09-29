@@ -36,7 +36,14 @@ $expected = @($tree.SelectNodes('//test-case') | ForEach-Object { $_.GetAttribut
 # than NUnit's shared default work directory. Retain every failing run separately.
 $working = Join-Path $results 'working'
 [IO.Directory]::CreateDirectory($working) | Out-Null
-& dotnet test $project -c $Configuration --no-build --logger 'trx;LogFileName=release.trx' --results-directory $results -- "NUnit.WorkDirectory=$working"
+# Use a file so VSTest's inline parser cannot preserve escaped backslashes.
+# Keep the native Windows path for tests which validate Windows-only inputs.
+$runSettings = Join-Path $results 'tests.runsettings'
+$xml = [Xml.XmlDocument]::new()
+$xml.LoadXml('<RunSettings><NUnit><WorkDirectory /></NUnit></RunSettings>')
+$xml.RunSettings.NUnit.SelectSingleNode('WorkDirectory').InnerText = $working
+$xml.Save($runSettings)
+& dotnet test $project -c $Configuration --no-build --settings $runSettings --logger 'trx;LogFileName=release.trx' --results-directory $results
 if ($LASTEXITCODE) { throw 'Tests failed.' }
 [xml]$trx = Get-Content (Join-Path $results 'release.trx') -Raw
 $definitions = @{}

@@ -18,6 +18,7 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+if ($ExitWhenFinished -and !$CurrentUser) { throw 'Automatic finite-task retirement requires CurrentUser. Keep service workers persistent and retire them under their installing account.' }
 if ($CurrentUser) {
     if ($PSBoundParameters.ContainsKey('Account')) { throw 'Choose CurrentUser or a service Account, not both.' }
 } elseif (-not ([Security.Principal.WindowsPrincipal]::new($identity)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
@@ -44,7 +45,20 @@ if ($ExitWhenFinished) { $arguments += ' --exit-when-finished' }
 if ($ReleaseProfiles) { $arguments += ' --release-profiles "{0}"' -f $ReleaseProfiles }
 if ($ProtectedWorker) { $arguments += ' --protected-worker "{0}" --protected-worker-sha256 {1}' -f $ProtectedWorker, $ProtectedWorkerSha256 }
 $arguments += ' --role {0}' -f $Role
-$action = New-ScheduledTaskAction -Execute $Executable -Argument $arguments -WorkingDirectory (Split-Path $Executable -Parent)
+if ($ExitWhenFinished) {
+    $wrapper = Join-Path $PSScriptRoot 'WatchSubmissionAutomationWorker.ps1'
+    if (!(Test-Path -LiteralPath $wrapper -PathType Leaf)) { throw 'The complete worker deployment bundle is required.' }
+    $launchPath = Join-Path $StatusDirectory 'worker-launch.json'
+    if (Test-Path -LiteralPath $launchPath) { throw 'Worker launch configuration exists; inspect it before reuse.' }
+    [ordered]@{SchemaVersion=1; TaskName=$taskName; UserId=$identity.Name; UserSid=$identity.User.Value; Executable=$Executable; Arguments=$arguments;
+        Registry=$Registry; RegistrySha256=(Get-FileHash -LiteralPath $Registry).Hash.ToLowerInvariant(); StatusDirectory=$StatusDirectory} |
+        ConvertTo-Json | Set-Content -LiteralPath $launchPath
+    $launchHash = (Get-FileHash -LiteralPath $launchPath).Hash.ToLowerInvariant()
+    $wrapperArguments = '-NoProfile -NonInteractive -WindowStyle Hidden -File "{0}" -Configuration "{1}" -ConfigurationSha256 {2}' -f $wrapper, $launchPath, $launchHash
+    $action = New-ScheduledTaskAction -Execute (Join-Path $PSHOME 'pwsh.exe') -Argument $wrapperArguments -WorkingDirectory (Split-Path $Executable -Parent)
+} else {
+    $action = New-ScheduledTaskAction -Execute $Executable -Argument $arguments -WorkingDirectory (Split-Path $Executable -Parent)
+}
 if ($CurrentUser) {
     # CurrentUser DPAPI and authenticated network shares need the owner's logon token.
     # S4U cannot provide either; never request or persist a password to work around it.

@@ -629,7 +629,7 @@ This only performs discovery, intake, source checkout and registration. The inst
 ## Execution and recovery
 
 For a worker dedicated to a fixed set of already registered runs, use installer
-`-ExitWhenFinished`, or append `--exit-when-finished` after the watcher's
+`-CurrentUser -ExitWhenFinished`, or append `--exit-when-finished` after the watcher's
 `--poll-seconds N` arguments (before protected-worker and role options). The
 process exits successfully after writing its terminal status when **every**
 registered submission has reached final retention or rehearsal has reached
@@ -639,14 +639,22 @@ remain persistent. Do not combine this option with `--release-profiles`: use
 one-time release intake for a finite worker, and keep continuous release
 discovery running when it must accept future publications.
 
-This releases the process and its worker lock; it does not delete evidence or
-unregister a scheduled task. The registration may start again at the next sign-in
-or boot and will recheck the retained terminal state before exiting. Retire the
-exact obsolete registration during closeout. A failed attempt superseded through
+The CLI option releases the process and its worker lock. The current-user
+installer additionally launches a hidden wrapper that verifies the unchanged
+registry, every terminal run identity and the exact task action and account,
+then archives its task definition and removes that scheduled registration.
+The retained `worker-task-closeout.json` confirms retirement; evidence is never
+deleted. Changed tasks, new registry entries, active worker locks and incomplete
+or failed status refuse cleanup. Automatic scheduled-task retirement is available
+for current-user workers; service workers remain persistent under their installing
+account. A failed attempt superseded through
 manual recovery cannot be inferred to have succeeded: preserve its failure and
 explicitly retire its old observer after verifying the replacement/delivery.
-This option does not retire an independent protected watcher or controller alert
-task. Those registrations must be included in closeout as well.
+This does not retire an independent protected watcher or controller alert task.
+Those registrations must be included in closeout as well. Continuous listeners
+intended for future releases must remain registered; remove only a listener
+dedicated to an obsolete attempt. A retained failure must never be rewritten as
+success merely to trigger cleanup.
 
 New endurance plans may opt into `Endurance.Plan.ContinueAfterInconclusiveObservation`
 in the updated source collector. Only a producer result explicitly classified as

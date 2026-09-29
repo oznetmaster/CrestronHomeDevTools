@@ -1,11 +1,5 @@
 # Changelog
 
-## Unreleased
-
-- Fixed-run workers can opt into `--exit-when-finished` (installer `-ExitWhenFinished`) to release their process and worker lock after all registered submissions reach final retention or rehearsals reach unsigned review. Continuous release-discovery workers stay running. Failures, unknown outcomes and pending approvals never trigger this exit. Existing scheduled registrations and evidence are preserved; retiring superseded failed attempts remains an explicit closeout operation.
-- Human-facing worker notifications, endurance email times and operator request/response times use readable dates and explicit time zones without fractional seconds. Machine-readable evidence keeps precise UTC timestamps unchanged.
-- Documented direct operator request/response delivery to a separate controlling computer through private shared storage, including startup validation, signed-in desktop requirements, stale-alert cleanup and the distinction between physical actions and worker failures. Normal execution must not require an AI relay.
-
 ## 1.22.2 - 2026-09-29
 
 Managed-child setup now handles a light becoming a native Crestron wrapper and load after initial configuration. Previously, setup could reject that successful transition because the wrapper no longer exposed generic configuration fields.

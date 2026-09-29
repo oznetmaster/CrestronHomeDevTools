@@ -16,6 +16,8 @@ try {
     & (Join-Path $PSHOME 'pwsh.exe') -NoProfile -File ./tools/endurance/Test-EnduranceHealthSnapshot.ps1 -ResultsDirectory artifacts/endurance-health-tests
     if ($LASTEXITCODE -ne 0) { throw 'Passive health snapshot checks failed.' }
     & ./tools/Test-DiscoveredCoverageGuards.ps1
+    & (Join-Path $PSHOME 'pwsh.exe') -NoProfile -File ./tools/Test-SubmissionWorkerCloseout.ps1 -ResultsDirectory artifacts/worker-closeout-tests
+    if ($LASTEXITCODE -ne 0) { throw 'Worker closeout checks failed.' }
     & ./tools/Test-DiscoveredCoverage.ps1 -Configuration Release -ResultsDirectory artifacts/tests
     dotnet pack CrestronHomeDevTools/CrestronHomeDevTools.csproj -c Release "-p:Version=$Version" -o $release
     if ($LASTEXITCODE -ne 0) { throw 'Library pack failed.' }
@@ -38,7 +40,7 @@ try {
                 if (@($zip.Entries | Where-Object FullName -CEQ $relative).Count -ne 1) { throw "Missing or duplicated document $relative in $($file.Name)." }
             }
             if ($file.Extension -eq '.zip') {
-                foreach ($name in @('setup/CrestronHomeDevTools.Setup.exe','automation/CrestronHomeDevTools.Automation.exe','scripts/automation/InstallSubmissionAutomationWorker.ps1','scripts/automation/InstallSubmissionAndroidFixture.ps1','scripts/automation/RunAndroidFixture.ps1')) {
+                foreach ($name in @('setup/CrestronHomeDevTools.Setup.exe','automation/CrestronHomeDevTools.Automation.exe','scripts/automation/InstallSubmissionAutomationWorker.ps1','scripts/automation/WatchSubmissionAutomationWorker.ps1','scripts/automation/InstallSubmissionAndroidFixture.ps1','scripts/automation/RunAndroidFixture.ps1')) {
                     if (@($zip.Entries | Where-Object FullName -CEQ $name).Count -ne 1) { throw "Missing automation component $name." }
                 }
                 foreach ($name in @('Set-EnduranceDirectoryPermissions.ps1','Invoke-EnduranceScheduledTick.ps1','New-EnduranceScheduleConfiguration.ps1','Register-EnduranceScheduledTask.ps1','Export-EnduranceScheduledRun.ps1','Get-EnduranceHealthSnapshot.ps1','New-EnduranceWatchConfiguration.ps1','Invoke-EnduranceScheduledWatch.ps1')) {
