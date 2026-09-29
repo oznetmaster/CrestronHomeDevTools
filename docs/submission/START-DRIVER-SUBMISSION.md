@@ -131,6 +131,37 @@ Before hardware tests, agree on a concrete scope of operations, targets and rest
 
 For GitHub execution, follow [workflow setup](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/WorkflowSetup.md). Configure the consuming developer's protected stages using public templates. Protect credentials and signing material from ordinary build jobs. Do not depend on the tools author's private CI repository. Distinguish a skipped stage from an executed, successful stage.
 
+### Complete permission setup before starting a run
+
+Collect the required operational authorizations together during setup, apply the
+approved provisioning, and verify access under each actual execution account
+before enabling release intake. Do not start a rehearsal expecting to request
+folder access, credential access, an interactive session permission or a new
+worker identity partway through. Reuse the recorded authorization for unchanged
+scope; creating a new run directory should use its provisioned parent permissions.
+
+Retain a setup receipt identifying the account, approved resources and successful
+access checks: source ownership and Git access; build/output/temporary directories;
+credential resolution for every selected processor; emulator and app permissions;
+operator listener; document tools; and any protected-stage storage required for
+the selected mode. Test creation, reading and removal of an owned temporary file
+in writable locations rather than merely inspecting ACL labels. Keep signing and
+delivery credentials isolated from the build account.
+
+A missing or denied permission is a setup failure: do not register a runnable
+release or reserve hardware until it is resolved. During execution, an access
+failure is an operational failure to retain and diagnose, not permission to widen
+access, switch accounts or silently restart. Planned physical test actions remain
+part of the test sequence; they are not new infrastructure permission requests.
+
+The current configuration-completeness check verifies bindings, not these live
+account permissions. Record the separate account-level checks honestly; a complete
+settings document alone does not establish unattended readiness. External execution
+policy may still reject an operation after user approval; report that restriction
+without repeated approval requests or attempts to bypass it. Exact-artifact
+signing and delivery authorization requirements remain separate from installation
+permissions.
+
 ## 2. Make the work resumable before running tests
 
 Create a private `SUBMISSION-STATE.md` and an evidence directory. Keep these current at every completed phase and before waiting. Record no secret values.

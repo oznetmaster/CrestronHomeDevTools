@@ -108,6 +108,17 @@ by that deployment. The runner retains import/activation receipts and passes the
 actual instance ID, candidate hash and source commit to the Android context.
 Do not obtain that ID by selecting the first similarly named device.
 
+From DevTools 1.22.1, `NUnit.ReleaseCandidate.ReuseVerifiedStoredPackage` can be
+explicitly enabled for a fresh installation when that exact release already
+exists in the processor's local catalogue. It defaults to false. NUnit verifies
+the stored package's SHA-256, manifest and catalogue identity, confirms no package
+model or alias is installed, and then performs normal activation and checks.
+Different bytes, a newer version, active instances or changing catalogue state
+fail the run. The receipt records verified storage reuse rather than a new import.
+This does not permit using an already loaded driver as proof of candidate identity
+or removing packages and rebooting to clear a version conflict. See
+[the public release-candidate contract](https://github.com/oznetmaster/CrestronHomeNUnit/blob/main/docs/ReleaseCandidateTesting.md).
+
 The WeatherLink sample now accepts this route. Use `DeviceId: 0` in
 `InstalledAppFixtureSettings` to bind it to the deployment context; an explicit
 positive ID instead requires that exact instance. Its observation source is
@@ -495,6 +506,17 @@ The examples below use source-checkout installer paths; in the archive substitut
 `scripts/automation/` for `tools/`.
 
 Provision the trusted executable, protected registry and service-writable status directory first. Use a dedicated evidence-worker identity that can build the chosen sources and access only its test credentials. Provision signing/delivery under a separate protected identity with its own credential store and approval directory. `--role` routes work; it is **not** a substitute for Windows permissions or isolation between these accounts. The protected worker must not execute driver source code.
+
+Complete operational permission approval and account-level access validation before
+installing a watcher with release intake enabled. Include every configured test
+processor, source checkout, build/output location, credential binding, app session
+and applicable protected-stage handoff. Verify inherited permissions on a newly
+created run directory under the actual worker account; permission to create a
+directory does not necessarily grant permission to write inside it. Preserve a
+setup receipt and reuse it while the account, resources and permissions remain
+unchanged. A worker must not depend on an assistant obtaining new infrastructure
+permissions between stages. The settings-completeness check does not perform
+these live access checks. See the [upfront permission setup requirements](START-DRIVER-SUBMISSION.md#complete-permission-setup-before-starting-a-run).
 
 Run the installer from administrator PowerShell 7.6 or later:
 

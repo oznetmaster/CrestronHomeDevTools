@@ -102,6 +102,20 @@ public sealed class AutomationReleaseDiscoveryTests
   Assert.That(data.RootElement.GetProperty("Package").GetString(),Is.EqualTo(Path.Combine(run,"candidate.pkg")));
   Assert.That(Directory.Exists(Path.Combine(run,"endurance-producer")),Is.False);
  }
+ [TestCase(true)][TestCase(false)]public void StoredPackageReuseChoiceSurvivesFrozenReleaseIntake(bool reuse) {
+  WithProbeTemplate();
+  var original=AutomationFiles.Read<SubmissionAutomationSettings>(profile.SettingsTemplate.Path);
+  var template=original with{NUnit=original.NUnit with{
+   ActualDriver=new("${source}/driver.csproj","${package}","Platform",1),
+   ReleaseCandidate=new("${packageSha256}",Guid.NewGuid().ToString(),"${version4}","${source}","${commit}"){
+    ReuseVerifiedStoredPackage=reuse}}};
+  File.WriteAllBytes(profile.SettingsTemplate.Path,JsonSerializer.SerializeToUtf8Bytes(template,AutomationFiles.Json));
+  profile=profile with{SettingsTemplate=new(profile.SettingsTemplate.Path,AutomationFiles.Hash(profile.SettingsTemplate.Path))};
+  var expanded=ExpandProbe(Path.Combine(root,"stored-release-run"));
+  Assert.That(expanded.NUnit.ReleaseCandidate!.ReuseVerifiedStoredPackage,Is.EqualTo(reuse));
+  Assert.That(expanded.NUnit.ReleaseCandidate.Sha256,Is.EqualTo(Sha));
+  Assert.That(expanded.NUnit.ReleaseCandidate.DriverVersion,Is.EqualTo("1.2.3.0"));
+ }
  [Test]public void ReservationIdentityChangesWithReleaseOrFrozenProfile() {
   WithProbeTemplate();
   var release=new SubmissionWorkflowRelease(profile.Repository,91,"v1.2.3",new('a',40),Sha,new('c',64),new('d',64));
