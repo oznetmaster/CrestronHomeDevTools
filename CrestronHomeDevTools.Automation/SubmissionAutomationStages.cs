@@ -58,6 +58,7 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
    runInstalledApp=installedApp??(async(p,c,r,t)=>{
     await AutomationDriverReadiness.Check(p.Host,p.CertificateSha256,c,new(p.Target.DeviceId,p.Target.Model,p.Target.Version,"Existing"),
      r+"-readiness",t);
+    await AutomationAndroidReadiness.Check(p.AndroidTests.ProfilePath,Path.Combine(r+"-readiness","android"),t);
     return await InstalledDriverTests.RunAsync(p,c,r,t);
    });
   }

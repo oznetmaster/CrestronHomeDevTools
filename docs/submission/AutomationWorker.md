@@ -646,6 +646,15 @@ then archives its task definition and removes that scheduled registration.
 The retained `worker-task-closeout.json` confirms retirement; evidence is never
 deleted. Changed tasks, new registry entries, active worker locks and incomplete
 or failed status refuse cleanup. Automatic scheduled-task retirement is available
+for Windows 10 or later. The finite wrapper places its worker in a Windows job
+at process creation, with descendants bound to the wrapper's lifetime. Stopping
+the scheduled task or forcibly terminating its launcher also terminates that
+worker tree; it does not leave a detached alert process. This is interruption,
+not success: retain the checkpoint, diagnostics and any recovery obligations.
+Do not stop a worker while it is restoring physical devices. The wrapper also
+closes the job on an ordinary exit before validating task retirement.
+
+Automatic scheduled-task retirement is available
 for current-user workers; service workers remain persistent under their installing
 account. A failed attempt superseded through
 manual recovery cannot be inferred to have succeeded: preserve its failure and

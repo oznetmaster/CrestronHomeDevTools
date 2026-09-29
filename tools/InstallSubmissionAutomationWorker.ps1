@@ -47,7 +47,7 @@ if ($ProtectedWorker) { $arguments += ' --protected-worker "{0}" --protected-wor
 $arguments += ' --role {0}' -f $Role
 if ($ExitWhenFinished) {
     $wrapper = Join-Path $PSScriptRoot 'WatchSubmissionAutomationWorker.ps1'
-    if (!(Test-Path -LiteralPath $wrapper -PathType Leaf)) { throw 'The complete worker deployment bundle is required.' }
+    if (!(Test-Path -LiteralPath $wrapper -PathType Leaf) -or !(Test-Path -LiteralPath (Join-Path $PSScriptRoot 'SubmissionWorkerProcess.cs') -PathType Leaf)) { throw 'The complete worker deployment bundle is required.' }
     $launchPath = Join-Path $StatusDirectory 'worker-launch.json'
     if (Test-Path -LiteralPath $launchPath) { throw 'Worker launch configuration exists; inspect it before reuse.' }
     [ordered]@{SchemaVersion=1; TaskName=$taskName; UserId=$identity.Name; UserSid=$identity.User.Value; Executable=$Executable; Arguments=$arguments;

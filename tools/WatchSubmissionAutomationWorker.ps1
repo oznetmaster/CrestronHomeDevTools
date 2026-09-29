@@ -53,8 +53,13 @@ if ($launch.SchemaVersion -ne 1 -or $launch.TaskName -cnotmatch '^CrestronSubmis
     !$launch.Arguments.Contains(' --exit-when-finished') -or $launch.Arguments.Contains('--release-profiles')) { throw 'Invalid finite owner-worker configuration.' }
 $arguments = '-NoProfile -NonInteractive -WindowStyle Hidden -File "{0}" -Configuration "{1}" -ConfigurationSha256 {2}' -f $PSCommandPath, $Configuration, $ConfigurationSha256
 try {
-    $process = Start-Process -FilePath $launch.Executable -ArgumentList $launch.Arguments -WorkingDirectory (Split-Path $launch.Executable -Parent) -WindowStyle Hidden -Wait -PassThru
-    if ($process.ExitCode -ne 0) { throw "Worker exited with code $($process.ExitCode); no automatic retirement." }
+    Add-Type -Path (Join-Path $PSScriptRoot 'SubmissionWorkerProcess.cs')
+    $worker = [CrestronHomeDevTools.WorkerHosting.SubmissionWorkerProcess]::new($launch.Executable, $launch.Arguments, (Split-Path $launch.Executable -Parent))
+    try {
+        $worker.Process.WaitForExit()
+        $exitCode = $worker.Process.ExitCode
+    } finally { $worker.Dispose() }
+    if ($exitCode -ne 0) { throw "Worker exited with code $exitCode; no automatic retirement." }
     Complete-SubmissionAutomationTask $launch $arguments (Join-Path $PSHOME 'pwsh.exe')
 } catch {
     [ordered]@{ObservedUtc=[DateTimeOffset]::UtcNow;TaskName=$launch.TaskName;Error=$_.Exception.Message;EvidencePreserved=$true} |

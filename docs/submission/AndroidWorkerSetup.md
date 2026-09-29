@@ -87,6 +87,16 @@ actual Windows restart without logging into its desktop, under the account that
 will run the tests. Give a cold boot time to finish before classifying it as a
 failure. A running Windows task or `sys.boot_completed=1` alone is insufficient.
 
+The submission worker also captures and retains the masked visible hierarchy
+immediately before its installed-driver Android test invocation, under the
+configured Android session lock. It requires the expected unobstructed Home or
+an explicitly allowed starting Home, and rejects Android crash/nonresponse
+dialogs even if Home is visible behind them. The capture and `readiness.json`
+are retained in the stage's readiness directory on pass or failure. This check
+sends no input and does not dismiss dialogs, select a different Home or retry
+the tests. It proves the starting screen only; it cannot guarantee that Android
+will remain responsive throughout the subsequent tests.
+
 Use the same private Android session-lock path for every job sharing an emulator.
 Keep each job's processor identity and expected Home explicit. Do not let a retry
 tap whichever Home or dialog happens to be visible. If the app requests initial

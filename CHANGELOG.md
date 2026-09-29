@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Bind finite worker processes and their descendants to their launcher at creation. Stopping the scheduled task or terminating the launcher now stops the owned process tree, preserving failure evidence instead of leaving a detached alert worker. Normal task retirement still requires validated terminal success or unsigned review; interrupted work is not marked successful.
+- Capture the masked Android screen before installed-driver app tests and require an unobstructed, configured starting Home. Retain the screen and readiness result when an Android crash dialog or unexpected page prevents testing. This check does not send input or automatically retry failed tests.
+- Package the worker lifetime helper and gate releases on real synthetic parent/child termination tests. An optional scheduled-task test exercises Windows Task Scheduler shutdown without involving a device.
+
 ## 1.22.3 - 2026-09-29
 
 This release corrects mixed automatic/manual test execution and adds finite worker closeout for fixed submission or rehearsal runs.

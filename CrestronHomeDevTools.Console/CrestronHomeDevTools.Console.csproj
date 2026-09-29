@@ -18,7 +18,7 @@
     <None Include="../tools/submission/CrestronSubmissionHelp.targets" Link="scripts/submission/CrestronSubmissionHelp.targets" CopyToPublishDirectory="PreserveNewest" />
     <None Include="../scripts/*.ps1" Link="scripts/%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" />
     <None Include="../scripts/endurance/*.ps1" Link="scripts/endurance/%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" />
-      <None Include="../tools/InstallSubmissionAutomationWorker.ps1;../tools/WatchSubmissionAutomationWorker.ps1;../tools/InstallSubmissionAndroidFixture.ps1;../tools/RunAndroidFixture.ps1" Link="scripts/automation/%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" />
+      <None Include="../tools/InstallSubmissionAutomationWorker.ps1;../tools/WatchSubmissionAutomationWorker.ps1;../tools/SubmissionWorkerProcess.cs;../tools/InstallSubmissionAndroidFixture.ps1;../tools/RunAndroidFixture.ps1" Link="scripts/automation/%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" />
     <None Include="../tools/InstallSubmissionOperatorListener.ps1;../tools/InstallSubmissionOperatorInbox.ps1;../tools/WatchSubmissionOperatorInbox.ps1" Link="scripts/automation/%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
