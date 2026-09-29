@@ -14,6 +14,10 @@ public static class SubmissionAutomationConfiguration
   try {AutomationOperatorBindings.Validate(settings,releaseTemplate);}
   catch(InvalidDataException e) {missing.Add(e.Message);}
   if(string.IsNullOrWhiteSpace(settings.CredentialBindings))missing.Add("CredentialBindings");
+  if(settings.PreEnduranceSeparateProcessor && (string.IsNullOrWhiteSpace(settings.PreEnduranceCredentialBindings) ||
+   !Path.IsPathFullyQualified(settings.PreEnduranceCredentialBindings)))missing.Add("PreEnduranceCredentialBindings for separate processor");
+  if(!settings.PreEnduranceSeparateProcessor && settings.PreEnduranceCredentialBindings!=null)
+   missing.Add("PreEnduranceSeparateProcessor for PreEnduranceCredentialBindings");
   if(settings.NUnit.LocalTests.Length==0)missing.Add("NUnit.LocalTests");
   if(settings.NUnit.ProcessorSuites.Length==0)missing.Add("NUnit.ProcessorSuites");
   if(settings.InstalledAppTests==null && (settings.NUnit.AndroidTests==null || settings.NUnit.ActualDriver==null || settings.NUnit.ReleaseCandidate==null))

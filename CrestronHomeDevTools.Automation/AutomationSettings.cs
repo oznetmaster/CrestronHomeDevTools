@@ -42,6 +42,8 @@ public sealed record SubmissionAutomationSettings(int SchemaVersion, string Priv
  /// <summary>Explicitly test an already installed identical candidate on a separate processor.
  /// Its host, trust pins and concrete device IDs come only from PreEnduranceTests; main-target deployment IDs are never reused.</summary>
  public bool PreEnduranceSeparateProcessor { get; init; }
+ /// <summary>Explicit saved-credential bindings for the separately selected processor; never falls back to main-target credentials.</summary>
+ public string? PreEnduranceCredentialBindings { get; init; }
  public JsonElement? PreEnduranceFixtureSettings { get; init; }
  /// <summary>Optional functional checks after endurance, before review. Uses the installed candidate without redeployment.</summary>
  public InstalledDriverTestPlan? PostEnduranceTests { get; init; }

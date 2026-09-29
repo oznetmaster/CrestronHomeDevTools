@@ -17,6 +17,8 @@ internal static class AutomationInitialAdditionalTests
 	internal static SubmissionAutomationSettings Settings (SubmissionAutomationSettings settings) => settings with
 		{
 		InstalledAppTests = settings.PreEnduranceTests ?? throw new InvalidDataException ("Additional initial tests are not configured."),
+		CredentialBindings = settings.PreEnduranceSeparateProcessor ? settings.PreEnduranceCredentialBindings
+			?? throw new InvalidDataException("Separate initial processor credentials are required.") : settings.CredentialBindings,
 		NUnit = settings.NUnit with
 			{
 			AndroidTests = null,
@@ -28,6 +30,8 @@ internal static class AutomationInitialAdditionalTests
 		};
 	internal static void Validate (SubmissionAutomationSettings settings)
 		{
+		if (!settings.PreEnduranceSeparateProcessor && settings.PreEnduranceCredentialBindings != null)
+			throw new InvalidDataException("Separate initial credential bindings require a separate processor phase.");
 		if (settings.PreEnduranceTests == null)
 			{
 			if (settings.PreEnduranceFromDeployment || settings.PreEnduranceSeparateProcessor || settings.PreEnduranceFixtureSettings != null)
@@ -40,6 +44,8 @@ internal static class AutomationInitialAdditionalTests
 			throw new InvalidDataException ("Deployment-bound initial tests require the actual candidate deployment.");
 		if (settings.PreEnduranceSeparateProcessor)
 			{
+			if (string.IsNullOrWhiteSpace(settings.PreEnduranceCredentialBindings) || !Path.IsPathFullyQualified(settings.PreEnduranceCredentialBindings))
+				throw new InvalidDataException("Separate initial processor requires explicit absolute credential bindings.");
 			if (settings.PreEnduranceFromDeployment || string.Equals(settings.PreEnduranceTests.Host,settings.NUnit.Host,StringComparison.OrdinalIgnoreCase) ||
 			 settings.PreEnduranceFixtureSettings == null || settings.PreEnduranceFixtureSettings.Value.GetRawText().Contains("${managed:",StringComparison.Ordinal))
 				throw new InvalidDataException("Separate-processor initial tests require a distinct host, explicit fixture inputs and concrete target IDs; main-processor deployment or managed-child bindings cannot be reused.");

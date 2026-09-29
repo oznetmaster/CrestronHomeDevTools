@@ -25,6 +25,7 @@ public sealed partial class AutomationInstalledAppTests
  private void ConfigureSeparateInitial() {
   ConfigureAdditionalInitial();
   settings=settings with {PreEnduranceSeparateProcessor=true,
+   PreEnduranceCredentialBindings=Path.Combine(root,"outage-credentials.json"),
    PreEnduranceTests=settings.PreEnduranceTests! with {Host="outage.example",CertificateSha256=new('9',64),SshFingerprint="outage-pin",
     Target=settings.PreEnduranceTests.Target with {DeviceId=244}},
    PreEnduranceFixtureSettings=JsonSerializer.SerializeToElement(new {DeviceId=244,Target="outage.example"})};
@@ -42,13 +43,14 @@ public sealed partial class AutomationInstalledAppTests
   Assert.That(plan.PackageSha256,Is.EqualTo(settings.Release.PackageSha256));
   AutomationInitialAdditionalTests.VerifyRetained(context);
  }
- [TestCase("same-host")][TestCase("deployment")][TestCase("managed")][TestCase("no-inputs")][TestCase("candidate")]
+ [TestCase("same-host")][TestCase("deployment")][TestCase("managed")][TestCase("no-inputs")][TestCase("candidate")][TestCase("credentials")]
  public async Task SeparateProcessorRejectsAmbiguousOrDifferentCandidateBeforeAnyExecution(string change) {
   ConfigureSeparateInitial();settings=change switch {
    "same-host"=>settings with {PreEnduranceTests=settings.PreEnduranceTests! with {Host=settings.NUnit.Host}},
    "deployment"=>settings with {PreEnduranceFromDeployment=true},
    "managed"=>settings with {PreEnduranceFixtureSettings=JsonSerializer.SerializeToElement(new {DeviceId="${managed:demo:deviceId}"})},
    "candidate"=>settings with {PreEnduranceTests=settings.PreEnduranceTests! with {PackageSha256=new('8',64)}},
+   "credentials"=>settings with {PreEnduranceCredentialBindings=null},
    _=>settings with {PreEnduranceFixtureSettings=null}};
   await Assert.ThrowsAsync<InvalidDataException>(async()=>await AdditionalController().ExecuteAsync(context,default));
   Assert.That(calls,Is.Zero);
@@ -59,6 +61,21 @@ public sealed partial class AutomationInstalledAppTests
   Assert.DoesNotThrow(()=>SubmissionAutomationStages.VerifyProcessorPins(settings,"outage.example",new('9',64),"outage-pin"));
   Assert.Throws<InvalidDataException>(()=>SubmissionAutomationStages.VerifyProcessorPins(settings,"outage.example",settings.NUnit.CertificateSha256,settings.NUnit.SshFingerprint));
   Assert.Throws<InvalidDataException>(()=>SubmissionAutomationStages.VerifyProcessorPins(settings,"undeclared.example",new('9',64),"outage-pin"));
+ }
+ [Test]
+ public void ProductionCredentialRoutingUsesOnlyTheDeclaredBindingForEachHost() {
+  ConfigureSeparateInitial();
+  Assert.That(SubmissionAutomationStages.ProcessorCredentialBindings(settings,settings.NUnit.Host),Is.EqualTo(settings.CredentialBindings));
+  Assert.That(SubmissionAutomationStages.ProcessorCredentialBindings(settings,"outage.example"),Is.EqualTo(settings.PreEnduranceCredentialBindings));
+  Assert.That(AutomationInitialAdditionalTests.Settings(settings).CredentialBindings,Is.EqualTo(settings.PreEnduranceCredentialBindings));
+  Assert.Throws<InvalidDataException>(()=>SubmissionAutomationStages.ProcessorCredentialBindings(settings,"undeclared.example"));
+  Assert.Throws<InvalidDataException>(()=>SubmissionAutomationStages.ProcessorCredentialBindings(settings with {PreEnduranceCredentialBindings=null},"outage.example"));
+ }
+ [Test]
+ public void StraySeparateCredentialsCannotChangeOrdinaryInitialPhase() {
+  ConfigureAdditionalInitial();settings=settings with {PreEnduranceCredentialBindings=Path.Combine(root,"outage.json")};
+  Assert.Throws<InvalidDataException>(()=>AutomationInitialAdditionalTests.Validate(settings));
+  Assert.That(SubmissionAutomationConfiguration.Check(settings with {Endurance=null}).MissingBindings,Does.Contain("PreEnduranceSeparateProcessor for PreEnduranceCredentialBindings"));
  }
 	private SubmissionAutomationStages AdditionalController (
 	 Func<InstalledDriverTestPlan, NetworkCredential, string, CancellationToken, Task<InstalledDriverTestResult>>? runner = null) =>

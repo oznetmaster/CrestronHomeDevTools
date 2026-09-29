@@ -27,10 +27,16 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
  public SubmissionAutomationStages(SubmissionAutomationSettings settings,string settingsSha256,SubmissionAutomationWorkerRole role=SubmissionAutomationWorkerRole.Evidence)
   :this(settings,settingsSha256,(p,c,r,t)=>WorkflowRunner.RunAsync(p,c,r,token:t),host=> {
    if(!OperatingSystem.IsWindows())throw new PlatformNotSupportedException();
-   var saved=DevToolsCredentialBindings.Read(settings.CredentialBindings).Resolve(DevToolsCredentialPurpose.Processor,host);
+   var saved=DevToolsCredentialBindings.Read(ProcessorCredentialBindings(settings,host)).Resolve(DevToolsCredentialPurpose.Processor,host);
    VerifyProcessorPins(settings,host,saved.CertificateSha256,saved.SshFingerprint);
    return new(saved.UserName,saved.Password);
   },role) { }
+ internal static string ProcessorCredentialBindings(SubmissionAutomationSettings settings,string host) {
+  if(host==settings.NUnit.Host)return settings.CredentialBindings;
+  if(settings.PreEnduranceSeparateProcessor && settings.PreEnduranceTests is {} additional && host==additional.Host &&
+   settings.PreEnduranceCredentialBindings is {} path && Path.IsPathFullyQualified(path))return path;
+  throw new InvalidDataException("Processor has no explicit workflow credential binding.");
+ }
  internal static void VerifyProcessorPins(SubmissionAutomationSettings settings,string host,string? certificate,string? ssh) {
   string expectedCertificate,expectedSsh;
   if(host==settings.NUnit.Host) {expectedCertificate=settings.NUnit.CertificateSha256;expectedSsh=settings.NUnit.SshFingerprint;}

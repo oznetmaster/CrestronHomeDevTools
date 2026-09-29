@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Route separate initial-processor authentication through explicit `PreEnduranceCredentialBindings`, including readiness validation. Main-processor credentials are never used as an implicit fallback for that host.
+
 - Reject mismatched worker and fixture operator inboxes before hardware access. Release intake expands a common run key and directory through all fixture phases; readiness checks report inconsistent templates without changing them.
 - Add a pinned, read-only default-program uptime reader with identity checks and bounded start times. Live MC4-R replies establish the unpadded millisecond format; offline coverage rejects stale and ambiguous replies. This is a program clock, not driver lifetime or proof of completed initialization. See [program uptime](docs/ProcessorProgramUptime.md).
 - Retain independently evidenced per-component restoration bounds alongside manual acknowledgements, so a delayed reply does not replace a measured boot/program clock. Invalid proof still prevents a pass and preserves restoration.

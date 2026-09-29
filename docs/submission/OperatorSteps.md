@@ -114,7 +114,12 @@ side effect; the matching candidate must already be installed there.
 
 Do not use `PreEnduranceFromDeployment` or main-target `${managed:...}` references
 with this option. They refer to the main processor and would select the wrong
-device IDs. Each processor requires its own matching credential binding. The
+device IDs. Set `PreEnduranceCredentialBindings` to the absolute private bindings
+file or encrypted setup snapshot for the separate processor. It must resolve that
+host and its reviewed trust pins; there is no fallback to the main processor's
+`CredentialBindings`. Give the separate fixture the matching binding reference
+as well if it authenticates independently. Only references are configured here;
+passwords remain in the encrypted store. The
 separate target plan and evidence remain in `pre-endurance`; they do not imply
 that the main/endurance processor was interrupted. Installation and fixture
 preparation for both targets remain explicit workflow prerequisites.
