@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <Version>1.22.3</Version>
+    <Version>1.22.4</Version>
     <CrestronHomeNUnitVersion Condition="'$(CrestronHomeNUnitVersion)' == ''">2.1.2</CrestronHomeNUnitVersion>
     <RepositoryUrl>https://github.com/oznetmaster/CrestronHomeDevTools</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
