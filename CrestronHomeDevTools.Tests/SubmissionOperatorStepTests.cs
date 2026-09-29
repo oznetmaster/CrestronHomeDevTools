@@ -137,4 +137,33 @@ public sealed class SubmissionOperatorStepTests
   Assert.That(SubmissionOperatorCommand.Run(["show","--request-directory",handle.Directory,"--request-sha256",handle.RequestSha256,key,value],output,error),Is.EqualTo(2));
  }
  private sealed class FixedClock(DateTimeOffset now):TimeProvider {public override DateTimeOffset GetUtcNow()=>now;}
+ [Test] public async Task OvernightReadinessSurvivesWorkerCancellationAndReopensSameRequest() {
+  var handle=SubmissionOperatorStep.Create(_root,new('a',64),"ready","Demo button","Wait for recording.",
+   Timeout.InfiniteTimeSpan,new FixedClock(DateTimeOffset.UtcNow.AddDays(-3)));
+  using var cancel=new CancellationTokenSource();cancel.Cancel();
+  await Assert.ThrowsAsync<OperationCanceledException>(async()=>await SubmissionOperatorStep.WaitAsync(handle,cancel.Token));
+  Assert.That(SubmissionOperatorStep.Read(handle).Waiting,Is.True);
+  Assert.That(SubmissionOperatorStep.Pending(_root,new('a',64)),Is.EqualTo(new[]{handle}));
+  Assert.That(SubmissionOperatorStep.GetOrCreateReadiness(_root,new('a',64),"ready","Demo button","Wait for recording."),Is.EqualTo(handle));
+  Assert.That(SubmissionOperatorStep.Read(handle).Request.IsExpired(DateTimeOffset.UtcNow.AddYears(10)),Is.False);
+  SubmissionOperatorStep.Respond(handle,SubmissionOperatorOutcome.Done);
+  Assert.That((await SubmissionOperatorStep.WaitAsync(handle)).Outcome,Is.EqualTo(SubmissionOperatorOutcome.Done));
+ }
+ [Test] public void CannotPerformRetainsReasonAndCannotBecomeReadinessOrPass() {
+  var handle=SubmissionOperatorStep.GetOrCreateReadiness(_root,new('a',64),"ready","Demo button","Wait.");
+  Assert.Throws<ArgumentException>(()=>SubmissionOperatorStep.Respond(handle,SubmissionOperatorOutcome.Unable));
+  var response=SubmissionOperatorStep.Respond(handle,SubmissionOperatorOutcome.Unable,"Device is not available until tomorrow.");
+  Assert.That(SubmissionOperatorStep.Read(handle).Response,Is.EqualTo(response));
+  Assert.That(response.Reason,Is.EqualTo("Device is not available until tomorrow."));
+  Assert.Throws<InvalidOperationException>(()=>SubmissionOperatorStep.Respond(handle,SubmissionOperatorOutcome.Done));
+  Assert.That(SubmissionOperatorStep.GetOrCreateReadiness(_root,new('a',64),"ready","Demo button","Wait."),Is.EqualTo(handle));
+  Assert.Throws<InvalidDataException>(()=>SubmissionOperatorStep.GetOrCreateReadiness(_root,new('a',64),"ready","Different device","Wait."));
+ }
+ [Test] public void PublicCliRetainsCannotPerformReason() {
+  var handle=SubmissionOperatorStep.GetOrCreateReadiness(_root,new('a',64),"ready","Demo button","Wait.");
+  using var output=new StringWriter();using var error=new StringWriter();
+  Assert.That(SubmissionOperatorCommand.Run(["respond","--request-directory",handle.Directory,"--request-sha256",handle.RequestSha256,
+   "--outcome","unable","--reason","Device is unavailable"],output,error),Is.Zero,error.ToString());
+  Assert.That(SubmissionOperatorStep.Read(handle).Response!.Reason,Is.EqualTo("Device is unavailable"));
+ }
 }

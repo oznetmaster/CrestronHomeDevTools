@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Added durable manual-test readiness checkpoints. A planned manual app-test step waits without a test host or processor/app lease until the operator is ready, including overnight and across worker restarts. Ordered steps must cover every selected test exactly once; a failed step pauses without prompting for the next action or replaying the failed attempt.
+- Readiness windows offer **I'm ready**, **Do this later**, and **Cannot perform this action**, with a required explanation for the latter. Reasons are retained with the exact request and test evidence. Physical action prompts remain bounded after recording is armed; acknowledgements and reasons never constitute a pass or N/A decision.
+- Physical prompts are centred and brought to the foreground. Instructions precede diagnostic identifiers. Existing frozen attempts retain their original request records and results.
+
+
 ## 1.22.3 - 2026-09-29
 
 This release corrects mixed automatic/manual test execution and adds finite worker closeout for fixed submission or rehearsal runs.

@@ -30,6 +30,7 @@ internal static class AutomationInstalledApp
  internal static void Validate(SubmissionAutomationSettings settings) {
   var plan=settings.InstalledAppTests??throw new InvalidDataException("Missing installed-app plan.");
   plan.Validate();
+  AutomationAppSteps.Validate(settings);
   AutomationAppFixture.Validate(settings);
   if(settings.NUnit.AndroidTests!=null || plan.Host!=settings.NUnit.Host ||
    plan.CertificateSha256!=settings.NUnit.CertificateSha256 || plan.SshFingerprint!=settings.NUnit.SshFingerprint ||
@@ -45,6 +46,8 @@ internal static class AutomationInstalledApp
   Func<string,NetworkCredential> credentials,CancellationToken token) {
   Validate(settings);
   if(string.IsNullOrWhiteSpace(context.Checkpoint.OperationId))throw new InvalidDataException("Missing app operation identity.");
+  if(settings.InstalledAppSteps!=null)
+   return await AutomationAppSteps.Advance(context,settings,run,credentials,token);
   var plan=settings.InstalledAppTests!;
   string intentPath=Path.Combine(context.RunDirectory,"installed-app-intent.json");
   string folder=Path.Combine(context.RunDirectory,"installed-app");
@@ -81,7 +84,7 @@ internal static class AutomationInstalledApp
   return AutomationFiles.Complete(context,"installed-app-tests.json",new Receipt(context.Checkpoint.InputSha256,Inventory(context.RunDirectory)));
  }
 
- private static SubmissionWorkflowReceipt[] Inventory(string root) {
+ internal static SubmissionWorkflowReceipt[] Inventory(string root) {
   string folder=Path.Combine(root,"installed-app");
   var entries=new List<FileSystemInfo>();var pending=new Stack<DirectoryInfo>();pending.Push(new(folder));
   string readiness=folder+"-readiness";

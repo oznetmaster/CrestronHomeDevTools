@@ -1,5 +1,66 @@
 # Planned physical actions
 
+## Durable readiness (next release)
+
+Do not start a timed hardware action merely because a worker reached it overnight.
+Declare ordered `InstalledAppSteps` in a new, frozen workflow plan. Each step lists
+exact `Tests`; their union must match `InstalledAppTests.AndroidTests.RequiredTests`
+exactly, without duplicates. Automated steps may group tests. Each manual step
+contains one test and explicit `OperatorInstructions` naming the hardware and
+expected action. Use `PreEnduranceAppSteps` and `PostEnduranceAppSteps` for those
+phases; processor selection remains in their existing parameterised plans.
+
+```json
+"InstalledAppSteps": [
+  { "Tests": ["Example.Tests.AutomatedCheck"] },
+  { "Tests": ["Example.Tests.ButtonSinglePress"],
+    "OperatorInstructions": "Prepare to press Demo Button once." },
+  { "Tests": ["Example.Tests.ButtonDoublePress"],
+    "OperatorInstructions": "Prepare to double-press Demo Button." }
+]
+```
+
+The worker records a readiness request and returns `Waiting` before acquiring
+test resources. It may be stopped and restarted while waiting: the same immutable
+request, response and step checkpoint are reused. No recorder, test host or
+processor/app lease is held during this wait. The release-triggered worker can
+therefore wait overnight without an AI session. Keep the ordinary worker and
+controller startup tasks enabled so they resume after reboot/sign-in.
+
+The controlling desktop offers:
+
+- **I'm ready**: lets the worker prepare the test. Do not operate hardware yet;
+  wait for the separate, exact action prompt after recording is armed.
+- **Do this later**: hides the readiness window without answering it. There is no
+  expiry. Reopen it using **Crestron submission actions → Show pending actions**
+  in the Windows notification area. Restarting the listener also rediscovers it.
+- **Cannot perform this action**: requires a reason and places the workflow in
+  `NeedsInput`. The explanation is retained in the shared response and the step's
+  `readiness-response.json`; it neither skips the test nor marks it N/A or passed.
+
+Once the fixture is armed, its action window has a bounded recording interval.
+An expiry, mismatch or failed restoration preserves the failed attempt and stops
+before the next step. There is no automatic retry. An interruption during an
+active test remains an uncertain operation requiring inspection; durable waiting
+does not imply that in-flight hardware tests can be resumed or replayed safely.
+
+Evidence for ordered steps resides in
+`installed-app/steps/NNN/installed-app/AndroidUI/`, with fixture settings in
+`installed-app/steps/NNN/app-fixture-settings.json`. Update the frozen review
+observation paths to match. Every completed step is hash-inventoried and verified
+before continuing, and the aggregate receipt retains all step and readiness
+records. Do not alter an existing frozen run to adopt this layout.
+
+The public `SubmissionOperatorStep.GetOrCreateReadiness` API exposes the same
+durable primitive for other workflow controllers. Cancelling its `WaitAsync`
+stops only the waiter; it leaves readiness pending. Timed action requests retain
+their existing terminal cancellation/expiry behaviour. CLI responses may include
+`--outcome unable --reason "Device unavailable"`. These records are private
+operational evidence; never include credentials or sensitive details in reasons.
+
+This section describes the new implementation, not a claim of a completed live
+rehearsal. Older unsegmented plans do not gain durable step boundaries automatically.
+
 Available in 1.22.0. The shared request protocol, concurrent observation, desktop
 inbox and CLI have offline coverage. A live desktop diagnostic verified two
 successive requests through one persistent listener and cleanup of its validation

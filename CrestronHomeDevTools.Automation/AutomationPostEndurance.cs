@@ -11,13 +11,14 @@ internal static class AutomationPostEndurance
  internal static SubmissionAutomationSettings Settings(SubmissionAutomationSettings settings) {
   if(settings.PostEnduranceTests==null)throw new InvalidDataException("Post-endurance tests are not configured.");
   return settings with{InstalledAppTests=settings.PostEnduranceTests,NUnit=settings.NUnit with{AndroidTests=null},
+   InstalledAppSteps=settings.PostEnduranceAppSteps,
    InstalledAppFixtureSettings=settings.PostEnduranceFixtureSettings??settings.InstalledAppFixtureSettings};
  }
  internal static void Validate(SubmissionAutomationSettings settings) {
   if(settings.PostEnduranceFromDeployment && (settings.PostEnduranceTests==null || settings.NUnit.ActualDriver==null || settings.NUnit.ReleaseCandidate==null))
    throw new InvalidDataException("Deployment-bound post-endurance checks require a test plan and an actual candidate deployment.");
   if(settings.PostEnduranceTests==null) {
-   if(settings.PostEnduranceFixtureSettings!=null)throw new InvalidDataException("Post-endurance fixture inputs require a test plan.");
+   if(settings.PostEnduranceFixtureSettings!=null || settings.PostEnduranceAppSteps!=null)throw new InvalidDataException("Post-endurance fixture inputs require a test plan.");
    return;
   }
   if(settings.Endurance==null)throw new InvalidDataException("Post-endurance tests require an endurance plan.");

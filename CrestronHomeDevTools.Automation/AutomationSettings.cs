@@ -11,6 +11,8 @@ namespace CrestronHomeDevTools.Automation;
 public enum SubmissionAutomationMode { Rehearsal, Submit }
 public enum SubmissionAutomationWorkerRole { Evidence, Protected }
 public sealed record SubmissionAutomationApprovalChannel(string DocumentPath,string PinPath);
+/// <summary>Ordered app-test groups. A manual group contains one exact selected test and a readiness instruction.</summary>
+public sealed record SubmissionAppTestStep(string[] Tests,string? OperatorInstructions=null);
 public sealed record SubmissionAutomationProtectedPlan(string CredentialBindings,
  SubmissionAutomationApprovalChannel SigningApproval,SubmissionAutomationApprovalChannel DeliveryApproval,
  SubmissionAutomationDeliverySettings? Delivery=null)
@@ -57,6 +59,10 @@ public sealed record SubmissionAutomationSettings(int SchemaVersion, string Priv
  public SubmissionAutomationResponseComparisonPlan? ResponseComparison { get; init; }
  /// <summary>Optional shared physical-action inbox. Closed only after unsigned review preparation succeeds.</summary>
  public SubmissionOperatorInbox? OperatorInbox { get; init; }
+ /// <summary>Durable boundaries between app tests. Manual steps wait without holding processor/app leases.</summary>
+ public SubmissionAppTestStep[]? InstalledAppSteps { get; init; }
+ public SubmissionAppTestStep[]? PreEnduranceAppSteps { get; init; }
+ public SubmissionAppTestStep[]? PostEnduranceAppSteps { get; init; }
 }
 
 internal static class AutomationFiles

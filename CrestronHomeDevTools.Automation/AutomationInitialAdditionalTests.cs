@@ -17,6 +17,7 @@ internal static class AutomationInitialAdditionalTests
 	internal static SubmissionAutomationSettings Settings (SubmissionAutomationSettings settings) => settings with
 		{
 		InstalledAppTests = settings.PreEnduranceTests ?? throw new InvalidDataException ("Additional initial tests are not configured."),
+		InstalledAppSteps = settings.PreEnduranceAppSteps,
 		CredentialBindings = settings.PreEnduranceSeparateProcessor ? settings.PreEnduranceCredentialBindings
 			?? throw new InvalidDataException("Separate initial processor credentials are required.") : settings.CredentialBindings,
 		NUnit = settings.NUnit with
@@ -34,7 +35,7 @@ internal static class AutomationInitialAdditionalTests
 			throw new InvalidDataException("Separate initial credential bindings require a separate processor phase.");
 		if (settings.PreEnduranceTests == null)
 			{
-			if (settings.PreEnduranceFromDeployment || settings.PreEnduranceSeparateProcessor || settings.PreEnduranceFixtureSettings != null)
+			if (settings.PreEnduranceFromDeployment || settings.PreEnduranceSeparateProcessor || settings.PreEnduranceFixtureSettings != null || settings.PreEnduranceAppSteps!=null)
 				throw new InvalidDataException ("Additional initial bindings require PreEnduranceTests.");
 			return;
 			}
@@ -92,7 +93,7 @@ internal static class AutomationInitialAdditionalTests
 		var resolved = settings.PreEnduranceSeparateProcessor ? Settings(settings) :
 		 AutomationPostEndurance.ResolveTarget (context, settings, Settings (settings), settings.PreEnduranceFromDeployment, beforeAppTests: true);
 		bool attempted = File.Exists (Path.Combine (folder, "installed-app-intent.json"));
-		if (prepared && !attempted)
+		if (prepared && !attempted && resolved.InstalledAppSteps==null)
 			return new (SubmissionWorkflowStatus.OutcomeUnknown, ReasonCode: "inspect-additional-initial-operation-and-leases");
 		if (attempted && !SubmissionEvidence.SafeEvidencePath (folder, "target-plan.json", out _))
 			throw new InvalidDataException ("Retained additional initial target plan is missing or unsafe.");
@@ -129,11 +130,17 @@ internal static class AutomationInitialAdditionalTests
 		if (receipt.InputSha256 != context.Checkpoint.InputSha256)
 			throw new InvalidDataException ("Additional initial results belong to another workflow.");
 		var files = receipt.Files.Select (f => new SubmissionWorkflowReceipt (DirectoryName + "/" + f.RelativePath.Replace ('\\', '/'), f.Sha256)).ToList ();
-		foreach (string name in new[] { "initial-app-binding.json", "installed-app-tests.json", "installed-app-intent.json" })
+		string[] provenance=File.Exists(Path.Combine(folder,"installed-app-intent.json"))
+			?["initial-app-binding.json","installed-app-tests.json","installed-app-intent.json"]
+			:["initial-app-binding.json","installed-app-tests.json","installed-app/steps-plan.json","installed-app/steps-binding.json"];
+		foreach (string name in provenance)
 			{
 			if (!SubmissionEvidence.SafeEvidencePath (folder, name, out var path))
 				throw new InvalidDataException ("Additional initial producer provenance is missing or unsafe.");
-			files.Add (new (DirectoryName + "/" + name, AutomationFiles.Hash (path)));
+			var item=new SubmissionWorkflowReceipt(DirectoryName+"/"+name,AutomationFiles.Hash(path));
+			var retained=files.SingleOrDefault(f=>f.RelativePath==item.RelativePath);
+			if(retained==null)files.Add(item);
+			else if(retained!=item)throw new InvalidDataException("Additional provenance digest differs from its retained inventory.");
 			}
 		return files.ToArray ();
 		}
