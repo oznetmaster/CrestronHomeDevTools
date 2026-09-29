@@ -105,6 +105,7 @@ internal static class AutomationWorker
  }
  internal static bool Finished(Status[] statuses)=>statuses.Length>0 && statuses.All(s=>
   s.State=="Completed" && s.Stage==nameof(SubmissionWorkflowStage.Retain) ||
+  s.State=="Failed" && Enum.TryParse<SubmissionWorkflowStage>(s.Stage,out var stage) && Enum.IsDefined(stage) && !string.IsNullOrWhiteSpace(s.Reason) ||
   s.Mode==SubmissionAutomationMode.Rehearsal && s.State=="NeedsInput" &&
   s.Stage==nameof(SubmissionWorkflowStage.SignReview) && s.Reason=="rehearsal-ready-for-review");
 
@@ -121,8 +122,10 @@ internal static class AutomationWorker
   while(!token.IsCancellationRequested) {
    nextDiscovery=await Cycle(registryPath,statusDirectory,role,nextDiscovery,token,profilesPath,protection,advance:advance);
    // Retain the terminal status and notification before releasing the worker lock.
-   // A failure, uncertain outcome, role handoff or ordinary approval wait is never completion.
-   if(exitWhenFinished && Finished(AutomationFiles.Read<Status[]>(Path.Combine(statusDirectory,"worker-status.json"))))return 0;
+   // Terminal failure ends execution without rewriting evidence as success.
+   // Uncertain outcomes, handoffs and ordinary input waits still need a worker.
+   var states=AutomationFiles.Read<Status[]>(Path.Combine(statusDirectory,"worker-status.json"));
+   if(exitWhenFinished && Finished(states))return states.Any(s=>s.State=="Failed")?2:0;
    await Task.Delay(interval,token);
   }
   return 0;

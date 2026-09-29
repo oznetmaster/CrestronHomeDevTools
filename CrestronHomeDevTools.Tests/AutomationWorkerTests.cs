@@ -124,7 +124,9 @@ public sealed class AutomationWorkerTests
  [TestCase(SubmissionAutomationMode.Rehearsal,"NeedsInput","AppTests","rehearsal-ready-for-review",false)]
  [TestCase(SubmissionAutomationMode.Submit,"Waiting","SignReview","worker-role-handoff",false)]
  [TestCase(SubmissionAutomationMode.Submit,"Waiting","SignReview","signing-authorization-required",false)]
- [TestCase(SubmissionAutomationMode.Rehearsal,"Failed","Endurance","probe-failed",false)]
+ [TestCase(SubmissionAutomationMode.Rehearsal,"Failed","Endurance","probe-failed",true)]
+ [TestCase(SubmissionAutomationMode.Rehearsal,"Failed",null,"probe-failed",false)]
+ [TestCase(SubmissionAutomationMode.Rehearsal,"Failed","Endurance",null,false)]
  [TestCase(SubmissionAutomationMode.Submit,"OutcomeUnknown","Deliver",null,false)]
  [TestCase(SubmissionAutomationMode.Rehearsal,"Busy",null,"workflow-in-use",false)]
  public void FiniteWorkerOnlyExitsAfterItsConfiguredEndpoint(SubmissionAutomationMode mode,string state,string? stage,string? reason,bool finished) {
@@ -153,5 +155,19 @@ public sealed class AutomationWorkerTests
   await Assert.ThrowsAsync<InvalidDataException>(async()=>await AutomationWorker.Watch(registry,root,SubmissionAutomationWorkerRole.Evidence,
    TimeSpan.FromSeconds(30),default,profilesPath:Path.Combine(root,"profiles.json"),exitWhenFinished:true));
   Assert.That(File.Exists(Path.Combine(root,"worker.lock")),Is.False);
+ }
+ [Test]public async Task FiniteFailureRetainsFailureAndNoticeThenExitsNonzeroWithoutAnotherPoll() {
+  using var timeout=new CancellationTokenSource(TimeSpan.FromSeconds(5));
+  int calls=0;
+  int code=await AutomationWorker.Watch(registry,root,SubmissionAutomationWorkerRole.Evidence,TimeSpan.FromMinutes(15),timeout.Token,
+   exitWhenFinished:true,advance:(_,_)=> {
+    calls++;return Task.FromResult(SubmissionWorkflow.Read(root,settings.Release) with {
+     Stage=SubmissionWorkflowStage.AppTests,Status=SubmissionWorkflowStatus.Failed,ReasonCode="synthetic-app-failure"});
+   });
+  Assert.That(code,Is.EqualTo(2));Assert.That(calls,Is.EqualTo(1));
+  var state=AutomationFiles.Read<AutomationWorker.Status[]>(Path.Combine(root,"worker-status.json")).Single();
+  Assert.That(state.State,Is.EqualTo("Failed"));Assert.That(state.Reason,Is.EqualTo("synthetic-app-failure"));
+  Assert.That(File.Exists(Path.Combine(root,"notifications","worker-history.jsonl")),Is.True);
+  using var released=new FileStream(Path.Combine(root,"worker.lock"),FileMode.Open,FileAccess.Write,FileShare.None);
  }
 }

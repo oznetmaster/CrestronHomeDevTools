@@ -633,8 +633,10 @@ For a worker dedicated to a fixed set of already registered runs, use installer
 `--poll-seconds N` arguments (before protected-worker and role options). The
 process exits successfully after writing its terminal status when **every**
 registered submission has reached final retention or rehearsal has reached
-unsigned review. An empty registry, a role handoff, a pending approval, a failure,
-or an uncertain outcome does not finish the worker. Existing default watchers
+unsigned review. If every run is terminal and at least one has a confirmed
+`Failed` checkpoint, it instead exits with code 2 after preserving that failure
+and its final notice. An empty registry, a role handoff, a pending approval,
+an active run or an uncertain outcome does not finish the worker. Existing default watchers
 remain persistent. Do not combine this option with `--release-profiles`: use
 one-time release intake for a finite worker, and keep continuous release
 discovery running when it must accept future publications.
@@ -644,8 +646,10 @@ installer additionally launches a hidden wrapper that verifies the unchanged
 registry, every terminal run identity and the exact task action and account,
 then archives its task definition and removes that scheduled registration.
 The retained `worker-task-closeout.json` confirms retirement; evidence is never
-deleted. Changed tasks, new registry entries, active worker locks and incomplete
-or failed status refuse cleanup. Automatic scheduled-task retirement is available
+deleted. The receipt records `Outcome: Failed` and `WorkerExitCode: 2` for terminal
+failure retirement; this is process cleanup, never a passing result. Exit code and
+retained outcomes must agree. Changed tasks, new registry entries, active worker
+locks and incomplete or uncertain status refuse cleanup. This is available
 for Windows 10 or later. The finite wrapper places its worker in a Windows job
 at process creation, with descendants bound to the wrapper's lifetime. Stopping
 the scheduled task or forcibly terminating its launcher also terminates that
@@ -656,11 +660,13 @@ closes the job on an ordinary exit before validating task retirement.
 
 Automatic scheduled-task retirement is available
 for current-user workers; service workers remain persistent under their installing
-account. A failed attempt superseded through
-manual recovery cannot be inferred to have succeeded: preserve its failure and
-explicitly retire its old observer after verifying the replacement/delivery.
-This does not retire an independent protected watcher or controller alert task.
-Those registrations must be included in closeout as well. Continuous listeners
+account. Old workers installed before this behavior must be explicitly stopped
+and retired after inspecting their processes and preserving their task definitions.
+Do not upgrade the frozen inputs of an existing attempt to trigger cleanup.
+This does not retire an independent protected watcher or a legacy private alert task.
+Those registrations must be included in closeout as well. The public controlling-PC
+listener can read stable worker notices directly with `-WorkerStatusDirectory`,
+so a separate per-run alert watcher is unnecessary. Continuous listeners
 intended for future releases must remain registered; remove only a listener
 dedicated to an obsolete attempt. A retained failure must never be rewritten as
 success merely to trigger cleanup.

@@ -1,17 +1,17 @@
-# CrestronHomeDevTools 1.22.3
+# CrestronHomeDevTools 1.22.4
 
-This release corrects mixed automatic/manual test execution and adds finite worker closeout for fixed submission or rehearsal runs.
+This release fixes worker shutdown and terminal-failure retirement, adds visible-screen readiness before app tests, and delivers worker notices directly to the controlling computer.
 
-- Updated public CrestronHomeNUnit tooling to 2.1.2. Exact Android selections containing both ordinary tests and explicit physical-action tests now execute every selected case. Unselected tests stay excluded, and missing results still fail coverage. Operator acknowledgements do not replace observed test results.
-- `--exit-when-finished` ends a fixed-registry worker after all submissions reach final retention or rehearsals reach unsigned review. Installer `-CurrentUser -ExitWhenFinished` additionally archives and removes its exact scheduled task after validating the registry, terminal identities, task action/account and released worker lock. Failures, uncertain outcomes and approval waits retain the task and evidence. Continuous release-discovery workers remain persistent.
-- Worker notifications and operator windows display readable dates and explicit time zones. Machine-readable evidence keeps precise UTC timestamps.
-- Documented direct physical-action prompts on a separate controlling computer, including shared-storage setup and validation without an AI relay. Independent obsolete observers and failed attempts superseded by recovery still require explicit retirement; this release does not claim to automate that separate closeout.
-- The regression launcher uses a runsettings file to preserve native Windows work-directory paths without command-line escaping changes.
+- Bind finite worker processes and their descendants to their launcher at creation. Stopping the scheduled task or terminating the launcher now stops the owned process tree, preserving failure evidence instead of leaving a detached alert worker. Task retirement validates the exact terminal outcome; interrupted work is not marked successful.
+- Capture the masked Android screen before installed-driver app tests and require an unobstructed, configured starting Home. Retain the screen and readiness result when an Android crash dialog or unexpected page prevents testing. This check does not send input or automatically retry failed tests.
+- Package the worker lifetime helper and gate releases on real synthetic parent/child termination tests. An optional scheduled-task test exercises Windows Task Scheduler shutdown without involving a device.
+- Finite workers now retire on confirmed terminal failures as well, retaining the failed outcome and final notice and exiting with code 2. Active, uncertain and approval-waiting runs remain open. The same process lifetime protection covers one-run operator inbox launchers.
+- The public controlling-PC listener optionally reads the worker status directory and shows failures, uncertain outcomes, unsigned review and final retention directly. Dismissals persist locally; unchanged failures and routine polling do not reopen windows. Closing a notice grants no test, signing or delivery authority.
 
-Validation includes mixed-selection regression cases, worker completion tests, 15 task-retirement guard cases and a real synthetic Windows scheduled task that removed itself while retaining its definition and receipt. The release pipeline requires all discovered offline tests and package/document checks to pass. These checks do not establish a completed hardware rehearsal or certification.
+Validation: 20 task-retirement guard cases; real synthetic process termination, scheduled-task stop, successful self-retirement and failed self-retirement with its failure preserved; offline screen-readiness and controller notice/dismissal tests. The release pipeline requires every discovered offline test plus package and documentation checks to pass. These checks do not establish a completed hardware rehearsal or certification.
 
-Use this version for newly prepared attempts. Existing frozen runs keep their original tools and evidence. Rehearsal stops at unsigned review and cannot sign or deliver.
+Use this version for newly prepared attempts. Existing frozen runs keep their original tooling and evidence. Inspect and explicitly retire legacy failed watchers; do not rewrite their outcome or restart them just to obtain cleanup. A persistent public controller listener is intentionally reused across releases.
 
-See https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/AutomationWorker.md for installation, controller prompts and closeout.
+See https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/AutomationWorker.md and https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/OperatorSteps.md for installation and notification behavior.
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.

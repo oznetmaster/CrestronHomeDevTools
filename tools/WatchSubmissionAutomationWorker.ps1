@@ -8,7 +8,8 @@ function Get-SubmissionWorkerPrincipalSid([string]$Account) {
     ([Security.Principal.NTAccount]::new($Account)).Translate([Security.Principal.SecurityIdentifier]).Value
 }
 
-function Complete-SubmissionAutomationTask($Launch, [string]$ExpectedArguments, [string]$ExpectedPowerShell) {
+function Complete-SubmissionAutomationTask($Launch, [string]$ExpectedArguments, [string]$ExpectedPowerShell, [int]$WorkerExitCode=0) {
+    if($WorkerExitCode -notin @(0,2)){throw 'Only verified success or terminal failure can retire a finite task.'}
     if ((Get-FileHash -LiteralPath $Launch.Registry).Hash.ToLowerInvariant() -ne $Launch.RegistrySha256) {
         throw 'Registry changed; automatic task retirement refused.'
     }
@@ -17,14 +18,19 @@ function Complete-SubmissionAutomationTask($Launch, [string]$ExpectedArguments, 
     $states = @(Get-Content -LiteralPath $statusFile -Raw | ConvertFrom-Json)
     $entries = @($registry.Entries)
     if (!$entries.Count -or $states.Count -ne $entries.Count) { throw 'Incomplete terminal status; task retained.' }
+    $hasFailure=$false
     foreach ($entry in $entries) {
         $matches = @($states | Where-Object { $_.Profile -ceq $entry.Profile -and $_.ReleaseId -eq $entry.ReleaseId -and $_.Mode -ceq $entry.Mode })
         if ($matches.Count -ne 1) { throw 'Terminal status identity differs; task retained.' }
         $state = $matches[0]
         $finished = ($state.State -ceq 'Completed' -and $state.Stage -ceq 'Retain') -or
             ($state.Mode -ceq 'Rehearsal' -and $state.State -ceq 'NeedsInput' -and $state.Stage -ceq 'SignReview' -and $state.Reason -ceq 'rehearsal-ready-for-review')
+        $failed = $state.State -ceq 'Failed' -and $state.Stage -cin @('ValidateCandidate','WindowsTests','ProcessorTests','AppTests','Endurance','PrepareReview','SignReview','Deliver','Retain') -and ![string]::IsNullOrWhiteSpace($state.Reason)
+        $hasFailure = $hasFailure -or $failed
+        $finished = $finished -or $failed
         if (!$finished) { throw 'Run is not finished; task retained.' }
     }
+    if($hasFailure -ne ($WorkerExitCode -eq 2)){throw 'Worker exit code differs from retained terminal outcomes; task retained.'}
     $task = Get-ScheduledTask -TaskName $Launch.TaskName -ErrorAction SilentlyContinue
     if (!$task) { throw 'Scheduled task is missing; inspect closeout before retrying.' }
     if (@($task.Actions).Count -ne 1 -or $task.Actions[0].Execute -ine $ExpectedPowerShell -or
@@ -38,7 +44,8 @@ function Complete-SubmissionAutomationTask($Launch, [string]$ExpectedArguments, 
         Unregister-ScheduledTask -TaskName $Launch.TaskName -Confirm:$false
         if (Get-ScheduledTask -TaskName $Launch.TaskName -ErrorAction SilentlyContinue) { throw 'Task retirement was not confirmed.' }
         [ordered]@{ CompletedUtc=[DateTimeOffset]::UtcNow; TaskName=$Launch.TaskName; RegistrySha256=$Launch.RegistrySha256;
-            StatusSha256=(Get-FileHash -LiteralPath $statusFile).Hash.ToLowerInvariant(); TaskRemoved=$true; EvidencePreserved=$true } |
+            StatusSha256=(Get-FileHash -LiteralPath $statusFile).Hash.ToLowerInvariant(); TaskRemoved=$true; EvidencePreserved=$true;
+            WorkerExitCode=$WorkerExitCode; Outcome=if($hasFailure){'Failed'}else{'Completed'} } |
             ConvertTo-Json | Set-Content -LiteralPath (Join-Path $Launch.StatusDirectory 'worker-task-closeout.json')
     } finally { $gate.Dispose() }
 }
@@ -59,8 +66,9 @@ try {
         $worker.Process.WaitForExit()
         $exitCode = $worker.Process.ExitCode
     } finally { $worker.Dispose() }
-    if ($exitCode -ne 0) { throw "Worker exited with code $exitCode; no automatic retirement." }
-    Complete-SubmissionAutomationTask $launch $arguments (Join-Path $PSHOME 'pwsh.exe')
+    if ($exitCode -notin @(0,2)) { throw "Worker exited with code $exitCode; no automatic retirement." }
+    Complete-SubmissionAutomationTask $launch $arguments (Join-Path $PSHOME 'pwsh.exe') $exitCode
+    exit $exitCode
 } catch {
     [ordered]@{ObservedUtc=[DateTimeOffset]::UtcNow;TaskName=$launch.TaskName;Error=$_.Exception.Message;EvidencePreserved=$true} |
         ConvertTo-Json | Set-Content -LiteralPath (Join-Path $launch.StatusDirectory 'worker-task-closeout-error.json')

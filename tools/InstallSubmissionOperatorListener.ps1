@@ -6,7 +6,8 @@ param(
     [Parameter(Mandatory)][string]$Executable,
     [Parameter(Mandatory)][string]$Registry,
     [Parameter(Mandatory)][string[]]$Profiles,
-    [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9_-]{1,64}$')][string]$Name
+    [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9_-]{1,64}$')][string]$Name,
+    [string]$WorkerStatusDirectory
 )
 $ErrorActionPreference = 'Stop'
 foreach ($path in @($Executable, $Registry)) {
@@ -22,6 +23,10 @@ $taskName = "CrestronSubmission-$Name-operator-listener"
 if (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue) { throw 'An operator listener task already exists. Inspect it before updating.' }
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $arguments = '--operator-registry "{0}" --profiles {1}' -f $Registry, ($Profiles -join ',')
+if($WorkerStatusDirectory) {
+    if(![IO.Path]::IsPathFullyQualified($WorkerStatusDirectory) -or $WorkerStatusDirectory.Contains('"') -or $WorkerStatusDirectory.Contains("`r") -or $WorkerStatusDirectory.Contains("`n") -or !(Test-Path -LiteralPath $WorkerStatusDirectory -PathType Container)){throw 'Provision the private worker status directory and use an absolute path.'}
+    $arguments += ' --worker-status "{0}"' -f [IO.Path]::TrimEndingDirectorySeparator($WorkerStatusDirectory)
+}
 $action = New-ScheduledTaskAction -Execute $Executable -Argument $arguments -WorkingDirectory (Split-Path $Executable -Parent)
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User $identity.Name
 $principal = New-ScheduledTaskPrincipal -UserId $identity.Name -LogonType Interactive -RunLevel Limited

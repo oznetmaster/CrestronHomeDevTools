@@ -12,14 +12,20 @@ function Export-ScheduledTask { param($TaskName) '<Task>synthetic task definitio
 function Unregister-ScheduledTask { param($TaskName,$Confirm) $script:removed=$true }
 function Get-SubmissionWorkerPrincipalSid([string]$Account) { if($Account -in @('HOST\fixture','fixture')){'S-1-5-21-1-2-3-1001'}else{'S-1-5-21-1-2-3-1002'} }
 $results=@()
-foreach($scenario in @('complete','review','short-account','failed','approval','handoff','empty','mixed','wrong-id','wrong-mode','changed-task','changed-user','changed-runlevel','changed-registry','worker-locked')) {
+foreach($scenario in @('complete','review','short-account','failed','terminal-failure','mixed-terminal-failure','failure-plus-active','unknown-outcome','wrong-failure-exit','approval','handoff','empty','mixed','wrong-id','wrong-mode','changed-task','changed-user','changed-runlevel','changed-registry','worker-locked')) {
     $folder=Join-Path $root $scenario;[IO.Directory]::CreateDirectory($folder)|Out-Null
     $registry=Join-Path $folder 'registry.json'
     $entries=@([ordered]@{Profile='fixture';ReleaseId=7;Mode='Rehearsal'})
     $states=@([ordered]@{Profile='fixture';ReleaseId=7;Mode='Rehearsal';State='Completed';Stage='Retain';Reason=$null})
+    $workerExit=0
     switch($scenario) {
         review {$states[0].State='NeedsInput';$states[0].Stage='SignReview';$states[0].Reason='rehearsal-ready-for-review'}
-        failed {$states[0].State='Failed'}
+        failed {$states[0].State='Failed';$states[0].Reason='synthetic-failure'}
+        terminal-failure {$states[0].State='Failed';$states[0].Reason='synthetic-failure';$workerExit=2}
+        mixed-terminal-failure {$entries+=@{Profile='other';ReleaseId=8;Mode='Rehearsal'};$states+=@{Profile='other';ReleaseId=8;Mode='Rehearsal';State='Failed';Stage='AppTests';Reason='synthetic-failure'};$workerExit=2}
+        failure-plus-active {$states[0].State='Failed';$states[0].Reason='synthetic-failure';$entries+=@{Profile='other';ReleaseId=8;Mode='Rehearsal'};$states+=@{Profile='other';ReleaseId=8;Mode='Rehearsal';State='Running';Stage='AppTests';Reason=$null};$workerExit=2}
+        unknown-outcome {$states[0].State='OutcomeUnknown';$states[0].Reason='synthetic-unknown';$workerExit=2}
+        wrong-failure-exit {$workerExit=2}
         approval {$states[0].State='NeedsInput';$states[0].Stage='SignReview';$states[0].Reason='exact-approval-required'}
         handoff {$states[0].State='Waiting';$states[0].Stage='SignReview';$states[0].Reason='worker-role-handoff'}
         empty {$states=@();$entries=@()}
@@ -42,12 +48,13 @@ foreach($scenario in @('complete','review','short-account','failed','approval','
     $script:removed=$false;$errorText=$null;$held=$null
     try {
         if($scenario -eq 'worker-locked'){$held=[IO.FileStream]::new((Join-Path $folder 'worker.lock'),[IO.FileMode]::Open,[IO.FileAccess]::Write,[IO.FileShare]::None)}
-        try {Complete-SubmissionAutomationTask $launch 'exact fixture arguments' 'pwsh.exe'} catch {$errorText=$_.Exception.Message}
+        try {Complete-SubmissionAutomationTask $launch 'exact fixture arguments' 'pwsh.exe' $workerExit} catch {$errorText=$_.Exception.Message}
     } finally {if($held){$held.Dispose()}}
-    $expected=$scenario -in @('complete','review','short-account')
+    $expected=$scenario -in @('complete','review','short-account','terminal-failure','mixed-terminal-failure')
     if($script:removed -ne $expected -or ($expected -and $errorText) -or (!$expected -and !$errorText)){throw "Unexpected closeout result: $scenario ($errorText)"}
     $receipt=Join-Path $folder 'worker-task-closeout.json'
     if((Test-Path $receipt) -ne $expected){throw "Incorrect closeout receipt: $scenario"}
+    if($expected -and ((Get-Content $receipt -Raw|ConvertFrom-Json).Outcome -ne $(if($workerExit -eq 2){'Failed'}else{'Completed'}))){throw 'Retirement misclassified the retained outcome.'}
     if(!(Test-Path $registry) -or !(Test-Path (Join-Path $folder 'worker-status.json'))){throw 'Evidence was removed.'}
     $results += [ordered]@{Case=$scenario;Passed=$true;TaskRemoved=$script:removed;RetainedReason=$errorText}
 }

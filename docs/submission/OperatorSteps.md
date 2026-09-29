@@ -110,11 +110,11 @@ operate hardware or to restart a workflow. A stale alert from a completed older
 attempt must not be interpreted as a new run failure; retire its exact obsolete
 watcher while keeping the evidence.
 
-The physical-action listener handles physical requests and inbox-access errors.
-It is not a general worker-failure monitor or a signing/delivery approval service.
-Provision the appropriate worker-status observer as well; do not depend on an AI
-noticing a failure. Dismissing an alert, or choosing Done, never signs or sends
-anything.
+The persistent listener handles physical requests and inbox-access errors.
+Supply `-WorkerStatusDirectory` to also receive failures, uncertain outcomes,
+unsigned-review readiness and final-retention notices directly on the controlling
+computer. No AI relay or separate per-run alert process is needed. Dismissing an
+alert, or choosing Done on a physical prompt, never signs or sends anything.
 
 For release-triggered workflows, install the persistent listener **once**, using
 the evidence worker's private registry and an explicit list of trusted profile names:
@@ -123,7 +123,7 @@ the evidence worker's private registry and an explicit list of trusted profile n
 ./scripts/automation/InstallSubmissionOperatorListener.ps1 `
   -Executable 'C:/Tools/DevTools/setup/CrestronHomeDevTools.Setup.exe' `
   -Registry 'C:/PrivateSubmission/registry.json' -Profiles 'driver-rehearsal','driver-submit' `
-  -Name 'DriverActions'
+  -Name 'DriverActions' -WorkerStatusDirectory 'C:/PrivateSubmission/worker-status'
 ```
 
 Install it as the authorized operator account, in a signed-in Windows desktop.
@@ -142,6 +142,18 @@ The registry, frozen settings and inbox paths must resolve on the operator host;
 this mode does not translate another host's drive paths. Do not expose that private
 registry publicly or give arbitrary users write access. Discovery neither reads
 saved credentials nor starts tests or advances a workflow.
+
+The optional status path must resolve to the evidence worker's existing private
+status directory on the controlling computer. The listener reads its stable
+`notifications/worker-status.json`, matches profile/release/mode against pinned
+settings, and opens a notice only for an actionable failure or a terminal result.
+Notices show a readable time with its UTC offset, the exact run and stage, and an
+Open evidence button. Healthy progress and brief lock contention stay quiet.
+Dismissals are saved under the controlling account's local application data, so
+restarting the listener does not reopen an unchanged notice. A changed failure
+or a new failure after recovery can alert again. The tray menu reopens a dismissed
+current notice when requested. This acknowledgement has no workflow authority.
+Worker status and evidence must remain accessible after the finite worker retires.
 
 The task `CrestronSubmission-DriverActions-operator-listener` is intentionally
 persistent across releases. When retiring it, stop and unregister that exact task;

@@ -13,8 +13,10 @@ foreach($path in @($Executable,$Inbox)) {
  if(-not [IO.Path]::IsPathFullyQualified($path) -or $path.Contains('"') -or $path.Contains("`r") -or $path.Contains("`n")) {throw 'Invalid reviewed path.'}
 }
 $arguments='--operator-inbox "{0}" --run-key {1}' -f [IO.Path]::TrimEndingDirectorySeparator($Inbox),$RunKey
-$process=Start-Process -FilePath $Executable -ArgumentList $arguments -WindowStyle Hidden -PassThru -Wait
-if($process.ExitCode -ne 0) {exit $process.ExitCode}
+Add-Type -Path (Join-Path $PSScriptRoot 'SubmissionWorkerProcess.cs')
+$worker=[CrestronHomeDevTools.WorkerHosting.SubmissionWorkerProcess]::new($Executable,$arguments,(Split-Path $Executable -Parent))
+try {$worker.Process.WaitForExit();$exitCode=$worker.Process.ExitCode}finally{$worker.Dispose()}
+if($exitCode -ne 0) {exit $exitCode}
 # Exit 0 is emitted by the inbox only after it validates the matching completion record.
 # Verify the task still names this exact watcher and run before unregistering it.
 $task=Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue

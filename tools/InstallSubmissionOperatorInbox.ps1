@@ -22,7 +22,7 @@ $taskName = "CrestronSubmission-$Name-operator"
 if (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue) { throw 'An action inbox task already exists. Inspect it before updating.' }
 $inboxPath = [IO.Path]::TrimEndingDirectorySeparator($Inbox)
 $watcher = Join-Path $PSScriptRoot 'WatchSubmissionOperatorInbox.ps1'
-if (-not (Test-Path -LiteralPath $watcher -PathType Leaf)) { throw 'The operator watcher must accompany this installer.' }
+if (-not (Test-Path -LiteralPath $watcher -PathType Leaf) -or !(Test-Path -LiteralPath (Join-Path $PSScriptRoot 'SubmissionWorkerProcess.cs') -PathType Leaf)) { throw 'The operator watcher and process lifetime helper must accompany this installer.' }
 $arguments = '-NoProfile -NonInteractive -WindowStyle Hidden -File "{0}" -Executable "{1}" -Inbox "{2}" -RunKey {3} -TaskName {4}' -f $watcher, $Executable, $inboxPath, $RunKey, $taskName
 $action = New-ScheduledTaskAction -Execute (Join-Path $PSHOME 'pwsh.exe') -Argument $arguments -WorkingDirectory (Split-Path $Executable -Parent)
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User $identity.Name
