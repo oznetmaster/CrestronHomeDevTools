@@ -1,6 +1,6 @@
 # Planned physical actions
 
-## Durable readiness (next release)
+## Durable readiness (1.23.0)
 
 Do not start a timed hardware action merely because a worker reached it overnight.
 Declare ordered `InstalledAppSteps` in a new, frozen workflow plan. Each step lists
@@ -293,3 +293,4 @@ passwords remain in the encrypted store. The
 separate target plan and evidence remain in `pre-endurance`; they do not imply
 that the main/endurance processor was interrupted. Installation and fixture
 preparation for both targets remain explicit workflow prerequisites.
+

@@ -1,17 +1,14 @@
-# CrestronHomeDevTools 1.22.4
+# CrestronHomeDevTools 1.23.0
 
-This release fixes worker shutdown and terminal-failure retirement, adds visible-screen readiness before app tests, and delivers worker notices directly to the controlling computer.
+Manual app tests can now wait overnight for an operator without starting a timed physical action or holding a test host, processor reservation or app reservation.
 
-- Bind finite worker processes and their descendants to their launcher at creation. Stopping the scheduled task or terminating the launcher now stops the owned process tree, preserving failure evidence instead of leaving a detached alert worker. Task retirement validates the exact terminal outcome; interrupted work is not marked successful.
-- Capture the masked Android screen before installed-driver app tests and require an unobstructed, configured starting Home. Retain the screen and readiness result when an Android crash dialog or unexpected page prevents testing. This check does not send input or automatically retry failed tests.
-- Package the worker lifetime helper and gate releases on real synthetic parent/child termination tests. An optional scheduled-task test exercises Windows Task Scheduler shutdown without involving a device.
-- Finite workers now retire on confirmed terminal failures as well, retaining the failed outcome and final notice and exiting with code 2. Active, uncertain and approval-waiting runs remain open. The same process lifetime protection covers one-run operator inbox launchers.
-- The public controlling-PC listener optionally reads the worker status directory and shows failures, uncertain outcomes, unsigned review and final retention directly. Dismissals persist locally; unchanged failures and routine polling do not reopen windows. Closing a notice grants no test, signing or delivery authority.
+- New ordered `InstalledAppSteps`, `PreEnduranceAppSteps` and `PostEnduranceAppSteps` bind every selected test exactly once. Each manual step contains one test and explicit readiness instructions. Pending readiness and completed-step evidence survive worker restarts; already attempted hardware tests are never automatically replayed.
+- The desktop readiness window offers **I'm ready**, **Do this later** and **Cannot perform this action**. Readiness has no expiry. Cannot perform requires an explanation, retained with the exact request and step evidence. The public CLI supports the same explanation through `--reason`.
+- After readiness, the worker prepares recording and the fixture issues its precise timed action prompt. An active failure pauses before the next test. A readiness acknowledgement, an inability explanation or a timeout never becomes a pass, an N/A decision or permission to sign or deliver.
+- Action windows are centred and foregrounded, with instructions before diagnostic identifiers. Existing frozen runs retain their original prompt behaviour and evidence; adopting ordered steps requires a new plan and updated review evidence paths.
 
-Validation: 20 task-retirement guard cases; real synthetic process termination, scheduled-task stop, successful self-retirement and failed self-retirement with its failure preserved; offline screen-readiness and controller notice/dismissal tests. The release pipeline requires every discovered offline test plus package and documentation checks to pass. These checks do not establish a completed hardware rehearsal or certification.
+Validation: all 1,739 discovered offline tests passed, including overnight readiness, cancellation/restart, saved explanations, exact test coverage, source-change rejection, no replay after failure, and separate-processor phase recovery. The desktop application builds without warnings. A labelled local synthetic readiness request survived a listener restart and received a real desktop response. These checks do not establish a successful physical-device rehearsal or certification.
 
-Use this version for newly prepared attempts. Existing frozen runs keep their original tooling and evidence. Inspect and explicitly retire legacy failed watchers; do not rewrite their outcome or restart them just to obtain cleanup. A persistent public controller listener is intentionally reused across releases.
-
-See https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/AutomationWorker.md and https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/OperatorSteps.md for installation and notification behavior.
+See https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/OperatorSteps.md for setup, exact plan fields, evidence layout and operator controls.
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.

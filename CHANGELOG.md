@@ -1,11 +1,5 @@
 # Changelog
 
-## Unreleased
-
-- Added durable manual-test readiness checkpoints. A planned manual app-test step waits without a test host or processor/app lease until the operator is ready, including overnight and across worker restarts. Ordered steps must cover every selected test exactly once; a failed step pauses without prompting for the next action or replaying the failed attempt.
-- Readiness windows offer **I'm ready**, **Do this later**, and **Cannot perform this action**, with a required explanation for the latter. Reasons are retained with the exact request and test evidence. Physical action prompts remain bounded after recording is armed; acknowledgements and reasons never constitute a pass or N/A decision.
-- Physical prompts are centred and brought to the foreground. Instructions precede diagnostic identifiers. Existing frozen attempts retain their original request records and results.
-
 ## 1.22.4 - 2026-09-29
 
 This release fixes worker shutdown and terminal-failure retirement, adds visible-screen readiness before app tests, and delivers worker notices directly to the controlling computer.
@@ -678,6 +672,7 @@ Initial public release: the library is distributed through NuGet and the Windows
 ### V1 hardware validation
 
 A complete unattended V1 driver workflow subsequently passed on the development MC4-R: 116 local tests, 105 processor driver tests, 11 processor SDK lifecycle tests and three read-only installed-driver health checks. It installed a fresh Entity V2 test host, staged the V1 update, received the matching swap-completion event, requested one Home configuration reboot, reconnected and verified lease ownership, verified the new driver version was Loaded, online, ready and configured, then removed the test host and released the lease. Independent checks confirmed the other 19 driver instances retained their identities and versions and were Loaded. The first V1 attempt exposed an incorrect assumption that swap initiates reboot; it required one separately recorded assisted reboot and was not counted as an unattended pass. A second attempt confirmed swap completion but an immediate SSH reboot returned with the previous version; it was stopped, reconciled and retained as a failed validation. The passing run used Home configuration reboot instead. V1 initial-install/removal reboot paths still have simulated coverage only. The SDK lifecycle tests and read-only health checks do not establish playback or device-control behavior.
+
 
 
 
