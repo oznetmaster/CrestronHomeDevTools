@@ -61,7 +61,7 @@ operational evidence; never include credentials or sensitive details in reasons.
 This section describes the new implementation, not a claim of a completed live
 rehearsal. Older unsegmented plans do not gain durable step boundaries automatically.
 
-Available in 1.22.0. The shared request protocol, concurrent observation, desktop
+The original request protocol is available in 1.22.0. It and concurrent observation, desktop
 inbox and CLI have offline coverage. A live desktop diagnostic verified two
 successive requests through one persistent listener and cleanup of its validation
 tasks. Live sensor/outage fixtures and the complete workflow still need validation.
@@ -71,9 +71,8 @@ the test worker, an action window on the controlling computer under its normal
 signed-in account, a response written there and read back by the worker, and
 automatic listener exit after closing the diagnostic inbox. It used the existing
 authenticated private share. This proves that transport path, not actual physical
-sensor/outage tests or recovery from a network interruption. Display formatting
-changes described here are in the next release; the shared-inbox transport is
-already available in 1.22.0.
+sensor/outage tests or recovery from a network interruption. The current display formatting and preparation-failure notices are included in
+1.23.1; the original shared-inbox transport is available in 1.22.0.
 
 A sensor press or unplugging a processor is a planned test action. It does not
 require an AI session to advance the workflow. A fixture publishes an explicit

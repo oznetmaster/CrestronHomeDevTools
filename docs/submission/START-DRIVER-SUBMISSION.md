@@ -6,6 +6,51 @@ When an assistant performs setup, give it this document and the repository URL. 
 
 **Validation status:** this starting document is a draft. The underlying tools have validation and real delivery evidence described in the public validation guide, but an independent run beginning with this document has not yet demonstrated the entire procedure. Do not describe that independent validation as complete.
 
+## Starting another driver
+
+Use this same document for a different driver; do not copy a previous driver's
+private plan, device IDs, checklist decisions or test results. Supply the new
+repository URL and identify the intended driver if it contains more than one.
+Reuse saved developer facts and authorized equipment profiles after checking
+their current bindings. Prepare the new driver's coverage, fixtures, help and
+private run profile from its actual capabilities.
+
+A suitable setup assignment is:
+
+> Follow this document for DRIVER_REPOSITORY_URL. Prepare and validate all
+> prerequisites, then run a complete Rehearsal using the public tools and saved
+> inputs. Use one hour for rehearsal endurance after every applicable initial
+> test has passed. Send physical-action prompts through the configured desktop
+> listener, not through an assistant. Preserve failures and restore test devices.
+> Stop at unsigned review. Once the rehearsal succeeds, prepare a separate
+> Submission-purpose run; obtain the required exact-artifact signing and delivery
+> authorization before those operations. Do not resend an existing submission.
+
+The repository URL is the starting input, not a promise of zero setup. If a driver
+does not already have suitable C# test fixtures, evidence producers or saved
+product information, prepare those before starting the worker. Consolidate
+equipment restrictions and execution-account access during setup. An assistant
+can prepare or diagnose the workflow; it must not be required to relay prompts,
+move stage output or choose each routine next step during execution.
+
+For planned human actions, use the ordered app-step readiness feature in 1.23.0
+or later and the selected release's [operator instructions](OperatorSteps.md).
+Each manual case waits without expiry before it starts. The operator can choose
+**I'm ready**, **Do this later**, or **Cannot perform this action** with a reason.
+Readiness is not the physical action itself: wait for the subsequent precise
+recording prompt. A failed preflight must be investigated before another action;
+an acknowledgement never supplies a test pass. Use 1.23.1 or later
+for explicit retained preflight-failure handling and the corresponding notices.
+
+Choose the app platforms explicitly. The currently integrated app-test route is
+Android. Mac and physical iPhone/iPad validation are separate capabilities and
+evidence scopes; do not infer iOS coverage from Mac results or silently add either
+as a gate. See [Apple UI testing status](../AppleUiTesting.md).
+
+The current readiness-based full hardware rehearsal has not completed. Earlier
+assisted submissions and partial runs do not establish that a new driver can
+complete this procedure without unplanned intervention.
+
 If equipment becomes available after endurance and unsigned review preparation,
 use the 1.20.0 worker's [additive review supplement](ReviewSupplements.md) for
 newly covered requirements on the same candidate. Preserve the original run;
@@ -19,7 +64,7 @@ availability alone. Reuse earlier physical-event passes only through the
 identity and change-impact checks; do not ask for a repeat solely because the
 tooling was updated.
 
-The [release automation controller](ReleaseAutomation.md) is a released preview (1.19.0 and later). Use 1.20.0 or later for the initial-evidence gate, readiness checks and help-link validation described here. Its [Windows worker](AutomationWorker.md) connects release discovery, tests, endurance, documents, authorized signing/delivery and retention. A configured rehearsal has now completed actual deployment, Windows/processor/live/app tests, temporary-test cleanup, shortened endurance, export and unsigned review preparation without intervention after startup. Signing/delivery/retention use separate synthetic-authority and test-provider validation. This is not an independent operator validation of this document or a newly published release followed by real submission. See [the precise validation boundaries](ValidationStatus.md). Intake alone does not start tests; the installed watcher advances registered runs. The [setup form](SetupApp.md) can reduce repeated questions, but check availability in the selected published version before prescribing it to another developer.
+The [release automation controller](ReleaseAutomation.md) is a released preview (1.19.0 and later). Use 1.20.0 or later for the initial-evidence gate, readiness checks and help-link validation described here. Its [Windows worker](AutomationWorker.md) connects release discovery, tests, endurance, documents, authorized signing/delivery and retention. An earlier configured rehearsal completed actual deployment, Windows/processor/live/app tests, temporary-test cleanup, shortened endurance, export and unsigned review preparation without intervention after startup. That run predates the corrected complete-initial-coverage gate and durable manual readiness; it does not validate the current full sequence. Signing/delivery/retention use separate synthetic-authority and test-provider validation. This is not an independent operator validation of this document or a newly published release followed by real submission. See [the precise validation boundaries](ValidationStatus.md). Intake alone does not start tests; the installed watcher advances registered runs. The [setup form](SetupApp.md) can reduce repeated questions, but check availability in the selected published version before prescribing it to another developer.
 
 Saved setup in the complete Windows bundle offers **Prepare rehearsal profile** and
 **Prepare submission profile**. Select the intended mode before intake. Actual

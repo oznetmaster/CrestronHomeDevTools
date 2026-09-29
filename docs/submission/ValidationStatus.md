@@ -1,6 +1,24 @@
 # Submission workflow validation
 
-This page records the shared tooling's verified scope, with released-tooling updates through 28 September 2026. It contains no driver-specific submission files or progress details. Use the [normal-path runbook](Runbook.md) to configure your own workflow.
+This page records the shared tooling's verified scope, with released-tooling updates through 29 September 2026. It contains no driver-specific submission files or progress details. Use the [normal-path runbook](Runbook.md) to configure your own workflow.
+
+## Current complete-sequence validation
+
+DevTools 1.23.1 passed its release validation: 1,741 .NET tests, with no failures
+or skips, and 20 worker-closeout cases. The added checks cover durable readiness,
+ordered app steps, retained preflight failures and refusal to replay uncertain
+operations. These are tooling tests, not passing physical hardware tests.
+
+A live diagnostic using the released public installed-driver runner verified a
+configuration change and complete restoration of the editable non-secret settings
+group. It retained a ready platform and all selected children, plus successful
+cleanup, candidate verification and reservation release. This establishes that
+specific fixture correction, not completion of the full rehearsal.
+
+The full sequence with every required initial check before shortened endurance,
+persistent manual readiness and unsigned review remains unproven. It is under
+hardware validation. The earlier rehearsal below proves its stated handoffs only;
+it must not be presented as validation of these later gates or of another driver.
 
 ## Release automation validation
 
