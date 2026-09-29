@@ -120,8 +120,8 @@ internal static class AutomationManagedDevices
   var applied=new HashSet<int>();
   var result=await Setup(operation,folder,Verify,
    async(request,journal,ct)=>{await using var api=await Open(ct);return await ManagedDeviceCommissioning.CommissionAsync(api,request,journal,TimeSpan.FromSeconds(operation.Plan.TimeoutSeconds),ct);},
-   async(binding,input,ct)=>{await using var api=await Open(ct);var configured=await DriverConfiguration.ConfigureAsync(api,
-    new(binding.DeviceId,binding.Request.ChildModel,binding.Request.ParentVersion,"Installed"),DriverConfiguration.ReadInputs(input),TimeSpan.FromSeconds(operation.Plan.TimeoutSeconds),ct);
+   async(binding,input,ct)=>{await using var api=await Open(ct);var configured=await ManagedDeviceCommissioning.ConfigureCreatedAsync(api,
+    Path.Combine(folder,binding.Alias),DriverConfiguration.ReadInputs(input),TimeSpan.FromSeconds(operation.Plan.TimeoutSeconds),ct);
     if(configured.Changed && configured.Configured)applied.Add(binding.DeviceId);return configured;},
    async(journal,commands,ct)=>{
     await using var api=await Open(ct);

@@ -49,6 +49,15 @@ unverifiable or differing settings do not silently pass. Merely reporting online
 and ready does not satisfy a missing required control. API readiness is still not
 proof that a tile renders correctly: the Android tests remain mandatory.
 
+Initial light configuration can replace the child's generic configuration surface
+with a native wrapper and load. `ManagedDeviceCommissioning.ConfigureCreatedAsync`
+validates the commissioning receipt before applying inputs once, then verifies the
+resulting parent, wrapper, managed-device identity, native load, room and controls.
+It does not require removed generic configuration fields to reappear. Missing
+fields by themselves, an offline load, or a different load never prove completion.
+Retain the configuration intent and processor reservation if an operation fails;
+inspect its outcome before any explicit recovery.
+
 Successful children stay installed. `managed-devices.json` pins the private setup
 journals and returned identities, including the native load below a lighting
 wrapper. App tests, endurance, and review continue only after setup completes and
