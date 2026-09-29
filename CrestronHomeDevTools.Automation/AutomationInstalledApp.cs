@@ -9,6 +9,7 @@ internal static class AutomationInstalledApp
 {
  private sealed record Intent(string OperationId,string InputSha256,string SourceDigest,string ProfileSha256);
  private sealed record Receipt(string InputSha256,SubmissionWorkflowReceipt[] Files);
+ private sealed record PreflightFailure(string OperationId,string InputSha256,string ReasonCode);
 
  // Only pre-deployment validation may use zero for an identity that will come from
  // the deployment receipt. Never pass the validation-only target to a test runner.
@@ -52,6 +53,7 @@ internal static class AutomationInstalledApp
   string intentPath=Path.Combine(context.RunDirectory,"installed-app-intent.json");
   string folder=Path.Combine(context.RunDirectory,"installed-app");
   string resultPath=Path.Combine(folder,"InstalledDriverTests.json");
+  string preflightPath=Path.Combine(context.RunDirectory,"installed-app-preflight-failure.json");
   void CheckFixture(bool create)=>AutomationAppFixture.Check(context.RunDirectory,settings,create);
   // A recorded invocation is never repeated, even if the caller mistakenly uses execute rather than recover.
   if(File.Exists(intentPath)) {
@@ -61,6 +63,13 @@ internal static class AutomationInstalledApp
     intent.SourceDigest!=await WorkflowEvidence.SourceDigestAsync(plan.SourceRoots,token) ||
     intent.ProfileSha256!=AutomationFiles.Hash(plan.AndroidTests.ProfilePath))
     throw new InvalidDataException("Installed-app attempt or fixture source changed.");
+   if(File.Exists(preflightPath)) {
+    var failure=AutomationFiles.Read<PreflightFailure>(preflightPath);
+    if(failure.OperationId!=intent.OperationId || failure.InputSha256!=intent.InputSha256 ||
+     failure.ReasonCode is not ("installed-driver-readiness-failed-before-tests" or "android-readiness-failed-before-tests") || File.Exists(resultPath))
+     throw new InvalidDataException("Installed-app preflight failure evidence is inconsistent.");
+    return new(SubmissionWorkflowStatus.NeedsInput,ReasonCode:failure.ReasonCode);
+   }
    if(!File.Exists(resultPath) || new FileInfo(resultPath).Length==0)
     return new(SubmissionWorkflowStatus.OutcomeUnknown,ReasonCode:"inspect-installed-app-operation-and-leases");
   } else {
@@ -69,7 +78,11 @@ internal static class AutomationInstalledApp
    var intent=new Intent(context.Checkpoint.OperationId,context.Checkpoint.InputSha256,
     await WorkflowEvidence.SourceDigestAsync(plan.SourceRoots,token),AutomationFiles.Hash(plan.AndroidTests.ProfilePath));
    AutomationFiles.Write(intentPath,intent);
-   await run(plan,credentials(plan.Host),folder,token);
+   try {await run(plan,credentials(plan.Host),folder,token);}
+   catch(InstalledAppPreflightException e) {
+    AutomationFiles.Write(preflightPath,new PreflightFailure(intent.OperationId,intent.InputSha256,e.ReasonCode));
+    return new(SubmissionWorkflowStatus.NeedsInput,ReasonCode:e.ReasonCode);
+   }
    CheckFixture(false);
    if(intent.SourceDigest!=await WorkflowEvidence.SourceDigestAsync(plan.SourceRoots,token) ||
     intent.ProfileSha256!=AutomationFiles.Hash(plan.AndroidTests.ProfilePath))

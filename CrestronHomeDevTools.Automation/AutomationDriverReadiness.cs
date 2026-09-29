@@ -3,6 +3,12 @@ using System.Net;
 
 namespace CrestronHomeDevTools.Automation;
 
+internal sealed class InstalledAppPreflightException(string reasonCode, Exception inner)
+    : Exception("Installed app preflight stopped before test execution. Inspect retained readiness evidence.", inner)
+{
+    internal string ReasonCode { get; } = reasonCode;
+}
+
 internal static class AutomationDriverReadiness
 {
     internal static async Task Check(string host, string certificate, NetworkCredential credential,

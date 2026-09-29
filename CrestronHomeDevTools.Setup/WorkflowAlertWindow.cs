@@ -16,7 +16,9 @@ internal sealed class WorkflowAlertWindow:Form
    $"Status changed: {SubmissionDisplayTime.Local(alert.ChangedUtc)}{Environment.NewLine}"+
    $"Stage: {alert.Stage}{Environment.NewLine}State: {alert.State}{Environment.NewLine}"+
    $"Reason: {alert.Reason}{Environment.NewLine}{Environment.NewLine}"+
-   (completed?"The workflow reached final retention. This notice does not establish certification or portal publication.":
+   (alert.Reason=="installed-driver-readiness-failed-before-tests"?"The driver or one of its child devices was not ready. The physical test did not start, so do not operate the device. Inspect the retained driver readiness report; your readiness response remains recorded.":
+    alert.Reason=="android-readiness-failed-before-tests"?"The app screen was not ready for recording. The physical test did not start, so do not operate the device. Inspect the retained screen and readiness report; your readiness response remains recorded.":
+    completed?"The workflow reached final retention. This notice does not establish certification or portal publication.":
     review?"The rehearsal reached unsigned review. Open the retained documents and evidence. No signing or delivery was performed.":
     "Open the retained evidence to inspect the original error. No automatic retry or reset has been requested.")+
    $"{Environment.NewLine}{Environment.NewLine}Closing this notice only dismisses it. It does not approve a test, signature, upload or email.";

@@ -56,9 +56,17 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
   Func<InstalledDriverTestPlan,NetworkCredential,string,CancellationToken,Task<InstalledDriverTestResult>>? installedApp=null) {
    this.settings=settings;settingsDigest=digest;runNUnit=run;credential=credentials;this.role=role;
    runInstalledApp=installedApp??(async(p,c,r,t)=>{
-    await AutomationDriverReadiness.Check(p.Host,p.CertificateSha256,c,new(p.Target.DeviceId,p.Target.Model,p.Target.Version,"Existing"),
-     r+"-readiness",t);
-    await AutomationAndroidReadiness.Check(p.AndroidTests.ProfilePath,Path.Combine(r+"-readiness","android"),t);
+    try {
+     await AutomationDriverReadiness.Check(p.Host,p.CertificateSha256,c,new(p.Target.DeviceId,p.Target.Model,p.Target.Version,"Existing"),
+      r+"-readiness",t);
+    } catch(Exception e) when(e is InvalidDataException) {
+     throw new InstalledAppPreflightException("installed-driver-readiness-failed-before-tests",e);
+    }
+    try {
+     await AutomationAndroidReadiness.Check(p.AndroidTests.ProfilePath,Path.Combine(r+"-readiness","android"),t);
+    } catch(Exception e) when(e is InvalidDataException) {
+     throw new InstalledAppPreflightException("android-readiness-failed-before-tests",e);
+    }
     return await InstalledDriverTests.RunAsync(p,c,r,t);
    });
   }

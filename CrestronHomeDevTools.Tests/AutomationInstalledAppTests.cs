@@ -75,6 +75,20 @@ public sealed partial class AutomationInstalledAppTests
 		await Assert.ThrowsAsync<IOException>(async()=>await AutomationInstalledApp.Advance(context,settings,false,Interrupted,_=>new(),default));
   var recovered=await Advance(true);Assert.That(recovered.Status,Is.EqualTo(SubmissionWorkflowStatus.OutcomeUnknown));Assert.That(calls,Is.EqualTo(1));
  }
+ [TestCase("installed-driver-readiness-failed-before-tests")]
+ [TestCase("android-readiness-failed-before-tests")]
+ public async Task KnownPreflightFailureRemainsActionableWithoutReplaying(string reason) {
+  Task<InstalledDriverTestResult> NotStarted(InstalledDriverTestPlan p,NetworkCredential c,string f,CancellationToken t) {
+   calls++;throw new InstalledAppPreflightException(reason,new InvalidDataException("private diagnostic text"));
+  }
+  var first=await AutomationInstalledApp.Advance(context,settings,false,NotStarted,_=>new(),default);
+  Assert.That(first.Status,Is.EqualTo(SubmissionWorkflowStatus.NeedsInput));
+  Assert.That(first.ReasonCode,Is.EqualTo(reason));
+  var recovered=await Advance(true);
+  Assert.That(recovered,Is.EqualTo(first));Assert.That(calls,Is.EqualTo(1));
+  Assert.That(File.ReadAllText(Path.Combine(context.RunDirectory,"installed-app-preflight-failure.json")),Does.Not.Contain("private diagnostic text"));
+  Assert.That(File.Exists(Path.Combine(context.RunDirectory,"installed-app-tests.json")),Is.False);
+ }
  [TestCase(false,true,true,true)][TestCase(true,false,true,true)][TestCase(true,true,false,true)][TestCase(true,true,true,false)]
  public async Task EveryRestorationAndIdentityGateIsRequired(bool restoration,bool cleanup,bool verified,bool released) {
   Task<InstalledDriverTestResult> Incomplete(InstalledDriverTestPlan p,NetworkCredential c,string f,CancellationToken t) {
