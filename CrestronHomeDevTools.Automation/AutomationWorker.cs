@@ -103,16 +103,26 @@ internal static class AutomationWorker
   if(notice!=null)Console.WriteLine(notice);
   return nextDiscovery;
  }
- internal static async Task<int> Watch(string registryPath,string statusDirectory,SubmissionAutomationWorkerRole role,TimeSpan interval,CancellationToken token,string? profilesPath=null,AutomationProtectedWorker? protection=null) {
+ internal static bool Finished(Status[] statuses)=>statuses.Length>0 && statuses.All(s=>
+  s.State=="Completed" && s.Stage==nameof(SubmissionWorkflowStage.Retain) ||
+  s.Mode==SubmissionAutomationMode.Rehearsal && s.State=="NeedsInput" &&
+  s.Stage==nameof(SubmissionWorkflowStage.SignReview) && s.Reason=="rehearsal-ready-for-review");
+
+ internal static async Task<int> Watch(string registryPath,string statusDirectory,SubmissionAutomationWorkerRole role,TimeSpan interval,CancellationToken token,string? profilesPath=null,AutomationProtectedWorker? protection=null,
+  bool exitWhenFinished=false,Func<AutomationRequest,CancellationToken,Task<SubmissionWorkflowCheckpoint>>? advance=null) {
   if(!Path.IsPathFullyQualified(registryPath)||!Path.IsPathFullyQualified(statusDirectory)||interval<TimeSpan.FromSeconds(30)||interval>TimeSpan.FromMinutes(15))
    throw new InvalidDataException("Use absolute private paths and a 30-second to 15-minute polling interval.");
   if(profilesPath!=null && (!Path.IsPathFullyQualified(profilesPath)||role!=SubmissionAutomationWorkerRole.Evidence))throw new InvalidDataException("Only an evidence worker can monitor absolute private release profiles.");
+  if(exitWhenFinished && profilesPath!=null)throw new InvalidDataException("A worker discovering future releases must remain running. Use one-time intake before starting a finite worker.");
   Directory.CreateDirectory(statusDirectory);
   // Keep one watcher per installed role/status directory; run.lock protects dispatches sharing a run.
   using var gate=new FileStream(Path.Combine(statusDirectory,"worker.lock"),FileMode.OpenOrCreate,FileAccess.Write,FileShare.None);
   DateTimeOffset nextDiscovery=DateTimeOffset.MinValue;
   while(!token.IsCancellationRequested) {
-   nextDiscovery=await Cycle(registryPath,statusDirectory,role,nextDiscovery,token,profilesPath,protection);
+   nextDiscovery=await Cycle(registryPath,statusDirectory,role,nextDiscovery,token,profilesPath,protection,advance:advance);
+   // Retain the terminal status and notification before releasing the worker lock.
+   // A failure, uncertain outcome, role handoff or ordinary approval wait is never completion.
+   if(exitWhenFinished && Finished(AutomationFiles.Read<Status[]>(Path.Combine(statusDirectory,"worker-status.json"))))return 0;
    await Task.Delay(interval,token);
   }
   return 0;

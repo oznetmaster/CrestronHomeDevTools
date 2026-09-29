@@ -117,4 +117,41 @@ public sealed class AutomationWorkerTests
   var input=healthy with{Profile="two",ReleaseId=2,Stage="SignReview",Reason="signing-authorization-required"};
   Assert.That(AutomationWorker.NoticeText([healthy,input]),Does.Contain("requires input or approval"));
  }
+ [TestCase(SubmissionAutomationMode.Submit,"Completed","Retain",null,true)]
+ [TestCase(SubmissionAutomationMode.Submit,"Completed","AppTests",null,false)]
+ [TestCase(SubmissionAutomationMode.Rehearsal,"NeedsInput","SignReview","rehearsal-ready-for-review",true)]
+ [TestCase(SubmissionAutomationMode.Submit,"NeedsInput","SignReview","rehearsal-ready-for-review",false)]
+ [TestCase(SubmissionAutomationMode.Rehearsal,"NeedsInput","AppTests","rehearsal-ready-for-review",false)]
+ [TestCase(SubmissionAutomationMode.Submit,"Waiting","SignReview","worker-role-handoff",false)]
+ [TestCase(SubmissionAutomationMode.Submit,"Waiting","SignReview","signing-authorization-required",false)]
+ [TestCase(SubmissionAutomationMode.Rehearsal,"Failed","Endurance","probe-failed",false)]
+ [TestCase(SubmissionAutomationMode.Submit,"OutcomeUnknown","Deliver",null,false)]
+ [TestCase(SubmissionAutomationMode.Rehearsal,"Busy",null,"workflow-in-use",false)]
+ public void FiniteWorkerOnlyExitsAfterItsConfiguredEndpoint(SubmissionAutomationMode mode,string state,string? stage,string? reason,bool finished) {
+  Assert.That(AutomationWorker.Finished([new("fixture",3,mode,state,stage,reason)]),Is.EqualTo(finished));
+ }
+ [Test]public void FiniteWorkerDoesNotExitForEmptyOrPartlyFinishedRegistry() {
+  Assert.That(AutomationWorker.Finished([]),Is.False);
+  var done=new AutomationWorker.Status("one",1,SubmissionAutomationMode.Submit,"Completed","Retain",null);
+  Assert.That(AutomationWorker.Finished([done,done with{Profile="two",ReleaseId=2,State="Running",Stage="AppTests"}]),Is.False);
+ }
+ [Test]public async Task FiniteWatchRetainsTerminalNoticeAndReleasesItsLockWithoutWaitingForNextPoll() {
+  using var timeout=new CancellationTokenSource(TimeSpan.FromSeconds(5));
+  int calls=0;
+  int code=await AutomationWorker.Watch(registry,root,SubmissionAutomationWorkerRole.Evidence,TimeSpan.FromMinutes(15),timeout.Token,
+   exitWhenFinished:true,advance:(_,_)=> {
+    calls++;return Task.FromResult(SubmissionWorkflow.Read(root,settings.Release) with {
+     Stage=SubmissionWorkflowStage.SignReview,Status=SubmissionWorkflowStatus.NeedsInput,ReasonCode="rehearsal-ready-for-review"});
+   });
+  Assert.That(code,Is.Zero);Assert.That(calls,Is.EqualTo(1));
+  Assert.That(AutomationFiles.Read<AutomationWorker.Status[]>(Path.Combine(root,"worker-status.json")).Single().Reason,Is.EqualTo("rehearsal-ready-for-review"));
+  Assert.That(File.Exists(Path.Combine(root,"notifications","worker-history.jsonl")),Is.True);
+  using var released=new FileStream(Path.Combine(root,"worker.lock"),FileMode.Open,FileAccess.Write,FileShare.None);
+  Assert.That(released.CanWrite,Is.True);
+ }
+ [Test]public async Task FiniteWatchRejectsFutureReleaseDiscoveryBeforeStarting() {
+  await Assert.ThrowsAsync<InvalidDataException>(async()=>await AutomationWorker.Watch(registry,root,SubmissionAutomationWorkerRole.Evidence,
+   TimeSpan.FromSeconds(30),default,profilesPath:Path.Combine(root,"profiles.json"),exitWhenFinished:true));
+  Assert.That(File.Exists(Path.Combine(root,"worker.lock")),Is.False);
+ }
 }

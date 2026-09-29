@@ -6,6 +6,7 @@ using CrestronHomeDevTools.Automation;
 if(args is ["--help"])
 {
  Console.WriteLine("Read-only stage-binding check: --check-settings PRIVATE_JSON --settings-sha256 PIN. Exit zero means all stage bindings are present, not that tests passed or credentials/equipment were validated.");
+ Console.WriteLine("Finite registry watcher: append --exit-when-finished after --poll-seconds N, before protected-worker/role options. Exits zero only when every registered run is fully retained or every rehearsal has reached unsigned review. Cannot be combined with --release-profiles. Failed or uncertain runs remain visible.");
  Console.WriteLine("Prepare from encrypted setup: --prepare-rehearsal or --prepare-submission, followed by --store PRIVATE_DIRECTORY --snapshot NAME. Submit requires a submission-purpose snapshot. Creates fresh private inputs only; no worker starts or operation is approved. Exit 3 lists missing stage bindings.");
  Console.WriteLine("submission automation: --settings PRIVATE_JSON --settings-sha256 PIN; or --registry PRIVATE_JSON --profile NAME --release-id ID --mode rehearsal|submit. Background: --watch-registry PRIVATE_JSON --status-directory PRIVATE_DIRECTORY --poll-seconds 60 [--release-profiles PRIVATE_JSON]. One-time intake: --intake-releases PRIVATE_PROFILES --registry PRIVATE_JSON. Default role is evidence. For the protected role append --protected-worker PRIVATE_JSON --protected-worker-sha256 INDEPENDENT_PIN --role protected. Rehearsal stops before signing/delivery. Submit requires exact authorizations. The ordinary background worker resumes waits without AI prompts.");return 0;
 }
@@ -42,13 +43,16 @@ try
  }
  string? releaseProfiles=null;
  if(args.Length>=2 && args[^2]=="--release-profiles") {releaseProfiles=args[^1];args=args[..^2];}
+ bool exitWhenFinished=args.Length>0 && args[^1]=="--exit-when-finished";
+ if(exitWhenFinished)args=args[..^1];
  if(args is ["--watch-registry",var registry,"--status-directory",var status,"--poll-seconds",var seconds]) {
   if(!int.TryParse(seconds,out int interval))throw new InvalidDataException("Invalid polling interval.");
   using var stop=new CancellationTokenSource();Console.CancelKeyPress+=(_,e)=>{e.Cancel=true;stop.Cancel();};
-  try {return await AutomationWorker.Watch(registry,status,role,TimeSpan.FromSeconds(interval),stop.Token,releaseProfiles,protection);}
+  try {return await AutomationWorker.Watch(registry,status,role,TimeSpan.FromSeconds(interval),stop.Token,releaseProfiles,protection,exitWhenFinished);}
   catch(OperationCanceledException) when(stop.IsCancellationRequested){return 0;}
  }
  if(releaseProfiles!=null)throw new InvalidDataException("Release discovery must be attached to a background evidence worker.");
+ if(exitWhenFinished)throw new InvalidDataException("Exit-when-finished applies only to a registry watcher.");
  var request=AutomationRequest.Load(args);
  var settings=request.Settings;
  using var deadline=new CancellationTokenSource(TimeSpan.FromHours(6));

@@ -11,6 +11,7 @@ param(
     [ValidateSet('NT AUTHORITY\LOCAL SERVICE','NT AUTHORITY\NETWORK SERVICE')][string]$Account = 'NT AUTHORITY\LOCAL SERVICE',
     [switch]$CurrentUser,
     [ValidateRange(30,900)][int]$PollSeconds = 60,
+    [switch]$ExitWhenFinished,
     [string]$ReleaseProfiles,
     [string]$ProtectedWorker,
     [ValidatePattern('^[a-f0-9]{64}$')][string]$ProtectedWorkerSha256
@@ -26,6 +27,7 @@ foreach ($path in @($Executable, $Registry, $StatusDirectory)) {
     if (-not [IO.Path]::IsPathFullyQualified($path) -or $path.Contains('"') -or $path.Contains("`r") -or $path.Contains("`n")) { throw 'Use absolute reviewed paths.' }
 }
 if ($ReleaseProfiles) {
+    if ($ExitWhenFinished) { throw 'Use one-time intake before starting a finite worker; release discovery must remain running.' }
     if ($Role -ne 'evidence' -or -not [IO.Path]::IsPathFullyQualified($ReleaseProfiles) -or $ReleaseProfiles.Contains('"') -or $ReleaseProfiles.Contains("`r") -or $ReleaseProfiles.Contains("`n") -or -not (Test-Path -LiteralPath $ReleaseProfiles -PathType Leaf)) { throw 'Release profiles require an evidence worker and an absolute private file.' }
 }
 if ($Role -eq 'protected') {
@@ -38,6 +40,7 @@ if (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue) { throw
 # Trim only a trailing separator so CommandLineToArgvW cannot interpret a closing quote as escaped.
 $statusPath = [IO.Path]::TrimEndingDirectorySeparator($StatusDirectory)
 $arguments = '--watch-registry "{0}" --status-directory "{1}" --poll-seconds {2}' -f $Registry, $statusPath, $PollSeconds
+if ($ExitWhenFinished) { $arguments += ' --exit-when-finished' }
 if ($ReleaseProfiles) { $arguments += ' --release-profiles "{0}"' -f $ReleaseProfiles }
 if ($ProtectedWorker) { $arguments += ' --protected-worker "{0}" --protected-worker-sha256 {1}' -f $ProtectedWorker, $ProtectedWorkerSha256 }
 $arguments += ' --role {0}' -f $Role
