@@ -49,13 +49,14 @@ internal sealed class OperatorWindow:Form
    bool readiness=status.Request.IsReadiness;
    Text=readiness?"Crestron submission — ready for a physical test?":"Crestron submission — physical action needed";
    _done.Text=readiness?"I'm ready":"Done";_later.Visible=readiness;
-   string timing=readiness?"No expiry. You may return tomorrow or later.":$"Expires: {SubmissionDisplayTime.Local(status.Request.ExpiresUtc)}";
-   string meaning=readiness?"Do not operate the device yet. I'm ready asks the worker to prepare recording; wait for the separate action prompt.":"Done records your action only. The test checks its effect separately.";
+   string timing=readiness?"No expiry. You may return tomorrow or later.":status.Request.SchemaVersion==3?
+    $"Recording window: {(status.Request.ExpiresUtc-status.Request.CreatedUtc).TotalMinutes:g} minutes, measured on the test worker.":$"Expires: {SubmissionDisplayTime.Local(status.Request.ExpiresUtc)}";
+   string meaning=readiness?"Do not operate the device yet. Choose I'm ready, then wait for the separate action prompt.":"Done records your action only. The test checks its effect separately.";
    string text=$"{status.Request.Instructions}\r\n\r\nTarget: {status.Request.Target}\r\nRequested: {SubmissionDisplayTime.Local(status.Request.CreatedUtc)}\r\n{timing}\r\n\r\n{meaning}\r\nClosing this window leaves the request pending. Reopen it from Crestron submission actions in the notification area. This is not approval to sign or send a submission.\r\n\r\nStep: {status.Request.Step}\r\nRun: {status.Request.RunKey}";
    if(_instructions.Text!=text)_instructions.Text=text;
-   _done.Enabled=_unable.Enabled=_later.Enabled=status.Waiting && !status.Request.IsExpired(DateTimeOffset.UtcNow);
+   _done.Enabled=_unable.Enabled=_later.Enabled=status.Waiting && !status.Request.IsExpired(DateTimeOffset.UtcNow) && SubmissionOperatorStep.IsRecorderAvailable(_handle);
    _status.Text=status.Response!=null?$"Recorded: {status.Response.Outcome} at {SubmissionDisplayTime.Local(status.Response.RecordedUtc)} {status.Response.Reason}":
-    _done.Enabled?(readiness?"Waiting for you. The action timer has not started.":"Recording is ready. Perform only the action above, then choose Done."):"This request expired. Do not perform the action. Check the workflow for any restoration instructions.";
+    _done.Enabled?(readiness?"Waiting for you. The action timer has not started.":"Recording is ready. Perform only the action above, then choose Done."):"The recording is no longer available. Do not perform the action. Check the workflow for any restoration instructions.";
   } catch(Exception e) when(IsRequestError(e)) {ShowError();}
  }
  private static bool IsRequestError(Exception e)=>e is ArgumentException or IOException or UnauthorizedAccessException or InvalidOperationException or JsonException;

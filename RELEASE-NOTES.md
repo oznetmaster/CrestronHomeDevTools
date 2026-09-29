@@ -1,11 +1,13 @@
-# CrestronHomeDevTools 1.23.1
+# CrestronHomeDevTools 1.24.0
 
-When an operator chooses **I'm ready**, a failed driver or app-screen preflight now produces a retained, actionable explanation that the physical test never started. Subsequent observations preserve that explanation instead of replacing it with an uncertain test outcome. No failed test or preparation is automatically replayed.
+Physical action replies are now accepted against elapsed time measured on the recording worker, not by comparing the desktop's clock with the worker's clock. Original desktop replies and separate worker decisions are retained. A live shared-file lock prevents the desktop from displaying a recording prompt after its recording process has exited.
 
-The acknowledged readiness window closes so it cannot cover the next recording prompt. Workflow attention notices come to the foreground and explain known preflight failures in plain language.
+Manual app steps can opt in to `PrepareBeforeReadiness`. The cooperating fixture completes preparation and navigation before asking Ready, waits indefinitely for that response, refreshes its baseline and arms observation before publishing the action prompt. The desktop listener detects the next prompt every half second. Readiness waits are excluded from the runner and automation active-work budgets; cancellation still works. Prepared sessions hold their processor/emulator reservations while waiting.
 
-Validation: 122 focused offline app workflow and recovery tests passed, including retained preflight failures and no replay. The release workflow runs the complete offline suite and package validation before publication. These checks do not establish a completed hardware rehearsal. Existing frozen attempts and their original outcomes remain unchanged.
+The same readiness boundary is available to manual outage recorders after preflight and before a fresh baseline. Cannot perform retains the operator's explanation. No acknowledgement establishes an event or pass, and failed or interrupted attempts are never replayed automatically.
 
-See https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/OperatorSteps.md for operator readiness, physical action prompts and retained evidence.
+Validation covers clock differences and clock corrections, expiry, retained responses, overnight waits, preparation ordering and synthetic Ready-to-action handoff. The complete physical rehearsal under this version is still pending. Earlier evidence and accepted driver submissions are unchanged.
+
+Requires Crestron Home NUnit 2.2.0 for the opt-in runner contract. See https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/OperatorSteps.md for preparation, prompts and retained evidence.
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.

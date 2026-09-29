@@ -1,5 +1,19 @@
 # Planned physical actions
 
+## Prepared readiness and worker timing (1.24.0)
+
+For a new frozen plan, set `PrepareBeforeReadiness: true` on each cooperating manual `InstalledAppSteps`, `PreEnduranceAppSteps` or `PostEnduranceAppSteps` entry. The entry must select exactly one test and include `OperatorInstructions`. The workflow runs preparation first. Inside the fixture, call `SubmissionPreparedReadiness.WaitAsync(inbox, target, cancellationToken)` after navigation and before refreshing the event baseline. The public NUnit 2.2.0 runner supplies the exact readiness binding; fixtures must not invent a different inbox or request.
+
+The operator sees **I'm ready**, **Do this later**, and **Cannot perform this action** with a reason. Readiness has no expiry. After Ready, only the fresh baseline and recorder arming remain; there is no new build, discovery, Home selection or navigation. The desktop checks for the action prompt every half second. Perform the action only when that separate prompt appears, then choose Done. A response acknowledges participation; the independently observed event and UI response still decide the result.
+
+Prepared mode holds the test host and the processor/emulator reservations during the wait. Its active-work budgets pause only for the exact validated readiness request, including overnight waits. External cancellation remains effective. A stopped fixture requires inspection and a new attempt; durable readiness is not permission to replay hardware activity. Legacy steps without this option retain the outer readiness behavior below.
+
+Timed actions use schema 3. The recording worker measures a monotonic elapsed interval; the desktop's UTC timestamp is audit information and never a deadline decision. The original `response.json` and authoritative `worker-response.json` are separate, immutable records. The desktop shows a timed prompt only while the recording process holds its shared-file lock. Older desktop listeners must be updated along with the worker and fixtures.
+
+Manual outage recorders support the same gate after preflight and before a fresh original-state capture. Their observers must refresh state after an overnight wait without repeating expensive UI preparation. Outage actions and restoration retain their existing separate, bounded recording budgets.
+
+These protocol and offline checks do not establish a successful physical rehearsal. Keep prior failed attempts unchanged and verify the new handoff before using it for submission evidence.
+
 ## Durable readiness (1.23.0)
 
 Do not start a timed hardware action merely because a worker reached it overnight.

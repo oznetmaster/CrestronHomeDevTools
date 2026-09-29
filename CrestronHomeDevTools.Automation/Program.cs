@@ -55,9 +55,11 @@ try
  if(exitWhenFinished)throw new InvalidDataException("Exit-when-finished applies only to a registry watcher.");
  var request=AutomationRequest.Load(args);
  var settings=request.Settings;
- using var deadline=new CancellationTokenSource(TimeSpan.FromHours(6));
- Console.CancelKeyPress+=(_,e)=>{e.Cancel=true;deadline.Cancel();};
+ using var cancellation=new CancellationTokenSource();
+ Console.CancelKeyPress+=(_,e)=>{e.Cancel=true;cancellation.Cancel();};
+ await using var deadline=new CrestronHomeNUnit.Workflow.WorkflowActiveDeadline(TimeSpan.FromHours(6),cancellation.Token,()=>AutomationAppSteps.PreparedWaitPending(settings));
  var state=await SubmissionWorkflow.AdvanceAsync(settings.PrivateRoot,settings.Release,new SubmissionAutomationStages(settings,request.Sha256,role,protection),deadline.Token);
+ deadline.ThrowIfFaulted();
  bool rehearsed=settings.Mode==SubmissionAutomationMode.Rehearsal && state.Stage==SubmissionWorkflowStage.SignReview &&
   state.Status==SubmissionWorkflowStatus.NeedsInput && state.ReasonCode=="rehearsal-ready-for-review";
  Console.WriteLine(JsonSerializer.Serialize(new{settings.Mode,state.Stage,state.Status,state.ReasonCode,state.UpdatedUtc,

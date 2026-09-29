@@ -28,7 +28,7 @@ Readiness requests do not expire. Done means ready, not that the physical action
     if(options.ContainsKey("--outcome") || options.ContainsKey("--reason"))throw new ArgumentException();
     var status=SubmissionOperatorStep.Read(handle);
     output.WriteLine(JsonSerializer.Serialize(new { status.Request,status.Response,
-     IsReadiness=status.Request.IsReadiness,CanRespond=status.Waiting && !status.Request.IsExpired(DateTimeOffset.UtcNow) }));return 0;
+     IsReadiness=status.Request.IsReadiness,CanRespond=status.Waiting && !status.Request.IsExpired(DateTimeOffset.UtcNow) && SubmissionOperatorStep.IsRecorderAvailable(handle) }));return 0;
    }
    var outcome=Need("--outcome") switch {"done"=>SubmissionOperatorOutcome.Done,"unable"=>SubmissionOperatorOutcome.Unable,_=>throw new ArgumentException()};
    var response=SubmissionOperatorStep.Respond(handle,outcome,options.GetValueOrDefault("--reason"));

@@ -17,6 +17,21 @@ public sealed partial class AutomationInstalledAppTests
     new(["Example.Tests.Double"],"Prepare for a double press of Demo Button.")]};
  }
  private SubmissionOperatorHandle Readiness()=>SubmissionOperatorStep.Pending(settings.OperatorInbox!.Directory,settings.OperatorInbox.RunKey).Single();
+ [Test] public async Task PreparedModeStartsTheFixtureWithoutPublishingAnEarlyReadyPrompt() {
+  WithManualSteps();settings=settings with {InstalledAppSteps=settings.InstalledAppSteps!.Select(s=>s with{PrepareBeforeReadiness=true}).ToArray()};
+  Task<InstalledDriverTestResult> PreparedRun(InstalledDriverTestPlan p,System.Net.NetworkCredential c,string f,CancellationToken t) {
+   Assert.That(p.OperatorReadiness,Is.Not.Null);
+   Assert.That(p.OperatorReadiness!.ReadStatus(),Is.Null);
+   Assert.That(p.OperatorReadiness.Step,Does.EndWith(".prepared-ready"));
+   return Run(p,c,f,t);
+  }
+  Assert.That((await AutomationInstalledApp.Advance(context,settings,false,PreparedRun,_=>new(),default)).Status,Is.EqualTo(SubmissionWorkflowStatus.Completed));
+  Assert.That(calls,Is.EqualTo(2));
+ }
+ [Test] public void PreparedModeCannotSilentlyRunAnUnspecifiedPhysicalAction() {
+  WithManualSteps();settings=settings with{InstalledAppSteps=[new(["Example.Tests.Single"]){PrepareBeforeReadiness=true},settings.InstalledAppSteps![1]]};
+  Assert.Throws<InvalidDataException>(()=>AutomationAppSteps.Validate(settings));
+ }
  [Test] public async Task ManualStepsWaitAcrossRestartAndRunOnlyAcknowledgedCase() {
   WithManualSteps();
   Assert.That((await Advance()).Status,Is.EqualTo(SubmissionWorkflowStatus.Waiting));

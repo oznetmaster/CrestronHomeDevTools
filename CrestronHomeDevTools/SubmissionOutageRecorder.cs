@@ -8,6 +8,13 @@ namespace CrestronHomeDevTools;
 public sealed record SubmissionOutageRecordingContext (string EvidenceDirectory, SubmissionEvidenceIdentity Identity);
 public sealed record SubmissionOutageRestoredState (SubmissionOutageCapture Capture, bool MatchesOriginal);
 
+/// <summary>Optional human gate after preparation, before a fresh baseline and interruption.
+/// Readiness never operates hardware; the recorder excludes this wait from its observation budget.</summary>
+public interface ISubmissionOutageReadiness
+{
+ Task WaitUntilReadyAsync(CancellationToken token);
+}
+
 /// <summary>Trusted, explicitly configured hardware bindings. Preflight and baseline capture must be
 /// read-only. Operations must honor cancellation and retain raw evidence inside the supplied directory.
 /// Connectivity control must remain available while the selected processor/device is interrupted.</summary>
@@ -112,10 +119,20 @@ public static class SubmissionOutageRecorder
 		string stage = "preflight";
 		using var observation = CancellationTokenSource.CreateLinkedTokenSource (token);
 		observation.CancelAfter (observationTimeout);
+		long activeStarted = clock.GetTimestamp();
 		// Neither cleanup budget inherits caller cancellation nor the observation timeout.
 		try
 			{
 			await hardware.PreflightAsync (new (root, plan.Identity), observation.Token).ConfigureAwait (false);
+			if(hardware is ISubmissionOutageReadiness readiness) {
+				stage="readiness";
+				observation.Token.ThrowIfCancellationRequested();
+				var remaining=observationTimeout-clock.GetElapsedTime(activeStarted);
+				if(remaining<=TimeSpan.Zero)throw new TimeoutException("Outage preparation exhausted its budget.");
+				observation.CancelAfter(Timeout.InfiniteTimeSpan);
+				await readiness.WaitUntilReadyAsync(token).ConfigureAwait(false);
+				observation.CancelAfter(remaining);
+			}
 			stage = "baseline";
 			original = await hardware.CaptureOriginalAsync (observation.Token).ConfigureAwait (false);
 			Capture (original);

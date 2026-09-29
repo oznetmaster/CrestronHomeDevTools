@@ -101,6 +101,21 @@ public sealed class SubmissionOutageRecorderTests
 			Assert.That (_hardware.CheckedFunctions, Is.Empty);
 		});
 		}
+	[Test] public async Task ReadinessRunsAfterPreparationAndBeforeAnyInterruption() {
+		_hardware.Ready=token=> {
+			Assert.That(_hardware.PreflightCalls,Is.EqualTo(1));
+			Assert.That(_hardware.Commands,Is.Empty);
+			_clock.Advance(TimeSpan.FromHours(36));
+			return Task.CompletedTask;
+		};
+		Assert.That((await Run()).Passed,Is.True);
+	}
+	[Test] public async Task CancelledReadinessDoesNotInterruptOrRestoreUntouchedEquipment() {
+		_hardware.Ready=token=> { _cancel.Cancel();token.ThrowIfCancellationRequested();return Task.CompletedTask; };
+		Assert.That((await Run()).Passed,Is.False);
+		Assert.That(_hardware.Commands,Is.Empty);
+		Assert.That(_hardware.Restored,Is.Empty);
+	}
 	[Test]
 	public async Task TimedOutRestorationDoesNotCancelTheNextComponent ()
 		{
@@ -255,8 +270,10 @@ public sealed class SubmissionOutageRecorderTests
 		public void Advance (TimeSpan interval) => _now += interval;
 		}
 
-	private sealed class Hardware (Clock clock, CancellationTokenSource caller) : ISubmissionOutageHardware
+	private sealed class Hardware (Clock clock, CancellationTokenSource caller) : ISubmissionOutageHardware, ISubmissionOutageReadiness
 		{
+		public Func<CancellationToken,Task>? Ready;
+		public Task WaitUntilReadyAsync(CancellationToken token)=>Ready?.Invoke(token)??Task.CompletedTask;
 		public IReadOnlyList<string> Components => ["processor", "device"];
 		public IReadOnlyList<string> Functions => ["control", "feedback"];
 		public string Failure = "";

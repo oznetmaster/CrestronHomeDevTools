@@ -12,7 +12,11 @@ public enum SubmissionAutomationMode { Rehearsal, Submit }
 public enum SubmissionAutomationWorkerRole { Evidence, Protected }
 public sealed record SubmissionAutomationApprovalChannel(string DocumentPath,string PinPath);
 /// <summary>Ordered app-test groups. A manual group contains one exact selected test and a readiness instruction.</summary>
-public sealed record SubmissionAppTestStep(string[] Tests,string? OperatorInstructions=null);
+public sealed record SubmissionAppTestStep(string[] Tests,string? OperatorInstructions=null)
+{
+ /// <summary>Prepare the fixture and UI before asking Ready. Requires a cooperating fixture; holds reservations while waiting.</summary>
+ public bool PrepareBeforeReadiness {get;init;}
+}
 public sealed record SubmissionAutomationProtectedPlan(string CredentialBindings,
  SubmissionAutomationApprovalChannel SigningApproval,SubmissionAutomationApprovalChannel DeliveryApproval,
  SubmissionAutomationDeliverySettings? Delivery=null)

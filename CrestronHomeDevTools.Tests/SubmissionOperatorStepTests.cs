@@ -96,19 +96,55 @@ public sealed class SubmissionOperatorStepTests
  [Test]
  public async Task ExpiredRequestCannotBeCompleted()
  {
-  var clock=new FixedClock(DateTimeOffset.UtcNow.AddMinutes(-2));
+  var clock=new RecordingClock();
   var handle=SubmissionOperatorStep.Create(_root,new('b',64),"restore","test target","Restore connection.",TimeSpan.FromMinutes(1),clock);
-  var response=SubmissionOperatorStep.Respond(handle,SubmissionOperatorOutcome.Done);
+  clock.Elapsed=TimeSpan.FromMinutes(2);
+  var acknowledgement=SubmissionOperatorStep.Respond(handle,SubmissionOperatorOutcome.Done);
+  var response=await SubmissionOperatorStep.WaitAsync(handle,CancellationToken.None,clock);
+  Assert.That(acknowledgement.Outcome,Is.EqualTo(SubmissionOperatorOutcome.Done));
   Assert.That(response.Outcome,Is.EqualTo(SubmissionOperatorOutcome.Expired));
   Assert.That(await SubmissionOperatorStep.WaitAsync(handle),Is.EqualTo(response));
+  Assert.That(JsonNode.Parse(File.ReadAllText(Path.Combine(handle.Directory,"response.json")))!["outcome"]!.GetValue<string>(),Is.EqualTo("Done"));
  }
- [Test]
- public void RejectsFutureResponse()
+ [TestCase(-86400)]
+ [TestCase(0.25)]
+ [TestCase(86400)]
+ public async Task OperatorWallClockIsAuditOnly(double skewSeconds)
  {
-  var handle=Create();SubmissionOperatorStep.Respond(handle,SubmissionOperatorOutcome.Done);
-  string path=Path.Combine(handle.Directory,"response.json");var json=JsonNode.Parse(File.ReadAllText(path))!;
-  json["recordedUtc"]=DateTimeOffset.UtcNow.AddMinutes(1);File.WriteAllText(path,json.ToJsonString());
-  Assert.Throws<InvalidDataException>(()=>SubmissionOperatorStep.Read(handle));
+  var clock=new RecordingClock();
+  var handle=SubmissionOperatorStep.Create(_root,new('a',64),"press","button","Press once.",TimeSpan.FromMinutes(1),clock);
+  var operatorClock=new FixedClock(clock.Utc.AddSeconds(skewSeconds));
+  var acknowledgement=SubmissionOperatorStep.Finish(handle,SubmissionOperatorOutcome.Done,operatorClock);
+  Assert.That(SubmissionOperatorStep.Read(handle).Response,Is.EqualTo(acknowledgement));
+  clock.Elapsed=TimeSpan.FromSeconds(10);
+  Assert.That((await SubmissionOperatorStep.WaitAsync(handle,CancellationToken.None,clock)).Outcome,Is.EqualTo(SubmissionOperatorOutcome.Done));
+ }
+ [TestCase(-86400)] [TestCase(86400)]
+ public async Task WorkerUtcJumpDoesNotExtendOrShortenItsElapsedDeadline(double jumpSeconds) {
+  var clock=new RecordingClock();
+  var handle=SubmissionOperatorStep.Create(_root,new('a',64),"press","button","Press once.",TimeSpan.FromMinutes(1),clock);
+  clock.Utc=clock.Utc.AddSeconds(jumpSeconds);clock.Elapsed=TimeSpan.FromSeconds(10);
+  SubmissionOperatorStep.Respond(handle,SubmissionOperatorOutcome.Done);
+  Assert.That((await SubmissionOperatorStep.WaitAsync(handle,CancellationToken.None,clock)).Outcome,Is.EqualTo(SubmissionOperatorOutcome.Done));
+  var second=SubmissionOperatorStep.Create(_root,new('a',64),"second","button","Press once.",TimeSpan.FromMinutes(1),clock);
+  clock.Elapsed+=TimeSpan.FromSeconds(61);clock.Utc=clock.Utc.AddSeconds(-jumpSeconds);
+  Assert.That((await SubmissionOperatorStep.WaitAsync(second,CancellationToken.None,clock)).Outcome,Is.EqualTo(SubmissionOperatorOutcome.Expired));
+ }
+ private sealed class RecordingClock:TimeProvider {
+  internal DateTimeOffset Utc=DateTimeOffset.UtcNow;
+  internal TimeSpan Elapsed;
+  public override DateTimeOffset GetUtcNow()=>Utc;
+  public override long TimestampFrequency=>TimeSpan.TicksPerSecond;
+  public override long GetTimestamp()=>100+Elapsed.Ticks;
+ }
+ [Test] public async Task DesktopCanIdentifyARecorderWithoutUsingEitherWallClock() {
+  var handle=Create();
+  Assert.That(SubmissionOperatorStep.IsRecorderAvailable(handle),Is.False);
+  using var cancel=new CancellationTokenSource();
+  var wait=SubmissionOperatorStep.WaitAsync(handle,cancel.Token);
+  Assert.That(SubmissionOperatorStep.IsRecorderAvailable(handle),Is.True);
+  await cancel.CancelAsync();await wait;
+  Assert.That(SubmissionOperatorStep.IsRecorderAvailable(handle),Is.False);
  }
  [Test]
  public void PermanentWriteFailureIsNotRetriedForever()

@@ -40,7 +40,7 @@ public interface ISubmissionManualRestorationBounds
 /// attests to physical scope; independent observations verify connectivity/functions. Event bounds
 /// span request publication through acknowledgement/observation, never an invented exact instant.
 /// Use one instance per attempt and dispose it after the recorder finishes.</summary>
-public sealed class SubmissionManualOutageHardware : ISubmissionOutageHardware, IAsyncDisposable
+public sealed class SubmissionManualOutageHardware : ISubmissionOutageHardware, ISubmissionOutageReadiness, IAsyncDisposable
 {
  private readonly SubmissionManualOutageSettings _settings;
  private readonly ISubmissionManualOutageObserver _observer;
@@ -81,6 +81,13 @@ public sealed class SubmissionManualOutageHardware : ISubmissionOutageHardware, 
   await _observer.PreflightAsync(context,token).ConfigureAwait(false);
  }
  public Task<SubmissionOutageCapture> CaptureOriginalAsync(CancellationToken token)=>_observer.CaptureOriginalAsync(token);
+ public async Task WaitUntilReadyAsync(CancellationToken token) {
+  var status=await SubmissionPreparedReadiness.WaitAsync(_settings.Inbox,_settings.Target,token).ConfigureAwait(false);
+  if(status!=null) {
+   using var output=new FileStream(Path.Combine(_root!,"manual-readiness.json"),FileMode.CreateNew,FileAccess.Write,FileShare.Read);
+   JsonSerializer.Serialize(output,status,Json);output.Flush(true);
+  }
+ }
  private void Component(string component) {
   if(_root==null || !_components.Contains(component,StringComparer.Ordinal))throw new InvalidDataException("Unbound interruption component.");
  }

@@ -24,8 +24,9 @@ internal static class AutomationWorker
     var s=request.Settings;
     var checkpoint=SubmissionWorkflow.Read(s.PrivateRoot,s.Release);
     if(Owns(checkpoint.Stage,role) && checkpoint.Status is SubmissionWorkflowStatus.Ready or SubmissionWorkflowStatus.Running or SubmissionWorkflowStatus.Waiting) {
-     using var deadline=CancellationTokenSource.CreateLinkedTokenSource(token);deadline.CancelAfter(TimeSpan.FromHours(6));
+     await using var deadline=new CrestronHomeNUnit.Workflow.WorkflowActiveDeadline(TimeSpan.FromHours(6),token,()=>AutomationAppSteps.PreparedWaitPending(s));
      checkpoint=await (advance??((r,t)=>SubmissionWorkflow.AdvanceAsync(r.Settings.PrivateRoot,r.Settings.Release,new SubmissionAutomationStages(r.Settings,r.Sha256,role,protection),t)))(request,deadline.Token);
+     deadline.ThrowIfFaulted();
     }
     statuses.Add(new(entry.Profile,entry.ReleaseId,entry.Mode,checkpoint.Status.ToString(),checkpoint.Stage.ToString(),checkpoint.ReasonCode));
    } catch(OperationCanceledException) when(token.IsCancellationRequested) {throw;}

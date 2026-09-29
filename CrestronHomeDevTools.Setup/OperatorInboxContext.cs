@@ -34,7 +34,7 @@ internal sealed class OperatorInboxContext:ApplicationContext
  }
  private OperatorInboxContext(Func<IReadOnlyList<SubmissionOperatorInbox>> inboxes,bool persistent) {
   _inboxes=inboxes;_persistent=persistent;
-  if(persistent)_timer.Interval=10000;
+  if(persistent)_timer.Interval=500; // Ready-to-action handoff must not wait for a background polling cycle.
   var menu=new ContextMenuStrip();menu.Items.Add("Show pending actions",null,(_,_)=>Check(true));
   menu.Items.Add("Exit action monitor",null,(_,_)=>ExitThread());_tray.ContextMenuStrip=menu;
   _tray.DoubleClick+=(_,_)=>Check(true);
@@ -55,7 +55,7 @@ internal sealed class OperatorInboxContext:ApplicationContext
      } catch(DirectoryNotFoundException) {continue;}
        catch(FileNotFoundException) {continue;}
     }
-    pending.AddRange(SubmissionOperatorStep.Pending(inbox.Directory,inbox.RunKey));
+    pending.AddRange(SubmissionOperatorStep.Pending(inbox.Directory,inbox.RunKey).Where(SubmissionOperatorStep.IsRecorderAvailable));
    }
    var active=pending.Select(h=>h.RequestSha256).ToHashSet(StringComparer.Ordinal);
    foreach(var entry in _windows.ToArray())if(!active.Contains(entry.Key))entry.Value.Close();
