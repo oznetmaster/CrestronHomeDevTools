@@ -1,9 +1,9 @@
 # Planned physical actions
 
-Status: source implementation for the next batched release; not included in 1.21.0.
-The shared request protocol, concurrent observation, desktop inbox and CLI have
-offline coverage. Live sensor/outage fixtures and service-to-desktop deployment
-still need validation.
+Available in 1.22.0. The shared request protocol, concurrent observation, desktop
+inbox and CLI have offline coverage. A live desktop diagnostic verified two
+successive requests through one persistent listener and cleanup of its validation
+tasks. Live sensor/outage fixtures and the complete workflow still need validation.
 
 A sensor press or unplugging a processor is a planned test action. It does not
 require an AI session to advance the workflow. A fixture publishes an explicit
