@@ -35,7 +35,11 @@ internal sealed class OperatorWindow:Form
   if(outcome==SubmissionOperatorOutcome.Unable && string.IsNullOrWhiteSpace(_reason.Text)) {
    _status.Text="Please explain why this action cannot be performed. The workflow will pause.";_reason.Focus();return;
   }
-  try {_=SubmissionOperatorStep.Respond(_handle,outcome,outcome==SubmissionOperatorOutcome.Unable?_reason.Text.Trim():null);RefreshRequest();}
+  try {
+   bool readiness=SubmissionOperatorStep.Read(_handle).Request.IsReadiness;
+   _=SubmissionOperatorStep.Respond(_handle,outcome,outcome==SubmissionOperatorOutcome.Unable?_reason.Text.Trim():null);
+   if(readiness)Close();else RefreshRequest();
+  }
   catch(Exception e) when(IsRequestError(e)) {ShowError();}
  }
  private void RefreshRequest()

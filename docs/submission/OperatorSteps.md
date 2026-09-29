@@ -294,3 +294,15 @@ separate target plan and evidence remain in `pre-endurance`; they do not imply
 that the main/endurance processor was interrupted. Installation and fixture
 preparation for both targets remain explicit workflow prerequisites.
 
+
+## Preparation failure after readiness
+
+Starting with 1.23.1, acknowledging readiness closes that window. The worker still
+checks driver and app-screen readiness before starting the physical test. A
+known preflight failure produces an attention notice explaining that the test
+never started; do not operate the device in response to that notice. The original
+readiness response and preflight report remain in the step directory, alongside
+`installed-app-preflight-failure.json`. Restarting observation preserves this
+reason and does not replay the step. Inspect and resolve the underlying cause
+before preparing another attempt; do not edit frozen evidence or mark the test
+passed merely because its readiness request was acknowledged.

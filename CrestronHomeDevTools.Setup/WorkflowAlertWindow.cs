@@ -10,6 +10,7 @@ internal sealed class WorkflowAlertWindow:Form
   Text=completed?"Crestron submission workflow completed":review?"Crestron rehearsal ready for review":"Crestron submission needs attention";
   Width=650;Height=350;StartPosition=FormStartPosition.CenterScreen;
   MinimumSize=new(500,280);ShowInTaskbar=true;
+  Shown+=(_,_)=>{TopMost=true;Activate();};
   var message=new TextBox {Multiline=true,ReadOnly=true,Dock=DockStyle.Fill,ScrollBars=ScrollBars.Vertical,BorderStyle=BorderStyle.None,BackColor=SystemColors.Control};
   message.Text=$"{alert.Repository} — {alert.Tag}{Environment.NewLine}"+
    $"Profile: {alert.Profile}{Environment.NewLine}"+

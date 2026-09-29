@@ -1,14 +1,11 @@
-# CrestronHomeDevTools 1.23.0
+# CrestronHomeDevTools 1.23.1
 
-Manual app tests can now wait overnight for an operator without starting a timed physical action or holding a test host, processor reservation or app reservation.
+When an operator chooses **I'm ready**, a failed driver or app-screen preflight now produces a retained, actionable explanation that the physical test never started. Subsequent observations preserve that explanation instead of replacing it with an uncertain test outcome. No failed test or preparation is automatically replayed.
 
-- New ordered `InstalledAppSteps`, `PreEnduranceAppSteps` and `PostEnduranceAppSteps` bind every selected test exactly once. Each manual step contains one test and explicit readiness instructions. Pending readiness and completed-step evidence survive worker restarts; already attempted hardware tests are never automatically replayed.
-- The desktop readiness window offers **I'm ready**, **Do this later** and **Cannot perform this action**. Readiness has no expiry. Cannot perform requires an explanation, retained with the exact request and step evidence. The public CLI supports the same explanation through `--reason`.
-- After readiness, the worker prepares recording and the fixture issues its precise timed action prompt. An active failure pauses before the next test. A readiness acknowledgement, an inability explanation or a timeout never becomes a pass, an N/A decision or permission to sign or deliver.
-- Action windows are centred and foregrounded, with instructions before diagnostic identifiers. Existing frozen runs retain their original prompt behaviour and evidence; adopting ordered steps requires a new plan and updated review evidence paths.
+The acknowledged readiness window closes so it cannot cover the next recording prompt. Workflow attention notices come to the foreground and explain known preflight failures in plain language.
 
-Validation: all 1,739 discovered offline tests passed, including overnight readiness, cancellation/restart, saved explanations, exact test coverage, source-change rejection, no replay after failure, and separate-processor phase recovery. The desktop application builds without warnings. A labelled local synthetic readiness request survived a listener restart and received a real desktop response. These checks do not establish a successful physical-device rehearsal or certification.
+Validation: 122 focused offline app workflow and recovery tests passed, including retained preflight failures and no replay. The release workflow runs the complete offline suite and package validation before publication. These checks do not establish a completed hardware rehearsal. Existing frozen attempts and their original outcomes remain unchanged.
 
-See https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/OperatorSteps.md for setup, exact plan fields, evidence layout and operator controls.
+See https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/OperatorSteps.md for operator readiness, physical action prompts and retained evidence.
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
