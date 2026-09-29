@@ -68,7 +68,7 @@ internal static class AutomationWorker
    }
   }
   if(stable.Count==0 || !SaveStatus(notices,stable.ToArray()))return null;
-  return $"[{observedUtc.ToUniversalTime():O}] {NoticeText(stable.ToArray())}";
+  return $"[{SubmissionDisplayTime.Utc(observedUtc)}] {NoticeText(stable.ToArray())}";
  }
  internal static string NoticeText(Status[] statuses) {
   if(statuses.Any(s=>s.State is not ("Ready" or "Running" or "Waiting" or "NeedsInput" or "Completed")))

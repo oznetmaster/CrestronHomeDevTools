@@ -93,7 +93,7 @@ public sealed class SubmissionEnduranceNotifier
 		message.MessageId = messageId;
 		message.Subject = report.RequiresAttention ? "Endurance monitoring needs attention" : "Endurance collection completed";
 		message.Body = new TextPart ("plain") { Text = _settings.Label + "\r\nState: " + report.State +
-			"\r\nObserved UTC: " + report.EvaluatedUtc.ToUniversalTime ().ToString ("O") +
+			"\r\nObserved: " + SubmissionDisplayTime.Utc (report.EvaluatedUtc) +
 			"\r\nReasons: " + string.Join (", ", report.Reasons) +
 			"\r\n\r\nInspect the monitoring journal. This operational notification is not submission acceptance.\r\n" };
 		Save (sending);

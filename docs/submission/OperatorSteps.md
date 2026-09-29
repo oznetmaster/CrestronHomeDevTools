@@ -5,6 +5,15 @@ inbox and CLI have offline coverage. A live desktop diagnostic verified two
 successive requests through one persistent listener and cleanup of its validation
 tasks. Live sensor/outage fixtures and the complete workflow still need validation.
 
+A separate Windows-to-Windows diagnostic verified a synthetic request created by
+the test worker, an action window on the controlling computer under its normal
+signed-in account, a response written there and read back by the worker, and
+automatic listener exit after closing the diagnostic inbox. It used the existing
+authenticated private share. This proves that transport path, not actual physical
+sensor/outage tests or recovery from a network interruption. Display formatting
+changes described here are in the next release; the shared-inbox transport is
+already available in 1.22.0.
+
 A sensor press or unplugging a processor is a planned test action. It does not
 require an AI session to advance the workflow. A fixture publishes an explicit
 request, waits for an answer and then verifies the resulting device/app behavior.
@@ -54,6 +63,58 @@ A cancelled request is not proof of restoration. This protocol does not implemen
 the hardware-specific restoration or timing observations itself.
 
 ## Operator desktop
+
+### Worker and controlling computer
+
+Choose the computer on which the human will receive requests **before starting**
+the rehearsal or submission. It can be a separate controlling PC; the test worker
+does not need a person watching its desktop, and no AI session relays requests.
+The listener opens the action window on the computer **running the listener**.
+Running it only on a remote test worker therefore requires viewing that worker's
+desktop through Remote Desktop or another remote-access tool.
+
+For direct alerts on the controlling PC, provision authenticated private shared
+storage and run the listener there. Both accounts need access to the same retained
+inbox: the worker publishes requests and the operator writes responses. Keep
+signatures and device/delivery credentials out of the shared inbox. Do not copy
+requests to an independent folder: a copied response would not reach the waiting
+fixture. Do not open a new public web endpoint or expose the inbox anonymously.
+
+The persistent registry listener also needs read access to the registry and its
+pinned settings. All absolute registry/settings/inbox paths must resolve to the
+same files on both hosts. An administrator-provisioned private share/mapping can
+supply that namespace. Where only the inbox is shared and paths differ, use the
+per-run `--operator-inbox` mode with the controller's path and exact run key. That
+mode needs neither processor credentials nor access to the worker's registry.
+
+Install using the commands below **on the controlling PC** under the signed-in
+operator account. An interactive desktop and its network access are required;
+registration under a service account or an administrator's different session is
+not proof of delivery. Prefer one listener per operator/profile set. If two
+operators see the same request, only the first valid response is accepted.
+
+Before release intake, send a clearly labelled synthetic request through the
+same share and accounts, confirm that the controlling desktop displays it, answer
+it there, and confirm the worker reads that response. Also verify that loss of
+share access gives an alert rather than a successful response. This diagnostic
+must not count as a sensor, outage or driver test. Register the listener to resume
+at sign-in and verify its task, process and shared-file access after a restart.
+
+Physical requests show the target, instructions, requested time and expiry with
+the controller's UTC offset. Closing a window leaves the request pending; expiry
+does not complete the test. The controller must be attended during planned manual
+tests. A failure alert (such as **Submission worker needs attention**) is different
+from a **physical action needed** window: identify its profile, release, stage and
+observation time, then inspect the retained error. It is not an instruction to
+operate hardware or to restart a workflow. A stale alert from a completed older
+attempt must not be interpreted as a new run failure; retire its exact obsolete
+watcher while keeping the evidence.
+
+The physical-action listener handles physical requests and inbox-access errors.
+It is not a general worker-failure monitor or a signing/delivery approval service.
+Provision the appropriate worker-status observer as well; do not depend on an AI
+noticing a failure. Dismissing an alert, or choosing Done, never signs or sends
+anything.
 
 For release-triggered workflows, install the persistent listener **once**, using
 the evidence worker's private registry and an explicit list of trusted profile names:

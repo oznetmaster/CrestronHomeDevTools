@@ -1,6 +1,8 @@
 # Execute a Crestron driver submission
 
-Give this document and the driver's repository URL to the assistant that will perform the work. No supervising assistant, previous conversation, private helper repository or author-specific environment is required by these instructions. The assistant must obtain missing developer inputs itself and consult the linked public documentation itself.
+Use this document with the driver's repository URL to prepare the workflow. Normal rehearsal and submission execution must not depend on an AI session: the configured worker advances stages, and an operator listener presents required human actions on the selected controlling computer. An assistant may help with setup or diagnosis, but is not the notification or response transport. See [operator desktop setup and cross-computer delivery](OperatorSteps.md#worker-and-controlling-computer).
+
+When an assistant performs setup, give it this document and the repository URL. No supervising assistant, previous conversation, private helper repository or author-specific environment is required by these instructions. Obtain missing developer inputs and consult the linked public documentation before starting.
 
 **Validation status:** this starting document is a draft. The underlying tools have validation and real delivery evidence described in the public validation guide, but an independent run beginning with this document has not yet demonstrated the entire procedure. Do not describe that independent validation as complete.
 

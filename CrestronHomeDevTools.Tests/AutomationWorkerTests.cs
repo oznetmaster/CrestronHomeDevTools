@@ -71,7 +71,7 @@ public sealed class AutomationWorkerTests
   var waiting=new AutomationWorker.Status("fixture",3,SubmissionAutomationMode.Submit,"Waiting","Endurance","endurance-collecting");
   var busy=waiting with{State="Busy",Stage=null,Reason="workflow-in-use"};
   Assert.That(AutomationWorker.Notification(root,[busy],time),Is.Null);
-  Assert.That(AutomationWorker.Notification(root,[waiting],time),Does.StartWith("[2026-09-27T07:00:00.0000000+00:00]"));
+  Assert.That(AutomationWorker.Notification(root,[waiting],time),Does.StartWith("[27 Sep 2026, 07:00:00 UTC]"));
   for(int i=0;i<5;i++) {
    Assert.That(AutomationWorker.Notification(root,[busy],time.AddMinutes(i)),Is.Null);
    Assert.That(AutomationWorker.Notification(root,[waiting],time.AddMinutes(i)),Is.Null);

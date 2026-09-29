@@ -9,6 +9,13 @@ preserve the original operation for recovery. A live watcher process alone does
 not mean its submission is progressing. Inspect the reported stage and retained
 input/process diagnostics; do not reset the run or mark it passed.
 
+Before starting, configure [operator alerts on the controlling computer](OperatorSteps.md#worker-and-controlling-computer),
+and verify request/response delivery across its authenticated private share. A
+headless worker's local action window is not sufficient. No AI session should be
+needed to discover a pending physical step or carry its acknowledgement. Retire
+obsolete observers after their attempt is finished, preserving their journals,
+so an older failure is not presented as the current run's status.
+
 Create release checkouts under the account that will execute the worker. During
 preflight, verify Git source identity and encrypted credential access under that
 same account. Checkouts created by an administrator can be rejected by Git when

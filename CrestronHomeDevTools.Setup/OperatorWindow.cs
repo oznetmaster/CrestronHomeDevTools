@@ -35,10 +35,10 @@ internal sealed class OperatorWindow:Form
  {
   try {
    var status=SubmissionOperatorStep.Read(_handle);
-   string text=$"Target: {status.Request.Target}\r\nStep: {status.Request.Step}\r\nRun: {status.Request.RunKey}\r\n\r\n{status.Request.Instructions}\r\n\r\nExpires: {status.Request.ExpiresUtc:u}\r\n\r\nDone records your action only. The test checks its effect separately. Closing this window leaves the request pending. This is not approval to sign or send a submission.";
+   string text=$"Target: {status.Request.Target}\r\nStep: {status.Request.Step}\r\nRun: {status.Request.RunKey}\r\n\r\n{status.Request.Instructions}\r\n\r\nRequested: {SubmissionDisplayTime.Local(status.Request.CreatedUtc)}\r\nExpires: {SubmissionDisplayTime.Local(status.Request.ExpiresUtc)}\r\n\r\nDone records your action only. The test checks its effect separately. Closing this window leaves the request pending. This is not approval to sign or send a submission.";
    if(_instructions.Text!=text)_instructions.Text=text;
    _done.Enabled=_unable.Enabled=status.Waiting && DateTimeOffset.UtcNow<status.Request.ExpiresUtc;
-   _status.Text=status.Response!=null?$"Recorded: {status.Response.Outcome} at {status.Response.RecordedUtc:u}":
+   _status.Text=status.Response!=null?$"Recorded: {status.Response.Outcome} at {SubmissionDisplayTime.Local(status.Response.RecordedUtc)}":
     _done.Enabled?"Waiting for your action. Read the target and instructions before responding.":"This request expired. Do not perform the action. Check the workflow for any restoration instructions.";
   } catch(Exception e) when(IsRequestError(e)) {ShowError();}
  }

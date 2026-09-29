@@ -62,6 +62,23 @@ If a required test or document cannot be supplied, the normal path stops. A deve
 
 For a useful handoff, record the selected driver and candidate identity, tooling version/commit, private settings locations, last completed stage and receipt hashes, any active run handle, unresolved failures, and the exact next action. Keep secrets out of that summary. No step should depend on remembering a prior chat.
 
+## Retire completed or superseded attempts
+
+Submission closeout includes the notification processes, not just delivery.
+Inventory the exact evidence/protected workers, per-run operator listeners and
+external status observers for the attempt. Verify there are no live tests,
+pending restoration actions or unresolved sends before stopping them. Retain
+task definitions, original status, diagnostic logs and delivery receipts; remove
+only registrations/processes dedicated to that closed attempt. Keep persistent
+release listeners that still serve other active profiles.
+
+If delivery was completed through a separately reviewed recovery route, an older
+attempt may correctly remain `Failed`. Do not rewrite it as `Completed` to silence
+alerts. Record the recovery/delivery reference, retire its dedicated alert
+watcher, and verify it does not restart at sign-in or boot. An external manual
+delivery cannot currently be inferred automatically by the old worker: this
+closeout check is required even when Crestron has subsequently published the driver.
+
 ## Collecting reusable inputs
 
 For the source version that includes it, the [Windows setup app](SetupApp.md) captures editable developer, driver and submission profiles before execution. Read the supplied encrypted snapshot through the public APIs rather than asking for those facts again. Snapshot data is not test evidence or signing/delivery authorization.
