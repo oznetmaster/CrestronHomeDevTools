@@ -5,6 +5,26 @@ using NUnit.Framework;
 namespace CrestronHomeDevTools.Tests;
 public sealed class AutomationReviewStepPathsTests
 {
+ [Test] public void SplitRevisionResolvesEachObservationToItsOwnVerifiedProducer() {
+  string folder=Path.Combine(TestContext.CurrentContext.WorkDirectory,"split-review-"+Guid.NewGuid().ToString("N"));
+  Directory.CreateDirectory(folder);
+  try {
+   string step="pre-endurance/installed-app/steps/000/",id=new('a',32),attempt="installed-app/recovery-attempts/"+id+"/";
+   string[] producers=Enumerable.Range(0,2).Select(i=>attempt+"invocations/"+i.ToString("D3")+"/installed-app/AndroidUI/").ToArray();
+   var mappings=new Dictionary<string,string>{{"power.json",producers[0]+"observation.json"},{"network.json",producers[1]+"observation.json"}};
+   string pointer=step+"installed-app/replacement.json",path=Path.Combine(folder,pointer);
+   Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+   File.WriteAllText(path,System.Text.Json.JsonSerializer.Serialize(new AutomationAppStepRecovery.Completion(id,producers[0],new('b',64),producers,mappings)));
+   var retained=new Dictionary<string,string>{{pointer,AutomationFiles.Hash(path)},{step+attempt+"attempt.json",new('c',64)},{step+attempt+"original-evidence.json",new('d',64)}};
+   foreach(var mapping in mappings)retained.Add(step+mapping.Value,new('e',64));
+   foreach(var mapping in mappings)Assert.That(AutomationReview.ResolveObservationSource(step+"installed-app/AndroidUI/"+mapping.Key,retained,folder),Is.EqualTo(step+mapping.Value));
+   string old=step+"installed-app/AndroidUI/";
+   var all=producers.Select(p=>step+p).Append(old).ToArray();
+   Assert.That(AutomationAndroidReview.ActiveProducerPrefixes(folder,retained,all),Is.EquivalentTo(all.Except([old])));
+   Assert.That(AutomationAndroidReview.ProducerPrefixes(all.Select(p=>p+"producer-pin.json").Append("installed-app/AndroidUI/producer-pin.json"),true,true),Has.Length.EqualTo(4));
+   Assert.Throws<InvalidDataException>(()=>AutomationReview.ResolveObservationSource(step+"installed-app/AndroidUI/missing.json",retained,folder));
+  } finally {Directory.Delete(folder,true);}
+ }
  [Test]
  public void EveryCompletedStepAndReplacementRetainsItsOwnProducerPins() {
   string[] prefixes=["installed-app/steps/000/installed-app/AndroidUI/","installed-app/steps/001/installed-app/AndroidUI/",

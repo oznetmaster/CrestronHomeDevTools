@@ -90,10 +90,10 @@ internal static class AutomationAndroidReview
    var accepted=AutomationFiles.Read<AutomationAppStepRecovery.Completion>(path);AutomationAppStepRecovery.RequireId(accepted.AttemptId);
    string step=pointer[..^"installed-app/replacement.json".Length];
    string expected="installed-app/recovery-attempts/"+accepted.AttemptId+"/";
-   if(accepted.ProducerPrefix!=expected+"installed-app/AndroidUI/" ||
-    !retained.ContainsKey(step+expected+"attempt.json") || !retained.ContainsKey(step+expected+"original-evidence.json") ||
-    !prefixes.Contains(step+accepted.ProducerPrefix,StringComparer.Ordinal))throw new InvalidDataException("Missing accepted replacement producer provenance.");
-   active.RemoveWhere(p=>p.StartsWith(step+"installed-app/",StringComparison.Ordinal) && p!=step+accepted.ProducerPrefix);
+   var acceptedPrefixes=AutomationAppScopeRevision.Accepted(accepted).Select(p=>step+p).ToHashSet(StringComparer.Ordinal);
+   if(!retained.ContainsKey(step+expected+"attempt.json") || !retained.ContainsKey(step+expected+"original-evidence.json") ||
+    acceptedPrefixes.Any(p=>!prefixes.Contains(p,StringComparer.Ordinal)))throw new InvalidDataException("Missing accepted replacement producer provenance.");
+   active.RemoveWhere(p=>p.StartsWith(step+"installed-app/",StringComparison.Ordinal) && !acceptedPrefixes.Contains(p));
   }
   return active.Order(StringComparer.Ordinal).ToArray();
  }
@@ -101,7 +101,7 @@ internal static class AutomationAndroidReview
  internal static string[] ProducerPrefixes(IEnumerable<string> files,bool separate,bool additional) {
   const string pin="producer-pin.json";
   var prefixes=files.Where(p=>p.EndsWith("/AndroidUI/"+pin,StringComparison.Ordinal)).Select(p=>p[..^pin.Length]).Order(StringComparer.Ordinal).ToArray();
-  string app=@"installed-app/(?:steps/[0-9]{3}/installed-app/)?(?:(?:preparation-recovery|recovery-attempts/[0-9a-f]{32})/installed-app/)?AndroidUI/";
+  string app=@"installed-app/(?:steps/[0-9]{3}/installed-app/)?(?:(?:preparation-recovery|recovery-attempts/[0-9a-f]{32}(?:/invocations/[0-9]{3})?)/installed-app/)?AndroidUI/";
   string pattern=separate?"^(?:"+(additional?"pre-endurance/|":"")+")"+app+"$":"^nunit/AndroidUI/$";
   if(prefixes.Length==0 || prefixes.Length>256 || prefixes.Any(p=>!System.Text.RegularExpressions.Regex.IsMatch(p,pattern,System.Text.RegularExpressions.RegexOptions.CultureInvariant)))
    throw new InvalidDataException("Completed app receipt has missing or unexpected producer locations.");

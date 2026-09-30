@@ -12,12 +12,13 @@ internal static class AutomationAppStepRecovery
  internal const string Attempts="recovery-attempts";
  internal sealed record Request(int SchemaVersion,string Phase,int Step,string AttemptId,string StateSha256,
   string OriginalEvidenceSha256,string FailedOutcome,InstalledDriverTestPlan Replacement,
-  string SourceSha256,string ProfileSha256,Reconciliation? Restoration=null);
+  string SourceSha256,string ProfileSha256,Reconciliation? Restoration=null,AutomationAppScopeRevision.Plan? ScopeRevision=null);
  internal sealed record Reconciliation(string OriginalEvidenceSha256,string VerifiedBy,DateTimeOffset VerifiedUtc,
   bool OriginalStateRestored,bool CleanupConfirmed,bool ReservationsReleased,SubmissionWorkflowReceipt[] Evidence);
  internal sealed record Inspection(string StateSha256,string OriginalEvidenceSha256,string FailedOutcome,
   bool RestorationRequired,InstalledDriverTestPlan Original);
- internal sealed record Completion(string AttemptId,string ProducerPrefix,string OriginalEvidenceSha256);
+ internal sealed record Completion(string AttemptId,string ProducerPrefix,string OriginalEvidenceSha256,
+  string[]? ProducerPrefixes=null,Dictionary<string,string>? ObservationSources=null);
  private sealed record Intent(string OperationId,string InputSha256,string SourceDigest,string ProfileSha256);
  private sealed record Binding(Request Request,string InputSha256,Dictionary<string,string> Tools);
  private static byte[] Bytes<T>(T value)=>JsonSerializer.SerializeToUtf8Bytes(value,AutomationFiles.Json);
@@ -87,9 +88,10 @@ internal static class AutomationAppStepRecovery
  internal static async Task<SubmissionWorkflowStepResult> Execute(SubmissionWorkflowStepContext context,
   SubmissionAutomationSettings settings,Request request,
   Func<InstalledDriverTestPlan,NetworkCredential,string,CancellationToken,Task<InstalledDriverTestResult>> run,
-  NetworkCredential credential,CancellationToken token) {
+  NetworkCredential credential,CancellationToken token,
+  Func<AutomationAppScopeRevision.Invocation,NetworkCredential>? revisedCredentials=null) {
   RequireId(request.AttemptId);
-  if(request.SchemaVersion!=1)throw new InvalidDataException("Unsupported recovery schema.");
+  if(request.SchemaVersion is not (1 or 2) || (request.SchemaVersion==2)!=(request.ScopeRevision!=null))throw new InvalidDataException("Unsupported recovery schema.");
   string root=context.RunDirectory,attempt=Path.Combine(root,Prefix(request.AttemptId));
   string completed=Path.Combine(root,"installed-app-tests.json");
   if(File.Exists(completed)) {
@@ -104,7 +106,8 @@ internal static class AutomationAppStepRecovery
    intent.SourceDigest!=await WorkflowEvidence.SourceDigestAsync(original.SourceRoots,token) ||
    intent.ProfileSha256!=AutomationFiles.Hash(original.AndroidTests.ProfilePath))throw new InvalidDataException("Original frozen inputs changed.");
   AutomationAppFixture.Check(root,settings,false);
-  ValidateReplacement(original,request);
+  if(request.ScopeRevision!=null) await AutomationAppScopeRevision.Validate(settings,request,token);
+  else ValidateReplacement(original,request);
   if(EvidenceHash(root,request.AttemptId)!=request.OriginalEvidenceSha256 ||
    await WorkflowEvidence.SourceDigestAsync(request.Replacement.SourceRoots,token)!=request.SourceSha256)
    throw new InvalidDataException("Inspected evidence or replacement fixture changed.");
@@ -132,6 +135,9 @@ internal static class AutomationAppStepRecovery
     }
    }
   }
+  if(request.ScopeRevision!=null)
+   return await AutomationAppScopeRevision.Execute(context,settings,request,attempt,run,
+    revisedCredentials??throw new InvalidDataException("Revised scopes require independently resolved credentials."),token);
   AutomationAppFixture.Check(attempt,settings,true);
   var next=request.Replacement;
   // The failed attempt's Ready acknowledgement must never authorize this new attempt.
@@ -196,14 +202,21 @@ internal static class AutomationAppStepRecovery
    var plan=AutomationFiles.Read<Request>(recoveryPath);
    if(plan.StateSha256!=stateHash || plan.Phase!=phase || plan.Step!=index)throw new InvalidDataException("Recovery plan does not bind the inspected state and step.");
    if(!OperatingSystem.IsWindows())throw new PlatformNotSupportedException();
-   var saved=DevToolsCredentialBindings.Read(selected.Settings.CredentialBindings).Resolve(DevToolsCredentialPurpose.Processor,plan.Replacement.Host);
+   var saved=DevToolsCredentialBindings.Read(plan.ScopeRevision?.Invocations[0].CredentialBindings??selected.Settings.CredentialBindings).Resolve(DevToolsCredentialPurpose.Processor,plan.Replacement.Host);
    SubmissionAutomationStages.VerifyProcessorPins(request.Settings,plan.Replacement.Host,saved.CertificateSha256,saved.SshFingerprint);
    var result=await Execute(new(selected.Step,selected.State),selected.Settings,plan,
     async(p,c,r,t)=>{
      await AutomationDriverReadiness.Check(p.Host,p.CertificateSha256,c,new(p.Target.DeviceId,p.Target.Model,p.Target.Version,"Existing"),r+"-readiness",t);
      await AutomationAndroidReadiness.Check(p.AndroidTests.ProfilePath,Path.Combine(r+"-readiness","android"),t);
      return await InstalledDriverTests.RunAsync(p,c,r,t);
-    },new(saved.UserName,saved.Password),token);
+    },new(saved.UserName,saved.Password),token,invocation=>{
+     if(!OperatingSystem.IsWindows())throw new PlatformNotSupportedException();
+     var bound=DevToolsCredentialBindings.Read(invocation.CredentialBindings).Resolve(DevToolsCredentialPurpose.Processor,invocation.Tests.Host);
+     SubmissionAutomationStages.VerifyProcessorPins(request.Settings,invocation.Tests.Host,bound.CertificateSha256,bound.SshFingerprint);
+     if(bound.CertificateSha256!=invocation.Tests.CertificateSha256 || bound.SshFingerprint!=invocation.Tests.SshFingerprint)
+      throw new InvalidDataException("Revised processor pins differ from the saved binding.");
+     return new(bound.UserName,bound.Password);
+    });
    Console.WriteLine(JsonSerializer.Serialize(result,AutomationFiles.Json));
    if(result.Status!=SubmissionWorkflowStatus.Completed)return 3;
   }

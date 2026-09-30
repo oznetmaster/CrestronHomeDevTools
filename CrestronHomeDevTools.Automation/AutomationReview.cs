@@ -184,9 +184,14 @@ internal static class AutomationReview
     var accepted=AutomationFiles.Read<AutomationAppStepRecovery.Completion>(path);
     AutomationAppStepRecovery.RequireId(accepted.AttemptId);
     string prefix="installed-app/recovery-attempts/"+accepted.AttemptId+"/";
-    if(accepted.ProducerPrefix!=prefix+"installed-app/AndroidUI/" ||
-     !retained.ContainsKey(stepRoot+"/"+prefix+"attempt.json") || !retained.ContainsKey(stepRoot+"/"+prefix+"original-evidence.json"))throw new InvalidDataException("Missing replacement provenance.");
-    string resolved=stepRoot+"/"+accepted.ProducerPrefix+requested[(stepIndex+suffix.Length)..];
+    _=AutomationAppScopeRevision.Accepted(accepted);
+    if(!retained.ContainsKey(stepRoot+"/"+prefix+"attempt.json") || !retained.ContainsKey(stepRoot+"/"+prefix+"original-evidence.json"))throw new InvalidDataException("Missing replacement provenance.");
+    string requestedSuffix=requested[(stepIndex+suffix.Length)..];
+    string resolved;
+    if(accepted.ObservationSources is {} mappings) {
+     if(!mappings.TryGetValue(requestedSuffix,out var revised))throw new InvalidDataException("Revised observation mapping is missing.");
+     resolved=stepRoot+"/"+revised;
+    } else resolved=stepRoot+"/"+accepted.ProducerPrefix+requestedSuffix;
     if(!retained.ContainsKey(resolved))throw new InvalidDataException("Replacement observation is missing.");
     return resolved;
    }

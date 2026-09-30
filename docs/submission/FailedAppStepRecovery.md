@@ -101,3 +101,46 @@ inventory. The review also records superseded producer locations in
 `review-inputs/replaced-android-producers.json`; excluding a failed producer from
 the passing audit does not erase it or make it pass. Signing and delivery are
 outside this recovery operation.
+
+## Correcting a combined test arrangement
+
+Power interruption and network interruption are separate workflow steps, including
+when they use the same processor. Each has its own readiness and action prompts,
+timing record, result and restoration. A PoE power cycle must not stand in for a
+network-only interruption whose recovery interval includes processor boot time.
+
+The source implementation supports an explicit schema 2 scope revision for an
+already failed combined step. It retains the frozen original plan and failure;
+it does not edit them. This is assisted recovery, not a clean rehearsal.
+
+Use the same independently pinned recovery request and command, with
+`SchemaVersion: 2` and a `ScopeRevision` object:
+
+- `Reason`: why the original physical arrangement was invalid.
+- `Invocations`: two to eight separately bound test plans. Each entry supplies
+  `Tests` (`InstalledDriverTestPlan`), `Fixture` (private fixture JSON),
+  `CredentialBindings`, `SourceSha256` and `ProfileSha256`.
+- `Observations`: a complete mapping of the original step's configured review
+  outputs. Each entry supplies `OriginalPath` (relative to the original AndroidUI
+  directory), zero-based `Invocation`, and `RevisedPath` (relative to that
+  invocation's AndroidUI directory).
+
+The request's existing `Replacement`, `SourceSha256` and `ProfileSha256` fields
+must match the first invocation. Every invocation retains the original candidate,
+test selection, time budgets, operator inbox and evidence identity/policy. Processor
+bindings must resolve to targets already declared in the workflow. Changed fixture
+scope is explicit in the pinned request; review still requires every policy item.
+Neither a missing mapping nor an unstarted second test can complete the step.
+
+Each invocation records an intent before execution and a verified inventory after
+success. Reopening the same revision verifies and skips completed invocations;
+it never repeats a started invocation whose outcome is missing or failed. It
+publishes a fresh readiness identity for each unstarted invocation. All credentials
+are resolved before the first test starts. The revision completes only after every
+invocation passes and confirms candidate verification, restoration and release.
+
+Review follows each mapped observation to its actual producer and includes every
+accepted producer's independent pins. Original failures and superseded producers
+remain in the retained inventory. Do not use this operation to hide a failure or
+relax a timing requirement. Do not start a physical test until its measurement
+method and revised scope have been validated.
