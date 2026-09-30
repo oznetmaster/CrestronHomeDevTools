@@ -739,3 +739,43 @@ configuration contract are public. It does not provision devices or send control
 read its documented limits before choosing it for a run. Temporary Android managed
 children cannot be used after their automatic cleanup. Component hardware checks
 have passed; the full Kasa release rehearsal is separate validation.
+
+### Recover a failed catalogue verification without repeating completed tests
+
+The source command `--inspect-app-preparation` supports a narrowly scoped correction
+in a separate initial test phase. It requires the main app checks to be complete,
+an attention checkpoint, and a journal proving failure in the initial candidate
+verification, before any control guard or fixture started, with both reservations
+released. Interrupted or previously executed physical tests do not qualify.
+
+Inspect with the pinned settings and zero-based step index:
+
+```text
+CrestronHomeDevTools.Automation --inspect-app-preparation --settings PRIVATE_JSON --settings-sha256 PIN --step 0
+```
+
+After checking current inventory and the installed package, use the returned state
+and evidence hashes with the exact current catalogue ID:
+
+```text
+CrestronHomeDevTools.Automation --recover-app-preparation --settings PRIVATE_JSON --settings-sha256 PIN --step 0 --catalogue-id EXACT_ID --state-sha256 INSPECTED_PIN --original-evidence-sha256 INSPECTED_PIN
+```
+
+Only a catalogue discriminator change for the same driver key and four-part
+candidate version is allowed. The replacement runner verifies the live target,
+full package contents, fixture source, Android profile and normal restoration
+requirements. Other targets, versions, test selections and credentials are not
+substituted. The operator still receives the actual outage readiness/action prompts.
+
+The command holds the ordinary workflow lock. It preserves the original failed
+attempt and writes a separate `installed-app/preparation-recovery` producer,
+including original evidence hashes, both plans and executing assembly hashes.
+It publishes a completion receipt only after that producer passes, then requests
+normal workflow recovery. Completed earlier tests are not replayed. A second
+invocation inspects retained results and never repeats a started replacement.
+An interrupted or failed replacement requires inspection, not deletion or reset.
+
+A recovered run is explicitly repaired evidence; it does not prove a clean,
+uninterrupted execution of the original frozen tooling. Retain that limitation
+when reporting rehearsal validation. The source command must be shipped in a
+subsequent tool release before documenting it as available in an older release.

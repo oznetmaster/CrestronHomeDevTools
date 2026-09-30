@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+Preserve failed preparations while explicitly correcting a same-candidate catalogue discriminator in a separate initial app phase. The repair retains both attempts and executing tool hashes, rejects any started physical operation, and resumes completed steps without replay. Payload inspection accepts the processor catalogue discriminator while still verifying the complete package bytes. Review now discovers every retained app-step producer and rebases observations from their actual producer folders, including an explicitly retained recovery attempt. Offline validation is recorded separately from live rehearsal results.
+
 ## 1.24.0 - 2026-09-29
 
 Physical action replies are now accepted against elapsed time measured on the recording worker, not by comparing the desktop's clock with the worker's clock. Original desktop replies and separate worker decisions are retained. A live shared-file lock prevents the desktop from displaying a recording prompt after its recording process has exited.

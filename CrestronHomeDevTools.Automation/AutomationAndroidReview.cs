@@ -28,9 +28,7 @@ internal static class AutomationAndroidReview
   var runs=new List<Dictionary<string,object>>();
   var locations=new List<object>();
   var runIds=new HashSet<string>(StringComparer.Ordinal);
-  string[] prefixes=receiptName==AutomationInitialAdditionalTests.ReceiptName
-   ? ["installed-app/AndroidUI/",AutomationInitialAdditionalTests.DirectoryName+"/installed-app/AndroidUI/"]
-   : [separate?"installed-app/AndroidUI/":"nunit/AndroidUI/"];
+  string[] prefixes=ProducerPrefixes(retained.Keys,separate,receiptName==AutomationInitialAdditionalTests.ReceiptName);
   foreach(string prefix in prefixes) {
   foreach(var file in retained.Where(f=>f.Key.StartsWith(prefix,StringComparison.Ordinal))) {
    token.ThrowIfCancellationRequested();
@@ -82,4 +80,15 @@ internal static class AutomationAndroidReview
   return new(pins,evidence);
  }
  private static bool Same(string? a,string? b)=>a!=null && b!=null && a.Equals(b,StringComparison.OrdinalIgnoreCase);
+ internal static string[] ProducerPrefixes(IEnumerable<string> files,bool separate,bool additional) {
+  const string pin="producer-pin.json";
+  var prefixes=files.Where(p=>p.EndsWith("/AndroidUI/"+pin,StringComparison.Ordinal)).Select(p=>p[..^pin.Length]).Order(StringComparer.Ordinal).ToArray();
+  string app=@"installed-app/(?:steps/[0-9]{3}/installed-app/)?(?:preparation-recovery/installed-app/)?AndroidUI/";
+  string pattern=separate?"^(?:"+(additional?"pre-endurance/|":"")+")"+app+"$":"^nunit/AndroidUI/$";
+  if(prefixes.Length==0 || prefixes.Length>256 || prefixes.Any(p=>!System.Text.RegularExpressions.Regex.IsMatch(p,pattern,System.Text.RegularExpressions.RegexOptions.CultureInvariant)))
+   throw new InvalidDataException("Completed app receipt has missing or unexpected producer locations.");
+  if(additional && (!prefixes.Any(p=>p.StartsWith("pre-endurance/",StringComparison.Ordinal)) ||
+   !prefixes.Any(p=>p.StartsWith("installed-app/",StringComparison.Ordinal))))throw new InvalidDataException("Both initial phases require retained Android producers.");
+  return prefixes;
+ }
 }

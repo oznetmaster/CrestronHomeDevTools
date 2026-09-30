@@ -5,6 +5,7 @@ using CrestronHomeDevTools.Automation;
 
 if(args is ["--help"])
 {
+ Console.WriteLine("Inspect failed separate initial preparation: --inspect-app-preparation --settings FILE --settings-sha256 PIN --step INDEX. Explicit recovery: --recover-app-preparation --settings FILE --settings-sha256 PIN --step INDEX --catalogue-id EXACT_ID --state-sha256 INSPECTED_PIN --original-evidence-sha256 INSPECTED_PIN. Only same-candidate catalogue corrections before any fixture/control activity qualify; failures and passed checks remain retained. A replacement attempt is never automatically replayed.");
  Console.WriteLine("Read-only stage-binding check: --check-settings PRIVATE_JSON --settings-sha256 PIN. Exit zero means all stage bindings are present, not that tests passed or credentials/equipment were validated.");
  Console.WriteLine("Finite registry watcher: append --exit-when-finished after --poll-seconds N, before protected-worker/role options. Exits zero only when every registered run is fully retained or every rehearsal has reached unsigned review. Cannot be combined with --release-profiles. Confirmed terminal failures exit 2 after retaining their final notice; uncertain, active or approval-waiting runs remain open.");
  Console.WriteLine("Prepare from encrypted setup: --prepare-rehearsal or --prepare-submission, followed by --store PRIVATE_DIRECTORY --snapshot NAME. Submit requires a submission-purpose snapshot. Creates fresh private inputs only; no worker starts or operation is approved. Exit 3 lists missing stage bindings.");
@@ -12,6 +13,16 @@ if(args is ["--help"])
 }
 try
 {
+ if(args is ["--inspect-app-preparation","--settings",var inspectSettings,"--settings-sha256",var inspectPin,"--step",var inspectStep]) {
+  if(!int.TryParse(inspectStep,out int index))throw new InvalidDataException("Step must be a nonnegative integer.");
+  return await AutomationPreparationRecovery.Command(AutomationRequest.ReadForCheck(inspectSettings,inspectPin),index,null,null,null,CancellationToken.None);
+ }
+ if(args is ["--recover-app-preparation","--settings",var repairSettings,"--settings-sha256",var repairPin,"--step",var repairStep,
+  "--catalogue-id",var catalogue,"--state-sha256",var statePin,"--original-evidence-sha256",var evidencePin]) {
+  if(!int.TryParse(repairStep,out int index))throw new InvalidDataException("Step must be a nonnegative integer.");
+  using var stop=new CancellationTokenSource();Console.CancelKeyPress+=(_,e)=>{e.Cancel=true;stop.Cancel();};
+  return await AutomationPreparationRecovery.Command(AutomationRequest.ReadForCheck(repairSettings,repairPin),index,catalogue,statePin,evidencePin,stop.Token);
+ }
  if(args is ["--prepare-rehearsal" or "--prepare-submission","--store",var setupStore,"--snapshot",var snapshot]) {
   if(!OperatingSystem.IsWindows())throw new PlatformNotSupportedException("Encrypted setup requires Windows.");
   var store=DevToolsPrivateStore.Open(setupStore);

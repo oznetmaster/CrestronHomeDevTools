@@ -152,19 +152,28 @@ public static class DriverPayloadInspection
 			throw new ArgumentException ("Provide the exact catalogue ID as one ordinary directory name.");
 		}
 
-	private static string StorageKey (string catalogueId, string packageVersion)
+	/// <summary>Returns the payload directory key for an exact catalogue version, optionally followed by
+	/// the processor's numeric catalogue discriminator. This does not establish installed-device ownership.</summary>
+	public static string StorageKey (string catalogueId, string packageVersion)
 		{
+		ValidateCatalogueId (catalogueId);
 		// Configuration catalogue IDs include a namespace and version. Extracted
 		// files use the unversioned driver key, then a separate version directory.
 		// Retain support for callers which already supply that storage key.
 		const string prefix = "chdriver.";
 		if (!catalogueId.StartsWith (prefix, StringComparison.Ordinal)) return catalogueId;
 		var parts = catalogueId[prefix.Length..].Split ('.');
-		if (parts.Length <= 4 || parts.Any (string.IsNullOrEmpty) ||
-			!Version.TryParse (string.Join ('.', parts[^4..]), out var selectedVersion) ||
-			!Version.TryParse (packageVersion, out var expectedVersion) || selectedVersion != expectedVersion)
+		if (parts.Any (string.IsNullOrEmpty) || !Version.TryParse (packageVersion, out var expectedVersion) || expectedVersion.Revision < 0)
 			throw new InvalidDataException ("The selected catalogue ID must identify the candidate's four-part version.");
-		return string.Join ('.', parts[..^4]);
+		var keys = new List<string> ();
+		foreach (int suffix in new[] { 0, 1 })
+			{
+			int end = parts.Length - suffix;
+			if (end <= 4 || suffix == 1 && (!parts[^1].All (char.IsAsciiDigit) || parts[^1].All (c => c == '0'))) continue;
+			if (Version.TryParse (string.Join ('.', parts[(end - 4)..end]), out var selected) && selected == expectedVersion)
+				keys.Add (string.Join ('.', parts[..(end - 4)]));
+			}
+		return keys.Count == 1 ? keys[0] : throw new InvalidDataException ("The selected catalogue ID must unambiguously identify the candidate's four-part version.");
 		}
 
 	private static bool SafeRelative (string path) => path.Length is > 0 and <= 512 && !path.Any (c => char.IsControl (c) || c is '\\' or ':') &&

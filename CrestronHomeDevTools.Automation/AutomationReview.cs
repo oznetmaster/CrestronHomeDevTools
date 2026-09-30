@@ -114,15 +114,15 @@ internal static class AutomationReview
    sources.Add(new("review-inputs/prior-observations.json",AutomationFiles.Hash(priorPath)));
   }
   if(plan.ObservationSources.Distinct(StringComparer.Ordinal).Count()!=plan.ObservationSources.Length)throw new InvalidDataException("Duplicate observation source.");
-  foreach(string relative in plan.ObservationSources) {
+  foreach(string requested in plan.ObservationSources) {
+   string relative=ResolveObservationSource(requested,retained);
    if(!retained.TryGetValue(relative,out var hash) || !SubmissionEvidence.SafeEvidencePath(root,relative,out var path) || AutomationFiles.Hash(path)!=hash)
     throw new InvalidDataException("Observation source is not retained verified producer output.");
-   string? phase=new[]{AutomationInitialAdditionalTests.DirectoryName,AutomationPostEndurance.DirectoryName}
-    .SingleOrDefault(name=>relative.StartsWith(name+"/",StringComparison.Ordinal));
+   string? phase=ObservationBase(relative);
    if(phase!=null) {
     var document=AutomationFiles.Read<SubmissionEvidenceDocument>(path);
     if(document.SchemaVersion!=1)throw new InvalidDataException("Unsupported additional-test observation document.");
-    string rebased="review-inputs/"+phase+"-"+sources.Count.ToString("D3",System.Globalization.CultureInfo.InvariantCulture)+".json";
+    string rebased="review-inputs/"+phase.Split('/')[0]+"-"+sources.Count.ToString("D3",System.Globalization.CultureInfo.InvariantCulture)+".json";
     WriteDocument(Path.Combine(root,rebased),new SubmissionEvidenceDocument(1,document.Observations.Select(o=>Rebase(o,phase)).ToArray()));
     sources.Add(new(rebased,AutomationFiles.Hash(Path.Combine(root,rebased))));
    } else sources.Add(new(relative,hash));
@@ -172,6 +172,25 @@ internal static class AutomationReview
   var policy=AutomationFiles.Read<SubmissionEvidencePolicy>(plan.Policy.Path);
   if(policy.SchemaVersion!=1 || gaps.Any(g=>!policy.Requirements.Any(r=>r.Id==g.RequirementId)))
    throw new InvalidDataException("Every planned gap must belong to the reviewed policy.");
+ }
+ internal static string ResolveObservationSource(string requested,IReadOnlyDictionary<string,string> retained) {
+  if(retained.ContainsKey(requested))return requested;
+  const string marker="/installed-app/AndroidUI/";
+  int index=requested.LastIndexOf(marker,StringComparison.Ordinal);
+  if(index<0)return requested;
+  string step=requested[..index];
+  string repair=step+"/installed-app/preparation-recovery/";
+  string replacement=repair+"installed-app/AndroidUI/"+requested[(index+marker.Length)..];
+  // Only a completed coordinator inventory can authorise this explicit repair lineage.
+  return retained.ContainsKey(repair+"repair.json") && retained.ContainsKey(repair+"original-evidence.json") &&
+   retained.ContainsKey(replacement)?replacement:requested;
+ }
+ internal static string? ObservationBase(string relative) {
+  const string marker="/installed-app/AndroidUI/";
+  int index=relative.LastIndexOf(marker,StringComparison.Ordinal);
+  if(index>=0)return relative[..index];
+  return new[]{AutomationInitialAdditionalTests.DirectoryName,AutomationPostEndurance.DirectoryName}
+   .SingleOrDefault(name=>relative.StartsWith(name+"/",StringComparison.Ordinal));
  }
  internal static SubmissionObservation Rebase(SubmissionObservation o,string root) {
   string P(string path)=>root+"/"+path;
