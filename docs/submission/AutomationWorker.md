@@ -779,3 +779,9 @@ A recovered run is explicitly repaired evidence; it does not prove a clean,
 uninterrupted execution of the original frozen tooling. Retain that limitation
 when reporting rehearsal validation. The source command must be shipped in a
 subsequent tool release before documenting it as available in an older release.
+
+For a failed fixture that actually ran and needs corrected test code, use the
+separate [explicit failed app-step replacement procedure](FailedAppStepRecovery.md).
+It preserves earlier passes and the original failure, requires restoration and
+reservation reconciliation, and gives any new physical attempt its own readiness
+prompt. It cannot reset or silently repeat an interrupted operation.

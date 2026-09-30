@@ -116,4 +116,19 @@ public sealed partial class AutomationInstalledAppTests
   File.WriteAllText(Path.Combine(output,"InstalledDriverTests.json"),json);
   Assert.That(SubmissionOperatorAlerts.Read(registry,[entry.Profile],status).Count,Is.EqualTo(expected?1:0));
  }
+
+ [Test] public void ReplacementFailureHasItsOwnAlertWithoutReopeningDismissedOriginal() {
+  var entry=RegisterOperator();string registry=OperatorRegistry(entry),status=Path.Combine(root,"status");Directory.CreateDirectory(status);
+  string run=Path.Combine(settings.PrivateRoot,SubmissionWorkflow.RunKey(settings.Release));
+  string original=Path.Combine(run,"installed-app");Directory.CreateDirectory(original);
+  File.WriteAllText(Path.Combine(original,"InstalledDriverTests.json"),"{\"Passed\":false}");
+  var first=SubmissionOperatorAlerts.Read(registry,[entry.Profile],status).Single();
+  var acknowledgements=new SubmissionAlertAcknowledgements(Path.Combine(root,"dismissals.json"));acknowledgements.Dismiss(first.Key);
+  string replacement=Path.Combine(original,"recovery-attempts",new string('a',32),"installed-app");Directory.CreateDirectory(replacement);
+  File.WriteAllText(Path.Combine(replacement,"InstalledDriverTests.json"),"{\"Passed\":false}");
+  var alerts=SubmissionOperatorAlerts.Read(registry,[entry.Profile],status);
+  Assert.That(alerts,Has.Count.EqualTo(2));
+  Assert.That(alerts.Count(a=>!acknowledgements.IsDismissed(a.Key)),Is.EqualTo(1));
+  Assert.That(alerts.Select(a=>a.Key),Does.Contain(first.Key));
+ }
 }

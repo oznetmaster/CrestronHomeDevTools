@@ -56,11 +56,24 @@ public static class SubmissionOperatorAlerts
   }
   if(settings.InstalledAppTests!=null)AddSteps(run,settings.InstalledAppSteps?.Length??0);
   if(settings.PreEnduranceTests!=null)AddSteps(Path.Combine(run,AutomationInitialAdditionalTests.DirectoryName),settings.PreEnduranceAppSteps?.Length??0);
+  if(settings.PostEnduranceTests!=null)AddSteps(Path.Combine(run,AutomationPostEndurance.DirectoryName),settings.PostEnduranceAppSteps?.Length??0);
   foreach(string step in steps) {
    if(File.Exists(Path.Combine(step,"installed-app-tests.json")))continue;
    string relative=Path.GetRelativePath(run,Path.Combine(step,"installed-app","InstalledDriverTests.json"));
    string recovery=Path.GetRelativePath(run,Path.Combine(step,"installed-app","preparation-recovery","installed-app","InstalledDriverTests.json"));
    if(File.Exists(Path.Combine(run,recovery)))relative=recovery;
+   var outcomes=new List<string>{relative};
+   string attempts=Path.Combine(step,"installed-app",AutomationAppStepRecovery.Attempts);
+   if(Directory.Exists(attempts)) {
+    var directories=Directory.GetDirectories(attempts);
+    if(directories.Length>128)throw new InvalidDataException("Too many app replacement attempts.");
+    foreach(string directory in directories) {
+     AutomationAppStepRecovery.RequireId(Path.GetFileName(directory));
+     outcomes.Add(Path.GetRelativePath(run,Path.Combine(directory,"installed-app","InstalledDriverTests.json")));
+    }
+   }
+   foreach(string outcome in outcomes) {
+   relative=outcome;
    if(!File.Exists(Path.Combine(run,relative)))continue;
    if(!SubmissionEvidence.SafeEvidencePath(run,relative,out var file) || new FileInfo(file).Length>65536)
     throw new InvalidDataException("Unsafe or oversized installed-app outcome.");
@@ -74,6 +87,7 @@ public static class SubmissionOperatorAlerts
    yield return new(key,entry.Profile,settings.Release.Repository,settings.Release.Tag,"AttentionRequired","AppTests",
     "Installed-app test failed. Inspect the retained test output and restoration result; the workflow has not continued.",
     new DateTimeOffset(File.GetLastWriteTimeUtc(file)),run);
+   }
   }
  }
 }

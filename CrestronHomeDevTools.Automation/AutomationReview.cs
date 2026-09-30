@@ -115,7 +115,7 @@ internal static class AutomationReview
   }
   if(plan.ObservationSources.Distinct(StringComparer.Ordinal).Count()!=plan.ObservationSources.Length)throw new InvalidDataException("Duplicate observation source.");
   foreach(string requested in plan.ObservationSources) {
-   string relative=ResolveObservationSource(requested,retained);
+   string relative=ResolveObservationSource(requested,retained,root);
    if(!retained.TryGetValue(relative,out var hash) || !SubmissionEvidence.SafeEvidencePath(root,relative,out var path) || AutomationFiles.Hash(path)!=hash)
     throw new InvalidDataException("Observation source is not retained verified producer output.");
    string? phase=ObservationBase(relative);
@@ -173,7 +173,24 @@ internal static class AutomationReview
   if(policy.SchemaVersion!=1 || gaps.Any(g=>!policy.Requirements.Any(r=>r.Id==g.RequirementId)))
    throw new InvalidDataException("Every planned gap must belong to the reviewed policy.");
  }
- internal static string ResolveObservationSource(string requested,IReadOnlyDictionary<string,string> retained) {
+ internal static string ResolveObservationSource(string requested,IReadOnlyDictionary<string,string> retained,string? root=null) {
+  const string suffix="/installed-app/AndroidUI/";
+  int stepIndex=requested.LastIndexOf(suffix,StringComparison.Ordinal);
+  if(root!=null && stepIndex>=0) {
+   string stepRoot=requested[..stepIndex];
+   string pointer=stepRoot+"/installed-app/replacement.json";
+   if(retained.TryGetValue(pointer,out var pin)) {
+    if(!SubmissionEvidence.SafeEvidencePath(root,pointer,out var path) || AutomationFiles.Hash(path)!=pin)throw new InvalidDataException("Replacement lineage changed.");
+    var accepted=AutomationFiles.Read<AutomationAppStepRecovery.Completion>(path);
+    AutomationAppStepRecovery.RequireId(accepted.AttemptId);
+    string prefix="installed-app/recovery-attempts/"+accepted.AttemptId+"/";
+    if(accepted.ProducerPrefix!=prefix+"installed-app/AndroidUI/" ||
+     !retained.ContainsKey(stepRoot+"/"+prefix+"attempt.json") || !retained.ContainsKey(stepRoot+"/"+prefix+"original-evidence.json"))throw new InvalidDataException("Missing replacement provenance.");
+    string resolved=stepRoot+"/"+accepted.ProducerPrefix+requested[(stepIndex+suffix.Length)..];
+    if(!retained.ContainsKey(resolved))throw new InvalidDataException("Replacement observation is missing.");
+    return resolved;
+   }
+  }
   if(retained.ContainsKey(requested))return requested;
   const string marker="/installed-app/AndroidUI/";
   int index=requested.LastIndexOf(marker,StringComparison.Ordinal);

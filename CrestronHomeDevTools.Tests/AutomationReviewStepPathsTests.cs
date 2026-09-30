@@ -35,4 +35,25 @@ public sealed class AutomationReviewStepPathsTests
   retained.Add(old,new('d',64));
   Assert.That(AutomationReview.ResolveObservationSource(old,retained),Is.EqualTo(old));
  }
+
+ [Test] public void AcceptedReplacementSelectsNewObservationsAndKeepsFailedProducerOutOfPassingAudit() {
+  string folder=Path.Combine(TestContext.CurrentContext.WorkDirectory,"replacement-review-"+Guid.NewGuid().ToString("N"));
+  Directory.CreateDirectory(folder);
+  try {
+   string step="pre-endurance/installed-app/steps/000/",id=new('a',32);
+   string attempt="installed-app/recovery-attempts/"+id+"/";
+   string before=step+"installed-app/preparation-recovery/installed-app/AndroidUI/";
+   string after=step+attempt+"installed-app/AndroidUI/";
+   string pointer=step+"installed-app/replacement.json";
+   string path=Path.Combine(folder,pointer);Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+   File.WriteAllText(path,System.Text.Json.JsonSerializer.Serialize(new AutomationAppStepRecovery.Completion(id,attempt+"installed-app/AndroidUI/",new('b',64))));
+   var retained=new Dictionary<string,string>{{pointer,AutomationFiles.Hash(path)},{step+attempt+"attempt.json",new('c',64)},
+    {step+attempt+"original-evidence.json",new('d',64)},{after+"observations.json",new('e',64)},{before+"observations.json",new('f',64)}};
+   Assert.That(AutomationAndroidReview.ActiveProducerPrefixes(folder,retained,[before,after]),Is.EqualTo(new[]{after}));
+   Assert.That(AutomationReview.ResolveObservationSource(step+"installed-app/AndroidUI/observations.json",retained,folder),Is.EqualTo(after+"observations.json"));
+   Assert.That(File.Exists(path),Is.True);
+   File.AppendAllText(path," ");
+   Assert.Throws<InvalidDataException>(()=>AutomationAndroidReview.ActiveProducerPrefixes(folder,retained,[before,after]));
+  } finally {Directory.Delete(folder,true);}
+ }
 }

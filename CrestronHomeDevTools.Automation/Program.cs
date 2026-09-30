@@ -5,6 +5,7 @@ using CrestronHomeDevTools.Automation;
 
 if(args is ["--help"])
 {
+ Console.WriteLine("Explicit failed-step replacement: --inspect-app-step --settings FILE --settings-sha256 PIN --phase main|pre-endurance|post-endurance --step INDEX. Run a reviewed replacement with --recover-app-step and the same arguments plus --recovery-plan FILE --recovery-plan-sha256 PIN. Original failures remain retained; restoration must be reconciled; attempts never automatically replay.");
  Console.WriteLine("Inspect failed separate initial preparation: --inspect-app-preparation --settings FILE --settings-sha256 PIN --step INDEX. Explicit recovery: --recover-app-preparation --settings FILE --settings-sha256 PIN --step INDEX --catalogue-id EXACT_ID --state-sha256 INSPECTED_PIN --original-evidence-sha256 INSPECTED_PIN. Only same-candidate catalogue corrections before any fixture/control activity qualify; failures and passed checks remain retained. A replacement attempt is never automatically replayed.");
  Console.WriteLine("Read-only stage-binding check: --check-settings PRIVATE_JSON --settings-sha256 PIN. Exit zero means all stage bindings are present, not that tests passed or credentials/equipment were validated.");
  Console.WriteLine("Finite registry watcher: append --exit-when-finished after --poll-seconds N, before protected-worker/role options. Exits zero only when every registered run is fully retained or every rehearsal has reached unsigned review. Cannot be combined with --release-profiles. Confirmed terminal failures exit 2 after retaining their final notice; uncertain, active or approval-waiting runs remain open.");
@@ -13,6 +14,15 @@ if(args is ["--help"])
 }
 try
 {
+ if(args is ["--inspect-app-step","--settings",var inspectStepSettings,"--settings-sha256",var inspectStepPin,"--phase",var inspectPhase,"--step",var inspectedStep]) {
+  if(!int.TryParse(inspectedStep,out int index))throw new InvalidDataException("Invalid step index.");
+  return await AutomationAppStepRecovery.Command(AutomationRequest.ReadForCheck(inspectStepSettings,inspectStepPin),inspectPhase,index,null,null,CancellationToken.None);
+ }
+ if(args is ["--recover-app-step","--settings",var recoverStepSettings,"--settings-sha256",var recoverStepPin,"--phase",var recoveryPhase,"--step",var recoveredStep,"--recovery-plan",var recoveryPlan,"--recovery-plan-sha256",var recoveryPlanPin]) {
+  if(!int.TryParse(recoveredStep,out int index))throw new InvalidDataException("Invalid step index.");
+  using var stop=new CancellationTokenSource();Console.CancelKeyPress+=(_,e)=>{e.Cancel=true;stop.Cancel();};
+  return await AutomationAppStepRecovery.Command(AutomationRequest.ReadForCheck(recoverStepSettings,recoverStepPin),recoveryPhase,index,recoveryPlan,recoveryPlanPin,stop.Token);
+ }
  if(args is ["--inspect-app-preparation","--settings",var inspectSettings,"--settings-sha256",var inspectPin,"--step",var inspectStep]) {
   if(!int.TryParse(inspectStep,out int index))throw new InvalidDataException("Step must be a nonnegative integer.");
   return await AutomationPreparationRecovery.Command(AutomationRequest.ReadForCheck(inspectSettings,inspectPin),index,null,null,null,CancellationToken.None);

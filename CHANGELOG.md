@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+Add explicit, pinned replacement of a failed app-test step using corrected fixture
+source. Original failures and earlier passes remain retained. Unconfirmed
+restoration or reservations require independently verified reconciliation before
+another attempt. New attempts have separate readiness identities and failure
+alerts; review selects the accepted producer while continuing to verify all
+retained failures. Started attempts never replay automatically. See
+[failed app-step recovery](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/FailedAppStepRecovery.md).
+
 Manual outage recording accepts cancellation propagated through a linked observation token when deliberately ending the disconnected-device watch. An observer that stopped before the cancellation request still fails. The desktop controller also reads retained installed-app failures independently of the worker status writer, including failed preparation-recovery attempts, so a worker exit cannot leave those failures hidden behind stale status.
 
 Preserve failed preparations while explicitly correcting a same-candidate catalogue discriminator in a separate initial app phase. The repair retains both attempts and executing tool hashes, rejects any started physical operation, and resumes completed steps without replay. Payload inspection accepts the processor catalogue discriminator while still verifying the complete package bytes. Review now discovers every retained app-step producer and rebases observations from their actual producer folders, including an explicitly retained recovery attempt. Offline validation is recorded separately from live rehearsal results.

@@ -29,12 +29,16 @@ internal static class AutomationAndroidReview
   var locations=new List<object>();
   var runIds=new HashSet<string>(StringComparer.Ordinal);
   string[] prefixes=ProducerPrefixes(retained.Keys,separate,receiptName==AutomationInitialAdditionalTests.ReceiptName);
-  foreach(string prefix in prefixes) {
-  foreach(var file in retained.Where(f=>f.Key.StartsWith(prefix,StringComparison.Ordinal))) {
+  // Failed producers remain evidence even when a reviewed replacement supplies
+  // the passing audit. Verify the entire inventory before selecting either.
+  foreach(var file in retained) {
    token.ThrowIfCancellationRequested();
    if(!SubmissionEvidence.SafeEvidencePath(c.RunDirectory,file.Key,out var path) || !Same(AutomationFiles.Hash(path),file.Value))
     throw new InvalidDataException("Retained Android coordinator evidence changed.");
   }
+  var active=ActiveProducerPrefixes(c.RunDirectory,retained,prefixes);
+  AutomationReview.WriteDocument(Path.Combine(c.RunDirectory,"review-inputs","replaced-android-producers.json"),new{RetainedFailedOrSupersededProducers=prefixes.Except(active,StringComparer.Ordinal).ToArray(),ActiveProducers=active});
+  foreach(string prefix in active) {
   string PathFor(string name) {
    if(!retained.ContainsKey(prefix+name) || !SubmissionEvidence.SafeEvidencePath(c.RunDirectory,prefix+name,out var path))
     throw new InvalidDataException("Android audit input is missing from the completed coordinator inventory.");
@@ -79,11 +83,25 @@ internal static class AutomationAndroidReview
   var evidence=JsonSerializer.SerializeToElement(locations,AutomationReview.DocumentJson);
   return new(pins,evidence);
  }
+ internal static string[] ActiveProducerPrefixes(string root,IReadOnlyDictionary<string,string> retained,string[] prefixes) {
+  var active=prefixes.ToHashSet(StringComparer.Ordinal);
+  foreach(string pointer in retained.Keys.Where(p=>p.EndsWith("/installed-app/replacement.json",StringComparison.Ordinal))) {
+   if(!SubmissionEvidence.SafeEvidencePath(root,pointer,out var path) || AutomationFiles.Hash(path)!=retained[pointer])throw new InvalidDataException("Replacement pointer changed.");
+   var accepted=AutomationFiles.Read<AutomationAppStepRecovery.Completion>(path);AutomationAppStepRecovery.RequireId(accepted.AttemptId);
+   string step=pointer[..^"installed-app/replacement.json".Length];
+   string expected="installed-app/recovery-attempts/"+accepted.AttemptId+"/";
+   if(accepted.ProducerPrefix!=expected+"installed-app/AndroidUI/" ||
+    !retained.ContainsKey(step+expected+"attempt.json") || !retained.ContainsKey(step+expected+"original-evidence.json") ||
+    !prefixes.Contains(step+accepted.ProducerPrefix,StringComparer.Ordinal))throw new InvalidDataException("Missing accepted replacement producer provenance.");
+   active.RemoveWhere(p=>p.StartsWith(step+"installed-app/",StringComparison.Ordinal) && p!=step+accepted.ProducerPrefix);
+  }
+  return active.Order(StringComparer.Ordinal).ToArray();
+ }
  private static bool Same(string? a,string? b)=>a!=null && b!=null && a.Equals(b,StringComparison.OrdinalIgnoreCase);
  internal static string[] ProducerPrefixes(IEnumerable<string> files,bool separate,bool additional) {
   const string pin="producer-pin.json";
   var prefixes=files.Where(p=>p.EndsWith("/AndroidUI/"+pin,StringComparison.Ordinal)).Select(p=>p[..^pin.Length]).Order(StringComparer.Ordinal).ToArray();
-  string app=@"installed-app/(?:steps/[0-9]{3}/installed-app/)?(?:preparation-recovery/installed-app/)?AndroidUI/";
+  string app=@"installed-app/(?:steps/[0-9]{3}/installed-app/)?(?:(?:preparation-recovery|recovery-attempts/[0-9a-f]{32})/installed-app/)?AndroidUI/";
   string pattern=separate?"^(?:"+(additional?"pre-endurance/|":"")+")"+app+"$":"^nunit/AndroidUI/$";
   if(prefixes.Length==0 || prefixes.Length>256 || prefixes.Any(p=>!System.Text.RegularExpressions.Regex.IsMatch(p,pattern,System.Text.RegularExpressions.RegexOptions.CultureInvariant)))
    throw new InvalidDataException("Completed app receipt has missing or unexpected producer locations.");
