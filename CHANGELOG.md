@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+Manual outage recording accepts cancellation propagated through a linked observation token when deliberately ending the disconnected-device watch. An observer that stopped before the cancellation request still fails. The desktop controller also reads retained installed-app failures independently of the worker status writer, including failed preparation-recovery attempts, so a worker exit cannot leave those failures hidden behind stale status.
+
 Preserve failed preparations while explicitly correcting a same-candidate catalogue discriminator in a separate initial app phase. The repair retains both attempts and executing tool hashes, rejects any started physical operation, and resumes completed steps without replay. Payload inspection accepts the processor catalogue discriminator while still verifying the complete package bytes. Review now discovers every retained app-step producer and rebases observations from their actual producer folders, including an explicitly retained recovery attempt. Offline validation is recorded separately from live rehearsal results.
 
 ## 1.24.0 - 2026-09-29

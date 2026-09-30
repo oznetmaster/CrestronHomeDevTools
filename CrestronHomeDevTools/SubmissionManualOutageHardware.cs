@@ -118,7 +118,10 @@ public sealed class SubmissionManualOutageHardware : ISubmissionOutageHardware, 
   try {
    await _watch.ConfigureAwait(false);
    if(ended)_watchFailure=new InvalidDataException("Interruption observer stopped before restoration.");
-  } catch(OperationCanceledException error) when(!ended && _watchLifetime.IsCancellationRequested && error.CancellationToken==_watchLifetime.Token) { }
+  // Socket/HTTP observations may use a linked timeout token. On our deliberate stop,
+  // that linked token is cancelled too; its identity need not equal the parent token.
+  // An observer already stopped/cancelled before our request still fails below.
+  } catch(OperationCanceledException error) when(!ended && _watchLifetime.IsCancellationRequested && error.CancellationToken.IsCancellationRequested) { }
   catch(Exception error) { _watchFailure=error; }
   _watch=null;
  }

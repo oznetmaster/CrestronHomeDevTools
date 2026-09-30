@@ -95,6 +95,18 @@ public sealed class SubmissionManualOutageTests
   Assert.That(result.Passed,Is.False);Assert.That(observer.RestoredOriginal,Is.True);
   Assert.That(observer.FunctionsChecked,Is.Zero);
  }
+ [Test] public async Task StoppingHoldWithLinkedCancellationDoesNotFailRecovery() {
+  var observer=new Observer{LinkedWatchCancellation=true,RestorationProof="valid"};await using var hardware=Hardware(observer);
+  var task=Record(hardware,power:true);await Answer("disconnect");await Answer("reconnect");var result=await task;
+  Assert.That(result.Passed,Is.True,string.Join(",",result.Issues));
+  Assert.That(observer.FunctionsChecked,Is.EqualTo(1));
+ }
+ [Test] public async Task IndependentWatchCancellationBeforeReconnectStillFails() {
+  var observer=new Observer{UnexpectedWatchCancellation=true};await using var hardware=Hardware(observer);
+  var task=Record(hardware);await Answer("disconnect");await Answer("reconnect");var result=await task;
+  Assert.That(result.Passed,Is.False);Assert.That(observer.FunctionsChecked,Is.Zero);
+  Assert.That(observer.RestoredOriginal,Is.True);
+ }
  [Test] public async Task UnableStillRestoresAndCannotPass() {
   var observer=new Observer{WaitForObservation=true};await using var hardware=Hardware(observer);
   var task=Record(hardware);SubmissionOperatorStep.Respond(await Pending("outage-disconnect"),SubmissionOperatorOutcome.Unable);
@@ -109,6 +121,7 @@ public sealed class SubmissionManualOutageTests
   public IReadOnlyList<string> Components=>["processor","device"];
   public IReadOnlyList<string> Functions=>["control"];
   public bool WaitForObservation,EarlyReturn,WrongScope,RestoredOriginal,WatchCancelled;
+  public bool LinkedWatchCancellation,UnexpectedWatchCancellation;
   public int DisconnectObservations,RestoreObservations,FunctionsChecked;
   public TaskCompletionSource Observed=new(TaskCreationOptions.RunContinuationsAsynchronously);
   public TaskCompletionSource Recovered=new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -129,6 +142,11 @@ public sealed class SubmissionManualOutageTests
   }
   public async Task WatchInterruptedAsync(CancellationToken token) {
    if(EarlyReturn)throw new InvalidDataException("Synthetic endpoint returned early.");
+   if(UnexpectedWatchCancellation)throw new OperationCanceledException(new CancellationToken(true));
+   if(LinkedWatchCancellation) {
+    using var linked=CancellationTokenSource.CreateLinkedTokenSource(token);
+    await Task.Delay(Timeout.Infinite,linked.Token);return;
+   }
    try {await Task.Delay(Timeout.Infinite,token);}finally{WatchCancelled=token.IsCancellationRequested;}
   }
   public async Task<IReadOnlyDictionary<string,SubmissionOutageCapture>> ObserveRestoredAsync(CancellationToken token) {

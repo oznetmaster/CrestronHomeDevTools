@@ -94,4 +94,26 @@ public sealed partial class AutomationInstalledAppTests
   AutomationWorker.Notification(status,[new(entry.Profile,entry.ReleaseId,entry.Mode,state,stage,reason)],DateTimeOffset.UtcNow);
   Assert.That(SubmissionOperatorAlerts.Read(registry,[entry.Profile],status).Single().State,Is.EqualTo(state));
  }
+ [TestCase(false)][TestCase(true)]
+ public void RetainedProducerFailureAlertsWithoutFreshWorkerStatus(bool staleStatus) {
+  var entry=RegisterOperator();string registry=OperatorRegistry(entry),status=Path.Combine(root,"status");Directory.CreateDirectory(status);
+  if(staleStatus)AutomationWorker.Notification(status,[new(entry.Profile,entry.ReleaseId,entry.Mode,"Running","AppTests",null)],DateTimeOffset.UtcNow);
+  string run=Path.Combine(settings.PrivateRoot,SubmissionWorkflow.RunKey(settings.Release));
+  string output=Path.Combine(run,"installed-app","preparation-recovery","installed-app");Directory.CreateDirectory(output);
+  File.WriteAllText(Path.Combine(output,"InstalledDriverTests.json"),"{\"Passed\":false,\"RestorationConfirmed\":false}");
+  var alert=SubmissionOperatorAlerts.Read(registry,[entry.Profile],status).Single();
+  Assert.That(alert.State,Is.EqualTo("AttentionRequired"));
+  Assert.That(alert.Reason,Does.Contain("workflow has not continued"));
+  Assert.That(SubmissionOperatorAlerts.Read(registry,[entry.Profile],status).Single().Key,Is.EqualTo(alert.Key));
+ }
+ [TestCase("{\"State\":\"Preparing\"}",false)]
+ [TestCase("{\"Passed\":true}",false)]
+ [TestCase("{\"State\":\"Failed\"}",true)]
+ public void RetainedOutcomeDoesNotAlertForPreparationOrSuccess(string json,bool expected) {
+  var entry=RegisterOperator();string registry=OperatorRegistry(entry),status=Path.Combine(root,"status");Directory.CreateDirectory(status);
+  string run=Path.Combine(settings.PrivateRoot,SubmissionWorkflow.RunKey(settings.Release));
+  string output=Path.Combine(run,"installed-app");Directory.CreateDirectory(output);
+  File.WriteAllText(Path.Combine(output,"InstalledDriverTests.json"),json);
+  Assert.That(SubmissionOperatorAlerts.Read(registry,[entry.Profile],status).Count,Is.EqualTo(expected?1:0));
+ }
 }
