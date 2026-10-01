@@ -7,7 +7,10 @@
     <PackageReference Include="NUnit.Analyzers" Version="4.15.0" PrivateAssets="all" />
     <PackageReference Include="NUnit3TestAdapter" Version="6.3.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.9.0" />
-    <PackageReference Include="CrestronHomeNUnit.TestAdapter" Version="2.0.0" ExcludeAssets="build;buildTransitive" Condition="'$(NUnitWorkflowProject)' == ''" />
+    <PackageReference Include="CrestronHomeNUnit.TestAdapter" Version="2.2.0" ExcludeAssets="build;buildTransitive" Condition="'$(NUnitWorkflowProject)' == ''" />
     <ProjectReference Include="$(NUnitWorkflowProject)" Condition="'$(NUnitWorkflowProject)' != ''" />
   </ItemGroup>
+  <PropertyGroup>
+    <WarningsAsErrors>$(WarningsAsErrors);CS4014</WarningsAsErrors>
+  </PropertyGroup>
 </Project>
