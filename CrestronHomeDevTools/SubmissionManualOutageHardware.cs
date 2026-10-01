@@ -14,6 +14,7 @@ public sealed record SubmissionManualOutageSettings(SubmissionOperatorInbox Inbo
 /// and throw if a required endpoint returns early or observation becomes unreliable.</summary>
 public interface ISubmissionManualOutageObserver
 {
+ bool ProgramLoadIsLowerBound => false;
  IReadOnlyList<string> Components { get; }
  IReadOnlyList<string> Functions { get; }
  Task PreflightAsync(SubmissionOutageRecordingContext context, CancellationToken token);
@@ -73,6 +74,7 @@ public sealed class SubmissionManualOutageHardware : ISubmissionOutageHardware, 
   _settings=settings; _observer=observer; _components=Copy(observer.Components); _functions=Copy(observer.Functions);
  }
  public IReadOnlyList<string> Components=>Array.AsReadOnly(_components);
+ public bool ProgramLoadIsLowerBound=>_observer.ProgramLoadIsLowerBound;
  public IReadOnlyList<string> Functions=>Array.AsReadOnly(_functions);
  public async Task PreflightAsync(SubmissionOutageRecordingContext context,CancellationToken token)
  {

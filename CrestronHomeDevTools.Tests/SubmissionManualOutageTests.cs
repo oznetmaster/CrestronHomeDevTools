@@ -31,13 +31,15 @@ public sealed class SubmissionManualOutageTests
  private Task<SubmissionOutageRecordingResult> Record(SubmissionManualOutageHardware hardware,CancellationToken token=default, bool power=false)=>
   SubmissionOutageRecorder.RecordAsync(power?Plan with {RecoveryClock=SubmissionOutageRecoveryClock.ProgramLoaded,ProgramComponent="processor"}:Plan,
    hardware,Path.Combine(_root,"recording"),TimeSpan.FromSeconds(20),TimeSpan.FromSeconds(8),token);
- [Test] public async Task IndependentNewBootProofKeepsLateAcknowledgementOutOfProgramStartOrdering() {
-  var observer=new Observer{RestorationProof="valid"};await using var hardware=Hardware(observer);
+ [TestCase(false)][TestCase(true)] public async Task IndependentNewBootProofKeepsLateAcknowledgementOutOfProgramStartOrdering(bool lowerBound) {
+  var observer=new Observer{RestorationProof="valid",ProgramLoadIsLowerBound=lowerBound};await using var hardware=Hardware(observer);
   var task=Record(hardware,power:true);await Answer("disconnect");
   var reconnect=await Pending("outage-reconnect");await observer.Recovered.Task.WaitAsync(TimeSpan.FromSeconds(5));
   await Task.Delay(80);SubmissionOperatorStep.Respond(reconnect,SubmissionOperatorOutcome.Done);
   var result=await task;
   Assert.That(result.Passed,Is.True,string.Join(",",result.Issues.Concat(result.Measurements?.Issues??[])));
+  using var measurement=System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(_root,"recording","measurements.json")));
+  Assert.That(measurement.RootElement.GetProperty("schemaVersion").GetInt32(),Is.EqualTo(lowerBound?2:1));
   using var doc=System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(_root,"recording","manual-reconnect-capture.json")));
   var bounds=doc.RootElement.GetProperty("componentBounds");
   Assert.That(bounds.GetProperty("processor").GetProperty("latestUtc").GetDateTimeOffset(),Is.LessThan(observer.ProgramLoaded!.EarliestUtc));
@@ -118,6 +120,7 @@ public sealed class SubmissionManualOutageTests
   Assert.That((await task).Passed,Is.False);Assert.That(observer.RestoredOriginal,Is.True);
  }
  private sealed class Observer:ISubmissionManualOutageObserver,ISubmissionManualRestorationBounds {
+  public bool ProgramLoadIsLowerBound {get;set;}
   public IReadOnlyList<string> Components=>["processor","device"];
   public IReadOnlyList<string> Functions=>["control"];
   public bool WaitForObservation,EarlyReturn,WrongScope,RestoredOriginal,WatchCancelled;

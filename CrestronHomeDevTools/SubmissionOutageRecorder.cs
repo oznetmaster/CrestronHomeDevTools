@@ -20,6 +20,8 @@ public interface ISubmissionOutageReadiness
 /// Connectivity control must remain available while the selected processor/device is interrupted.</summary>
 public interface ISubmissionOutageHardware
 	{
+	/// <summary>True only when the program capture bounds its start, not load completion.</summary>
+	bool ProgramLoadIsLowerBound => false;
 	IReadOnlyList<string> Components
 		{
 		get;
@@ -242,9 +244,11 @@ public static class SubmissionOutageRecorder
 		string? recordPath = null;
 		if (issues.Count == 0 && original != null && verified != null)
 			{
-			var record = new SubmissionOutageMeasurementRecord (1, plan.Identity,
+			bool lowerBound = plan.RecoveryClock == SubmissionOutageRecoveryClock.ProgramLoaded && hardware.ProgramLoadIsLowerBound;
+			var record = new SubmissionOutageMeasurementRecord (lowerBound ? 2 : 1, plan.Identity,
 				 plan.RequiredComponents.Select (c => new SubmissionComponentInterruption (c, interrupted[c], restored[c])).ToArray (),
-				 loaded, functions.ToArray (), original, verified.Capture, verified.MatchesOriginal);
+				 loaded, functions.ToArray (), original, verified.Capture, verified.MatchesOriginal)
+				{ ProgramLoadIsLowerBound = lowerBound };
 			Save ("measurements.json", record);
 			try
 				{

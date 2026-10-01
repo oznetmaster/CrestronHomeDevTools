@@ -22,7 +22,13 @@ public sealed record SubmissionOutageMeasurementPlan (SubmissionEvidenceIdentity
 public sealed record SubmissionOutageMeasurementRecord (int SchemaVersion, SubmissionEvidenceIdentity Identity,
 	 SubmissionComponentInterruption[] Interruptions, SubmissionOutageCapture? ProgramLoaded,
 	 SubmissionOutageFunction[] Functions, SubmissionOutageCapture OriginalState,
-	 SubmissionOutageCapture VerifiedState, bool MatchesOriginal);
+	 SubmissionOutageCapture VerifiedState, bool MatchesOriginal)
+	{
+	/// <summary>Schema 2: ProgramLoaded contains bounds on program START, which is only
+	/// a lower bound for load completion. It can prove early recovery, never late recovery.</summary>
+	[System.Text.Json.Serialization.JsonIgnore (Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+	public bool ProgramLoadIsLowerBound { get; init; }
+	}
 public sealed record SubmissionOutageMeasurementReport (SubmissionEvidenceIdentity Identity,
 	 string RequirementId, SubmissionEvidenceOutcome Outcome, double? GuaranteedInterruptionSeconds,
 	 double? MinimumRecoverySeconds, double? MaximumRecoverySeconds, string[] Issues)
@@ -60,7 +66,9 @@ public static class SubmissionOutageMeasurements
 		ArgumentNullException.ThrowIfNull (record);
 		cancellationToken.ThrowIfCancellationRequested ();
 		static bool Hex (string? value, int length) => value?.Length == length && value.All (char.IsAsciiHexDigit);
-		if (record.SchemaVersion != 1 || record.Identity != plan.Identity || now == default ||
+		if (record.SchemaVersion != (record.ProgramLoadIsLowerBound ? 2 : 1) ||
+			 (record.ProgramLoadIsLowerBound && (plan.RecoveryClock != SubmissionOutageRecoveryClock.ProgramLoaded || record.ProgramLoaded == null)) ||
+			 record.Identity != plan.Identity || now == default ||
 			 record.Interruptions is not { Length: <= 128 } || record.Functions is not { Length: <= 128 })
 			throw new InvalidDataException ("Outage measurements require the pinned identity, explicit scope, functions and positive timing limits.");
 		string root = Path.GetFullPath (evidenceDirectory);
@@ -168,15 +176,21 @@ public static class SubmissionOutageMeasurements
 				issues.Add ("functional-evidence-not-after-restoration");
 			else
 				{
-				minimumRecovery = (record.Functions.Max (f => f.Observation.EarliestUtc) - clockLatest.Value).TotalSeconds;
+					// Program start precedes load completion, but supplies no upper bound
+					// for it. Missing the conservative deadline is unproven, not failed.
+					minimumRecovery = record.ProgramLoadIsLowerBound ? null :
+						(record.Functions.Max (f => f.Observation.EarliestUtc) - clockLatest.Value).TotalSeconds;
 				maximumRecovery = (record.Functions.Max (f => f.Observation.LatestUtc) - clockEarliest.Value).TotalSeconds;
 				if (minimumRecovery > plan.RecoveryLimit.TotalSeconds)
 					{
 					issues.Add ("recovery-deadline-exceeded");
 					failed = true;
 					}
-				else if (maximumRecovery > plan.RecoveryLimit.TotalSeconds)
-					issues.Add ("recovery-deadline-unproven");
+					else if (maximumRecovery > plan.RecoveryLimit.TotalSeconds)
+						{
+						issues.Add ("recovery-deadline-unproven");
+						if (record.ProgramLoadIsLowerBound) issues.Add ("program-load-completion-not-observed");
+						}
 				}
 			}
 		return new (plan.Identity, plan.RequirementId, failed ? SubmissionEvidenceOutcome.Failed :

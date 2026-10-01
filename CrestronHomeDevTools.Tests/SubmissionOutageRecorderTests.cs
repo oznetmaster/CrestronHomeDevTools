@@ -101,6 +101,19 @@ public sealed class SubmissionOutageRecorderTests
 			Assert.That (_hardware.CheckedFunctions, Is.Empty);
 		});
 		}
+	[TestCase (false, 1)]
+	[TestCase (true, 2)]
+	public async Task RecorderRetainsProgramClockMeaning (bool lowerBound, int schema)
+		{
+		_plan = _plan with { RecoveryClock = SubmissionOutageRecoveryClock.ProgramLoaded, ProgramComponent = "processor" };
+		_hardware.ProgramLoadIsLowerBound = lowerBound;
+		var result = await Run ();
+		Assert.That (result.Passed, Is.True);
+		using var record = JsonDocument.Parse (File.ReadAllText (Path.Combine (_root, "measurements.json")));
+		Assert.That (record.RootElement.GetProperty ("schemaVersion").GetInt32 (), Is.EqualTo (schema));
+		Assert.That (record.RootElement.TryGetProperty ("programLoadIsLowerBound", out var property), Is.EqualTo (lowerBound));
+		if (lowerBound) Assert.That (property.GetBoolean (), Is.True);
+		}
 	[Test] public async Task ReadinessRunsAfterPreparationAndBeforeAnyInterruption() {
 		_hardware.Ready=token=> {
 			Assert.That(_hardware.PreflightCalls,Is.EqualTo(1));
@@ -272,6 +285,7 @@ public sealed class SubmissionOutageRecorderTests
 
 	private sealed class Hardware (Clock clock, CancellationTokenSource caller) : ISubmissionOutageHardware, ISubmissionOutageReadiness
 		{
+		public bool ProgramLoadIsLowerBound { get; set; }
 		public Func<CancellationToken,Task>? Ready;
 		public Task WaitUntilReadyAsync(CancellationToken token)=>Ready?.Invoke(token)??Task.CompletedTask;
 		public IReadOnlyList<string> Components => ["processor", "device"];

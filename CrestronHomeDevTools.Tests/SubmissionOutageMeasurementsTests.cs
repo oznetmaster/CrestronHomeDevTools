@@ -92,6 +92,48 @@ public sealed class SubmissionOutageMeasurementsTests
 			};
 		Assert.That (Assess ().Issues, Does.Contain ("program-load-time-not-observed"));
 		}
+	[TestCase (140, SubmissionEvidenceOutcome.Passed)]
+	[TestCase (140.001, SubmissionEvidenceOutcome.Partial)]
+	[TestCase (149, SubmissionEvidenceOutcome.Partial)]
+	public void ProgramStartOnlyProvesRecoveryInsideConservativeDeadline (double recovered, SubmissionEvidenceOutcome expected)
+		{
+		_plan = _plan with { RecoveryClock = SubmissionOutageRecoveryClock.ProgramLoaded, ProgramComponent = "processor" };
+		_record = _record with { SchemaVersion = 2, ProgramLoadIsLowerBound = true, ProgramLoaded = At (80, 82),
+			Interruptions = [new ("processor", At (10, 11), At (75, 79)), new ("device", At (12, 13), At (75, 79))],
+			Functions = [new ("control", SubmissionEvidenceOutcome.Passed, At (100)), new ("feedback", SubmissionEvidenceOutcome.Passed, At (recovered))] };
+		var result = Assess ();
+		Assert.That (result.Outcome, Is.EqualTo (expected));
+		Assert.That (result.MinimumRecoverySeconds, Is.Null, "No load-completion upper bound was observed.");
+		Assert.That (result.MaximumRecoverySeconds, Is.EqualTo (recovered - 80).Within (0.000000001));
+		Assert.That (result.Issues, Does.Not.Contain ("recovery-deadline-exceeded"));
+		if (expected == SubmissionEvidenceOutcome.Partial)
+			Assert.That (result.Issues, Does.Contain ("program-load-completion-not-observed"));
+		var inputs = Inputs ();
+		var imported = Import (inputs.Plan, inputs.Record);
+		Assert.That (imported.Measurements.Outcome, Is.EqualTo (expected));
+		Assert.That (SubmissionEvidence.Evaluate (_plan.Identity, [inputs.Rule], imported.Observations.Observations,
+			_root, Start.AddSeconds (200)).EvidenceChecksPassed, Is.EqualTo (expected == SubmissionEvidenceOutcome.Passed));
+		}
+	[TestCase ("old-schema")]
+	[TestCase ("missing-start")]
+	[TestCase ("network")]
+	public void LowerBoundMarkerCannotBeMisinterpreted (string variant)
+		{
+		_plan = _plan with { RecoveryClock = SubmissionOutageRecoveryClock.ProgramLoaded, ProgramComponent = "processor" };
+		_record = _record with { SchemaVersion = 2, ProgramLoadIsLowerBound = true, ProgramLoaded = At (95, 96) };
+		if (variant == "old-schema") _record = _record with { SchemaVersion = 1 };
+		if (variant == "missing-start") _record = _record with { ProgramLoaded = null };
+		if (variant == "network") _plan = _plan with { RecoveryClock = SubmissionOutageRecoveryClock.NetworkRestored, ProgramComponent = null };
+		Assert.Throws<InvalidDataException> (() => Assess ());
+		}
+	[Test]
+	public void ConservativeClockDoesNotHideFunctionalFailure ()
+		{
+		_plan = _plan with { RecoveryClock = SubmissionOutageRecoveryClock.ProgramLoaded, ProgramComponent = "processor" };
+		_record = _record with { SchemaVersion = 2, ProgramLoadIsLowerBound = true, ProgramLoaded = At (95, 96),
+			Functions = [_record.Functions[0] with { Outcome = SubmissionEvidenceOutcome.Failed }, _record.Functions[1]] };
+		Assert.That (Assess ().Outcome, Is.EqualTo (SubmissionEvidenceOutcome.Failed));
+		}
 	[Test]
 	public void ProgramLoadBeforeProvenPowerRestorationCannotPass ()
 		{
