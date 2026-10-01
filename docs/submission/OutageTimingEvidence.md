@@ -36,3 +36,20 @@ the deadline when retrying, or reinterpret retained failed attempts after the
 fact. An installation that routinely exceeds the conservative bound needs an
 independent, justified load-completion observation before repeating its physical
 power test. Document that prerequisite before requesting operator action.
+
+## Home diagnostic load event
+
+`CrestronHomeLoadLog` reads the global `System\Runner: * Loaded System` event
+from dated logs under `/rm/SeawolfDiagnostic` using pinned SFTP. It binds that
+event to the Home program identity and start epoch, checks the logged duration,
+and retains the raw logs with bounded UTC timestamps. The caller must verify the
+program epoch before and after reading. Two dated files support loading across
+midnight. Missing, ambiguous or inconsistent events fail explicitly; API
+availability never substitutes for this event.
+
+Before requesting an outage, validate logging support against the currently
+running Home program. Repeat the observation against the new epoch after power
+restoration. A successful preflight proves instrumentation availability only;
+the physical interruption, functional recovery and restoration still need their
+own evidence. Current validation covers the observed Home 4.012.0194 log format;
+other firmware must pass the same preflight.
