@@ -97,4 +97,23 @@ public sealed class AutomationFinalTestsTests
   Assert.Catch<IOException>(()=>AutomationBoundaryMigration.Verify(context,configured));Assert.That(calls,Is.Zero);
  }
 
+
+ [TestCase(false)][TestCase(true)]
+ public async Task UppercaseProducerHashesRemainValidButChangedEvidenceIsRejected(bool corruptEvidence) {
+  string evidence=Path.Combine(root,"endurance-evidence.json");
+  var envelope=System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(evidence))!;
+  var file=envelope["Observation"]!["Files"]![0]!;
+  file["Sha256"]=file["Sha256"]!.GetValue<string>().ToUpperInvariant();
+  File.WriteAllText(evidence,envelope.ToJsonString(AutomationFiles.Json));
+  var original=File.ReadAllBytes(evidence);
+  await Complete();
+  AutomationFinalTests.VerifyRetained(context,settings,Pin);
+  if(corruptEvidence) {
+   File.AppendAllText(Path.Combine(root,"endurance/observations/sample.txt"),"changed");
+   Assert.Throws<InvalidDataException>(()=>AutomationFinalTests.VerifyRetained(context,settings,Pin));
+  } else {
+   Assert.That((await AdvanceFinalTests(true)).Status,Is.EqualTo(SubmissionWorkflowStatus.Completed));
+  }
+  Assert.That(File.ReadAllBytes(evidence),Is.EqualTo(original));Assert.That(calls,Is.Zero);
+ }
 }
