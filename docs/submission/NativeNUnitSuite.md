@@ -54,7 +54,7 @@ Routine run retention follows [current plus one previous generation](RoutineRunR
 
 ## Invoking phase three independently
 
-The source command `CrestronHomeDevTools.Automation --phase-three --settings PRIVATE_JSON --settings-sha256 PIN` uses the same retained run after the defined NUnit suite passes. Alternatively, supply the ordinary `--registry PRIVATE_JSON --profile NAME --release-id ID --mode rehearsal|submit` selectors after `--phase-three`. This new command requires a build containing the phase-three gate; it is not part of the already published 1.25.0 executable.
+The source command `CrestronHomeDevTools.Automation --phase-three --settings PRIVATE_JSON --settings-sha256 PIN` uses the same retained run after the defined NUnit suite passes. Alternatively, supply the ordinary `--registry PRIVATE_JSON --profile NAME --release-id ID --mode rehearsal|submit` selectors after `--phase-three`. This command requires the 1.26.0 executable or later; it is not part of 1.25.0.
 
 It refuses incomplete test stages before changing the checkpoint or invoking any stage adapter. It never starts missing tests. The adapters still validate the original detailed results and final assessment; receipt presence alone is not a test pass.
 
