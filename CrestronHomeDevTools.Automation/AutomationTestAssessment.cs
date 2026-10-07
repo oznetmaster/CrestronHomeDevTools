@@ -72,7 +72,7 @@ internal static class AutomationTestAssessment
   var receipt=AutomationFiles.Read<Receipt>(Path.Combine(c.RunDirectory,name));
   if(receipt.InputSha256!=c.Checkpoint.InputSha256 || receipt.PlanSha256!=PlanPin(settings))throw new InvalidDataException("Phase-two policy or run identity changed.");
   foreach(var file in receipt.Files)
-   if(!SubmissionEvidence.SafeEvidencePath(c.RunDirectory,file.RelativePath,out var path)||AutomationFiles.Hash(path)!=file.Sha256)
+   if(!SubmissionEvidence.SafeEvidencePath(c.RunDirectory,file.RelativePath,out var path)||!string.Equals(AutomationFiles.Hash(path),file.Sha256,StringComparison.OrdinalIgnoreCase))
     throw new InvalidDataException("Phase-two assessment evidence changed.");
   string folder=beforeRemoval?"test-assessment-before-removal":"test-assessment";
   var report=AutomationFiles.Read<SubmissionEvidenceCompositionReport>(Path.Combine(c.RunDirectory,folder,"composition-report.json"));
