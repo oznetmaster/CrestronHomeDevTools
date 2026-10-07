@@ -22,4 +22,7 @@
     <ItemGroup><TestProbe Include="../CrestronHomeDevTools.Tests.Probe/bin/$(Configuration)/$(TargetFramework)/**/*" /></ItemGroup>
     <Copy SourceFiles="@(TestProbe)" DestinationFiles="@(TestProbe->'$(OutDir)test-probe/%(RecursiveDir)%(Filename)%(Extension)')" />
   </Target>
+  <PropertyGroup>
+    <WarningsAsErrors>$(WarningsAsErrors);CS4014</WarningsAsErrors>
+  </PropertyGroup>
 </Project>
