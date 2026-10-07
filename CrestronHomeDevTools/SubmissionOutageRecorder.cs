@@ -22,6 +22,9 @@ public interface ISubmissionOutageHardware
 	{
 	/// <summary>True only when the program capture bounds its start, not load completion.</summary>
 	bool ProgramLoadIsLowerBound => false;
+    IReadOnlyList<string> StartupInstanceIds => Array.Empty<string>();
+    Task<SubmissionOutageDriverInitialization[]> ObserveDriverInitializationsAsync(CancellationToken token)
+        => Task.FromResult(Array.Empty<SubmissionOutageDriverInitialization>());
 	IReadOnlyList<string> Components
 		{
 		get;
@@ -39,10 +42,16 @@ public interface ISubmissionOutageHardware
 	Task<SubmissionOutageRestoredState> RestoreOriginalAsync (SubmissionOutageCapture original, CancellationToken token);
 	}
 
+public enum SubmissionRecoveryDisposition { Passed, BehaviourFailed, MeasurementInconclusive, HarnessFailed, WaitingForOperator, Cancelled }
+
 public sealed record SubmissionOutageRecordingResult (string EvidenceDirectory,
 	 string? RecordRelativePath, SubmissionOutageMeasurementReport? Measurements, string[] Issues)
 	{
 	public bool Passed => Issues.Length == 0 && Measurements?.MeasurementChecksPassed == true;
+    public SubmissionRecoveryDisposition Disposition => Issues.Any(i=>i.EndsWith(":OperationCanceledException",StringComparison.Ordinal) || i.EndsWith(":TaskCanceledException",StringComparison.Ordinal))
+        ? SubmissionRecoveryDisposition.Cancelled : Issues.Length>0 ? SubmissionRecoveryDisposition.HarnessFailed
+        : Passed ? SubmissionRecoveryDisposition.Passed : Measurements?.Outcome==SubmissionEvidenceOutcome.Failed
+        ? SubmissionRecoveryDisposition.BehaviourFailed : SubmissionRecoveryDisposition.MeasurementInconclusive;
 	}
 
 /// <summary>Runs an initial outage capture with durable progress and a separate restoration budget.
@@ -73,11 +82,13 @@ public static class SubmissionOutageRecorder
 		plan = plan with
 			{
 			RequiredComponents = [.. plan.RequiredComponents],
-			RequiredFunctions = [.. plan.RequiredFunctions]
+			RequiredFunctions = [.. plan.RequiredFunctions],
+            DriverInstances=plan.DriverInstances?.Select(i=>i with{RequiredFunctions=[..i.RequiredFunctions]}).ToArray()
 			};
 		static bool Same (string[] expected, IReadOnlyList<string> actual) => actual != null &&
 			 expected.Order (StringComparer.Ordinal).SequenceEqual (actual.Order (StringComparer.Ordinal), StringComparer.Ordinal);
 		if (!Same (plan.RequiredComponents, hardware.Components) || !Same (plan.RequiredFunctions, hardware.Functions) ||
+             !Same(plan.DriverInstances?.Select(i=>i.Id).ToArray()??[],hardware.StartupInstanceIds) ||
 			 observationTimeout <= plan.MinimumInterruption || observationTimeout > TimeSpan.FromHours (1) ||
 			 restorationTimeout < TimeSpan.FromSeconds (1) || restorationTimeout > TimeSpan.FromHours (1))
 			throw new InvalidDataException ("Bind exactly the planned components/functions and bounded observation/restoration timeouts before recording.");
@@ -112,14 +123,28 @@ public static class SubmissionOutageRecorder
 				throw new InvalidDataException ("Hardware capture evidence changed or exceeds its size limit.");
 			}
 		var issues = new List<string> ();
+        using var observation = CancellationTokenSource.CreateLinkedTokenSource (token);
+        void Failure(string awaitingStage,Exception error)
+        {
+            // A request or internal observation deadline is not operator cancellation.
+            // Keep the original exception as the cause and retain the terminal failure.
+            if(error is OperationCanceledException && !token.IsCancellationRequested)
+                error=observation.IsCancellationRequested
+                    ? new TimeoutException("Outage observation exhausted its budget.",error)
+                    : new IOException("Observation cancelled without caller cancellation.",error);
+            var detail=SubmissionRecoveryFailure.Capture(awaitingStage,error);
+            issues.Add(detail.Issue);
+            try {Journal("failure",detail);}
+            catch(Exception retentionError) {issues.Add("failure-evidence:"+retentionError.GetType().Name);}
+        }
 		var attempts = new List<string> ();
 		var interrupted = new Dictionary<string, SubmissionOutageCapture> (StringComparer.Ordinal);
 		var restored = new Dictionary<string, SubmissionOutageCapture> (StringComparer.Ordinal);
 		var functions = new List<SubmissionOutageFunction> ();
 		SubmissionOutageCapture? original = null, loaded = null;
+        SubmissionOutageDriverInitialization[]? initializations=null;
 		SubmissionOutageRestoredState? verified = null;
 		string stage = "preflight";
-		using var observation = CancellationTokenSource.CreateLinkedTokenSource (token);
 		observation.CancelAfter (observationTimeout);
 		long activeStarted = clock.GetTimestamp();
 		// Neither cleanup budget inherits caller cancellation nor the observation timeout.
@@ -172,7 +197,7 @@ public static class SubmissionOutageRecorder
 			}
 		catch (Exception error)
 			{
-			issues.Add (stage + ":" + error.GetType ().Name);
+			Failure(stage,error);
 			// Do not persist arbitrary exception messages: transports can include credentials.
 			}
 		finally
@@ -195,7 +220,7 @@ public static class SubmissionOutageRecorder
 							Capture = capture
 							});
 						}
-					catch (Exception error) { issues.Add ("connectivity-restoration:" + error.GetType ().Name); }
+					catch (Exception error) { Failure("connectivity-restoration",error); }
 					}
 				try
 					{
@@ -212,6 +237,12 @@ public static class SubmissionOutageRecorder
 								Capture = loaded
 								});
 							}
+                        if(plan.DriverInstances!=null) {
+                            stage="driver-initialization";
+                            initializations=await hardware.ObserveDriverInitializationsAsync(observation.Token).ConfigureAwait(false);
+                            foreach(var initialization in initializations)Capture(initialization.Capture);
+                            Journal(stage,initializations);
+                        }
 						foreach (string function in plan.RequiredFunctions)
 							{
 							stage = "function";
@@ -225,7 +256,7 @@ public static class SubmissionOutageRecorder
 							}
 						}
 					}
-				catch (Exception error) { issues.Add (stage + ":" + error.GetType ().Name); }
+				catch (Exception error) { Failure(stage,error); }
 				finally
 					{
 					// A distinct budget also covers restoration of app navigation and collateral devices.
@@ -236,7 +267,7 @@ public static class SubmissionOutageRecorder
 						Capture (verified.Capture);
 						Journal ("original-state-restored", verified);
 						}
-					catch (Exception error) { issues.Add ("original-restoration:" + error.GetType ().Name); }
+					catch (Exception error) { Failure("original-restoration",error); }
 					}
 				}
 			}
@@ -245,10 +276,10 @@ public static class SubmissionOutageRecorder
 		if (issues.Count == 0 && original != null && verified != null)
 			{
 			bool lowerBound = plan.RecoveryClock == SubmissionOutageRecoveryClock.ProgramLoaded && hardware.ProgramLoadIsLowerBound;
-			var record = new SubmissionOutageMeasurementRecord (lowerBound ? 2 : 1, plan.Identity,
+			var record = new SubmissionOutageMeasurementRecord (plan.DriverInstances==null?3:4, plan.Identity,
 				 plan.RequiredComponents.Select (c => new SubmissionComponentInterruption (c, interrupted[c], restored[c])).ToArray (),
 				 loaded, functions.ToArray (), original, verified.Capture, verified.MatchesOriginal)
-				{ ProgramLoadIsLowerBound = lowerBound };
+				{ ProgramLoadIsLowerBound = lowerBound, FunctionObservationsAreWindows = true, DriverInitializations=initializations };
 			Save ("measurements.json", record);
 			try
 				{
@@ -256,7 +287,7 @@ public static class SubmissionOutageRecorder
 				recordPath = "measurements.json";
 				Save ("assessment.json", measurements);
 				}
-			catch (Exception error) { issues.Add ("measurement-validation:" + error.GetType ().Name); }
+			catch (Exception error) { Failure("measurement-validation",error); }
 			}
 		var outcome = new SubmissionOutageRecordingResult (root, recordPath, measurements, issues.ToArray ());
 		Save ("recording-result.json", outcome);

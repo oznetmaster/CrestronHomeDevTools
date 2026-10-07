@@ -10,7 +10,11 @@ namespace CrestronHomeDevTools.Automation;
 internal static class AutomationAppScopeRevision
 {
  internal sealed record Invocation(InstalledDriverTestPlan Tests,JsonElement Fixture,string CredentialBindings,
-  string SourceSha256,string ProfileSha256);
+  string SourceSha256,string ProfileSha256) {
+  [System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+  public RetainedScope? Retained {get;init;}
+ }
+ internal sealed record RetainedScope(string AttemptId,int Invocation,string VerifiedSha256,string Reason);
  internal sealed record Observation(string OriginalPath,int Invocation,string RevisedPath);
  internal sealed record Plan(string Reason,Invocation[] Invocations,Observation[] Observations);
  private sealed record ChildReceipt(SubmissionWorkflowReceipt[] Files);
@@ -19,6 +23,29 @@ internal static class AutomationAppScopeRevision
  private static bool Relative(string path)=>!string.IsNullOrWhiteSpace(path) && !Path.IsPathRooted(path) &&
   !path.Contains('\\') && !path.Contains(':') && path.Split('/').All(s=>s is not ("" or "." or ".."));
 
+ private static string RetainedPrefix(RetainedScope retained) {
+  AutomationAppStepRecovery.RequireId(retained.AttemptId);
+  if(retained.Invocation is <0 or >7 || retained.VerifiedSha256.Length!=64 || !retained.VerifiedSha256.All(char.IsAsciiHexDigit) ||
+   string.IsNullOrWhiteSpace(retained.Reason) || retained.Reason.Length>3000)
+   throw new InvalidDataException("Retained success requires an exact receipt and explicit applicability review.");
+  return "installed-app/recovery-attempts/"+retained.AttemptId+"/"+Child(retained.Invocation);
+ }
+ private static string VerifyRetainedScope(string root,Invocation item,string currentAttempt) {
+  var retained=item.Retained!;
+  if(retained.AttemptId==currentAttempt)throw new InvalidDataException("Retained success must come from an earlier attempt.");
+  string prefix=RetainedPrefix(retained);
+  if(!SubmissionEvidence.SafeEvidencePath(root,prefix+"verified.json",out var receipt) || AutomationFiles.Hash(receipt)!=retained.VerifiedSha256 ||
+   !SubmissionEvidence.SafeEvidencePath(root,prefix+"intent.json",out var intent))
+   throw new InvalidDataException("Retained success receipt or binding is missing or changed.");
+  var original=AutomationFiles.Read<Invocation>(intent);
+  if(original.Retained!=null || !Equal(original,item with{Retained=null}))
+   throw new InvalidDataException("Retained success cannot change its original candidate, processor, fixture, policy, probe or profile.");
+  string child=Path.GetDirectoryName(receipt)!;
+  if(!AutomationFiles.Read<InstalledDriverTestResult>(Path.Combine(child,"installed-app","InstalledDriverTests.json")).Passed ||
+   !AutomationFiles.Read<ChildReceipt>(receipt).Files.SequenceEqual(AutomationInstalledApp.Inventory(child)))
+   throw new InvalidDataException("Retained scope did not pass with intact evidence and confirmed cleanup.");
+  return prefix+"installed-app/AndroidUI/";
+ }
  internal static async Task Validate(SubmissionAutomationSettings settings,AutomationAppStepRecovery.Request request,CancellationToken token)
  {
   var revision=request.ScopeRevision??throw new InvalidDataException("Missing scope revision.");
@@ -65,13 +92,24 @@ internal static class AutomationAppScopeRevision
  {
   var revision=request.ScopeRevision!;
   // Resolve every host before publishing readiness for the first scope.
-  var logins=revision.Invocations.Select(credentials).ToArray();
+  var logins=revision.Invocations.Select(i=>i.Retained==null?credentials(i):null).ToArray();
+  var producers=new string[revision.Invocations.Length];
+  var retainedReceipts=new Dictionary<string,string>(StringComparer.Ordinal);
+  // Validate every retained success before any new physical action can be requested.
+  foreach(var item in revision.Invocations.Where(i=>i.Retained!=null))VerifyRetainedScope(context.RunDirectory,item,request.AttemptId);
   var results=new List<InstalledDriverTestResult>();
   for(int i=0;i<revision.Invocations.Length;i++) {
    token.ThrowIfCancellationRequested();await Validate(settings,request,token);
    if(AutomationAppStepRecovery.EvidenceHash(context.RunDirectory,request.AttemptId)!=request.OriginalEvidenceSha256)
     throw new InvalidDataException("Original evidence changed during the revised operation.");
-   var item=revision.Invocations[i];string child=Path.Combine(attempt,Child(i));
+   var item=revision.Invocations[i];
+   if(item.Retained!=null) {
+    producers[i]=VerifyRetainedScope(context.RunDirectory,item,request.AttemptId);
+    retainedReceipts.Add(producers[i],item.Retained.VerifiedSha256);
+    continue;
+   }
+   producers[i]="installed-app/recovery-attempts/"+request.AttemptId+"/"+Child(i)+"installed-app/AndroidUI/";
+   string child=Path.Combine(attempt,Child(i));
    string done=Path.Combine(child,"verified.json"),intent=Path.Combine(child,"intent.json"),output=Path.Combine(child,"installed-app");
    var bound=settings with{InstalledAppFixtureSettings=item.Fixture,InstalledAppTests=item.Tests};
    if(File.Exists(done)) {
@@ -90,7 +128,7 @@ internal static class AutomationAppScopeRevision
      AutomationFiles.Write(intent,item);
      var ready=item.Tests.OperatorReadiness!;
      var plan=item.Tests with{OperatorReadiness=ready with{Step="app-revision-"+request.AttemptId+"-"+i.ToString("D3")+".ready"}};
-     await run(plan,logins[i],output,token);
+     await run(plan,logins[i]!,output,token);
     }
     string resultPath=Path.Combine(output,"InstalledDriverTests.json");
     if(!File.Exists(resultPath))return new(SubmissionWorkflowStatus.OutcomeUnknown,ReasonCode:"inspect-app-revision-no-replay");
@@ -102,8 +140,9 @@ internal static class AutomationAppScopeRevision
      // explicit reconciliation. Unstarted scopes are not reported as passed.
      Directory.CreateDirectory(Path.Combine(attempt,"installed-app"));
      string failed=Path.Combine(attempt,"installed-app","InstalledDriverTests.json");
-     if(!File.Exists(failed))AutomationFiles.Write(failed,observed with{Detail="Revised scope "+i+" failed; remaining scopes were not started."});
-     return new(SubmissionWorkflowStatus.NeedsInput,ReasonCode:"app-revision-failed-inspect-retained-evidence");
+     var explanation=FailureExplanation(output,i,observed);
+     if(!File.Exists(failed))AutomationFiles.Write(failed,observed with{Detail=explanation.Detail});
+     return new(SubmissionWorkflowStatus.NeedsInput,ReasonCode:explanation.Code);
     }
     await Validate(settings,request,token);AutomationAppFixture.Check(child,bound,false);
     AutomationFiles.Write(done,new ChildReceipt(AutomationInstalledApp.Inventory(child)));
@@ -116,19 +155,47 @@ internal static class AutomationAppScopeRevision
   AutomationAppFixture.Check(context.RunDirectory,settings,false);
   if(AutomationAppStepRecovery.EvidenceHash(context.RunDirectory,request.AttemptId)!=request.OriginalEvidenceSha256)
    throw new InvalidDataException("Original evidence changed during revision.");
-  string prefix="installed-app/recovery-attempts/"+request.AttemptId+"/";
-  string[] producers=Enumerable.Range(0,revision.Invocations.Length).Select(i=>prefix+Child(i)+"installed-app/AndroidUI/").ToArray();
+  foreach(var item in revision.Invocations.Where(i=>i.Retained!=null))VerifyRetainedScope(context.RunDirectory,item,request.AttemptId);
   var observations=revision.Observations.ToDictionary(o=>o.OriginalPath,o=>producers[o.Invocation]+o.RevisedPath,StringComparer.Ordinal);
   foreach(var mapping in observations)
    if(!SubmissionEvidence.SafeEvidencePath(context.RunDirectory,mapping.Value,out _))throw new InvalidDataException("Revised observation output is missing.");
   AutomationFiles.Write(Path.Combine(context.RunDirectory,"installed-app","replacement.json"),
-   new AutomationAppStepRecovery.Completion(request.AttemptId,producers[0],request.OriginalEvidenceSha256,producers,observations));
+   new AutomationAppStepRecovery.Completion(request.AttemptId,producers[0],request.OriginalEvidenceSha256,producers,observations){RetainedProducerReceipts=retainedReceipts.Count==0?null:retainedReceipts});
   return AutomationFiles.Complete(context,"installed-app-tests.json",new{context.Checkpoint.InputSha256,Files=AutomationInstalledApp.Inventory(context.RunDirectory)});
  }
 
+ private static (string Code,string Detail) FailureExplanation(string output,int scope,InstalledDriverTestResult result) {
+  string path=Path.Combine(output,"AndroidUI","system-outage","recording-result.json");
+  if(!File.Exists(path) || new FileInfo(path).Length>65536)
+   return ("app-revision-failed-inspect-retained-evidence","Revised scope "+scope+" failed; inspect retained test and restoration results. The workflow has not continued.");
+  using var json=JsonDocument.Parse(File.ReadAllBytes(path));
+  if(!json.RootElement.TryGetProperty("disposition",out var disposition) ||
+   !Enum.TryParse<SubmissionRecoveryDisposition>(disposition.GetString(),out var value))
+   return ("app-revision-failed-inspect-retained-evidence","Revised scope "+scope+" failed; inspect retained test and restoration results. The workflow has not continued.");
+  string detail=value switch {
+   SubmissionRecoveryDisposition.MeasurementInconclusive=>"Recovery timing was not established; this is not proof of a driver failure. Repair or review measurement before any physical retry.",
+   SubmissionRecoveryDisposition.HarnessFailed=>"The recovery test tool failed. Repair the tool before any physical retry.",
+   SubmissionRecoveryDisposition.BehaviourFailed=>"A recovery requirement failed. Inspect the retained behavioural evidence before retrying.",
+   SubmissionRecoveryDisposition.Cancelled=>"Recovery observation was cancelled. Inspect its retained outcome before continuing.",
+   _=>"The enclosing app test failed after recovery observation; inspect its retained test output."
+  };
+  bool restored=result.RestorationConfirmed&&result.CleanupConfirmed&&result.ReservationsReleased;
+  return ("app-revision-recovery-"+value.ToString().ToLowerInvariant(),"Scope "+scope+": "+detail+
+   (restored?" Restoration and cleanup confirmed. No physical action is currently requested.":" Restoration or cleanup is unconfirmed and needs attention.")+" The workflow has not continued.");
+ }
+ private static bool ValidRetainedProducer(AutomationAppStepRecovery.Completion accepted,string producer) {
+  if(accepted.RetainedProducerReceipts==null || !accepted.RetainedProducerReceipts.TryGetValue(producer,out var hash) ||
+   hash.Length!=64 || !hash.All(char.IsAsciiHexDigit))return false;
+  var parts=producer.Split('/');
+  return parts.Length==8 && parts[0]=="installed-app" && parts[1]=="recovery-attempts" &&
+   Guid.TryParseExact(parts[2],"N",out _) && parts[2]!=accepted.AttemptId &&
+   parts[3]=="invocations" && int.TryParse(parts[4],out var index) && index is >=0 and <=7 && parts[4]==index.ToString("D3") &&
+   parts[5]=="installed-app" && parts[6]=="AndroidUI" && parts[7]=="";
+ }
  internal static string[] Accepted(AutomationAppStepRecovery.Completion accepted)
  {
   AutomationAppStepRecovery.RequireId(accepted.AttemptId);
+  if(accepted.CaseRecovery!=null)return AutomationAppCaseRecovery.Accepted(accepted);
   string prefix="installed-app/recovery-attempts/"+accepted.AttemptId+"/";
   if(accepted.ProducerPrefixes==null) {
    if(accepted.ObservationSources!=null || accepted.ProducerPrefix!=prefix+"installed-app/AndroidUI/")throw new InvalidDataException("Invalid replacement producer.");
@@ -136,7 +203,9 @@ internal static class AutomationAppScopeRevision
   }
   var producers=accepted.ProducerPrefixes;
   if(producers.Length is <2 or >8 || accepted.ProducerPrefix!=producers[0] ||
-   !producers.SequenceEqual(Enumerable.Range(0,producers.Length).Select(i=>prefix+Child(i)+"installed-app/AndroidUI/")) ||
+   producers.Distinct(StringComparer.Ordinal).Count()!=producers.Length ||
+   producers.Where((p,i)=>p!=prefix+Child(i)+"installed-app/AndroidUI/").Any(p=>!ValidRetainedProducer(accepted,p)) ||
+   (accepted.RetainedProducerReceipts!=null && accepted.RetainedProducerReceipts.Keys.Any(p=>!producers.Contains(p,StringComparer.Ordinal) || !ValidRetainedProducer(accepted,p))) ||
    accepted.ObservationSources is not {Count:>0} || accepted.ObservationSources.Any(p=>!Relative(p.Key) || !Relative(p.Value) || !producers.Any(v=>p.Value.StartsWith(v,StringComparison.Ordinal))))
    throw new InvalidDataException("Invalid revised producer provenance.");
   return producers;

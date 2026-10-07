@@ -3,17 +3,62 @@ using System.Text.Json;
 using CrestronHomeDevTools;
 using CrestronHomeDevTools.Automation;
 
+if(args is ["--migrate-test-boundary","--settings",var migrationSettings,"--settings-sha256",var migrationSettingsPin,"--state-sha256",var migrationStatePin]) {
+ try {return AutomationBoundaryMigration.Command(AutomationRequest.ReadForCheck(migrationSettings,migrationSettingsPin),migrationStatePin);}
+ catch(Exception e) when(e is not OutOfMemoryException) {Console.Error.WriteLine("Boundary migration refused; inspect retained evidence. Error type: "+e.GetType().Name);return 2;}
+}
+if(args is ["--accept-removal-reconciliation","--settings",var removalSettings,"--settings-sha256",var removalSettingsPin,"--reconciliation-plan",var removalPlan,"--reconciliation-plan-sha256",var removalPlanPin]) {
+ try {return AutomationRemovalReconciliation.Command(AutomationRequest.ReadForCheck(removalSettings,removalSettingsPin),removalPlan,removalPlanPin);}
+ catch(Exception e) when(e is not OutOfMemoryException) {Console.Error.WriteLine("Removal reconciliation refused; original evidence retained. Error type: "+e.GetType().Name);return 2;}
+}
+if(args is ["--bind-review-tools","--settings",var documentSettings,"--settings-sha256",var documentSettingsPin,"--state-sha256",var documentStatePin,"--tool-plan",var documentToolPlan,"--tool-plan-sha256",var documentToolPin]) {
+ try{return AutomationReviewTooling.Command(AutomationRequest.ReadForCheck(documentSettings,documentSettingsPin),documentStatePin,documentToolPlan,documentToolPin);}
+ catch(Exception e) when(e is not OutOfMemoryException){Console.Error.WriteLine("Document tool binding refused. Error type: "+e.GetType().Name);return 2;}
+}
+if(args is ["--inspect-test-continuation","--settings",var continuationSettings,"--settings-sha256",var continuationSettingsPin,"--state-sha256",var continuationStatePin,
+ "--composition",var continuationComposition,"--composition-sha256",var continuationCompositionPin,"--changed-requirements",var changedRequirements,"--changed-requirements-sha256",var changedRequirementsPin]) {
+ try{return AutomationTestContinuation.Command(AutomationRequest.ReadForCheck(continuationSettings,continuationSettingsPin),continuationStatePin,continuationComposition,continuationCompositionPin,changedRequirements,changedRequirementsPin);}
+ catch(Exception e) when(e is not OutOfMemoryException){Console.Error.WriteLine("Continuation inspection refused; original results unchanged. Error type: "+e.GetType().Name);return 2;}
+}
+if(args is ["--bind-post-fixture-repair","--settings",var fixtureSettings,"--settings-sha256",var fixtureSettingsPin,"--state-sha256",var fixtureStatePin,"--repair-plan",var fixturePlan,"--repair-plan-sha256",var fixturePin]) {
+ try{return AutomationPostFixtureRepair.Command(AutomationRequest.ReadForCheck(fixtureSettings,fixtureSettingsPin),fixtureStatePin,fixturePlan,fixturePin);}
+ catch(Exception e) when(e is not OutOfMemoryException){Console.Error.WriteLine("Postcheck fixture binding refused: "+e.GetType().Name);return 2;}
+}
+if(args is ["--bind-endurance-identity-repair","--settings",var enduranceSettings,"--settings-sha256",var enduranceSettingsPin,"--state-sha256",var enduranceStatePin,"--repair-plan",var endurancePlan,"--repair-plan-sha256",var endurancePin]) {
+ try{return AutomationEnduranceIdentityRepair.Command(AutomationRequest.ReadForCheck(enduranceSettings,enduranceSettingsPin),enduranceStatePin,endurancePlan,endurancePin);}
+ catch(Exception e) when(e is not OutOfMemoryException){Console.Error.WriteLine("Endurance identity correction refused: "+e.GetType().Name);return 2;}
+}
+if(args is ["--bind-endurance-baseline-repair","--settings",var baselineSettings,"--settings-sha256",var baselineSettingsPin,"--state-sha256",var baselineStatePin,"--repair-plan",var baselinePlan,"--repair-plan-sha256",var baselinePin]) {
+ try{return AutomationEnduranceBaselineRepair.Command(AutomationRequest.ReadForCheck(baselineSettings,baselineSettingsPin),baselineStatePin,baselinePlan,baselinePin);}
+ catch(Exception e) when(e is not OutOfMemoryException){Console.Error.WriteLine("Endurance baseline correction refused: "+e.GetType().Name);return 2;}
+}
 if(args is ["--help"])
 {
+ Console.WriteLine("Additional phase-two performance capture: --capture-performance --settings FILE --settings-sha256 PIN --capture-plan FILE --capture-plan-sha256 PIN. Runs only reviewed ordinary post-test cases to fill an evidence gap. Preserves original measurements and accepted tests; never repeats endurance or Explicit physical tests. Reusing an attempt never replays equipment input.");
+ Console.WriteLine("Explicit postcheck fixture repair: --bind-post-fixture-repair --settings FILE --settings-sha256 PIN --state-sha256 PIN --repair-plan FILE --repair-plan-sha256 PIN. Carries an accepted main-app fixture repair into unstarted postchecks before endurance; preserves candidate, test scope, original settings and results.");
+ Console.WriteLine("Read-only phase-two continuation inspection: --inspect-test-continuation --settings FILE --settings-sha256 PIN --state-sha256 PIN --composition RELATIVE_FILE --composition-sha256 PIN --changed-requirements JSON_ARRAY --changed-requirements-sha256 PIN. Reports coupled fresh testing and scopes requiring prior-pass review; never runs tests, modifies results or authorizes phase three.");
+ Console.WriteLine("Explicit phase-three tool binding: --bind-review-tools --settings FILE --settings-sha256 PIN --state-sha256 PIN --tool-plan FILE --tool-plan-sha256 PIN. Requires completed final tests and a ready review boundary with no document activity. Preserves frozen test settings; does not execute tools, sign or send.");
+ Console.WriteLine("Explicit read-only removal reconciliation: --accept-removal-reconciliation --settings FILE --settings-sha256 PIN --reconciliation-plan FILE --reconciliation-plan-sha256 PIN. Pins stopped state, original evidence and inspected diagnostic; retains original failure. Never removes or reinstalls equipment. The ordinary NUnit final-tests case must still complete.");
+ Console.WriteLine("Explicit legacy test-boundary migration: --migrate-test-boundary --settings FILE --settings-sha256 PIN --state-sha256 INSPECTED_PIN. Requires a stopped legacy boundary, verified postchecks, and no document/delivery activity. Preserves all evidence and the original failure status. Does not start tests, request recovery, sign or send.");
  Console.WriteLine("Explicit failed-step replacement: --inspect-app-step --settings FILE --settings-sha256 PIN --phase main|pre-endurance|post-endurance --step INDEX. Run a reviewed replacement with --recover-app-step and the same arguments plus --recovery-plan FILE --recovery-plan-sha256 PIN. Original failures remain retained; restoration must be reconciled; attempts never automatically replay.");
  Console.WriteLine("Inspect failed separate initial preparation: --inspect-app-preparation --settings FILE --settings-sha256 PIN --step INDEX. Explicit recovery: --recover-app-preparation --settings FILE --settings-sha256 PIN --step INDEX --catalogue-id EXACT_ID --state-sha256 INSPECTED_PIN --original-evidence-sha256 INSPECTED_PIN. Only same-candidate catalogue corrections before any fixture/control activity qualify; failures and passed checks remain retained. A replacement attempt is never automatically replayed.");
  Console.WriteLine("Read-only stage-binding check: --check-settings PRIVATE_JSON --settings-sha256 PIN. Exit zero means all stage bindings are present, not that tests passed or credentials/equipment were validated.");
- Console.WriteLine("Finite registry watcher: append --exit-when-finished after --poll-seconds N, before protected-worker/role options. Exits zero only when every registered run is fully retained or every rehearsal has reached unsigned review. Cannot be combined with --release-profiles. Confirmed terminal failures exit 2 after retaining their final notice; uncertain, active or approval-waiting runs remain open.");
+ Console.WriteLine("Finite registry watcher: append --exit-when-finished after --poll-seconds N, before protected-worker/role options. Exits zero only when every registered run has reached retained completion. Cannot be combined with --release-profiles. Confirmed terminal failures exit 2 after retaining their final notice; uncertain, active or approval-waiting runs remain open.");
  Console.WriteLine("Prepare from encrypted setup: --prepare-rehearsal or --prepare-submission, followed by --store PRIVATE_DIRECTORY --snapshot NAME. Submit requires a submission-purpose snapshot. Creates fresh private inputs only; no worker starts or operation is approved. Exit 3 lists missing stage bindings.");
- Console.WriteLine("submission automation: --settings PRIVATE_JSON --settings-sha256 PIN; or --registry PRIVATE_JSON --profile NAME --release-id ID --mode rehearsal|submit. Background: --watch-registry PRIVATE_JSON --status-directory PRIVATE_DIRECTORY --poll-seconds 60 [--release-profiles PRIVATE_JSON]. One-time intake: --intake-releases PRIVATE_PROFILES --registry PRIVATE_JSON. Default role is evidence. For the protected role append --protected-worker PRIVATE_JSON --protected-worker-sha256 INDEPENDENT_PIN --role protected. Rehearsal stops before signing/delivery. Submit requires exact authorizations. The ordinary background worker resumes waits without AI prompts.");return 0;
+ Console.WriteLine("submission automation: --settings PRIVATE_JSON --settings-sha256 PIN; or --registry PRIVATE_JSON --profile NAME --release-id ID --mode rehearsal|submit. Background: --watch-registry PRIVATE_JSON --status-directory PRIVATE_DIRECTORY --poll-seconds 60 [--release-profiles PRIVATE_JSON]. One-time intake: --intake-releases PRIVATE_PROFILES --registry PRIVATE_JSON. Default role is evidence. For the protected role append --protected-worker PRIVATE_JSON --protected-worker-sha256 INDEPENDENT_PIN --role protected. Rehearsal uses separately configured protected signing and test-mail delivery. Both modes require exact authorizations. The ordinary background worker resumes waits without AI prompts.");return 0;
 }
 try
 {
+ if(args is ["--close-failed-performance-capture","--settings",var failedSettings,"--settings-sha256",var failedSettingsPin,"--capture-plan",var failedPlan,"--capture-plan-sha256",var failedPin,"--reason",var failedReason]) {
+  return await AutomationPerformanceCapture.Command(AutomationRequest.ReadForCheck(failedSettings,failedSettingsPin),failedPlan,failedPin,CancellationToken.None,failedReason,closeFailed:true);
+ }
+ if(args is ["--close-unstarted-performance-capture","--settings",var closedSettings,"--settings-sha256",var closedSettingsPin,"--capture-plan",var closedPlan,"--capture-plan-sha256",var closedPin,"--reason",var closedReason]) {
+  return await AutomationPerformanceCapture.Command(AutomationRequest.ReadForCheck(closedSettings,closedSettingsPin),closedPlan,closedPin,CancellationToken.None,closedReason);
+ }
+ if(args is ["--capture-performance","--settings",var captureSettings,"--settings-sha256",var captureSettingsPin,"--capture-plan",var capturePlan,"--capture-plan-sha256",var capturePin]) {
+  using var stop=new CancellationTokenSource();Console.CancelKeyPress+=(_,e)=>{e.Cancel=true;stop.Cancel();};
+  return await AutomationPerformanceCapture.Command(AutomationRequest.ReadForCheck(captureSettings,captureSettingsPin),capturePlan,capturePin,stop.Token);
+ }
  if(args is ["--inspect-app-step","--settings",var inspectStepSettings,"--settings-sha256",var inspectStepPin,"--phase",var inspectPhase,"--step",var inspectedStep]) {
   if(!int.TryParse(inspectedStep,out int index))throw new InvalidDataException("Invalid step index.");
   return await AutomationAppStepRecovery.Command(AutomationRequest.ReadForCheck(inspectStepSettings,inspectStepPin),inspectPhase,index,null,null,CancellationToken.None);
@@ -81,10 +126,10 @@ try
  await using var deadline=new CrestronHomeNUnit.Workflow.WorkflowActiveDeadline(TimeSpan.FromHours(6),cancellation.Token,()=>AutomationAppSteps.PreparedWaitPending(settings));
  var state=await SubmissionWorkflow.AdvanceAsync(settings.PrivateRoot,settings.Release,new SubmissionAutomationStages(settings,request.Sha256,role,protection),deadline.Token);
  deadline.ThrowIfFaulted();
- bool rehearsed=settings.Mode==SubmissionAutomationMode.Rehearsal && state.Stage==SubmissionWorkflowStage.SignReview &&
-  state.Status==SubmissionWorkflowStatus.NeedsInput && state.ReasonCode=="rehearsal-ready-for-review";
+ bool rehearsed=settings.Mode==SubmissionAutomationMode.Rehearsal && state.Stage==SubmissionWorkflowStage.Retain &&
+  state.Status==SubmissionWorkflowStatus.Completed;
  Console.WriteLine(JsonSerializer.Serialize(new{settings.Mode,state.Stage,state.Status,state.ReasonCode,state.UpdatedUtc,
-  Outcome=rehearsed?"RehearsalPrepared":state.Status.ToString()},AutomationFiles.Json));
+  Outcome=rehearsed?"RehearsalCompleted":state.Status.ToString()},AutomationFiles.Json));
  if(rehearsed)return 0;
  return state.Status switch { SubmissionWorkflowStatus.Completed=>0,SubmissionWorkflowStatus.Waiting=>4,_=>3 };
 }

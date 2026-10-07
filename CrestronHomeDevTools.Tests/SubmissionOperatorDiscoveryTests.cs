@@ -131,4 +131,32 @@ public sealed partial class AutomationInstalledAppTests
   Assert.That(alerts.Count(a=>!acknowledgements.IsDismissed(a.Key)),Is.EqualTo(1));
   Assert.That(alerts.Select(a=>a.Key),Does.Contain(first.Key));
  }
+
+ [TestCase("{\"State\":\"Preparing\"}",false)]
+ [TestCase("{\"Passed\":true}",false)]
+ [TestCase("{\"Passed\":false,\"Detail\":\"replacement failed\"}",true)]
+ public void ActiveReportWriterDoesNotHideRetainedFailures(string current,bool replacementFailed) {
+  var entry=RegisterOperator();string registry=OperatorRegistry(entry),status=Path.Combine(root,"status");Directory.CreateDirectory(status);
+  string run=Path.Combine(settings.PrivateRoot,SubmissionWorkflow.RunKey(settings.Release));
+  string original=Path.Combine(run,"installed-app");Directory.CreateDirectory(original);
+  File.WriteAllText(Path.Combine(original,"InstalledDriverTests.json"),"{\"Passed\":false}");
+  var first=SubmissionOperatorAlerts.Read(registry,[entry.Profile],status).Single();
+  string replacement=Path.Combine(original,"recovery-attempts",new string('b',32),"installed-app");Directory.CreateDirectory(replacement);
+  // Match the real producer's stream lifetime and sharing mode, including its
+  // initial Preparing snapshot and final result before it closes the writer.
+  using var writer=new FileStream(Path.Combine(replacement,"InstalledDriverTests.json"),FileMode.CreateNew,FileAccess.Write,FileShare.Read);
+  writer.Write(System.Text.Encoding.UTF8.GetBytes(current));writer.Flush();
+  var alerts=SubmissionOperatorAlerts.Read(registry,[entry.Profile],status);
+  Assert.That(alerts,Has.Count.EqualTo(replacementFailed?2:1));
+  Assert.That(alerts.Select(a=>a.Key),Does.Contain(first.Key));
+  if(replacementFailed)Assert.That(alerts.Single(a=>a.Key!=first.Key).Reason,Is.EqualTo("replacement failed"));
+ }
+
+ [Test] public void UnreadableReportIsNotSilentlyTreatedAsHealthy() {
+  var entry=RegisterOperator();string registry=OperatorRegistry(entry),status=Path.Combine(root,"status");Directory.CreateDirectory(status);
+  string output=Path.Combine(settings.PrivateRoot,SubmissionWorkflow.RunKey(settings.Release),"installed-app");Directory.CreateDirectory(output);
+  using var writer=new FileStream(Path.Combine(output,"InstalledDriverTests.json"),FileMode.CreateNew,FileAccess.Write,FileShare.None);
+  writer.Write(System.Text.Encoding.UTF8.GetBytes("{\"Passed\":false}"));writer.Flush();
+  Assert.Throws<IOException>(()=>SubmissionOperatorAlerts.Read(registry,[entry.Profile],status));
+ }
 }

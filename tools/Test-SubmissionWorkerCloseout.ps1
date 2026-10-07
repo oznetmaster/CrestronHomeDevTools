@@ -12,13 +12,14 @@ function Export-ScheduledTask { param($TaskName) '<Task>synthetic task definitio
 function Unregister-ScheduledTask { param($TaskName,$Confirm) $script:removed=$true }
 function Get-SubmissionWorkerPrincipalSid([string]$Account) { if($Account -in @('HOST\fixture','fixture')){'S-1-5-21-1-2-3-1001'}else{'S-1-5-21-1-2-3-1002'} }
 $results=@()
-foreach($scenario in @('complete','review','short-account','failed','terminal-failure','mixed-terminal-failure','failure-plus-active','unknown-outcome','wrong-failure-exit','approval','handoff','empty','mixed','wrong-id','wrong-mode','changed-task','changed-user','changed-runlevel','changed-registry','worker-locked')) {
+foreach($scenario in @('final-tests-failed','complete','review','short-account','failed','terminal-failure','mixed-terminal-failure','failure-plus-active','unknown-outcome','wrong-failure-exit','approval','handoff','empty','mixed','wrong-id','wrong-mode','changed-task','changed-user','changed-runlevel','changed-registry','worker-locked')) {
     $folder=Join-Path $root $scenario;[IO.Directory]::CreateDirectory($folder)|Out-Null
     $registry=Join-Path $folder 'registry.json'
     $entries=@([ordered]@{Profile='fixture';ReleaseId=7;Mode='Rehearsal'})
     $states=@([ordered]@{Profile='fixture';ReleaseId=7;Mode='Rehearsal';State='Completed';Stage='Retain';Reason=$null})
     $workerExit=0
     switch($scenario) {
+        final-tests-failed {$states[0].State='Failed';$states[0].Stage='FinalizeTests';$states[0].Reason='post-test-failed';$workerExit=2}
         review {$states[0].State='NeedsInput';$states[0].Stage='SignReview';$states[0].Reason='rehearsal-ready-for-review'}
         failed {$states[0].State='Failed';$states[0].Reason='synthetic-failure'}
         terminal-failure {$states[0].State='Failed';$states[0].Reason='synthetic-failure';$workerExit=2}
@@ -50,7 +51,7 @@ foreach($scenario in @('complete','review','short-account','failed','terminal-fa
         if($scenario -eq 'worker-locked'){$held=[IO.FileStream]::new((Join-Path $folder 'worker.lock'),[IO.FileMode]::Open,[IO.FileAccess]::Write,[IO.FileShare]::None)}
         try {Complete-SubmissionAutomationTask $launch 'exact fixture arguments' 'pwsh.exe' $workerExit} catch {$errorText=$_.Exception.Message}
     } finally {if($held){$held.Dispose()}}
-    $expected=$scenario -in @('complete','review','short-account','terminal-failure','mixed-terminal-failure')
+    $expected=$scenario -in @('final-tests-failed','complete','short-account','terminal-failure','mixed-terminal-failure')
     if($script:removed -ne $expected -or ($expected -and $errorText) -or (!$expected -and !$errorText)){throw "Unexpected closeout result: $scenario ($errorText)"}
     $receipt=Join-Path $folder 'worker-task-closeout.json'
     if((Test-Path $receipt) -ne $expected){throw "Incorrect closeout receipt: $scenario"}

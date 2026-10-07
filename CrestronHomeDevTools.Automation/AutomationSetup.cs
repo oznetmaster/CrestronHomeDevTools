@@ -47,8 +47,8 @@ public static class SubmissionAutomationSetup
    string.IsNullOrWhiteSpace(DevToolsCredentialBindings.Read(githubBindings).GitHub)))
    throw new InvalidDataException("Select an absolute private bindings file naming the evidence worker's GitHub credential.");
   // Never substitute the setup store/snapshot here: it can also contain mail and signing secrets.
-  // A rehearsal carries no protected-stage configuration, even when its source template did.
-  settings=settings with {PrivateRoot=run.PrivateWorkspace,Mode=mode,Protected=mode==SubmissionAutomationMode.Rehearsal?null:settings.Protected,
+  // A rehearsal may carry only explicit rehearsal configuration; never retarget a production authority.
+  settings=settings with {PrivateRoot=run.PrivateWorkspace,Mode=mode,Protected=settings.Protected?.Environment==AutomationDelivery.EnvironmentFor(mode)?settings.Protected:null,
    Review=settings.Review is {} review?review with {Title=snapshot.Driver.Value.DriverName+" ${version} - Crestron Home driver",Author=snapshot.Developer.Value.DeveloperName}:null};
   string directory=Path.Combine(store.DirectoryPath,(mode==SubmissionAutomationMode.Rehearsal?"rehearsal-":"submission-")+snapshotName+"-"+Guid.NewGuid().ToString("N"));
   string template=Path.Combine(directory,"settings-template.json"),tooling=Path.Combine(directory,"tooling.json");

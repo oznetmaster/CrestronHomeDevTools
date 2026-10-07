@@ -3,6 +3,7 @@ using System.Net;
 using System.Text.Json;
 using CrestronHomeDevTools.Automation;
 using CrestronHomeNUnit.Workflow;
+using CrestronHomeNUnit.Client;
 using NUnit.Framework;
 namespace CrestronHomeDevTools.Tests;
 
@@ -30,6 +31,63 @@ public sealed partial class AutomationInstalledAppTests
   Directory.CreateDirectory(Path.Combine(output,"AndroidUI"));
   File.WriteAllText(Path.Combine(output,"AndroidUI","observation.json"),"synthetic observation, not live evidence");
   return result;
+ }
+ private async Task<AutomationAppStepRecovery.Request> RetainedSuccessRequest() {
+  var first=await SplitRequest();int count=0;
+  var stopped=await Split(first,async(p,c,f,t)=>{
+   if(++count==1)return await SplitRun(p,c,f,t);
+   Directory.CreateDirectory(f);
+   var failure=new InstalledDriverTestResult(new WorkflowTestOutcome(0,1,0,false),true,true,true,true,"synthetic second-scope failure");
+   File.WriteAllText(Path.Combine(f,"InstalledDriverTests.json"),JsonSerializer.Serialize(failure));return failure;
+  });
+  Assert.That(stopped.Status,Is.EqualTo(SubmissionWorkflowStatus.NeedsInput));
+  string prefix="installed-app/recovery-attempts/"+first.AttemptId+"/";
+  var reused=first.ScopeRevision!.Invocations[0] with{Retained=new(first.AttemptId,0,
+   AutomationFiles.Hash(Path.Combine(context.RunDirectory,prefix+"invocations/000/verified.json")),"Unaffected passed scope; exact bindings and probe retained")};
+  return first with{AttemptId=Guid.NewGuid().ToString("N"),FailedOutcome=prefix+"installed-app/InstalledDriverTests.json",
+   OriginalEvidenceSha256=AutomationAppStepRecovery.EvidenceHash(context.RunDirectory),
+   ScopeRevision=first.ScopeRevision with{Invocations=[reused,first.ScopeRevision.Invocations[1]]}};
+ }
+ [Test] public async Task CorrectedAttemptReusesSuccessfulScopeWithoutNewPhysicalInvocation() {
+  var next=await RetainedSuccessRequest();int invoked=0;
+  var original=AutomationAppStepRecovery.Inventory(context.RunDirectory);
+  var result=await Split(next,async(p,c,f,t)=>{invoked++;Assert.That(p.Host,Is.EqualTo("network.example"));return await SplitRun(p,c,f,t);});
+  Assert.That(result.Status,Is.EqualTo(SubmissionWorkflowStatus.Completed));Assert.That(invoked,Is.EqualTo(1));
+  var accepted=AutomationFiles.Read<AutomationAppStepRecovery.Completion>(Path.Combine(context.RunDirectory,"installed-app/replacement.json"));
+  Assert.That(AutomationAppScopeRevision.Accepted(accepted)[0],Does.Contain(next.ScopeRevision!.Invocations[0].Retained!.AttemptId));
+  Assert.That(accepted.RetainedProducerReceipts,Has.Count.EqualTo(1));
+  foreach(var file in original)Assert.That(AutomationFiles.Hash(Path.Combine(context.RunDirectory,file.RelativePath)),Is.EqualTo(file.Sha256));
+  AutomationInstalledApp.VerifyRetained(context.RunDirectory);
+  Assert.That((await Split(next)).Status,Is.EqualTo(SubmissionWorkflowStatus.Completed));
+ }
+ [TestCase("binding")][TestCase("receipt")][TestCase("evidence")]
+ public async Task InvalidRetainedScopeFailsBeforeAnyNewAction(string change) {
+  var next=await RetainedSuccessRequest();var first=next.ScopeRevision!.Invocations[0];
+  if(change=="binding")first=first with{Tests=first.Tests with{Host="wrong.example"}};
+  if(change=="receipt")first=first with{Retained=first.Retained! with{VerifiedSha256=new('f',64)}};
+  if(change=="evidence"){
+   string old="installed-app/recovery-attempts/"+first.Retained!.AttemptId+"/invocations/000/installed-app/AndroidUI/observation.json";
+   File.AppendAllText(Path.Combine(context.RunDirectory,old),"changed");
+   next=next with{OriginalEvidenceSha256=AutomationAppStepRecovery.EvidenceHash(context.RunDirectory)};
+  }
+  next=next with{ScopeRevision=next.ScopeRevision with{Invocations=[first,next.ScopeRevision.Invocations[1]]}};
+  int invoked=0;
+  await Assert.ThrowsAsync<InvalidDataException>(async()=>await Split(next,(p,c,f,t)=>{invoked++;throw new InvalidOperationException("must not run");}));
+  Assert.That(invoked,Is.Zero);
+ }
+ [TestCase("MeasurementInconclusive","not proof of a driver failure")]
+ [TestCase("HarnessFailed","test tool failed")]
+ public async Task FailedScopeExplainsWhetherMeasurementOrToolNeedsRepair(string disposition,string explanation) {
+  var request=await SplitRequest();
+  var result=await Split(request,(p,c,f,t)=>{
+   Directory.CreateDirectory(Path.Combine(f,"AndroidUI/system-outage"));
+   File.WriteAllText(Path.Combine(f,"AndroidUI/system-outage/recording-result.json"),JsonSerializer.Serialize(new{disposition}));
+   var failed=new InstalledDriverTestResult(new WorkflowTestOutcome(0,1,0,false),true,true,true,true,"synthetic");
+   File.WriteAllText(Path.Combine(f,"InstalledDriverTests.json"),JsonSerializer.Serialize(failed));return Task.FromResult(failed);
+  });
+  Assert.That(result.ReasonCode,Does.EndWith(disposition.ToLowerInvariant()));
+  var aggregate=AutomationFiles.Read<InstalledDriverTestResult>(Path.Combine(context.RunDirectory,"installed-app/recovery-attempts",request.AttemptId,"installed-app/InstalledDriverTests.json"));
+  Assert.That(aggregate.Detail,Does.Contain(explanation));Assert.That(aggregate.Detail,Does.Contain("No physical action is currently requested"));
  }
  [Test] public async Task ExplicitSplitRequiresBothScopesAndPreservesOriginalFailure() {
   var request=await SplitRequest();var failure=File.ReadAllText(Path.Combine(context.RunDirectory,request.FailedOutcome));

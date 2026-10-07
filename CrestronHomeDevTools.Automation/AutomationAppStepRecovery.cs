@@ -12,15 +12,49 @@ internal static class AutomationAppStepRecovery
  internal const string Attempts="recovery-attempts";
  internal sealed record Request(int SchemaVersion,string Phase,int Step,string AttemptId,string StateSha256,
   string OriginalEvidenceSha256,string FailedOutcome,InstalledDriverTestPlan Replacement,
-  string SourceSha256,string ProfileSha256,Reconciliation? Restoration=null,AutomationAppScopeRevision.Plan? ScopeRevision=null);
+  string SourceSha256,string ProfileSha256,Reconciliation? Restoration=null,AutomationAppScopeRevision.Plan? ScopeRevision=null) {
+  [System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+  public AutomationAppCaseRecovery.Plan? CaseRecovery {get;init;}
+ }
  internal sealed record Reconciliation(string OriginalEvidenceSha256,string VerifiedBy,DateTimeOffset VerifiedUtc,
   bool OriginalStateRestored,bool CleanupConfirmed,bool ReservationsReleased,SubmissionWorkflowReceipt[] Evidence);
  internal sealed record Inspection(string StateSha256,string OriginalEvidenceSha256,string FailedOutcome,
   bool RestorationRequired,InstalledDriverTestPlan Original);
  internal sealed record Completion(string AttemptId,string ProducerPrefix,string OriginalEvidenceSha256,
-  string[]? ProducerPrefixes=null,Dictionary<string,string>? ObservationSources=null);
+  string[]? ProducerPrefixes=null,Dictionary<string,string>? ObservationSources=null) {
+  [System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+  public Dictionary<string,string>? RetainedProducerReceipts {get;init;}
+  [System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+  public AutomationAppCaseRecovery.Provenance? CaseRecovery {get;init;}
+ }
  private sealed record Intent(string OperationId,string InputSha256,string SourceDigest,string ProfileSha256);
  private sealed record Binding(Request Request,string InputSha256,Dictionary<string,string> Tools);
+ private sealed record ToolRepair(string OriginalBindingSha256,Dictionary<string,string> Tools,string Reason,DateTimeOffset RecordedUtc);
+ private static Dictionary<string,string> CurrentTools()=>new[]{typeof(AutomationAppStepRecovery).Assembly,typeof(InstalledDriverTests).Assembly,typeof(DriverPayloadInspection).Assembly}
+  .ToDictionary(a=>a.GetName().Name!,a=>AutomationFiles.AssemblyHash(a));
+ // Explicit, append-only repair is limited to an attempt that never entered an invocation.
+ // It cannot replace fixture/candidate inputs or replay a physical operation.
+ internal static void AuthorizeUnstartedToolRepair(string root,Request request,string originalBindingSha256,string reason) {
+  RequireId(request.AttemptId);
+  string attempt=Path.Combine(root,Prefix(request.AttemptId)),bound=Path.Combine(attempt,"attempt.json");
+  if(string.IsNullOrWhiteSpace(reason) || reason.Length>3000 || !File.Exists(bound) || AutomationFiles.Hash(bound)!=originalBindingSha256)
+   throw new InvalidDataException("Tool repair requires the exact inspected binding and an explanation.");
+  var previous=AutomationFiles.Read<Binding>(bound);
+  if(!Equal(previous.Request,request) || request.ScopeRevision==null ||
+   Directory.GetDirectories(attempt).Length!=0 ||
+   !Directory.GetFiles(attempt).Select(Path.GetFileName).Order(StringComparer.Ordinal).SequenceEqual(new[]{"attempt.json","original-evidence.json"},StringComparer.Ordinal) ||
+   EvidenceHash(root,request.AttemptId)!=request.OriginalEvidenceSha256)
+   throw new InvalidDataException("Only an unchanged, uninvoked scope revision can receive a tool repair.");
+  AutomationFiles.Write(Path.Combine(attempt,"tool-repair.json"),new ToolRepair(originalBindingSha256,CurrentTools(),reason,DateTimeOffset.UtcNow));
+ }
+ private static bool BindingMatches(string attempt,Binding previous,Binding current) {
+  if(Equal(previous,current))return true;
+  string repairPath=Path.Combine(attempt,"tool-repair.json");
+  if(!Equal(previous.Request,current.Request) || previous.InputSha256!=current.InputSha256 || !File.Exists(repairPath))return false;
+  var repair=AutomationFiles.Read<ToolRepair>(repairPath);
+  return repair.OriginalBindingSha256==AutomationFiles.Hash(Path.Combine(attempt,"attempt.json")) &&
+   !string.IsNullOrWhiteSpace(repair.Reason) && repair.RecordedUtc!=default && Equal(repair.Tools,current.Tools);
+ }
  private static byte[] Bytes<T>(T value)=>JsonSerializer.SerializeToUtf8Bytes(value,AutomationFiles.Json);
  private static bool Equal<T>(T left,T right)=>Bytes(left).AsSpan().SequenceEqual(Bytes(right));
  private static string Prefix(string id)=>"installed-app/"+Attempts+"/"+id+"/";
@@ -91,7 +125,7 @@ internal static class AutomationAppStepRecovery
   NetworkCredential credential,CancellationToken token,
   Func<AutomationAppScopeRevision.Invocation,NetworkCredential>? revisedCredentials=null) {
   RequireId(request.AttemptId);
-  if(request.SchemaVersion is not (1 or 2) || (request.SchemaVersion==2)!=(request.ScopeRevision!=null))throw new InvalidDataException("Unsupported recovery schema.");
+  if(request.SchemaVersion is not (1 or 2 or 3) || (request.SchemaVersion==2)!=(request.ScopeRevision!=null) || (request.SchemaVersion==3)!=(request.CaseRecovery!=null))throw new InvalidDataException("Unsupported recovery schema.");
   string root=context.RunDirectory,attempt=Path.Combine(root,Prefix(request.AttemptId));
   string completed=Path.Combine(root,"installed-app-tests.json");
   if(File.Exists(completed)) {
@@ -107,6 +141,7 @@ internal static class AutomationAppStepRecovery
    intent.ProfileSha256!=AutomationFiles.Hash(original.AndroidTests.ProfilePath))throw new InvalidDataException("Original frozen inputs changed.");
   AutomationAppFixture.Check(root,settings,false);
   if(request.ScopeRevision!=null) await AutomationAppScopeRevision.Validate(settings,request,token);
+  else if(request.CaseRecovery!=null) AutomationAppCaseRecovery.Validate(root,settings,request);
   else ValidateReplacement(original,request);
   if(EvidenceHash(root,request.AttemptId)!=request.OriginalEvidenceSha256 ||
    await WorkflowEvidence.SourceDigestAsync(request.Replacement.SourceRoots,token)!=request.SourceSha256)
@@ -115,12 +150,11 @@ internal static class AutomationAppStepRecovery
   var failure=Failure(root,request.FailedOutcome);
   CheckRestoration(root,request,failure);
   bool started=Directory.Exists(attempt);
-  var tools=new[]{typeof(AutomationAppStepRecovery).Assembly,typeof(InstalledDriverTests).Assembly,typeof(DriverPayloadInspection).Assembly}
-   .ToDictionary(a=>a.GetName().Name!,a=>AutomationFiles.Hash(a.Location));
+  var tools=CurrentTools();
   var binding=new Binding(request,context.Checkpoint.InputSha256,tools);
   if(started) {
    if(!SubmissionEvidence.SafeEvidencePath(root,Prefix(request.AttemptId)+"attempt.json",out var bound) ||
-    !Equal(AutomationFiles.Read<Binding>(bound),binding))throw new InvalidDataException("Started replacement inputs changed; no replay is permitted.");
+    !BindingMatches(attempt,AutomationFiles.Read<Binding>(bound),binding))throw new InvalidDataException("Started replacement inputs changed; no replay is permitted.");
   } else {
    Directory.CreateDirectory(attempt);
    AutomationFiles.Write(Path.Combine(attempt,"attempt.json"),binding);
@@ -155,26 +189,37 @@ internal static class AutomationAppStepRecovery
    intent.SourceDigest!=await WorkflowEvidence.SourceDigestAsync(original.SourceRoots,token))
    throw new InvalidDataException("Evidence or fixture changed during replacement.");
   AutomationAppFixture.Check(root,settings,false);AutomationAppFixture.Check(attempt,settings,false);
-  AutomationFiles.Write(Path.Combine(root,"installed-app","replacement.json"),new Completion(request.AttemptId,
-   Prefix(request.AttemptId)+"installed-app/AndroidUI/",request.OriginalEvidenceSha256));
+  var completion=request.CaseRecovery==null ? new Completion(request.AttemptId,
+   Prefix(request.AttemptId)+"installed-app/AndroidUI/",request.OriginalEvidenceSha256) : AutomationAppCaseRecovery.Complete(root,settings,request,attempt);
+  AutomationFiles.Write(Path.Combine(root,"installed-app","replacement.json"),completion);
   return AutomationFiles.Complete(context,"installed-app-tests.json",new{context.Checkpoint.InputSha256,Files=AutomationInstalledApp.Inventory(root)});
  }
 
  internal static (string Run,string Step,SubmissionAutomationSettings Settings,SubmissionWorkflowCheckpoint State) Select(
   AutomationRequest request,string phase,int index) {
   var all=request.Settings;var state=SubmissionWorkflow.Read(all.PrivateRoot,all.Release);
-  var expected=phase=="post-endurance"?SubmissionWorkflowStage.PrepareReview:SubmissionWorkflowStage.AppTests;
+  var expected=phase=="post-endurance"?
+   (state.SchemaVersion==1?SubmissionWorkflowStage.PrepareReview:SubmissionWorkflowStage.FinalizeTests):SubmissionWorkflowStage.AppTests;
   if(state.Stage!=expected || state.Status is not (SubmissionWorkflowStatus.Failed or SubmissionWorkflowStatus.NeedsInput or SubmissionWorkflowStatus.OutcomeUnknown))
    throw new InvalidDataException("Inspect a stopped app phase before explicitly replacing a failed step.");
   string root=Path.Combine(all.PrivateRoot,SubmissionWorkflow.RunKey(all.Release));
   string phaseRoot=phase switch {"main"=>root,"pre-endurance" or "post-endurance"=>Path.Combine(root,phase),_=>throw new InvalidDataException("Select main, pre-endurance or post-endurance.")};
   var settings=phase switch {"main"=>all,"pre-endurance"=>AutomationInitialAdditionalTests.Settings(all),_=>AutomationPostEndurance.Settings(all)};
+  // Recovery must use the same verified managed IDs as the original invocation.
+  settings=AutomationPostEndurance.ResolveTarget(new(root,state),all,settings,false);
   if(phase=="pre-endurance")AutomationInstalledApp.VerifyRetained(root);
   if(!SubmissionEvidence.SafeEvidencePath(root,Path.GetRelativePath(root,Path.Combine(phaseRoot,"target-plan.json")).Replace('\\','/'),out var target))
    throw new InvalidDataException("Missing retained app target plan.");
   var plan=AutomationFiles.Read<InstalledDriverTestPlan>(target);
   var steps=settings.InstalledAppSteps;
-  if(steps==null || index<0 || index>=steps.Length)throw new InvalidDataException("Select an existing app step.");
+  if(steps==null) {
+   if(index!=0)throw new InvalidDataException("An unsplit app phase has only step zero.");
+
+   settings=settings with{InstalledAppTests=plan};
+   AutomationInstalledApp.Validate(settings);
+   return(root,phaseRoot,settings,state);
+  }
+  if(index<0 || index>=steps.Length)throw new InvalidDataException("Select an existing app step.");
   AutomationAppSteps.Validate(settings);
   for(int i=0;i<index;i++)AutomationInstalledApp.VerifyRetained(Path.Combine(phaseRoot,"installed-app","steps",i.ToString("D3")));
   string stepRoot=Path.Combine(phaseRoot,"installed-app","steps",index.ToString("D3"));
@@ -220,7 +265,9 @@ internal static class AutomationAppStepRecovery
    Console.WriteLine(JsonSerializer.Serialize(result,AutomationFiles.Json));
    if(result.Status!=SubmissionWorkflowStatus.Completed)return 3;
   }
-  SubmissionWorkflow.RequestRecovery(request.Settings.PrivateRoot,request.Settings.Release,stateHash);
+  // The legacy boundary must be explicitly migrated after its postchecks pass.
+  // Repairing its evidence does not make phase three ready.
+  if(selected.State.SchemaVersion==2) SubmissionWorkflow.RequestRecovery(request.Settings.PrivateRoot,request.Settings.Release,stateHash);
   return 0;
  }
 }

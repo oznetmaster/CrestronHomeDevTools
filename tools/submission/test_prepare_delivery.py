@@ -41,6 +41,38 @@ class DeliveryStageTests(unittest.TestCase):
         self.signed.review.fixture.write_json(self.authorization, self.approval)
         self.authorization_pin = stage.sha(self.authorization.read_bytes())
 
+    def select_rehearsal(self, send_email=False):
+        self.approval.update(environment="Rehearsal", sendRehearsalEmail=send_email, recipient="rehearsal@example.org",
+                             subject="[REHEARSAL] Driver Submission Package")
+        self.save_approval()
+        self.settings.update(environment="Rehearsal", sendRehearsalEmail=send_email, rehearsalRecipient=self.approval["recipient"])
+        self.settings_path.write_text(json.dumps(self.settings), encoding="utf-8")
+
+    def test_rehearsal_binds_test_recipient_environment_and_label(self):
+        self.select_rehearsal(send_email=True)
+        result = self.run_stage()
+        self.assertEqual(result["environment"], "Rehearsal")
+        self.assertEqual(result["subject"], "[REHEARSAL] Driver Submission Package")
+        plan = json.loads((self.output / "delivery-plan.json").read_bytes())
+        self.assertEqual(plan["environment"], "Rehearsal")
+        self.assertIs(plan["sendRehearsalEmail"], True)
+        self.assertEqual(plan["recipient"], self.settings["rehearsalRecipient"])
+        self.assertFalse(result["deliveryAttempted"])
+
+    def test_rehearsal_cannot_reuse_production_approval_or_crestron_destination(self):
+        self.select_rehearsal()
+        original = self.approval.copy()
+        for field, value in (("environment", "Production"), ("recipient", "other@example.org"),
+                             ("subject", "Driver Submission Package")):
+            self.approval = dict(original, **{field: value})
+            self.save_approval()
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                self.run_stage()
+        for recipient in ("drivers@crestron.com", "DRIVERS@CRESTRON.COM", "x@sub.crestron.com", "a@b.org,c@d.org"):
+            with self.subTest(recipient=recipient), self.assertRaises(ValueError):
+                stage.delivery_environment({"environment": "Rehearsal", "rehearsalRecipient": recipient})
+        self.assertFalse(self.output.exists())
+
     def run_stage(self):
         return stage.prepare(self.settings_path, self.pin, self.authorization_pin)
 

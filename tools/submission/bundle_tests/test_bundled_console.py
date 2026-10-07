@@ -605,5 +605,159 @@ class BundledConsoleTests(unittest.TestCase):
         self.assertNotEqual(run().returncode, 0)
 
 
+    def rehearsal_fixture(self):
+        # Only the fixture setup helpers are redirected. Each stage executes the
+        # installed public console with the normal validator and synthetic inputs.
+        def review_stage(fixture, *, signing_copy=False, **options):
+            self.assertTrue(signing_copy)
+            self.portable_settings(fixture)
+            output, _ = self.invoke("prepare-review", "--settings", fixture.settings_path,
+                "--candidate-sha256", fixture.pins[0], "--inventory-sha256", fixture.pins[1],
+                "--mapping-sha256", fixture.pins[2], "--source-commit", "a" * 40,
+                "--artifact-kind", "driver", "--prepare-for-signing")
+            return json.loads(output)
+
+        def signing_stage(fixture):
+            self.portable_settings(fixture)
+            output, _ = self.invoke("prepare-signed-review", "--settings", fixture.settings_path,
+                "--review-sha256", fixture.review_pin, "--authorization-sha256", fixture.approval_pin)
+            return json.loads(output)
+
+        fixture = delivery.DeliveryStageTests()
+        self.addCleanup(fixture.doCleanups)
+        with patch.object(review.ReviewStageTests, "run_stage", review_stage), \
+             patch.object(signed.SignedReviewStageTests, "run_stage", signing_stage):
+            fixture.setUp()
+        fixture.select_rehearsal()
+        self.portable_settings(fixture)
+        self.invoke("prepare-delivery", "--settings", fixture.settings_path,
+            "--signed-review-sha256", fixture.pin, "--authorization-sha256", fixture.authorization_pin)
+        settings = {"schemaVersion": 1, "environment": "Rehearsal",
+            "preparedDirectory": str(fixture.output), "preparationSettingsPath": str(fixture.settings_path),
+            "deliveryReviewSha256": sha((fixture.output / "delivery-review-receipt.json").read_bytes()),
+            "revalidationTimeoutSeconds": 60}
+        for key in ("journalDirectory", "attemptsDirectory", "destinationDirectory"):
+            path = fixture.root / key
+            path.mkdir()
+            settings[key] = str(path)
+        source, dispatch = fixture.root / "mock-setup.json", fixture.root / "mock-dispatch.json"
+        source.write_text(json.dumps(settings), encoding="utf-8")
+        prepared = subprocess.run([str(self.console), "submission-delivery-settings", "--rehearsal",
+            "--settings", str(source), "--output", str(dispatch)], cwd=self.hostile, env=self.env,
+            capture_output=True, timeout=90)
+        self.assertEqual(prepared.returncode, 0, prepared.stderr.decode(errors="replace"))
+        summary = json.loads(prepared.stdout)
+        self.assertEqual(summary["state"], "RehearsalDispatchSettingsPrepared")
+        self.assertEqual(summary["settingsSha256"], sha(dispatch.read_bytes()))
+        self.assertFalse(summary["deliveryAttempted"])
+        if retained := os.environ.get("SUBMISSION_TEST_RETAIN_DIRECTORY"):
+            target = Path(retained) / self._testMethodName
+            # Added after the fixture cleanup: unittest runs cleanups in reverse order.
+            self.addCleanup(lambda: shutil.copytree(fixture.root, target))
+        return fixture, dispatch, settings
+
+    def rehearsal_dispatch(self, path, success=True, rehearsal=True):
+        arguments = [str(self.console), "submission-deliver"]
+        if rehearsal:
+            arguments.append("--rehearsal")
+        arguments += ["--settings", str(path), "--settings-sha256", sha(path.read_bytes()), "--execute-approved"]
+        result = subprocess.run(arguments, cwd=self.hostile, env=self.env, input=b"",
+                                capture_output=True, timeout=180)
+        self.assertEqual(result.returncode, 0 if success else 2, result.stderr.decode(errors="replace"))
+        self.assertNotIn(str(path.parent).encode(), result.stdout + result.stderr)
+        if success:
+            self.assertEqual(json.loads(result.stdout), {"SchemaVersion": 1, "Environment": "Rehearsal",
+                "State": "RehearsalCompleted", "Submitted": False, "RehearsalCompleted": True})
+        return result
+
+    def test_rehearsal_cli_generates_signs_revalidates_and_delivers_to_mock_destination(self):
+        fixture, dispatch, settings = self.rehearsal_fixture()
+        destination = Path(settings["destinationDirectory"])
+        self.rehearsal_dispatch(dispatch, success=False, rehearsal=False)
+        self.assertFalse(any(destination.iterdir()))
+        self.rehearsal_dispatch(dispatch)
+        from pypdf import PdfReader
+        self.assertEqual(PdfReader(destination / "signed-form.pdf").get_fields()["Signature"]["/V"],
+                         "Synthetic Example Developer")
+        self.assertEqual((destination / "package.pkg").read_bytes(), fixture.signed.review.fixture.package.read_bytes())
+        self.assertEqual((destination / "signed-form.pdf").read_bytes(),
+                         (fixture.output / "delivery" / fixture.receipt["signedFormFileName"]).read_bytes())
+        for name in ("upload-receipt.json", "mail-receipt.json"):
+            receipt = json.loads((destination / name).read_bytes())
+            self.assertEqual(receipt["mode"], "Rehearsal")
+            self.assertFalse(receipt["externalDeliveryAttempted"])
+        attempts = Path(settings["attemptsDirectory"])
+        finished = list(attempts.glob("*/finished.json"))
+        self.assertEqual(len(finished), 2)
+        self.assertTrue(all(json.loads(path.read_bytes())["Success"] for path in finished))
+        self.assertEqual({path.parent.name.split("-")[0] for path in finished}, {"Upload", "Send"})
+        saved = {path.name: sha(path.read_bytes()) for path in destination.iterdir()}
+        self.rehearsal_dispatch(dispatch)
+        self.assertEqual(saved, {path.name: sha(path.read_bytes()) for path in destination.iterdir()})
+        self.assertEqual(len(list(attempts.glob("*/finished.json"))), 2)
+
+    def test_rehearsal_cli_rejects_revoked_approval_and_changed_evidence_before_mock_delivery(self):
+        fixture, dispatch, settings = self.rehearsal_fixture()
+        evidence = fixture.signed.review.output / "evidence.zip"
+        for path in (fixture.authorization, evidence):
+            original = path.read_bytes()
+            try:
+                path.write_bytes(original + b"changed after review")
+                self.rehearsal_dispatch(dispatch, success=False)
+                destination = Path(settings["destinationDirectory"])
+                self.assertFalse((destination / "package.pkg").exists())
+                self.assertFalse((destination / "mail-receipt.json").exists())
+            finally:
+                path.write_bytes(original)
+        journal = json.loads(next(Path(settings["journalDirectory"]).glob("*.json")).read_bytes())
+        self.assertEqual(journal["state"], "Prepared")
+        self.assertEqual(journal["environment"], "Rehearsal")
+
+    def test_frozen_review_moves_without_original_inputs_or_source_checkout(self):
+        self.frozen_review_relocation(False)
+
+    def test_frozen_android_review_moves_and_reaudits_raw_evidence(self):
+        self.frozen_review_relocation(True)
+
+    def frozen_review_relocation(self, with_android):
+        f = self.fixture(review.ReviewStageTests)
+        options = []
+        android = None
+        if with_android:
+            android, pins = f.android_run()
+            options = ["--android-pins", pins["android_pins"], "--android-pins-sha256", pins["android_pins_sha256"]]
+        home = self.hostile / ("android-handoff" if with_android else "handoff")
+        report = json.loads(self.invoke("freeze-review-inputs", "--settings", f.settings_path, "--output", home,
+            "--candidate-sha256", f.pins[0], "--inventory-sha256", f.pins[1], "--mapping-sha256", f.pins[2],
+            "--source-commit", "a" * 40, *options)[0])
+        moved = self.hostile / "moved-inputs"
+        home.rename(moved)
+        hidden = f.root.with_name(f.root.name + "-inaccessible")
+        hidden_android = android.root.with_name(android.root.name + "-inaccessible") if android else None
+        f.root.rename(hidden)
+        if android: android.root.rename(hidden_android)
+        try:
+            self.assertFalse(f.root.exists())
+            output = self.hostile / "portable-review"
+            result = json.loads(self.invoke("prepare-frozen-review", "--inputs", moved,
+                "--inputs-sha256", report["inputsSha256"], "--output", output, "--prepare-for-signing")[0])
+            self.assertEqual("UnsignedReviewPrepared", result["state"])
+            self.assertFalse(result["submissionReady"])
+            self.assertFalse(result["deliveryAttempted"])
+            self.assertTrue((output / "self-test.review.pdf").is_file())
+            if android:
+                audit = json.loads((output / "android-audit.json").read_text())
+                self.assertEqual(android.run, audit["runs"][0]["runId"])
+            evidence = next((moved / "evidence").rglob("*.txt"))
+            evidence.write_bytes(evidence.read_bytes() + b"changed")
+            rejected = self.hostile / "rejected-review"
+            self.invoke("prepare-frozen-review", "--inputs", moved, "--inputs-sha256", report["inputsSha256"],
+                        "--output", rejected, success=False)
+            self.assertFalse(rejected.exists())
+        finally:
+            hidden.rename(f.root)
+            if android: hidden_android.rename(android.root)
+
+
 if __name__ == "__main__":
     unittest.main()

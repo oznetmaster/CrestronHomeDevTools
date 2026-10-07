@@ -58,7 +58,11 @@ public static class SubmissionAutomationConfiguration
     else if(!later.Contains(gap.RequirementId))missing.Add($"Resolve declared pre-endurance gap: {gap.RequirementId}");
    }
   }
-  if(settings.Mode==SubmissionAutomationMode.Submit) {
+  {
+   try {AutomationDelivery.ValidateMode(settings);}
+   catch(InvalidDataException e){missing.Add(e.Message);}
+   if(settings.Mode==SubmissionAutomationMode.Rehearsal && settings.Protected?.Delivery?.RehearsalRecipient==null)
+    missing.Add("Protected.Delivery.RehearsalRecipient");
    if(settings.Protected==null)missing.Add("Protected");
    else {
     if(string.IsNullOrWhiteSpace(settings.Protected.CredentialBindings))missing.Add("Protected.CredentialBindings");

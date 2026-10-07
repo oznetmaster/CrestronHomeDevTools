@@ -10,7 +10,7 @@ public sealed record SubmissionAutomationRemovalPlan(DriverRemovalAppPlan App, s
 
 internal static class AutomationRemoval
 {
-    private sealed record Intent(string InputSha256, string OperationId, SubmissionWorkflowReceipt Endurance,
+    internal sealed record Intent(string InputSha256, string OperationId, SubmissionWorkflowReceipt Endurance,
         string PostEnduranceSha256, DriverRemovalWorkflowPlan Plan, DateTimeOffset StartedUtc);
     private sealed record Receipt(string InputSha256, SubmissionWorkflowReceipt[] Files);
     internal const string ObservationPath = "removal/observations.json";
@@ -40,7 +40,7 @@ internal static class AutomationRemoval
         return requirements[0];
     }
 
-    private static DriverRemovalWorkflowPlan Resolve(SubmissionWorkflowStepContext c, SubmissionAutomationSettings settings)
+    internal static DriverRemovalWorkflowPlan Resolve(SubmissionWorkflowStepContext c, SubmissionAutomationSettings settings)
     {
         var deployed = AutomationDeploymentEvidence.Read(c, settings);
         var resolved = AutomationPostEndurance.Resolve(c, settings).InstalledAppTests!;
@@ -83,7 +83,7 @@ internal static class AutomationRemoval
         if (File.Exists(Path.Combine(c.RunDirectory, "removal-evidence.json")))
         {
             VerifyRetained(c, false); VerifyIntent();
-            var retainedResult = AutomationFiles.Read<DriverRemovalWorkflowResult>(Path.Combine(folder, "operation", "result.json"));
+            var retainedResult = ReadResult(c);
             return retainedResult.Passed ? new(SubmissionWorkflowStatus.Completed, new("removal-evidence.json", AutomationFiles.Hash(Path.Combine(c.RunDirectory, "removal-evidence.json"))))
                 : new(SubmissionWorkflowStatus.Failed, ReasonCode: "actual-driver-removal-check-failed");
         }
@@ -100,6 +100,21 @@ internal static class AutomationRemoval
             return new(SubmissionWorkflowStatus.OutcomeUnknown, ReasonCode: "inspect-removal-operation-and-leases");
         if (System.Text.Json.JsonSerializer.Serialize(AutomationFiles.Read<DriverRemovalWorkflowResult>(Path.Combine(folder, "operation", "result.json"))) != System.Text.Json.JsonSerializer.Serialize(result))
             throw new InvalidDataException("Removal producer result does not match its retained evidence.");
+        return RecordOutcome(c, settings, intent, result);
+
+        void VerifyIntent()
+        {
+            var saved = AutomationFiles.Read<Intent>(intentPath);
+            if (saved.InputSha256 != c.Checkpoint.InputSha256 || saved.OperationId != c.Checkpoint.OperationId || saved.Endurance != endurance ||
+                saved.PostEnduranceSha256 != postHash || System.Text.Json.JsonSerializer.Serialize(saved.Plan) != System.Text.Json.JsonSerializer.Serialize(Resolve(c, settings)))
+                throw new InvalidDataException("Removal intent no longer matches this workflow.");
+        }
+    }
+
+    internal static SubmissionWorkflowStepResult RecordOutcome(SubmissionWorkflowStepContext c, SubmissionAutomationSettings settings, Intent intent, DriverRemovalWorkflowResult result)
+    {
+        var requirement = Validate(settings);
+        string folder = Path.Combine(c.RunDirectory, "removal");
         // Record the exact removal outcome; do not derive a pass from process exit alone.
         var identity = new SubmissionEvidenceIdentity(settings.Release.PackageSha256, settings.Release.SourceCommit, settings.Review!.Policy.Sha256, settings.Review.Template.Sha256);
         var files = Inventory(c.RunDirectory).Select(f => new SubmissionEvidenceFile(f.RelativePath, f.Sha256)).ToArray();
@@ -107,7 +122,9 @@ internal static class AutomationRemoval
             intent.StartedUtc, DateTimeOffset.UtcNow, files, "Final actual-driver removal: exact API tree, reviewed Home/Room and native-light views, Home restoration and retained current-boot log interval.",
             new(requirement.Execution!.Target, "combined"));
         var observations = new List<SubmissionObservation> { observation };
-        if (result.Passed && settings.Removal!.PlacementRequirementId is {} placementId)
+        if (File.Exists(Path.Combine(c.RunDirectory,AutomationPlacement.ReceiptName)))
+            AutomationPlacement.VerifyRetained(c);
+        else if (result.Passed && settings.Removal!.PlacementRequirementId is {} placementId)
         {
             // Reuse the real pre-removal baseline, never the empty post-removal
             // screen as evidence that the installed candidate was placed correctly.
@@ -130,16 +147,14 @@ internal static class AutomationRemoval
             ? new(SubmissionWorkflowStatus.Completed, new("removal-evidence.json", AutomationFiles.Hash(Path.Combine(c.RunDirectory, "removal-evidence.json"))))
             : new(SubmissionWorkflowStatus.Failed, ReasonCode: "actual-driver-removal-check-failed");
 
-        void VerifyIntent()
-        {
-            var saved = AutomationFiles.Read<Intent>(intentPath);
-            if (saved.InputSha256 != c.Checkpoint.InputSha256 || saved.OperationId != c.Checkpoint.OperationId || saved.Endurance != endurance ||
-                saved.PostEnduranceSha256 != postHash || System.Text.Json.JsonSerializer.Serialize(saved.Plan) != System.Text.Json.JsonSerializer.Serialize(Resolve(c, settings)))
-                throw new InvalidDataException("Removal intent no longer matches this workflow.");
-        }
     }
 
-    private static SubmissionWorkflowReceipt[] Inventory(string root)
+    internal static DriverRemovalWorkflowResult ReadResult(SubmissionWorkflowStepContext c) =>
+        File.Exists(Path.Combine(c.RunDirectory, AutomationRemovalReconciliation.AcceptancePath))
+            ? AutomationRemovalReconciliation.VerifyAccepted(c)
+            : AutomationFiles.Read<DriverRemovalWorkflowResult>(Path.Combine(c.RunDirectory, "removal", "operation", "result.json"));
+
+    internal static SubmissionWorkflowReceipt[] Inventory(string root)
     {
         var pending = new Stack<DirectoryInfo>(); pending.Push(new(Path.Combine(root, "removal")));
         var files = new List<SubmissionWorkflowReceipt>(); int count = 0;
@@ -162,7 +177,7 @@ internal static class AutomationRemoval
         var receipt = AutomationFiles.Read<Receipt>(Path.Combine(c.RunDirectory, "removal-evidence.json"));
         if (receipt.InputSha256 != c.Checkpoint.InputSha256 || !receipt.Files.SequenceEqual(Inventory(c.RunDirectory)) ||
             !receipt.Files.Any(f => f.RelativePath == ObservationPath)) throw new InvalidDataException("Removal evidence changed or belongs to another run.");
-        var result = AutomationFiles.Read<DriverRemovalWorkflowResult>(Path.Combine(c.RunDirectory, "removal", "operation", "result.json"));
+        var result = ReadResult(c);
         if (!result.RemovalRequested || !result.CandidateVerified || !result.ReservationsReleased || result.Removal == null || requirePassed && !result.Passed)
             throw new InvalidDataException("Successful actual removal was not confirmed.");
         return new(ObservationPath, receipt.Files.Single(f => f.RelativePath == ObservationPath).Sha256);

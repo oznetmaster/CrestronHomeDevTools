@@ -191,4 +191,29 @@ public sealed class SubmissionEvidenceCompositionTests
 		Assert.That (File.Exists (Path.Combine (output, "report.json")), Is.True);
 		Assert.That (File.Exists (Path.Combine (output, "observations.json")), Is.False);
 		}
+ [TestCase(SubmissionEvidenceOutcome.Passed)]
+ [TestCase(SubmissionEvidenceOutcome.Failed)]
+ [TestCase(SubmissionEvidenceOutcome.Inconclusive)]
+ public void LegacyPascalCaseProducerIsReadWithoutChangingOutcomeOrOriginalBytes(SubmissionEvidenceOutcome outcome) {
+  var source=_first with{Observations=[_first.Observations[0] with{Outcome=outcome}]};
+  var bytes=JsonSerializer.SerializeToUtf8Bytes(source,new JsonSerializerOptions(Json){PropertyNamingPolicy=null});
+  File.WriteAllBytes(Path.Combine(_root,"first.json"),bytes);
+  _plan=_plan with{Sources=[_plan.Sources[0] with{Sha256=Convert.ToHexStringLower(SHA256.HashData(bytes))},_plan.Sources[1]]};Pin();
+  var result=Combine();Assert.That(result.Observations.Observations[0].Outcome,Is.EqualTo(outcome));
+  Assert.That(result.CompositionChecksPassed,Is.EqualTo(outcome==SubmissionEvidenceOutcome.Passed));
+  Assert.That(File.ReadAllBytes(Path.Combine(_root,"first.json")),Is.EqualTo(bytes));
+ }
+ [TestCase("duplicate")][TestCase("mixed")][TestCase("unknown")][TestCase("nested")][TestCase("missing")][TestCase("integer-enum")]
+ public void LegacyReaderStillRejectsAmbiguousOrInvalidDocuments(string variant) {
+  string json=JsonSerializer.Serialize(_first,new JsonSerializerOptions(Json){PropertyNamingPolicy=null});
+  json=variant switch {
+   "duplicate"=>json.Replace("\"SchemaVersion\":1","\"SchemaVersion\":1,\"SchemaVersion\":1"),
+   "mixed"=>json.Replace("\"SchemaVersion\":1","\"SchemaVersion\":1,\"schemaVersion\":1"),
+   "unknown"=>json.Replace("\"SchemaVersion\":1","\"SchemaVersion\":1,\"Unexpected\":true"),
+   "nested"=>json.Replace("\"RequirementId\"","\"requirementId\""),
+   "missing"=>json.Replace("\"SchemaVersion\":1,",""),
+   _=>json.Replace("\"Outcome\":\"Passed\"","\"Outcome\":0")};
+  Assert.Throws<JsonException>(()=>SubmissionEvidenceComposition.ReadSourceDocument(System.Text.Encoding.UTF8.GetBytes(json)));
+ }
+
 	}

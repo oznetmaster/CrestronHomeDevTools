@@ -72,14 +72,26 @@ public static class CrestronHomeLoadLog
   var delta=load.Time-start;
   var earliest=program.EarliestStartUtc+delta-TimeSpan.FromSeconds(1);
   var latest=program.LatestStartUtc+delta+TimeSpan.FromSeconds(1);
-  if(latest>observedUtc || earliest<program.EarliestStartUtc)
+  if(earliest<program.EarliestStartUtc || earliest>observedUtc)
    throw new InvalidDataException("Home load event is outside the verified observation.");
+  // A freshly written event can straddle now because the log and diagnostic
+  // timestamps are rounded. Wait for the full conservative interval; do not
+  // reject a valid startup or move its recovery anchor to the later read.
+  if(latest>observedUtc)return null;
   return new(earliest,latest,first.e.Raw,load.Raw,elapsed);
  }
  /// <summary>Read existing daily Home logs using pinned SFTP. No processor changes.
  /// Retain only the final successful snapshot; missing load completion times out.</summary>
  public static async Task<CrestronHomeLoadEvidence> ReadAsync(string host,NetworkCredential credential,
   string sshFingerprint,ProcessorProgramUptimeSnapshot program,TimeSpan timeout,CancellationToken token=default)
+ {
+  var result=await ReadObservationAsync(host,credential,sshFingerprint,program,timeout,
+   (logs,now)=>Parse(logs,program,now),token).ConfigureAwait(false);
+  return new(result.Observation,program,result.Logs,result.ObservedUtc);
+ }
+ internal static async Task<(T Observation,IReadOnlyDictionary<string,string> Logs,DateTimeOffset ObservedUtc)> ReadObservationAsync<T>(
+  string host,NetworkCredential credential,string sshFingerprint,ProcessorProgramUptimeSnapshot program,TimeSpan timeout,
+  Func<IReadOnlyDictionary<DateOnly,string>,DateTimeOffset,T?> parse,CancellationToken token) where T:class
  {
   ArgumentException.ThrowIfNullOrWhiteSpace(host);ArgumentNullException.ThrowIfNull(credential);
   ArgumentException.ThrowIfNullOrWhiteSpace(sshFingerprint);
@@ -109,7 +121,7 @@ public static class CrestronHomeLoadLog
     string text=Encoding.UTF8.GetString(bytes.ToArray());dated.Add(date,text);retained.Add(path,text);
    }
    var now=DateTimeOffset.UtcNow;
-   if(dated.ContainsKey(day)&&Parse(dated,program,now) is {} observation)return new(observation,program,retained,now);
+   if(dated.ContainsKey(day)&&parse(dated,now) is {} observation)return (observation,retained,now);
    await Task.Delay(TimeSpan.FromSeconds(2),deadline.Token).ConfigureAwait(false);
   }
  }

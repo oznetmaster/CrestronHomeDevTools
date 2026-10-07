@@ -12,4 +12,6 @@
     <InternalsVisibleTo Include="CrestronHomeDevTools.Tests" />
     <InternalsVisibleTo Include="CrestronHomeDevTools.Tests.Probe" />
   </ItemGroup>
+  <PropertyGroup><PackageId>CrestronHomeDevTools.Automation</PackageId><Description>Durable Crestron Home submission workflow and shared test-session implementation.</Description></PropertyGroup>
+  <Import Project="../build/SubmissionPackage.targets" />
 </Project>

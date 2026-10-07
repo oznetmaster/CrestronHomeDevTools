@@ -7,9 +7,10 @@ namespace CrestronHomeDevTools.Automation;
 /// <summary>Runs only bundled public document-preparation commands. No developer-installed Python or arbitrary shell command.</summary>
 internal static class AutomationConsole
 {
+ internal static void Verify(SubmissionAutomationConsole console) {using var pins=new ToolPins(console);}
  internal static async Task<int> Run(SubmissionAutomationConsole console,string[] args,string logDirectory,CancellationToken token)
  {
-  if(args.Length<2 || args[0]!="submission" || args[1] is not ("prepare-review" or "prepare-signed-review" or "prepare-delivery"))throw new InvalidDataException("Unsupported document operation.");
+  if(args.Length<2 || args[0]!="submission" || args[1] is not ("freeze-review-inputs" or "prepare-frozen-review" or "prepare-review" or "prepare-signed-review" or "prepare-delivery"))throw new InvalidDataException("Unsupported document operation.");
   using var pins=new ToolPins(console);
   Directory.CreateDirectory(logDirectory);
   var start=new ProcessStartInfo(Path.Combine(console.Directory,"CrestronHomeDevTools.Console.exe")) {

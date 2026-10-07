@@ -38,7 +38,9 @@ public sealed class WeatherLinkAppFixtureTests
   var selector=new AndroidSelector(AndroidSelectorKind.Text,"Before");
   void Before(AndroidHierarchy h)=>h.RequireUnique(selector);
   void After(AndroidHierarchy h)=>h.RequireUnique(new(AndroidSelectorKind.Text,"After"));
-		await Assert.ThrowsAsync<IOException>(async()=>await navigation.TapAsync(h=>h.RequireUnique(selector),Before,After,default));
+		var error=await Assert.ThrowsAsync<IOException>(async()=>await navigation.TapAsync(h=>h.RequireUnique(selector),Before,After,default));
+  Assert.That(error,Is.SameAs(transport.InputFailure));
+  Assert.That(transport.Taps,Is.EqualTo(1));
   using(var deadline=new CancellationTokenSource(100))
 			await Assert.CatchAsync<OperationCanceledException>(async()=>await navigation.ResolveAsync(deadline.Token));
   Assert.That(transport.Taps,Is.EqualTo(1));
@@ -69,11 +71,11 @@ public sealed class WeatherLinkAppFixtureTests
  }
  private sealed class FakeTransport:IAndroidCommandTransport {
   public int Taps;public bool After;
+  public readonly IOException InputFailure=new("Synthetic uncertain input; no retry.");
   public Task<byte[]> ExecuteAsync(IReadOnlyList<string> args,CancellationToken token) {
    token.ThrowIfCancellationRequested();
-   if(args.Contains("tap")){Taps++;throw new IOException("Synthetic uncertain input; no retry.");}
-   if(args.Contains("dump"))return Task.FromResult(Encoding.UTF8.GetBytes("UI hierarchy dumped to: test"));
-   if(args.Contains("cat"))return Task.FromResult(Encoding.UTF8.GetBytes(Page(Node("title",After?"After":"Before")).MaskedXml));
+   if(args.Contains("tap")){Taps++;throw InputFailure;}
+   if(args.Contains("dump"))return Task.FromResult(Encoding.UTF8.GetBytes(Page(Node("title",After?"After":"Before")).MaskedXml+"\nUI hierarchy dumped to: /proc/self/fd/1"));
    return Task.FromResult(Array.Empty<byte>());
   }
  }

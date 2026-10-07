@@ -40,15 +40,18 @@ def revalidate(settings_path, delivery_review_digest, signed_review_digest, auth
         raise ValueError("Completed delivery handoff differs from the approved pins")
     plan_bytes, plan = pinned_json(prepared / "delivery-plan.json", receipt["planFileSha256"])
     keys(plan, ("candidateSha256", "packageSha256", "signedFormSha256", "packageFileName", "signedFormFileName",
-                "reviewSha256", "authorizationSha256", "sender", "recipient"))
+                "reviewSha256", "authorizationSha256", "sender", "recipient"), ("environment", "sendRehearsalEmail"))
     if plan["reviewSha256"] != signed_review_digest or plan["authorizationSha256"] != authorization_digest:
         raise ValueError("Delivery plan approval pins differ")
     _, signed = pinned_json(prepared / "signed-review-receipt.json", signed_review_digest)
     _, approval = pinned_json(prepared / "delivery-authorization.json", authorization_digest)
     pinned_json(prepared / "validation-report.json", receipt["validationReportSha256"])
-    prepare_delivery.require_authorization(approval, signed, signed_review_digest, datetime.now(timezone.utc))
     _, original_settings = read_json(settings["preparationSettings"])
-    keys(original_settings, ("schemaVersion", "signedReviewDirectory", "reviewDirectory", "authorization", "output"), ("dotnet", "validator"))
+    keys(original_settings, ("schemaVersion", "signedReviewDirectory", "reviewDirectory", "authorization", "output"), ("dotnet", "validator", "environment", "rehearsalRecipient", "sendRehearsalEmail"))
+    environment, _, _ = prepare_delivery.delivery_environment(original_settings)
+    if plan.get("environment", "Production") != environment or receipt.get("environment", "Production") != environment:
+        raise ValueError("Retained delivery environment differs from preparation")
+    prepare_delivery.require_authorization(approval, signed, signed_review_digest, datetime.now(timezone.utc), original_settings)
     _, unsigned = pinned_json(Path(original_settings["reviewDirectory"]) / "review-receipt.json", signed["reviewReceiptSha256"])
     prepared_android = retained_files(prepared, unsigned)
     # Reject output layouts that could alter any retained review tree or private settings input.
@@ -80,7 +83,7 @@ def revalidate(settings_path, delivery_review_digest, signed_review_digest, auth
                 pinned_json(prepared / "delivery-review-receipt.json", delivery_review_digest)[0] != original_bytes):
             raise ValueError("Original handoff changed during validation")
         pinned_json(original_settings["authorization"], authorization_digest)
-        prepare_delivery.require_authorization(approval, signed, signed_review_digest, datetime.now(timezone.utc))
+        prepare_delivery.require_authorization(approval, signed, signed_review_digest, datetime.now(timezone.utc), original_settings)
         result = {"schemaVersion": 1, "state": "DeliveryRevalidated", "deliveryReviewSha256": delivery_review_digest,
                   "signedReviewSha256": signed_review_digest, "authorizationSha256": authorization_digest,
                   "planFileSha256": sha(plan_bytes), "plan": plan, "expiresUtc": approval["expiresUtc"],

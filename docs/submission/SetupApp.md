@@ -22,7 +22,7 @@ The default storage location is `%LOCALAPPDATA%\CrestronHomeDevTools\PrivateStor
 2. **Driver:** save repository identity, manufacturer/models, help content and known limitations, test equipment and real-use restrictions. Empty support overrides inherit shared defaults. These are factual inputs, not assertions that tests passed.
 3. **Credentials & signature:** save named SMTP, uploader, processor or Windows logins and a signature image using the existing encrypted store. Load a credential using its name, purpose and endpoint to edit it. Passwords are masked and cleared from the editor after saving. Endpoint/trust fields must be obtained and verified through the normal setup procedure; do not guess them.
 4. **Submission:** select saved developer/driver profile names and enter the release version, exact four-component manifest version, release notes, source reference, private workspace and test/worker/app targets for the specific attempt.
-5. **Readiness & snapshots:** select Submission or Rehearsal, check the selected inputs, fix omissions, then create a uniquely named encrypted snapshot. Rehearsal does not require delivery credentials or a signature. The check does not connect to hardware or email providers, prove machine suitability, or validate a built package.
+5. **Readiness & snapshots:** select Submission or Rehearsal, check the selected inputs, fix omissions, then create a uniquely named encrypted snapshot. The rehearsal snapshot itself does not require delivery credentials or a signature; completing delivery requires the independent rehearsal protected-worker bindings described below. The check does not connect to hardware or email providers, prove machine suitability, or validate a built package.
 6. **Prepare review drafts:** generate help content, release notes and operation defaults from the chosen snapshot. The app displays the paths. These draft files contain readable selected facts, inherit the store's restricted access and are kept inside it. Passwords and signature images stay encrypted. Each preparation creates a fresh directory so reviewed edits are never overwritten.
 7. **Prepare rehearsal profile:** optionally fill the Submission tab's automation fields before creating the snapshot: the reviewed settings template, tooling manifest, package asset filename and earliest release publication in UTC. This button captures the selected files, pins their bytes and prepares a fresh release profile and empty registry for the public automation worker. It does not start that worker or operate equipment. Its report lists missing stage bindings; resolve those before claiming a full rehearsal.
 
@@ -115,8 +115,12 @@ silently retargeting equipment. Test fixtures, device IDs, trust pins, endurance
 criteria, evidence mappings and package support-metadata requirements remain
 explicit reviewed template inputs. They cannot be inferred from contact details.
 
-Rehearsal preparation always selects **Rehearsal** and omits protected signing/delivery
-settings. It preserves the template's selected evidence-worker credential
+In the current source, rehearsal preparation selects **Rehearsal** and preserves
+explicit protected settings only when they declare Environment="Rehearsal".
+It drops production protected settings; it never converts their authority. A full
+rehearsal requires the independent protected worker, exact signing and delivery
+approvals, and configured test mailbox; see [rehearsal delivery](RehearsalDelivery.md).
+It preserves the template's selected evidence-worker credential
 binding; it never substitutes the setup snapshot containing all credentials.
 The saved snapshot freezes factual revisions and file selections; preparation
 captures the current selected file bytes and records their hashes in

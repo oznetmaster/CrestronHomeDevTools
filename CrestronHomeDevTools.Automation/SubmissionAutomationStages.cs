@@ -73,6 +73,32 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
 
  public Task<SubmissionWorkflowStepResult> ExecuteAsync(SubmissionWorkflowStepContext c,CancellationToken t)=>Advance(c,false,t);
  public Task<SubmissionWorkflowStepResult> RecoverAsync(SubmissionWorkflowStepContext c,CancellationToken t)=>Advance(c,true,t);
+ internal void VerifyCompletedEvidence(SubmissionWorkflowStepContext c) {
+  if(c.Checkpoint.Release!=settings.Release)throw new InvalidDataException("Retained tests identify another release.");
+  var binding=AutomationFiles.Read<JsonElement>(Path.Combine(c.RunDirectory,"automation-binding.json"));
+  if(binding.GetProperty("SettingsSha256").GetString()!=settingsDigest || binding.GetProperty("InputSha256").GetString()!=c.Checkpoint.InputSha256)
+   throw new InvalidDataException("Retained tests identify different frozen settings.");
+  if(c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.WindowsTests)) VerifyRetainedNUnit(c.RunDirectory);
+  if(settings.InstalledAppTests!=null && c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.AppTests))
+   AutomationInstalledApp.VerifyRetained(c.RunDirectory);
+  if(settings.ManagedDevices!=null && c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.AppTests))
+   _=AutomationManagedDevices.VerifyRetained(c);
+  if(settings.PreEnduranceTests!=null && c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.AppTests))
+   AutomationInitialAdditionalTests.VerifyRetained(c);
+  if(File.Exists(Path.Combine(c.RunDirectory,AutomationPlacement.ReceiptName)))AutomationPlacement.VerifyRetained(c);
+  if(c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.PrepareReview)) AutomationReview.VerifyRetained(c.RunDirectory);
+  if(settings.PostEnduranceTests!=null && c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.FinalizeTests))
+   AutomationPostEndurance.VerifyRetained(c);
+  if(settings.Removal!=null && c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.FinalizeTests))
+   AutomationRemoval.VerifyRetained(c);
+  if(settings.ResponseComparison!=null && c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.FinalizeTests))
+   AutomationResponseComparison.VerifyRetained(c);
+  if(c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.SignReview)) AutomationSigning.VerifyRetained(c.RunDirectory);
+  if(c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.Endurance))
+   AutomationEndurance.VerifyRetained(c,settings);
+  if(c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.FinalizeTests))
+   AutomationFinalTests.VerifyRetained(c,settings,settingsDigest);
+ }
  private async Task<SubmissionWorkflowStepResult> Advance(SubmissionWorkflowStepContext c,bool recover,CancellationToken token)
  {
   if(settings.SchemaVersion!=1 || !Enum.IsDefined(settings.Mode) || c.Checkpoint.Release!=settings.Release || settingsDigest.Length!=64 || !settingsDigest.All(char.IsAsciiHexDigit))
@@ -85,31 +111,9 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
    AutomationFiles.Write(Path.Combine(c.RunDirectory,"protected-worker-binding.json"),new{Sha256=protectedDigest});
   }
   AutomationFiles.Write(Path.Combine(c.RunDirectory,"automation-binding.json"),new { SettingsSha256=settingsDigest, c.Checkpoint.InputSha256 });
-  if(c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.WindowsTests)) VerifyRetainedNUnit(c.RunDirectory);
-  if(settings.InstalledAppTests!=null && c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.AppTests))
-   AutomationInstalledApp.VerifyRetained(c.RunDirectory);
-  if(settings.ManagedDevices!=null && c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.AppTests))
-   _=AutomationManagedDevices.VerifyRetained(c);
-  if(settings.PreEnduranceTests!=null && c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.AppTests))
-   AutomationInitialAdditionalTests.VerifyRetained(c);
-  if(c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.PrepareReview)) AutomationReview.VerifyRetained(c.RunDirectory);
-  if(settings.PostEnduranceTests!=null && c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.PrepareReview))
-   AutomationPostEndurance.VerifyRetained(c);
-  if(settings.Removal!=null && c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.PrepareReview))
-   AutomationRemoval.VerifyRetained(c);
-  if(settings.ResponseComparison!=null && c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.PrepareReview))
-   AutomationResponseComparison.VerifyRetained(c);
-  if(c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.SignReview)) AutomationSigning.VerifyRetained(c.RunDirectory);
-  if(c.Checkpoint.CompletedStages.ContainsKey(SubmissionWorkflowStage.Endurance)) {
-   var plan=AutomationDeploymentEndurance.Resolve(c,settings)?.Plan??throw new InvalidDataException("Completed endurance plan is missing.");
-   var observation=SubmissionEndurance.Export(Path.Combine(c.RunDirectory,"endurance","observations"),plan,DateTimeOffset.UtcNow);
-   AutomationFiles.Write(Path.Combine(c.RunDirectory,"endurance-evidence.json"),new{EvidenceDirectory="endurance/observations",Observation=observation});
-  }
-  // Enforced inside both execute and recovery, before any signing/provider adapter is selected.
-  if(settings.Mode==SubmissionAutomationMode.Rehearsal && c.Checkpoint.Stage>=SubmissionWorkflowStage.SignReview)
-   return new(SubmissionWorkflowStatus.NeedsInput,ReasonCode:"rehearsal-ready-for-review");
+  VerifyCompletedEvidence(c);
   if(!Enum.IsDefined(role))throw new InvalidDataException("Unknown worker role.");
-  if((c.Checkpoint.Stage>=SubmissionWorkflowStage.SignReview)!=(role==SubmissionAutomationWorkerRole.Protected))
+  if(!AutomationWorker.Owns(c.Checkpoint.Stage,role))
    return new(SubmissionWorkflowStatus.Waiting,ReasonCode:"worker-role-handoff");
   switch(c.Checkpoint.Stage)
   {
@@ -131,22 +135,14 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
     var additional=await AutomationInitialAdditionalTests.Advance(c,settings,runInstalledApp,credential,token);
     return additional;
    case SubmissionWorkflowStage.Endurance: return await Endurance(c,recover,token);
+   case SubmissionWorkflowStage.FinalizeTests:
+    return await AutomationFinalTests.Advance(c,settings,settingsDigest,recover,runInstalledApp,credential,token);
    case SubmissionWorkflowStage.PrepareReview:
-    if(settings.PostEnduranceTests!=null) {
-     var post=await AutomationPostEndurance.Advance(c,settings,recover,runInstalledApp,credential,token);
-     if(post.Status!=SubmissionWorkflowStatus.Completed)return post;
-    }
-    if(settings.ResponseComparison!=null)AutomationResponseComparison.Prepare(c,settings,token);
-    if(settings.Removal!=null) {
-     var removal=await AutomationRemoval.Advance(c,settings,credential,token);
-     if(removal.Status!=SubmissionWorkflowStatus.Completed)return removal;
-    }
-    var reviewResult=await AutomationReview.Advance(c,settings,recover,token);
-    if(reviewResult.Status==SubmissionWorkflowStatus.Completed && settings.OperatorInbox is {} inbox)SubmissionOperatorInboxLifecycle.Close(inbox);
-    return reviewResult;
+    AutomationFinalTests.VerifyRetained(c,settings,settingsDigest);
+    return await AutomationReview.Advance(c,settings,recover,token);
    case SubmissionWorkflowStage.SignReview: return await AutomationSigning.Advance(c,settings,recover,token);
    case SubmissionWorkflowStage.Deliver: return await AutomationDelivery.Advance(c,settings,recover,token);
-   case SubmissionWorkflowStage.Retain: return AutomationDelivery.Retain(c);
+   case SubmissionWorkflowStage.Retain: return AutomationDelivery.Retain(c,settings.Mode);
    default: return new(SubmissionWorkflowStatus.NeedsInput,ReasonCode:"review-delivery-binding-required");
   }
  }
@@ -287,7 +283,13 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
  {
   // Check before resolving deployment resources or opening a processor connection.
   // Existing collections remain observable; never restart or discard one to repair ordering.
-  if(!Directory.Exists(Path.Combine(c.RunDirectory,"endurance"))) {
+  string relativeDirectory=AutomationEnduranceSelection.DirectoryName(c);
+  bool initialGateCompletedNow=false;
+  if(!Directory.Exists(Path.Combine(c.RunDirectory,relativeDirectory))) {
+   if(settings.Removal?.PlacementRequirementId!=null) {
+    var placement=await AutomationPlacement.Advance(c,settings,credential,token);
+    if(placement.Status!=SubmissionWorkflowStatus.Completed)return placement;
+   }
    var gate=AutomationPreEndurance.Check(c,settings,token);
    if(!gate.EvidenceChecksPassed) {
     string reports=Path.Combine(c.RunDirectory,"pre-endurance-attempts");Directory.CreateDirectory(reports);
@@ -295,17 +297,20 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
      new{c.Checkpoint.InputSha256,ObservedUtc=DateTimeOffset.UtcNow,Report=gate});
     return new(SubmissionWorkflowStatus.NeedsInput,ReasonCode:"pre-endurance-evidence-required");
    }
-   AutomationFiles.Write(Path.Combine(c.RunDirectory,"pre-endurance-gate.json"),new{c.Checkpoint.InputSha256,
+   string gatePath=relativeDirectory=="endurance"?Path.Combine(c.RunDirectory,"pre-endurance-gate.json"):
+    Path.Combine(c.RunDirectory,relativeDirectory[..^"/collection".Length],"pre-endurance-gate.json");
+   initialGateCompletedNow=!File.Exists(gatePath);
+   AutomationFiles.Write(gatePath,new{c.Checkpoint.InputSha256,
     SettingsSha256=settingsDigest,PolicySha256=settings.Review!.Policy.Sha256,
     InitialStages=c.Checkpoint.CompletedStages,Report=gate});
   }
-  var worker=AutomationDeploymentEndurance.Resolve(c,settings);
+  var worker=AutomationEnduranceSelection.Resolve(c,settings);
   if(worker==null)return new(SubmissionWorkflowStatus.NeedsInput,ReasonCode:"endurance-plan-required");
   SubmissionEnduranceProcessProbe.Validate(worker.Probe,worker.Plan);
   if(worker.Plan.Identity.PackageSha256!=settings.Release.PackageSha256 || worker.Plan.Identity.SourceCommit!=settings.Release.SourceCommit ||
    worker.Processor.Host!=settings.NUnit.Host || worker.Processor.SshFingerprint!=settings.NUnit.SshFingerprint)
    throw new InvalidDataException("Endurance plan targets another package.");
-  string directory=Path.Combine(c.RunDirectory,"endurance");
+  string directory=Path.Combine(c.RunDirectory,relativeDirectory);
   var savedCredential=credential(worker.Processor.Host);
   return await AutomationEndurance.Advance(c,recover,new AutomationEndurance(directory,worker,savedCredential,async ct=>{
    if(settings.NUnit.ActualDriver==null)return;
@@ -316,6 +321,6 @@ public sealed class SubmissionAutomationStages : ISubmissionWorkflowSteps
      controls.Add(binding.NativeLoadId??binding.DeviceId,settings.ManagedDevices.Children.Single(child=>child.Alias==binding.Alias).RequiredCommands);
    await AutomationDriverReadiness.Check(worker.Processor.Host,settings.NUnit.CertificateSha256,savedCredential,installed,
     Path.Combine(c.RunDirectory,"pre-endurance-readiness"),ct,controls);
-  }),token);
+  }),token,initialGateCompletedNow,relativeDirectory);
  }
 }

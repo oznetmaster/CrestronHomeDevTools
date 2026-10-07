@@ -18,7 +18,7 @@ This mechanism requires an originally passing, fully validated assertion with ex
 2. Prepare a `SubmissionChangeImpactReview` with the original identity, current package SHA-256 and source commit, reviewer, date, and explicit decisions for individual requirement IDs. Each decision needs a rationale and retained evidence references supporting the dependency review.
 3. Add `SubmissionPriorEvidenceRequirements` only to the corresponding requirements in the current policy. It pins the original identity, policy, observations, retained evidence directory and change review. The trusted coordinator must approve these decisions before pinning the updated policy and candidate declaration. The tool does not supply that approval.
 4. Import the reviewed observations, then compose them with the current observations using the [composition API](EvidenceComposition.md). Do not include a second observation for an imported requirement or silently replace an actual failure on the current candidate with an older pass.
-5. Run the ordinary [review stage](ReviewStage.md) against the full policy, package and composed evidence. Missing or incomplete assertions still require testing or explicit [gap declarations](DeclaredGaps.md).
+5. Assess the full policy and composed evidence in phase two. Missing, failed or incomplete required tests prevent finalization; a prior-evidence import covers only its explicitly reviewed subset. Phase three may run the ordinary [review stage](ReviewStage.md) only after the complete phase-two assessment is accepted. Document preparation cannot repair missing test coverage.
 
 The console command uses private paths and never overwrites an existing output:
 
@@ -40,7 +40,7 @@ For the source-preview automatic controller, configure
 [`Review.PriorEvidence`](AutomationWorker.md#reviewed-evidence-from-an-earlier-candidate)
 instead of manually copying evidence after tests finish. The controller retains
 the pinned original inventory during candidate validation and imports it during
-review preparation. The same explicit policy and change-review decisions remain
+phase-two prerequisite and final assessment. The same explicit policy and change-review decisions remain
 required; the worker does not make those judgments itself.
 
 ## A completed endurance run followed by a documentation-only package

@@ -175,6 +175,21 @@ public sealed class SubmissionSetupTests
   // Saved signing material remains encrypted in the store, not exported into this profile.
   Assert.That(File.ReadAllText(profile.SettingsTemplate.Path),Does.Not.Contain("secret"));
  }
+ [Test] public void RehearsalPreparationPreservesExplicitRehearsalBindingsOnly()
+ {
+  var original=RehearsalTemplate();
+  original=original with{Mode=SubmissionAutomationMode.Rehearsal,Protected=original.Protected! with{
+   Environment=SubmissionDeliveryEnvironment.Rehearsal,
+   Delivery=new("fixture@example.org","smtp.example.invalid",587,new('a',64),new('b',64)){RehearsalRecipient="test@example.org"}}};
+  File.WriteAllBytes(Path.Combine(_path,"template.json"),JsonSerializer.SerializeToUtf8Bytes(original,AutomationFiles.Json));
+  var prepared=SubmissionAutomationSetup.PrepareRehearsal(_store,"rehearsal");
+  var profile=AutomationFiles.Read<SubmissionAutomationReleaseProfiles>(prepared.ProfilesPath).Profiles.Single();
+  var settings=AutomationFiles.Read<SubmissionAutomationSettings>(profile.SettingsTemplate.Path);
+  Assert.That(settings.Protected,Is.EqualTo(original.Protected));
+  Assert.That(settings.Protected!.Environment,Is.EqualTo(SubmissionDeliveryEnvironment.Rehearsal));
+  Assert.That(settings.Protected.Delivery!.RehearsalRecipient,Is.EqualTo("test@example.org"));
+  Assert.That(AutomationFiles.Read<SubmissionAutomationRegistry>(prepared.RegistryPath).Entries,Is.Empty);
+ }
  [Test] public void RehearsalPurposeCannotBeConvertedIntoSubmissionPreparation()
  {
   RehearsalTemplate(delivery:false);

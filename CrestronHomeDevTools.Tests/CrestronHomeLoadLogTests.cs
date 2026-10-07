@@ -40,6 +40,23 @@ public sealed class CrestronHomeLoadLogTests
  }
  [Test] public void FutureEventFailsClosed()=>Assert.Throws<InvalidDataException>(()=>
   CrestronHomeLoadLog.Parse(Start+End,new(2026,9,30),Program with {Uptime=TimeSpan.FromSeconds(30),RequestSentUtc=Epoch.AddSeconds(30),ObservedUtc=Epoch.AddMilliseconds(30050)},Epoch.AddSeconds(31)));
+ [Test] public void FreshLoadWaitsForUncertaintyWindowWithoutMovingRecoveryAnchor() {
+  var program=Program with {Uptime=TimeSpan.FromSeconds(30),RequestSentUtc=Epoch.AddSeconds(30),ObservedUtc=Epoch.AddMilliseconds(30050)};
+  Assert.That(CrestronHomeLoadLog.Parse(Start+End,new(2026,9,30),program,Epoch.AddSeconds(108)),Is.Null);
+  var later=CrestronHomeLoadLog.Parse(Start+End,new(2026,9,30),program,Epoch.AddSeconds(110))!;
+  Assert.That(later.EarliestLoadedUtc,Is.EqualTo(Epoch.AddSeconds(107).AddMilliseconds(-1)));
+  Assert.That(later.LatestLoadedUtc,Is.EqualTo(Epoch.AddMilliseconds(109051)));
+ }
+ [Test] public void OctoberStartupTraceAtFirstLiveReadWaitsRatherThanFailing() {
+  var program=new ProcessorProgramUptimeSnapshot(Program.Program,TimeSpan.FromMilliseconds(32596),
+   "Friday, 02 October 2026 at 11:52:49",DateTimeOffset.Parse("2026-10-02T10:53:23.0728494Z"),
+   DateTimeOffset.Parse("2026-10-02T10:53:23.1337093Z"),"retained timing replay");
+  var log=Line("11:52:51","ControlSystem: Starting Crestron Home")+
+   Line("11:54:38",@"System\Runner: * Loaded System: 106757 ms (total)");
+  Assert.That(CrestronHomeLoadLog.Parse(log,new(2026,10,2),program,DateTimeOffset.Parse("2026-10-02T10:54:39Z")),Is.Null);
+  var result=CrestronHomeLoadLog.Parse(log,new(2026,10,2),program,DateTimeOffset.Parse("2026-10-02T10:54:41Z"))!;
+  Assert.That(result.LatestLoadedUtc,Is.EqualTo(DateTimeOffset.Parse("2026-10-02T10:54:40.5387093Z")));
+ }
  [Test] public void DifferentProgramFailsClosed()=>Assert.Throws<InvalidDataException>(()=>Parse(Start+End,
   Program with {Program=new("/simpl/app01","Other","Other.dll")}));
  [Test] public void WrongDateFailsClosed()=>Assert.Throws<InvalidDataException>(()=>

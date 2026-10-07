@@ -149,7 +149,7 @@ class ReviewStageTests(unittest.TestCase):
         def mutate(arguments, timeout):
             result = original(arguments, timeout)
             if "submission-bundle-create" in arguments:
-                (android.root / "check/screen.png").write_bytes(b"Changed capture after form")
+                (self.output.with_name(self.output.name + ".inputs") / "android" / android.run / "check/screen.png").write_bytes(b"Changed capture after form")
             return result
 
         with patch.object(stage, "run_process", mutate), self.assertRaises(ValueError):
@@ -164,7 +164,7 @@ class ReviewStageTests(unittest.TestCase):
         def mutate(arguments, timeout):
             result = original(arguments, timeout)
             if "submission-bundle-create" in arguments:
-                Path(options["android_pins"]).write_text("{}")
+                (self.output.with_name(self.output.name + ".inputs") / "documents/android-pins.json").write_text("{}")
             return result
 
         with patch.object(stage, "run_process", mutate), self.assertRaisesRegex(ValueError, "pinned digest"):
@@ -266,7 +266,7 @@ class ReviewStageTests(unittest.TestCase):
 
         def change_before_bundle(arguments, timeout):
             if "submission-bundle-create" in arguments:
-                (self.fixture.evidence / "synthetic.txt").write_text("changed after form validation")
+                (self.output.with_name(self.output.name + ".inputs") / "evidence/synthetic.txt").write_text("changed after form validation")
             return original(arguments, timeout)
 
         with patch.object(stage, "run_process", change_before_bundle):

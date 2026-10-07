@@ -273,6 +273,75 @@ public sealed class SubmissionSmtpMailerTests
 		Assert.That ((transport.Uploads, session.Sends), Is.EqualTo ((1, 1)));
 		}
 
+	[TestCase (false)]
+	[TestCase (true)]
+	public async Task RehearsalSmtpUsesExactArtifactsAndNeverRepeatsCompletedOrUncertainMail (bool lostAcknowledgement)
+		{
+		byte[] package = "synthetic rehearsal package"u8.ToArray ();
+		_plan = _plan with { Environment = SubmissionDeliveryEnvironment.Rehearsal, SendRehearsalEmail = true, PackageSha256 = Hash (package) };
+		string packagePath = Path.Combine (_root, _plan.PackageFileName), formPath = Path.Combine (_root, _plan.SignedFormFileName);
+		File.WriteAllBytes (packagePath, package);
+		File.WriteAllBytes (formPath, Form);
+		string journal = Directory.CreateDirectory (Path.Combine (_root, "rehearsal-journal")).FullName;
+		string archive = Directory.CreateDirectory (Path.Combine (_root, "rehearsal-archive")).FullName;
+		var session = new Session { Failure = lostAcknowledgement ? "send" : "" };
+		var transport = new SubmissionRehearsalMailTransport (archive, _plan, Create (session));
+		Task<SubmissionDeliveryReceipt> Execute () => SubmissionDelivery.ExecuteAuthorizedAsync (journal, _plan, packagePath, formPath,
+			transport, (_, _) => Task.FromResult (new SubmissionDeliveryAuthorization (SubmissionDelivery.PlanDigest (_plan), DateTimeOffset.UtcNow.AddMinutes (2))));
+		if (lostAcknowledgement)
+			{
+			await Assert.ThrowsAsync<InvalidDataException> (async () => await Execute ());
+			session.Failure = "";
+			await Assert.ThrowsAsync<InvalidOperationException> (async () => await Execute ());
+			}
+		else
+			{
+			await Execute ();
+			await Execute ();
+			using var sent = MimeMessage.Load (new MemoryStream (session.SentBytes!));
+			Assert.That (sent.Subject, Is.EqualTo ("[REHEARSAL] Driver Submission Package"));
+			Assert.That (sent.To.Mailboxes.Single ().Address, Is.EqualTo (_plan.Recipient));
+			Assert.That (sent.Cc.Concat (sent.Bcc), Is.Empty);
+			Assert.That (sent.TextBody, Does.Contain ("placeholder URL is not a download link"));
+			var attachments = sent.Attachments.Cast<MimePart> ().ToArray ();
+			Assert.That (attachments.Length, Is.EqualTo (2));
+			foreach (var attachment in attachments)
+				{
+				using var copy = new MemoryStream ();
+				attachment.Content!.DecodeTo (copy);
+				Assert.That (copy.ToArray (), Is.EqualTo (attachment.FileName == _plan.PackageFileName ? package : Form));
+				}
+			}
+		var receipt = SubmissionDelivery.Read (journal, _plan, SubmissionDeliveryEnvironment.Rehearsal)!;
+		Assert.That (receipt.State, Is.EqualTo (lostAcknowledgement ? SubmissionDeliveryState.OutcomeUnknown : SubmissionDeliveryState.Submitted));
+		Assert.That (session.Sends, Is.EqualTo (1));
+		Assert.That (File.ReadAllBytes (Path.Combine (archive, "package.pkg")), Is.EqualTo (package));
+		Assert.That (File.Exists (Path.Combine (archive, "mail-receipt.json")), Is.False, "Real mail must not create a local-only mail receipt.");
+		}
+
+	[TestCase ("drivers@crestron.com")]
+	[TestCase ("DRIVERS@CRESTRON.COM")]
+	[TestCase ("test@sub.crestron.com")]
+	public async Task RehearsalMailCannotSendToCrestron (string recipient)
+		{
+		_plan = _plan with { Environment = SubmissionDeliveryEnvironment.Rehearsal, SendRehearsalEmail = true, Recipient = recipient };
+		var session = new Session ();
+		await Assert.ThrowsAsync<ArgumentException> (() => Create (session).SendRehearsalAsync (_plan, Upload,
+			new MemoryStream (), new MemoryStream (Form), "unused"));
+		Assert.That (session.Connects, Is.Zero);
+		}
+
+	[Test]
+	public void ExistingProductionPlanDigestDoesNotIncludeDefaultEnvironment ()
+		{
+		var oldShape = new { _plan.CandidateSha256, _plan.ReviewSha256, _plan.AuthorizationSha256, _plan.PackageSha256,
+			_plan.SignedFormSha256, _plan.PackageFileName, _plan.SignedFormFileName, _plan.Sender, _plan.Recipient };
+		var json = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = true };
+		Assert.That (SubmissionDelivery.PlanDigest (_plan), Is.EqualTo (Hash (JsonSerializer.SerializeToUtf8Bytes (oldShape, json))));
+		Assert.That (SubmissionDelivery.PlanDigest (_plan with { Environment = SubmissionDeliveryEnvironment.Rehearsal }),
+			Is.Not.EqualTo (SubmissionDelivery.PlanDigest (_plan)));
+		}
+
 	private sealed class Transport (SubmissionSmtpMailer mailer) : ISubmissionDeliveryTransport, ISubmissionReviewDeliveryTransport
 		{
 		public int Uploads;

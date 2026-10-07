@@ -81,7 +81,7 @@ internal static class AutomationPreparationRecovery
    throw new InvalidDataException("Incomplete recovery intent; inspect without retrying.");
   Directory.CreateDirectory(repair);
   var tools=new[]{typeof(AutomationPreparationRecovery).Assembly,typeof(InstalledDriverTests).Assembly,typeof(DriverPayloadInspection).Assembly}
-   .ToDictionary(a=>a.GetName().Name!,a=>AutomationFiles.Hash(a.Location));
+   .ToDictionary(a=>a.GetName().Name!,a=>AutomationFiles.AssemblyHash(a));
   AutomationFiles.Write(Path.Combine(repair,"repair.json"),new Repair(context.Checkpoint.InputSha256,expectedEvidence,plan,corrected,tools));
   AutomationFiles.Write(Path.Combine(repair,"original-evidence.json"),OriginalInventory(root));
   AutomationAppFixture.Check(repair,settings,true);

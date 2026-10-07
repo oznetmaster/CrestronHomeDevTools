@@ -22,9 +22,11 @@ A suitable setup assignment is:
 > inputs. Use one hour for rehearsal endurance after every applicable initial
 > test has passed. Send physical-action prompts through the configured desktop
 > listener, not through an assistant. Preserve failures and restore test devices.
-> Stop at unsigned review. Once the rehearsal succeeds, prepare a separate
-> Submission-purpose run; obtain the required exact-artifact signing and delivery
-> authorization before those operations. Do not resend an existing submission.
+> Use the independently configured rehearsal signing and test-mail destination
+> with exact-artifact authorization, then verify delivery and final retention.
+> See [rehearsal delivery](RehearsalDelivery.md) for current-source support. A later
+> real submission requires a separate Submission-purpose run and its own exact
+> authorization. Do not resend an existing submission.
 
 The repository URL is the starting input, not a promise of zero setup. If a driver
 does not already have suitable C# test fixtures, evidence producers or saved
@@ -209,6 +211,16 @@ without repeated approval requests or attempts to bypass it. Exact-artifact
 signing and delivery authorization requirements remain separate from installation
 permissions.
 
+Validate the actual selected tool binaries under that execution account, using
+the same build and test-discovery route the worker will use. A build that succeeds
+or a test command that exits successfully with no selected cases is insufficient.
+Check the discovered test identities and executed results. Project-level tool
+bindings must agree with the prepared profile; a command-line override used only
+in a diagnostic does not validate the worker's normal discovery path. Preserve
+the original error and exact binary identity if Windows rejects a build. Do not
+prescribe Developer Mode or a security-policy change merely because a development
+build failed to load.
+
 ## 2. Make the work resumable before running tests
 
 Create a private `SUBMISSION-STATE.md` and an evidence directory. Keep these current at every completed phase and before waiting. Record no secret values.
@@ -282,6 +294,29 @@ Test settings and feedback using reversible changes and verified restoration. Wh
 
 Coordinate physical/network interruptions directly with the developer only after recording is ready. Verify the intended connectivity change actually happened. A router setting named Block is not proof that local traffic stopped. Do not equate a network outage with physical power loss. Retain the actual scope and limitations.
 
+Plan power and network interruptions as separate test invocations with separate
+readiness, action prompts and results. Sharing a processor does not combine the
+tests. Each prompt must name exactly the equipment its evidence will assess,
+including what must remain connected. Retain valid earlier device-power evidence
+through the documented review procedure instead of silently adding another
+device interruption to a processor test.
+
+Establish the physical topology during setup. Unplugging a PoE cable removes both
+power and network, so it cannot establish network-only recovery with uninterrupted
+processor power. Use another authorized topology or processor for that scope when
+available. If the required isolation is impossible, retain that limitation and
+resolve the coverage decision before starting; do not call the combined outage a
+network-only pass or interrupt unrelated devices to obtain one.
+
+Bind the recovery clock to the criterion before requesting an outage. A reconnect
+prompt is earlier than physical restoration, while an operator's Done response
+can be later. Neither alone establishes the exact restoration time. Use suitable
+recorded observations and conservative bounds; retain uncertainty when the
+available observations cannot prove the deadline. Do not extend a deadline or
+reinterpret an earlier failure to compensate for a recording defect. Additional
+instrumentation must have its preparation, cancellation and owned cleanup tested
+before another human action is requested.
+
 Do not demand identical values from independently sampled changing telemetry. Define justified synchronization/tolerance or validity criteria before execution, retain source timestamps and raw values, and distinguish a test defect from a driver defect. Never change criteria retroactively to turn an existing failed sample into a pass.
 
 Clean up temporary test instances and CI-imported test packages through the public workflow after successful use, respecting existing ownership and explicit manual deployments. Retain diagnostics when an operation fails. Verify cleanup; do not delete unrelated catalog items or installed devices.
@@ -353,3 +388,8 @@ If a provider outcome is uncertain, reconcile the existing [delivery journal](ht
 - If there is only an external wait, save the state and next action. Do not spend repeated assistant turns restating healthy status. Do not mark the submission completed or stop the collector because the assistant is waiting.
 
 At the end, retain enough private evidence for another person to verify the candidate, performed tests, qualifications, authorization and delivery independently. Leave public driver documentation free of pending-submission claims. Record any actual Crestron acceptance separately if and when it arrives.
+
+
+### Recovery execution and retained successes (unreleased tooling)
+
+Before another physical retry, follow [recovery observation and continuation](RecoveryExecution.md). Clock collection must not delay functional probes. Preserve a successful requirement scope across an unrelated fixture repair using its verified original receipt; do not replay all physical actions because a later scope failed. Distinguish measurement inconclusive, test-tool failure and failed behaviour, and verify restoration separately. These capabilities require the updated tooling build and automatic validation; do not assume an earlier published version contains them.

@@ -20,6 +20,29 @@ persistent manual readiness and unsigned review remains unproven. It is under
 hardware validation. The earlier rehearsal below proves its stated handoffs only;
 it must not be presented as validation of these later gates or of another driver.
 
+### Unreleased recovery-timing work, 2 October 2026
+
+The working implementation adds an optional processor-local Ethernet carrier
+recorder for network-only recovery timing. Its real prepare/arm/read/stop/remove
+lifecycle has been exercised on a processor without an outage. A separate real
+installed-driver diagnostic prepared the recorder under the enclosing workflow's
+control reservation, withdrew its private readiness request, and verified app
+restoration, recorder instance/storage removal, candidate verification and release
+of both reservations. This cancellation is an expected failed test invocation
+inside a passing cleanup diagnostic, not a passing outage test.
+
+Automatic checks cover exact-owner control-guard handling and reject another
+owner or changed marker. Connected-only samples cannot prove network recovery.
+A subsequent manual Ethernet-only test retained a complete carrier trace and
+passed the unchanged recovery deadline, including configuration, control/app
+feedback, original-state restoration and removal of the recorder. The worker
+then advanced automatically to the separate processor-power test. This proves
+that network scope; the complete sequence through the separate power check,
+endurance, unsigned review and final cleanup remains under validation.
+These changes are not a published capability and do not alter the scope claimed
+for the released versions above. A repaired continuation also does not establish
+an intervention-free run from a fresh GitHub release event.
+
 ## Release automation validation
 
 The complete local Release check passed all 1,483 discovered .NET tests with
@@ -56,6 +79,30 @@ Two real driver packets have now reached verified upload and SMTP acceptance thr
 A source-preview controller rehearsal at commit `dad5536b8e690d83335aeab928b6705d479ea6b1` reached the unsigned review boundary without intervention after startup. Public GitHub intake registered an existing published release; the Windows service then completed candidate validation, Windows and processor tests, live-device checks, fresh release-package deployment, Android observations, temporary-test cleanup, shortened endurance collection, evidence export, raw Android audit and PDF preparation. The collector retained 11 passing samples over 62 minutes 45 seconds. Its original 24-hour review policy remained unchanged, and the review disclosed the shortened interval and other retained qualifications. This proves the configured rehearsal handoffs, not a fresh 24-hour test or a new publication event followed by real submission.
 
 The same tool revision passed 1,257 local regression tests and 22 bundled acceptance checks, including coordinator-to-Android-audit-to-PDF integration and separately simulated signing/upload/email/retention. Those protected checks used synthetic authority and test providers; no rehearsal packet was signed or delivered. One-time equipment/profile preparation occurred before startup and is not claimed to be automatic clean-machine setup.
+
+## Unreleased recovery observation redesign
+
+The owned recovery session, schema-3 observation windows and explicit retained-success
+continuation passed focused Windows validation under the normal worker account:
+309 DevTools checks and 169 fixture checks, followed by a 235-check worker/app
+integration scope and the same 169 fixture checks. These scopes overlap; their
+counts must not be added as distinct coverage. None were skipped.
+
+The worker integration uses the actual registry watcher and durable controller with
+synthetic domain stages. It covers delayed clock collection, an endurance wait
+resumed with the same operation ID, unsigned review, terminal notification and lock
+release without replaying stages. Its review output is synthetic JSON: it does not
+prove real release discovery, a live endurance interval or PDF production.
+
+A separate live preparation/withdrawal diagnostic used the real installed-app
+runner and fixture. It reached Ready in a private diagnostic inbox, withdrew that
+request, removed its temporary observation driver and storage, restored app state,
+verified the candidate and released reservations. No interruption occurred and no
+submission test pass is claimed from that expected cancelled invocation.
+
+The repaired Kasa power scope has been prepared against retained, hash-verified
+network evidence. Live recovery timing and the remaining full rehearsal are still
+required. See [recovery observation and continuation](RecoveryExecution.md).
 
 ## Released capabilities
 

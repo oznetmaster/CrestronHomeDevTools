@@ -72,4 +72,9 @@ public sealed class AutomationEnduranceTests
   Assert.That((await AutomationEndurance.Advance(context,true,monitor,default)).Status,Is.EqualTo(SubmissionWorkflowStatus.OutcomeUnknown));
   Assert.That(monitor.Starts,Is.Zero);Assert.That(monitor.Collects,Is.Zero);
  }
+ [Test]public async Task FirstCompletedPrerequisiteGateAllowsPreviouslyUnstartedStageToContinue() {
+  Assert.That((await AutomationEndurance.Advance(context,true,monitor,default,initialGateCompletedNow:true)).Status,Is.EqualTo(SubmissionWorkflowStatus.Waiting));
+  Assert.That((await AutomationEndurance.Advance(context,true,monitor,default)).Status,Is.EqualTo(SubmissionWorkflowStatus.Waiting));
+  Assert.That(monitor.Starts,Is.EqualTo(1));Assert.That(monitor.Collects,Is.EqualTo(2));
+ }
 }

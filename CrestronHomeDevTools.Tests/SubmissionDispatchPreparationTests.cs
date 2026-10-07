@@ -139,4 +139,75 @@ public sealed class SubmissionDispatchPreparationTests
 		File.WriteAllText (_settings.PreparationSettingsPath, preparation.ToJsonString ());
 		await Assert.ThrowsAsync<InvalidDataException> (() => Prepare ());
 		}
+
+	private SubmissionRehearsalPreparationSettings MockSettings () => new (1, SubmissionDeliveryEnvironment.Rehearsal,
+		_settings.PreparedDirectory, _settings.PreparationSettingsPath, _settings.DeliveryReviewSha256,
+		_settings.JournalDirectory, _settings.AttemptsDirectory,
+		Directory.CreateDirectory (Path.Combine (_root, "mock")).FullName, _settings.RevalidationTimeoutSeconds);
+
+	private void SelectRehearsal (bool sendEmail = false)
+		{
+		string planPath = Path.Combine (_settings.PreparedDirectory, "delivery-plan.json");
+		var plan = JsonNode.Parse (File.ReadAllText (planPath))!;
+		plan["environment"] = "Rehearsal";
+		plan["sendRehearsalEmail"] = sendEmail;
+		plan["recipient"] = "test@example.test";
+		File.WriteAllText (planPath, plan.ToJsonString ());
+		var receipt = JsonNode.Parse (File.ReadAllText (_receipt))!;
+		receipt["environment"] = "Rehearsal";
+		receipt["planFileSha256"] = Hash (planPath);
+		File.WriteAllText (_receipt, receipt.ToJsonString ());
+		var preparation = JsonNode.Parse (File.ReadAllText (_settings.PreparationSettingsPath))!;
+		preparation["environment"] = "Rehearsal";
+		preparation["sendRehearsalEmail"] = sendEmail;
+		preparation["rehearsalRecipient"] = "test@example.test";
+		File.WriteAllText (_settings.PreparationSettingsPath, preparation.ToJsonString ());
+		RepinReceipt ();
+		}
+
+	[TestCase (false)]
+	[TestCase (true)]
+	public async Task RehearsalPreparationUsesSamePlanAndRevalidationInventoryWithoutProviderCredentials (bool sendEmail)
+		{
+		var production = await Prepare ();
+		SelectRehearsal (sendEmail);
+		var input = MockSettings () with { Mail = sendEmail ? new (_settings.MailReceiptDirectory, "smtp.example.test", 587, 30) : null };
+		var mock = await SubmissionDispatchPreparationCommand.PrepareRehearsalAsync (input, _console, _output, default);
+		Assert.That (mock.Environment, Is.EqualTo (SubmissionDeliveryEnvironment.Rehearsal));
+		Assert.That (mock.Plan, Is.EqualTo (production.Plan with { Environment = SubmissionDeliveryEnvironment.Rehearsal, Recipient = "test@example.test", SendRehearsalEmail = sendEmail }));
+		Assert.That (mock.PackagePath, Is.EqualTo (production.PackagePath));
+		Assert.That (mock.SignedFormPath, Is.EqualTo (production.SignedFormPath));
+		Assert.That (mock.BundledRevalidation!.ConsoleFiles, Is.EqualTo (production.BundledRevalidation!.ConsoleFiles));
+		Assert.That (mock.BundledRevalidation.PreparationSettingsSha256, Is.EqualTo (Hash (_settings.PreparationSettingsPath)));
+		Assert.That (mock.Revalidation, Is.Null);
+		Assert.That (File.Exists (_output), Is.False);
+		}
+
+	[TestCase ("expired")]
+	[TestCase ("changed-plan")]
+	[TestCase ("incomplete")]
+	[TestCase ("missing-runtime")]
+	[TestCase ("review")]
+	[TestCase ("journal")]
+	[TestCase ("production")]
+	public async Task RehearsalPreparationPreservesProductionArtifactAndStorageRequirements (string scenario)
+		{
+		SelectRehearsal ();
+		if (scenario == "expired")
+			{
+			var receipt = JsonNode.Parse (File.ReadAllText (_receipt))!;
+			receipt["expiresUtc"] = "2000-01-01T00:00:00Z";
+			File.WriteAllText (_receipt, receipt.ToJsonString ());
+			RepinReceipt ();
+			}
+		if (scenario == "changed-plan") File.AppendAllText (Path.Combine (_settings.PreparedDirectory, "delivery-plan.json"), " ");
+		if (scenario == "incomplete") File.WriteAllText (Path.Combine (_settings.PreparedDirectory, "COMPLETE"), "wrong");
+		if (scenario == "missing-runtime") File.Delete (Path.Combine (_console, "CrestronHomeDevTools.Console.exe"));
+		var settings = MockSettings ();
+		if (scenario == "review") settings = settings with { DestinationDirectory = Path.Combine (_root, "review") };
+		if (scenario == "journal") settings = settings with { DestinationDirectory = settings.JournalDirectory };
+		if (scenario == "production") settings = settings with { Environment = SubmissionDeliveryEnvironment.Production };
+		await Assert.ThrowsAsync<InvalidDataException> (() => SubmissionDispatchPreparationCommand.PrepareRehearsalAsync (settings, _console, _output, default));
+		Assert.That (File.Exists (_output), Is.False);
+		}
 	}

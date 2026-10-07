@@ -8,4 +8,5 @@
   <Project Path="CrestronHomeDevTools.Setup/CrestronHomeDevTools.Setup.csproj" />
   <Project Path="samples/WeatherLinkEnduranceProducer/WeatherLinkEnduranceProducer.csproj" />
   <Project Path="samples/WeatherLinkAndroidTests/WeatherLinkAndroidTests.csproj" />
+  <Project Path="CrestronHomeDevTools.SubmissionTests/CrestronHomeDevTools.SubmissionTests.csproj" />
 </Solution>

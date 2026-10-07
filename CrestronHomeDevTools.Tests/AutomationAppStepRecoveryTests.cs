@@ -41,6 +41,34 @@ public sealed partial class AutomationInstalledAppTests
   Assert.That((await Replace(request,Failed)).Status,Is.EqualTo(SubmissionWorkflowStatus.NeedsInput));Assert.That(calls,Is.EqualTo(1));
   Assert.That(File.Exists(Path.Combine(context.RunDirectory,"installed-app-tests.json")),Is.False);
  }
+ [Test] public async Task UnsplitPhaseResumesAcceptedReplacementWithoutRepeatingOriginalFailure() {
+  var request=await FailedTest();
+  var replacement=await Replace(request);
+  Assert.That((await Advance(true)).Receipt,Is.EqualTo(replacement.Receipt));
+  Assert.That((await Advance()).Status,Is.EqualTo(SubmissionWorkflowStatus.Completed));
+  Assert.That(calls,Is.EqualTo(1));
+  Assert.That(AutomationAppStepRecovery.Failure(context.RunDirectory,request.FailedOutcome).Passed,Is.False);
+  File.AppendAllText(Path.Combine(context.RunDirectory,"installed-app","failure.txt"),"tampered");
+  await Assert.ThrowsAsync<InvalidDataException>(async()=>await Advance(true));
+ }
+ [Test] public async Task UnsplitPhaseSelectionUsesItsOriginalRootAndRejectsOtherIndices() {
+  await FailedTest();
+  var opened=SubmissionWorkflow.Open(settings.PrivateRoot,settings.Release);
+  var state=context.Checkpoint with{Status=SubmissionWorkflowStatus.Failed,InputSha256=opened.InputSha256};
+  string run=Path.Combine(settings.PrivateRoot,SubmissionWorkflow.RunKey(settings.Release));
+  Directory.CreateDirectory(run);
+  foreach(var stage in new[]{SubmissionWorkflowStage.ValidateCandidate,SubmissionWorkflowStage.WindowsTests,SubmissionWorkflowStage.ProcessorTests}) {
+   string name=stage+".json";File.WriteAllText(Path.Combine(run,name),"synthetic retained stage");
+   state.CompletedStages.Add(stage,new(name,AutomationFiles.Hash(Path.Combine(run,name))));
+  }
+  File.WriteAllText(Path.Combine(run,"state.json"),JsonSerializer.Serialize(state,new JsonSerializerOptions {
+   PropertyNamingPolicy=JsonNamingPolicy.CamelCase,Converters={new System.Text.Json.Serialization.JsonStringEnumConverter()}}));
+  AutomationFiles.Write(Path.Combine(run,"target-plan.json"),settings.InstalledAppTests);
+  var selected=AutomationAppStepRecovery.Select(new(settings,new('a',64)),"main",0);
+  Assert.That(selected.Step,Is.EqualTo(run));
+  Assert.That(JsonSerializer.Serialize(selected.Settings.InstalledAppTests),Is.EqualTo(JsonSerializer.Serialize(settings.InstalledAppTests)));
+  Assert.Throws<InvalidDataException>(()=>AutomationAppStepRecovery.Select(new(settings,new('a',64)),"main",1));
+ }
  [Test] public async Task InterruptedReplacementCannotReplay() {
   var request=await FailedTest();
   await Assert.ThrowsAsync<IOException>(async()=>await Replace(request,(p,c,f,t)=>{calls++;throw new IOException("synthetic interruption");}));

@@ -21,8 +21,8 @@ public static class SubmissionOperatorInboxLifecycle
  }
  public static void Close(SubmissionOperatorInbox inbox) {
   if(IsClosed(inbox))return;
-  // Never dismiss an action still visible to the operator. A successful review stage is
-  // separately required by the workflow; this is not an evidence-acceptance operation.
+  // Never dismiss an action still visible to the operator. Test completion and later
+  // review are independently verified; this is not an evidence-acceptance operation.
   if(SubmissionOperatorStep.Pending(inbox.Directory,inbox.RunKey).Count!=0)
    throw new InvalidOperationException("Cannot close an inbox with pending physical actions.");
   string path=PathFor(inbox),temporary=path+"."+Guid.NewGuid().ToString("N")+".tmp";

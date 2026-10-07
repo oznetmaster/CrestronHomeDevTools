@@ -25,6 +25,37 @@ public sealed class AutomationProtectedWorkerTests
    new WorkflowPlan{Host="unused",CertificateSha256=new('e',64),SshFingerprint="unused",SourceRoots=[runs],LocalTests=[],TestPackage=new("unused.csproj","unused.pkg","fixture",1),ProcessorSuites=[]},
    Mode:SubmissionAutomationMode.Submit,Review:review,Protected:plan with{CredentialBindings=Path.Combine(runs,"attacker-bindings.json")});
  }
+ private SubmissionAutomationProtectedPlan RehearsalPlan()=>installed.Plan with {
+  Environment=SubmissionDeliveryEnvironment.Rehearsal,CredentialBindings=Path.Combine(root,"rehearsal-bindings.json"),
+  Delivery=new("fixture@example.org","smtp.example.invalid",587,new('a',64),new('b',64)){RehearsalRecipient="test@example.org"}};
+ [Test]public void RehearsalCannotFallBackToProductionAuthority() {
+  var trusted=AutomationProtectedWorker.Load(path,AutomationFiles.Hash(path));
+  Assert.Throws<InvalidDataException>(()=>trusted.Bind(supplied with{Mode=SubmissionAutomationMode.Rehearsal}));
+ }
+ [Test]public void RehearsalUsesOnlyItsInstalledAuthorityAndRecipient() {
+  installed=installed with{RehearsalPlan=RehearsalPlan()};File.Delete(path);AutomationFiles.Write(path,installed);
+  var trusted=AutomationProtectedWorker.Load(path,AutomationFiles.Hash(path));
+  var bound=trusted.Bind(supplied with{Mode=SubmissionAutomationMode.Rehearsal});
+  Assert.That(bound.Protected!.CredentialBindings,Is.EqualTo(installed.RehearsalPlan!.CredentialBindings));
+  Assert.That(bound.Protected.Environment,Is.EqualTo(SubmissionDeliveryEnvironment.Rehearsal));
+  Assert.That(bound.Protected.Delivery!.RehearsalRecipient,Is.EqualTo("test@example.org"));
+  Assert.That(trusted.Bind(supplied).Protected!.CredentialBindings,Is.EqualTo(installed.Plan.CredentialBindings));
+ }
+ [Test]public void RehearsalAuthorityInsideEvidenceRootIsRejected() {
+  installed=installed with{RehearsalPlan=RehearsalPlan() with{CredentialBindings=Path.Combine(runs,"untrusted.json")}};
+  File.Delete(path);AutomationFiles.Write(path,installed);
+  Assert.Throws<InvalidDataException>(()=>AutomationProtectedWorker.Load(path,AutomationFiles.Hash(path)));
+ }
+ [TestCase("drivers@crestron.com")][TestCase("someone@team.crestron.com")][TestCase("Name <test@example.org>")][TestCase("")]
+ public void RehearsalRejectsVendorOrAmbiguousRecipients(string recipient) {
+  var plan=RehearsalPlan();plan=plan with{Delivery=plan.Delivery! with{RehearsalRecipient=recipient}};
+  Assert.Throws<InvalidDataException>(()=>AutomationDelivery.ValidateMode(supplied with{Mode=SubmissionAutomationMode.Rehearsal,Protected=plan}));
+ }
+ [Test]public void ProductionCannotConsumeRehearsalBindingsOrRecipient() {
+  var plan=RehearsalPlan();
+  Assert.Throws<InvalidDataException>(()=>AutomationDelivery.ValidateMode(supplied with{Protected=plan}));
+  Assert.Throws<InvalidDataException>(()=>AutomationDelivery.ValidateMode(supplied with{Protected=plan with{Environment=SubmissionDeliveryEnvironment.Production}}));
+ }
  [TearDown]public void Cleanup()=>Directory.Delete(root,true);
  [Test]public void RunCannotSelectProtectedExecutablesCredentialsOrApprovalLocations() {
   var trusted=AutomationProtectedWorker.Load(path,AutomationFiles.Hash(path));var bound=trusted.Bind(supplied);

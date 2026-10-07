@@ -14,10 +14,12 @@ import test_prepare_delivery as preparation_tests
 
 
 class DeliveryRevalidationTests(unittest.TestCase):
-    def setUp(self):
+    def setUp(self, rehearsal=False):
         self.fixture = f = preparation_tests.DeliveryStageTests()
         f.setUp()
         self.addCleanup(f.doCleanups)
+        if rehearsal:
+            f.select_rehearsal()
         self.prepared_receipt = f.run_stage()
         self.prepared = f.output
         self.pin = stage.sha((f.output / "delivery-review-receipt.json").read_bytes())
@@ -25,7 +27,20 @@ class DeliveryRevalidationTests(unittest.TestCase):
         self.settings = {"schemaVersion": 1, "preparedDirectory": str(self.prepared),
                          "preparationSettings": str(f.settings_path), "output": str(self.output)}
         self.settings_path = f.root / "private-revalidation-settings.json"
-        stage.write_json(self.settings_path, self.settings)
+        self.settings_path.write_text(json.dumps(self.settings), encoding="utf-8")
+
+    def test_rehearsal_revalidates_exact_environment_and_rejects_mode_change(self):
+        self.setUp(rehearsal=True)
+        result = self.run_stage()
+        self.assertEqual(result["plan"]["environment"], "Rehearsal")
+        self.assertEqual(result["plan"]["recipient"], "rehearsal@example.org")
+        self.settings["output"] = str(self.fixture.root / "revalidation-mode-change")
+        self.settings_path.write_text(json.dumps(self.settings), encoding="utf-8")
+        self.fixture.settings["environment"] = "Production"
+        del self.fixture.settings["rehearsalRecipient"]
+        self.fixture.settings_path.write_text(json.dumps(self.fixture.settings), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "environment"):
+            self.run_stage()
 
     def run_stage(self):
         return stage.revalidate(self.settings_path, self.pin, self.fixture.pin, self.fixture.authorization_pin)

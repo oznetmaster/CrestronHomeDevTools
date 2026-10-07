@@ -9,6 +9,12 @@ preserve the original operation for recovery. A live watcher process alone does
 not mean its submission is progressing. Inspect the reported stage and retained
 input/process diagnostics; do not reset the run or mark it passed.
 
+A source-level [native NUnit suite](NativeNUnitSuite.md) now exposes the same
+phase-two stage implementations to the IDE and CI, with deliberately selected
+endurance. Use a dedicated test project and one run owner. The existing scheduled
+worker is not automatically migrated to this entry point. Complete requirement
+coverage and the two endurance identities remain separate acceptance work.
+
 Before starting, configure [operator alerts on the controlling computer](OperatorSteps.md#worker-and-controlling-computer),
 and verify request/response delivery across its authenticated private share. A
 headless worker's local action window is not sufficient. No AI session should be
@@ -20,6 +26,27 @@ Create release checkouts under the account that will execute the worker. During
 preflight, verify Git source identity and encrypted credential access under that
 same account. Checkouts created by an administrator can be rejected by Git when
 the service subsequently reads them; do not bypass this with a global trust rule.
+
+## Test completion and document preparation
+
+New source runs use checkpoint schema 2 and an explicit sequence:
+initial tests, endurance, FinalizeTests, PrepareReview, protected signing/delivery,
+and retention. FinalizeTests runs configured post-endurance assertions, response
+comparison and removal checks, verifies their original receipts, and closes the
+operator inbox. Tests-finalized.json binds those receipts, the preceding completed
+stages and frozen settings; it is not a replacement test-result format.
+
+PrepareReview verifies this boundary and only prepares documents. It cannot start
+missing tests, remove a driver or turn a failed final check into a passing result.
+An interrupted final-test stage retains its operation identity; completed producer
+results and inbox closeout can be recovered without replaying tests.
+
+Schema-1 checkpoints remain readable, with their original ordering and evidence.
+Keep those runs on their pinned worker. The new worker refuses to advance them;
+it does not insert a new stage, renumber receipts or replay a physical action.
+Verified import of older evidence into the new entry point remains separate work.
+The full IDE/CI suite integration, including Explicit endurance selection, is not
+established by this boundary change.
 
 ## Build and run
 
@@ -95,8 +122,8 @@ CrestronHomeDevTools.Automation.exe --check-settings C:/CI/Private/automation.js
 ```
 
 This read-only command verifies the saved settings digest and reports missing Windows,
-processor, app, endurance and review bindings. Submit additionally requires protected
-signing/delivery configuration; rehearsal does not. It neither opens a run nor starts
+processor, app, endurance and review bindings. Both modes require protected
+signing/delivery configuration; rehearsal additionally requires its explicit test recipient. It neither opens a run nor starts
 tests, reads secret values or contacts equipment/providers. Exit `0` means all stage
 bindings are present; `3` lists omissions; `2` means the settings could not be read or
 verified. This is a completeness check, not a substitute for each stage's file,
@@ -280,7 +307,7 @@ the fixture must gather trustworthy measurements for the
 
 Configure `PostEnduranceTests` when the test plan requires controls or response
 checks after the endurance interval. This source-preview addition runs the public
-installed-driver test runner at the start of `PrepareReview`, after a verified
+installed-driver test runner in `FinalizeTests`, after a verified
 completed `Endurance` receipt. It does not redeploy the candidate or repeat the
 Windows and processor unit suites. The plan identifies the exact installed target;
 it does not discover a target by its display name. The worker still enforces the
@@ -470,7 +497,7 @@ creates the candidate checkout under the executing worker account itself.
 
 The source-preview [release workflow template](submission-automation.yml.example) supplies a **rehearsal / submit** choice in GitHub Actions **Run workflow**, defaulting to rehearsal. This is a workflow option, not an extra field in GitHub's standard Publish release page. Copy it into a trusted **private orchestration repository**, not a public driver repository. It advances an already registered release. The optional Windows release watcher below detects new published releases without requiring submission files in the public driver repository.
 
-Rehearsal uses the same real tests, endurance requirements and document preparation as submission. It is **not** a hardware dry run: equipment permissions and household-device restrictions still apply. The worker stops before signing, uploading or sending a submission email, including after a restart. A prepared rehearsal is reported as `RehearsalPrepared`, not `Submitted` or Crestron acceptance. Missing earlier bindings or failed tests remain explicit failures/attention states. It cannot currently be promoted in place by changing a dispatch selector or editing its frozen settings; promotion with verified evidence reuse is a remaining integration task.
+Rehearsal uses the same real tests, endurance requirements and document preparation as submission. It is **not** a hardware dry run: equipment permissions and household-device restrictions still apply. In the current source, the evidence worker hands signing, delivery and retention to an independently configured protected worker. Rehearsal selects its installed `RehearsalPlan` with `Environment="Rehearsal"`, separate approval channels and `Delivery.RehearsalRecipient`; it cannot fall back to production authority. Exact signing and delivery approvals remain required. Delivery uses the existing SMTP sender and configured test mailbox, with a local upload archive and attached package. Final retention is reported as `RehearsalCompleted`, without asserting Crestron acceptance. See [rehearsal delivery](RehearsalDelivery.md). Missing earlier bindings or failed tests remain explicit failures/attention states. It cannot currently be promoted in place by changing a dispatch selector or editing its frozen settings; promotion with verified evidence reuse is a remaining integration task.
 
 Follow the [complete rehearsal procedure](Rehearsal.md) and retain every manual
 intervention. A successfully assisted submission is not evidence that these
@@ -704,7 +731,7 @@ Review preparation consumes observations retained by the verified NUnit producer
 
 The protected worker verifies retained documents before signing and delivery. Missing exact authority creates a request file and returns Waiting. It never creates its own approval. Delivery uses the public upload/verify/email coordinator, revalidates before each provider operation and retains receipts. Final retention inventories the selected run and records provider-confirmed submission, **not** Crestron acceptance. Custom correspondence/gap summaries currently apply only to the declared-gap route; the complete route uses its standard approved correspondence. The final inventory does not delete source workspaces or unresolved evidence.
 
-Exit codes for a single advancement: `0` complete submission or prepared rehearsal (distinguished by `Outcome`); `4` waiting, including role/approval/endurance handoffs; `3` attention/missing binding; `2` input or execution exception. Intake returns `0` for registration/no eligible releases/package waiting, `3` for an attention condition; inspect its structured result. The retained checkpoint and original domain journals are authoritative. Cancellation retains operation state and never resets an attempt.
+Exit codes for a single advancement: `0` retained submission or retained rehearsal completion (distinguished by `Outcome`); `4` waiting, including role/approval/endurance handoffs; `3` attention/missing binding; `2` input or execution exception. Intake returns `0` for registration/no eligible releases/package waiting, `3` for an attention condition; inspect its structured result. The retained checkpoint and original domain journals are authoritative. Cancellation retains operation state and never resets an attempt.
 
 ## Validation boundary
 
@@ -780,8 +807,25 @@ uninterrupted execution of the original frozen tooling. Retain that limitation
 when reporting rehearsal validation. The source command must be shipped in a
 subsequent tool release before documenting it as available in an older release.
 
+The source worker now publishes each stage dispatch after acquiring the workflow
+lock and retaining its intent, before awaiting the stage. An explicitly requested
+recovery appears as `Running / recovery-in-progress` while it executes, retiring
+the previous generic failure notice. This is progress only: it does not mark the
+stage passed, alter retained evidence, answer operator prompts or authorize a new
+physical action. A subsequent exception produces a fresh attention notice.
+Ordinary endurance sampling retains its collecting status without repeated
+notifications, and a different run's failure remains visible. This reporting
+change applies to a newly built worker; it does not hot-update a running worker.
+The dispatch notice is tied to the exact durable checkpoint. Repeated polls or
+worker restarts with that same checkpoint do not clear a subsequent failure and
+reopen its alert; only a newly accepted recovery can do that. No comparison of
+clocks or elapsed time is used to decide whether the request is new.
+
 For a failed fixture that actually ran and needs corrected test code, use the
 separate [explicit failed app-step replacement procedure](FailedAppStepRecovery.md).
 It preserves earlier passes and the original failure, requires restoration and
 reservation reconciliation, and gives any new physical attempt its own readiness
 prompt. It cannot reset or silently repeat an interrupted operation.
+
+
+Document preparation now snapshots its completed inputs through the shared portable review commands before creating the form. See [Portable review inputs](PortableReviewInputs.md) for relocation and independently retained hashes. No processor tests are executed by these commands.

@@ -75,6 +75,7 @@ public static class SubmissionOutageEvidence
 		captures.AddRange (record.Functions.Select (f => f.Observation));
 		if (record.ProgramLoaded != null)
 			captures.Add (record.ProgramLoaded);
+        if(record.DriverInitializations!=null)captures.AddRange(record.DriverInitializations.Select(i=>i.Capture));
 		var files = new List<SubmissionEvidenceFile>{new(planRelativePath,expectedPlanSha256),
 				new(recordRelativePath,expectedRecordSha256),new(policyRelativePath,plan.Identity.PolicySha256)};
 		files.AddRange (captures.Select (c => c.Evidence));
@@ -91,9 +92,10 @@ public static class SubmissionOutageEvidence
 		if (measurements.MaximumRecoverySeconds != null)
 			{
 			// Use the conservative endpoints, never midpoint or the operator's later reply time.
-			var trigger = plan.RecoveryClock == SubmissionOutageRecoveryClock.ProgramLoaded ? record.ProgramLoaded! :
-				 record.Interruptions.MaxBy (i => i.Restored.EarliestUtc)!.Restored;
-			var recovered = record.Functions.MaxBy (f => f.Observation.LatestUtc)!.Observation;
+			var worst=measurements.FunctionTimings?.MaxBy(t=>t.MaximumSeconds);
+            var trigger = worst?.Initialization ?? (plan.RecoveryClock == SubmissionOutageRecoveryClock.ProgramLoaded ? record.ProgramLoaded! :
+				 record.Interruptions.MaxBy (i => i.Restored.EarliestUtc)!.Restored);
+			var recovered = worst?.Observation ?? record.Functions.MaxBy (f => f.Observation.LatestUtc)!.Observation;
 			response = new (trigger.EarliestUtc, recovered.LatestUtc, trigger.Evidence.RelativePath, recovered.Evidence.RelativePath);
 			}
 		SubmissionRestorationObservation? restoration = null;

@@ -93,6 +93,7 @@ internal static class AutomationAndroidReview
    var acceptedPrefixes=AutomationAppScopeRevision.Accepted(accepted).Select(p=>step+p).ToHashSet(StringComparer.Ordinal);
    if(!retained.ContainsKey(step+expected+"attempt.json") || !retained.ContainsKey(step+expected+"original-evidence.json") ||
     acceptedPrefixes.Any(p=>!prefixes.Contains(p,StringComparer.Ordinal)))throw new InvalidDataException("Missing accepted replacement producer provenance.");
+   if(accepted.CaseRecovery is {} caseProof && !retained.ContainsKey(step+caseProof.ReceiptPath))throw new InvalidDataException("Missing case recovery receipt.");
    active.RemoveWhere(p=>p.StartsWith(step+"installed-app/",StringComparison.Ordinal) && !acceptedPrefixes.Contains(p));
   }
   return active.Order(StringComparer.Ordinal).ToArray();

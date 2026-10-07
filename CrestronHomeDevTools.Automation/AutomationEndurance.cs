@@ -29,11 +29,27 @@ internal sealed class AutomationEndurance(string directory, SubmissionEnduranceW
  public Task Finish(CancellationToken t)=>SubmissionEnduranceMonitor.FinishAsync(directory,worker.Plan,worker.Processor,credential,t);
  public SubmissionObservation Export()=>SubmissionEndurance.Export(SubmissionEnduranceMonitor.GetEvidenceDirectory(directory),worker.Plan,DateTimeOffset.UtcNow);
 
- internal static async Task<SubmissionWorkflowStepResult> Advance(SubmissionWorkflowStepContext c, bool recover, IAutomationEndurance monitor,CancellationToken token)
+ internal static void VerifyRetained(SubmissionWorkflowStepContext c,SubmissionAutomationSettings settings) {
+  const string name="endurance-evidence.json";
+  if(!c.Checkpoint.CompletedStages.TryGetValue(SubmissionWorkflowStage.Endurance,out var receipt) || receipt.RelativePath!=name ||
+   !SubmissionEvidence.SafeEvidencePath(c.RunDirectory,name,out var path) || AutomationFiles.Hash(path)!=receipt.Sha256)
+   throw new InvalidDataException("Completed endurance receipt is missing or changed; verification cannot recreate it.");
+  var plan=AutomationEnduranceSelection.Resolve(c,settings,verifyOnly:true)?.Plan
+   ??throw new InvalidDataException("Completed endurance plan is missing.");
+  // Revalidate original samples and the same frozen plan without a producer, export write or checkpoint repair.
+  var observation=SubmissionEndurance.Export(Path.Combine(c.RunDirectory,AutomationEnduranceSelection.EvidenceDirectory(c)),plan,DateTimeOffset.UtcNow);
+  var expected=System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(new{EvidenceDirectory=AutomationEnduranceSelection.EvidenceDirectory(c),Observation=observation},AutomationFiles.Json);
+  if(!File.ReadAllBytes(path).AsSpan().SequenceEqual(expected))
+   throw new InvalidDataException("Completed endurance receipt differs from its original collection.");
+ }
+
+ internal static async Task<SubmissionWorkflowStepResult> Advance(SubmissionWorkflowStepContext c, bool recover, IAutomationEndurance monitor,CancellationToken token,bool initialGateCompletedNow=false,string relativeDirectory="endurance")
  {
-  string directory=Path.Combine(c.RunDirectory,"endurance");
+  string directory=Path.Combine(c.RunDirectory,relativeDirectory);
   if(!Directory.Exists(directory)) {
-   if(recover)return new(SubmissionWorkflowStatus.OutcomeUnknown,ReasonCode:"inspect-endurance-start");
+   // A gate completed for the first time in this invocation proves collection
+   // could not previously start. Missing journals after an older gate remain uncertain.
+   if(recover && !initialGateCompletedNow)return new(SubmissionWorkflowStatus.OutcomeUnknown,ReasonCode:"inspect-endurance-start");
    await monitor.Start(token);
   }
   var status=monitor.Read();
@@ -53,6 +69,6 @@ internal sealed class AutomationEndurance(string directory, SubmissionEnduranceW
   if(monitor.Read().ReservationState!="Released")throw new InvalidDataException("Endurance release was not confirmed.");
   if(checkpoint.State==SubmissionEnduranceState.Failed)
    return new(SubmissionWorkflowStatus.Failed,ReasonCode:"endurance-probe-failed");
-  return AutomationFiles.Complete(c,"endurance-evidence.json",new { EvidenceDirectory="endurance/observations",Observation=monitor.Export() });
+  return AutomationFiles.Complete(c,"endurance-evidence.json",new { EvidenceDirectory=relativeDirectory+"/observations",Observation=monitor.Export() });
  }
 }

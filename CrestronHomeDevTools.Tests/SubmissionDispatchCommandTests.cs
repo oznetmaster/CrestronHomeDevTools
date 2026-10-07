@@ -223,4 +223,105 @@ public sealed class SubmissionDispatchCommandTests
 			return Task.FromResult (new SubmissionMailReceipt ("synthetic-mail"));
 			}
 		}
+
+	private SubmissionRehearsalDispatchSettings RehearsalSettings () => new (1, SubmissionDeliveryEnvironment.Rehearsal,
+		_settings.Plan with { Environment = SubmissionDeliveryEnvironment.Rehearsal }, _settings.JournalDirectory, _settings.PackagePath, _settings.SignedFormPath,
+		Directory.CreateDirectory (Path.Combine (_root, "mock-destination")).FullName, _settings.Revalidation);
+	private string[] SaveRehearsal (SubmissionRehearsalDispatchSettings settings)
+		{
+		var options = new JsonSerializerOptions (Json);
+		options.Converters.Add (new System.Text.Json.Serialization.JsonStringEnumConverter ());
+		File.WriteAllText (_path, JsonSerializer.Serialize (settings, options));
+		return ["--rehearsal", .. Args ()];
+		}
+
+	[Test]
+	public async Task RehearsalCommandUsesSharedCoordinatorWithoutReadingCredentialsAndLabelsCompletion ()
+		{
+		var settings = RehearsalSettings ();
+		string[] args = SaveRehearsal (settings);
+		var steps = new List<SubmissionDeliveryStep> ();
+		using var output = new StringWriter ();
+		using var error = new StringWriter ();
+		Task<SubmissionDeliveryReceipt> Execute (SubmissionRehearsalDispatchSettings value, CancellationToken token) =>
+			SubmissionDispatchCommand.ExecuteRehearsalAsync (value, token, (step, _) =>
+				{
+				steps.Add (step);
+				return Task.FromResult (new SubmissionDeliveryAuthorization (SubmissionDelivery.PlanDigest (value.Plan), DateTimeOffset.UtcNow.AddMinutes (1)));
+				});
+		for (int attempt = 0; attempt < 2; attempt++)
+			{
+			int code = await SubmissionDispatchCommand.RunAsync (args, new RefuseInput (), output, error,
+				execute: (_, _, _) => throw new AssertionException ("Rehearsal must not select production execution."), executeRehearsal: Execute);
+			Assert.That (code, Is.Zero);
+			}
+		Assert.That (steps, Is.EqualTo (new[] { SubmissionDeliveryStep.Upload, SubmissionDeliveryStep.Send }));
+		Assert.That (error.ToString (), Is.Empty);
+		foreach (string line in output.ToString ().Split (Environment.NewLine, StringSplitOptions.RemoveEmptyEntries))
+			{
+			using var json = JsonDocument.Parse (line);
+			Assert.That (json.RootElement.GetProperty ("State").GetString (), Is.EqualTo ("RehearsalCompleted"));
+			Assert.That (json.RootElement.GetProperty ("Submitted").GetBoolean (), Is.False);
+			Assert.That (json.RootElement.GetProperty ("RehearsalCompleted").GetBoolean (), Is.True);
+			Assert.That (json.RootElement.GetProperty ("Environment").GetString (), Is.EqualTo ("Rehearsal"));
+			}
+		Assert.That (File.ReadAllBytes (Path.Combine (settings.DestinationDirectory, "signed-form.pdf")), Is.EqualTo (File.ReadAllBytes (_settings.SignedFormPath)));
+		}
+
+	[TestCase ("missing-flag")]
+	[TestCase ("production-settings")]
+	[TestCase ("production-environment")]
+	[TestCase ("missing-environment")]
+	[TestCase ("missing-revalidation")]
+	[TestCase ("nested-destination")]
+	[TestCase ("credentials-argument")]
+	[TestCase ("changed-pin")]
+	public async Task RehearsalRequiresMatchingModePinnedSettingsAndSeparateStorage (string scenario)
+		{
+		var settings = RehearsalSettings ();
+		if (scenario == "production-environment") settings = settings with { Environment = SubmissionDeliveryEnvironment.Production };
+		if (scenario == "missing-revalidation") settings = settings with { Revalidation = null };
+		if (scenario == "nested-destination") settings = settings with { DestinationDirectory = settings.JournalDirectory };
+		string[] args = SaveRehearsal (settings);
+		if (scenario == "missing-flag") args = args[1..];
+		if (scenario == "production-settings") { Save (_settings); args = ["--rehearsal", .. Args ()]; }
+		if (scenario == "credentials-argument") args = [.. args, "--credentials", "not-read"];
+		if (scenario == "changed-pin") File.AppendAllText (_path, " ");
+		if (scenario == "missing-environment")
+			{
+			File.WriteAllText (_path, File.ReadAllText (_path).Replace ("\"environment\":\"Rehearsal\",", "", StringComparison.Ordinal));
+			args = ["--rehearsal", .. Args ()];
+			}
+		int calls = 0;
+		using var output = new StringWriter ();
+		int result = await SubmissionDispatchCommand.RunAsync (args, new RefuseInput (), output, TextWriter.Null,
+			execute: (_, _, _) => { calls++; return Task.FromResult (Submitted ()); },
+			executeRehearsal: (_, _) => { calls++; return Task.FromResult (Submitted () with { Environment = SubmissionDeliveryEnvironment.Rehearsal }); });
+		Assert.That ((result, calls), Is.EqualTo ((2, 0)));
+		Assert.That (output.ToString (), Is.Empty);
+		Assert.That (Directory.GetFiles (settings.DestinationDirectory), Is.Empty);
+		}
+
+	[Test]
+	public async Task RehearsalDefaultExecutionStillRequiresRealSignedEvidenceRevalidation ()
+		{
+		var settings = RehearsalSettings ();
+		int result = await SubmissionDispatchCommand.RunAsync (SaveRehearsal (settings), new RefuseInput (), TextWriter.Null, TextWriter.Null);
+		Assert.That (result, Is.EqualTo (2));
+		Assert.That (File.Exists (Path.Combine (settings.DestinationDirectory, "package.pkg")), Is.False);
+		Assert.That (File.Exists (Path.Combine (settings.DestinationDirectory, "signed-form.pdf")), Is.False);
+		Assert.That (SubmissionDelivery.Read (settings.JournalDirectory, settings.Plan, SubmissionDeliveryEnvironment.Rehearsal)!.State,
+			Is.EqualTo (SubmissionDeliveryState.Prepared));
+		}
+
+	[Test]
+	public async Task CommandCannotReportSuccessForReceiptFromOtherEnvironment ()
+		{
+		var settings = RehearsalSettings ();
+		using var output = new StringWriter ();
+		int result = await SubmissionDispatchCommand.RunAsync (SaveRehearsal (settings), new RefuseInput (), output, TextWriter.Null,
+			executeRehearsal: (_, _) => Task.FromResult (Submitted ()));
+		Assert.That (result, Is.EqualTo (2));
+		Assert.That (output.ToString (), Is.Empty);
+		}
 	}

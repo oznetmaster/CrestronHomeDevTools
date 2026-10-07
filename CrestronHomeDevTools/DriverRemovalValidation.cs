@@ -74,6 +74,9 @@ public static class DriverRemovalValidation
         Directory.CreateDirectory(journalDirectory);
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token); deadline.CancelAfter(timeout);
         token = deadline.Token;
+        // Each bounded phase has its own allowance. Earlier successful UI scans
+        // must not exhaust the time available for removal or its final verification.
+        void BeginPhase() { token.ThrowIfCancellationRequested(); deadline.CancelAfter(timeout); }
         void Record(string name, object value)
         {
             using var file = new FileStream(Path.Combine(journalDirectory, name + ".json"), FileMode.CreateNew, FileAccess.Write, FileShare.Read);
@@ -112,6 +115,7 @@ public static class DriverRemovalValidation
             Record("before-ui", beforeUi);
             if (!beforeUi.Passed || !beforeUi.HomeRestored || !Directory.EnumerateFiles(firstUi, "*", SearchOption.AllDirectories).Any())
                 throw new InvalidDataException("Pre-removal UI verification/restoration/evidence is incomplete; no removal sent.");
+            BeginPhase();
             var beforeLog = await readLog(token).ConfigureAwait(false);
             if (!beforeLog.Host.Equals(target.Host, StringComparison.OrdinalIgnoreCase) ||
                 !ProcessorErrorLog.Compare(beforeLog, beforeLog with { RequestSentUtc = beforeLog.ObservedUtc }).Comparable)
@@ -133,9 +137,11 @@ public static class DriverRemovalValidation
                 await Task.Delay(250, token).ConfigureAwait(false);
             }
             Record("after-inventory", after);
+            BeginPhase();
             string finalUi = Path.Combine(journalDirectory, "ui-after"); Directory.CreateDirectory(finalUi);
             var afterUi = await observeUi(selected, true, finalUi, token).ConfigureAwait(false);
             Record("after-ui", afterUi);
+            BeginPhase();
             var finalInventory = await Inventory().ConfigureAwait(false);
             Record("final-inventory", finalInventory);
             if (preserved.Any(old => !finalInventory.Contains(old)) ||

@@ -31,6 +31,20 @@ public sealed class SubmissionManualOutageTests
  private Task<SubmissionOutageRecordingResult> Record(SubmissionManualOutageHardware hardware,CancellationToken token=default, bool power=false)=>
   SubmissionOutageRecorder.RecordAsync(power?Plan with {RecoveryClock=SubmissionOutageRecoveryClock.ProgramLoaded,ProgramComponent="processor"}:Plan,
    hardware,Path.Combine(_root,"recording"),TimeSpan.FromSeconds(20),TimeSpan.FromSeconds(8),token);
+ [TestCase(false)][TestCase(true)]
+ public async Task RecoverySessionStartsBeforeAcknowledgementAndIsJoinedBeforeRestoration(bool failClock) {
+  var observer=new Observer{NetworkUpperBounds=true,SessionEnabled=true,FailSessionClock=failClock};
+  await using var hardware=Hardware(observer);
+  var task=Record(hardware);await Answer("disconnect");
+  var reconnect=await Pending("outage-reconnect");
+  await observer.SessionStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+  Assert.That(SubmissionOperatorStep.Read(reconnect).Response,Is.Null);
+  SubmissionOperatorStep.Respond(reconnect,SubmissionOperatorOutcome.Done);
+  var result=await task;
+  Assert.That(result.Passed,Is.EqualTo(!failClock));
+  Assert.That(observer.RestoredOriginal,Is.True);Assert.That(observer.SessionStoppedBeforeRestore,Is.True);
+  Assert.That(result.Disposition,Is.EqualTo(failClock?SubmissionRecoveryDisposition.HarnessFailed:SubmissionRecoveryDisposition.Passed));
+ }
  [TestCase(false)][TestCase(true)] public async Task IndependentNewBootProofKeepsLateAcknowledgementOutOfProgramStartOrdering(bool lowerBound) {
   var observer=new Observer{RestorationProof="valid",ProgramLoadIsLowerBound=lowerBound};await using var hardware=Hardware(observer);
   var task=Record(hardware,power:true);await Answer("disconnect");
@@ -39,7 +53,7 @@ public sealed class SubmissionManualOutageTests
   var result=await task;
   Assert.That(result.Passed,Is.True,string.Join(",",result.Issues.Concat(result.Measurements?.Issues??[])));
   using var measurement=System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(_root,"recording","measurements.json")));
-  Assert.That(measurement.RootElement.GetProperty("schemaVersion").GetInt32(),Is.EqualTo(lowerBound?2:1));
+  Assert.That(measurement.RootElement.GetProperty("schemaVersion").GetInt32(),Is.EqualTo(3));
   using var doc=System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(_root,"recording","manual-reconnect-capture.json")));
   var bounds=doc.RootElement.GetProperty("componentBounds");
   Assert.That(bounds.GetProperty("processor").GetProperty("latestUtc").GetDateTimeOffset(),Is.LessThan(observer.ProgramLoaded!.EarliestUtc));
@@ -51,6 +65,25 @@ public sealed class SubmissionManualOutageTests
   var observer=new Observer{RestorationProof=error};await using var hardware=Hardware(observer);
   var task=Record(hardware);await Answer("disconnect");await Answer("reconnect");var result=await task;
   Assert.That(result.Passed,Is.False);Assert.That(observer.RestoredOriginal,Is.True);Assert.That(observer.FunctionsChecked,Is.Zero);
+ }
+ [TestCase(false)][TestCase(true)]
+ public async Task NetworkUpperBoundsRetainEarlyChecksWithoutUsingLateDoneAsRestoration(bool acknowledgeLate) {
+  var observer=new Observer{NetworkUpperBounds=true};await using var hardware=Hardware(observer);
+  var task=Record(hardware);await Answer("disconnect");
+  var reconnect=await Pending("outage-reconnect");
+  if(acknowledgeLate){await observer.Recovered.Task.WaitAsync(TimeSpan.FromSeconds(5));await Task.Delay(100);}
+  SubmissionOperatorStep.Respond(reconnect,SubmissionOperatorOutcome.Done);
+  var result=await task;
+  Assert.That(result.Passed,Is.True,string.Join(",",result.Issues.Concat(result.Measurements?.Issues??[])));
+  using var doc=System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(_root,"recording","manual-reconnect-capture.json")));
+  var bounds=doc.RootElement.GetProperty("componentBounds");
+  var status=SubmissionOperatorStep.Read(reconnect);
+  foreach(string component in observer.Components) {
+   Assert.That(bounds.GetProperty(component).GetProperty("earliestUtc").GetDateTimeOffset(),Is.EqualTo(status.Request.CreatedUtc),"A successful network probe supplies no lower bound.");
+   Assert.That(bounds.GetProperty(component).GetProperty("latestUtc").GetDateTimeOffset(),Is.LessThanOrEqualTo(observer.EarlyFunction!.Observation.EarliestUtc));
+  }
+  Assert.That(observer.FunctionsChecked,Is.EqualTo(1));
+  Assert.That(observer.RestoredOriginal,Is.True);
  }
  [Test] public void PolicyPreflightRejectsInsufficientDurationBeforeAnyOperatorRequest() {
   var policy=new SubmissionEvidencePolicy(1,[new("system.network",TimeSpan.FromMinutes(1),false,new("system","outage",SubmissionEvidenceOutcome.Passed,60,true))]);
@@ -119,20 +152,58 @@ public sealed class SubmissionManualOutageTests
   var task=Record(hardware);await Answer("disconnect");await Answer("reconnect");
   Assert.That((await task).Passed,Is.False);Assert.That(observer.RestoredOriginal,Is.True);
  }
- private sealed class Observer:ISubmissionManualOutageObserver,ISubmissionManualRestorationBounds {
+ [TestCase(false)][TestCase(true)]
+ public async Task PhysicalWindowExcludesOperatorDelayAndRetainsOriginalProof(bool acknowledgeLate) {
+  var observer=new Observer{NetworkUpperBounds=true,PhysicalWindow="valid"};await using var hardware=Hardware(observer);
+  var task=Record(hardware);await Answer("disconnect");var reconnect=await Pending("outage-reconnect");
+  if(acknowledgeLate){await observer.Recovered.Task.WaitAsync(TimeSpan.FromSeconds(5));await Task.Delay(100);}
+  SubmissionOperatorStep.Respond(reconnect,SubmissionOperatorOutcome.Done);
+  var result=await task;Assert.That(result.Passed,Is.True,string.Join(",",result.Issues.Concat(result.Measurements?.Issues??[])));
+  using var doc=System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(_root,"recording","manual-reconnect-capture.json")));
+  var window=doc.RootElement.GetProperty("componentBounds").GetProperty("processor");
+  Assert.That(window.GetProperty("earliestUtc").GetDateTimeOffset(),Is.GreaterThan(SubmissionOperatorStep.Read(reconnect).Request.CreatedUtc));
+  Assert.That(window.GetProperty("latestUtc").GetDateTimeOffset(),Is.LessThan(observer.EarlyFunction!.Observation.EarliestUtc));
+  Assert.That(doc.RootElement.GetProperty("restorationWindows").GetProperty("processor").ValueKind,Is.EqualTo(System.Text.Json.JsonValueKind.Object));
+  Assert.That(observer.RestoredOriginal,Is.True);
+ }
+ [TestCase("stale")][TestCase("future")][TestCase("unknown")][TestCase("modified")][TestCase("reversed")]
+ public async Task InvalidPhysicalWindowFailsAndStillRestores(string error) {
+  var observer=new Observer{NetworkUpperBounds=true,PhysicalWindow=error};await using var hardware=Hardware(observer);
+  var task=Record(hardware);await Answer("disconnect");await Answer("reconnect");
+  Assert.That((await task).Passed,Is.False);Assert.That(observer.RestoredOriginal,Is.True);Assert.That(observer.FunctionsChecked,Is.Zero);
+ }
+ private sealed class Observer:ISubmissionManualOutageObserver,ISubmissionManualRestorationBounds,ISubmissionManualRestorationWindow,ISubmissionManualRecoverySession {
   public bool ProgramLoadIsLowerBound {get;set;}
   public IReadOnlyList<string> Components=>["processor","device"];
   public IReadOnlyList<string> Functions=>["control"];
   public bool WaitForObservation,EarlyReturn,WrongScope,RestoredOriginal,WatchCancelled;
   public bool LinkedWatchCancellation,UnexpectedWatchCancellation;
+  public bool NetworkUpperBounds;
+  public bool SessionEnabled,FailSessionClock,SessionStoppedBeforeRestore;
+  public TaskCompletionSource SessionStarted=new(TaskCreationOptions.RunContinuationsAsynchronously);
+  private SubmissionRecoverySession? session;
+  private CancellationToken recordingToken;
+  public Task StartRecoveryAsync(CancellationToken token) {
+   if(!SessionEnabled)return Task.CompletedTask;
+   var probed=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+   session=new SubmissionRecoverySession(async ct=>{
+    await probed.Task.WaitAsync(ct);if(FailSessionClock)throw new IOException("Synthetic delayed collector failure");return null;
+   },ct=>{var found=new[]{new SubmissionOutageFunction("control",SubmissionEvidenceOutcome.Passed,Capture())};probed.SetResult();return Task.FromResult(found);},TimeSpan.FromSeconds(5),recordingToken);
+   SessionStarted.SetResult();return Task.CompletedTask;
+  }
+  public async Task StopRecoveryAsync(){if(session!=null){await session.StopAsync();SessionStoppedBeforeRestore=session.Completion.IsCompleted;}}
+
+  public SubmissionOutageFunction? EarlyFunction;
+  private IReadOnlyDictionary<string,SubmissionOutageCapture>? _networkBounds;
   public int DisconnectObservations,RestoreObservations,FunctionsChecked;
   public TaskCompletionSource Observed=new(TaskCreationOptions.RunContinuationsAsynchronously);
   public TaskCompletionSource Recovered=new(TaskCreationOptions.RunContinuationsAsynchronously);
   public string? RestorationProof;
+  public string? PhysicalWindow;
   public SubmissionOutageCapture? ProgramLoaded;
   private SubmissionOutageCapture? _restoredBy;
   private string _root=null!;private int _sequence;
-  public Task PreflightAsync(SubmissionOutageRecordingContext context,CancellationToken token) {_root=context.EvidenceDirectory;return Task.CompletedTask;}
+  public Task PreflightAsync(SubmissionOutageRecordingContext context,CancellationToken token) {_root=context.EvidenceDirectory;recordingToken=token;return Task.CompletedTask;}
   private SubmissionOutageCapture Capture() {
    var now=DateTimeOffset.UtcNow;string name=$"synthetic-{_sequence++}.json";byte[] raw="{\"synthetic\":true}"u8.ToArray();
    File.WriteAllBytes(Path.Combine(_root,name),raw);return new(now,now,new(name,Convert.ToHexStringLower(SHA256.HashData(raw))));
@@ -155,9 +226,11 @@ public sealed class SubmissionManualOutageTests
   public async Task<IReadOnlyDictionary<string,SubmissionOutageCapture>> ObserveRestoredAsync(CancellationToken token) {
    RestoreObservations++;await Task.Delay(30,token);_restoredBy=Capture();await Task.Delay(2,token);ProgramLoaded=Capture();
    var result=new Dictionary<string,SubmissionOutageCapture>{{"processor",Capture()},{"device",Capture()}};
+   if(NetworkUpperBounds){_networkBounds=result;await Task.Delay(2,token);EarlyFunction=new("control",SubmissionEvidenceOutcome.Passed,Capture());}
    Recovered.TrySetResult();return result;
   }
   public Task<IReadOnlyDictionary<string,SubmissionOutageCapture>> CaptureRestoredByAsync(CancellationToken token) {
+   if(NetworkUpperBounds)return Task.FromResult(_networkBounds!);
    var result=new Dictionary<string,SubmissionOutageCapture>();
    if(RestorationProof!=null) {
     var proof=_restoredBy!;
@@ -169,8 +242,20 @@ public sealed class SubmissionManualOutageTests
    return Task.FromResult<IReadOnlyDictionary<string,SubmissionOutageCapture>>(result);
   }
   public Task<SubmissionOutageCapture?> ObserveProgramLoadedAsync(string component,CancellationToken token)=>Task.FromResult(ProgramLoaded);
-  public Task<SubmissionOutageFunction> VerifyFunctionAsync(string function,CancellationToken token) {
-   FunctionsChecked++;return Task.FromResult(new SubmissionOutageFunction(function,SubmissionEvidenceOutcome.Passed,Capture()));
+  public Task<IReadOnlyDictionary<string,SubmissionOutageCapture>> CaptureRestorationWindowAsync(CancellationToken token) {
+   var result=new Dictionary<string,SubmissionOutageCapture>();
+   if(PhysicalWindow!=null) {
+    var proof=_restoredBy!;
+    if(PhysicalWindow=="stale")proof=proof with {EarliestUtc=proof.EarliestUtc.AddMinutes(-1),LatestUtc=proof.LatestUtc.AddMinutes(-1)};
+    if(PhysicalWindow=="future")proof=proof with {EarliestUtc=proof.EarliestUtc.AddMinutes(1),LatestUtc=proof.LatestUtc.AddMinutes(1)};
+    if(PhysicalWindow=="reversed")proof=proof with {EarliestUtc=proof.LatestUtc.AddSeconds(1)};
+    if(PhysicalWindow=="modified")File.AppendAllText(Path.Combine(_root,proof.Evidence.RelativePath),"changed");
+    result[PhysicalWindow=="unknown"?"unknown":"processor"]=proof;
+   }
+   return Task.FromResult<IReadOnlyDictionary<string,SubmissionOutageCapture>>(result);
+  }
+  public async Task<SubmissionOutageFunction> VerifyFunctionAsync(string function,CancellationToken token) {
+   FunctionsChecked++;if(session!=null)return (await session.Completion).Functions.Single(f=>f.Id==function);return EarlyFunction ?? new SubmissionOutageFunction(function,SubmissionEvidenceOutcome.Passed,Capture());
   }
   public Task<SubmissionOutageRestoredState> RestoreOriginalAsync(SubmissionOutageCapture original,CancellationToken token) {
    RestoredOriginal=true;return Task.FromResult(new SubmissionOutageRestoredState(Capture(),true));

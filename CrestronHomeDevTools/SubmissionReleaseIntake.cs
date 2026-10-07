@@ -29,6 +29,7 @@ public static class SubmissionReleaseIntake
    return new(inspection.Availability, inspection.ReasonCode, null, null);
   var release = new SubmissionWorkflowRelease(inspection.Repository, inspection.ReleaseId, inspection.Tag,
    inspection.SourceCommit!, inspection.PackageSha256!, settings.ProfileSnapshotSha256, settings.ToolingSha256);
+  SubmissionRunArchive.RejectPruned(settings.PrivateRoot,release);
   string directory = Path.Combine(settings.PrivateRoot, SubmissionWorkflow.RunKey(release));
   Directory.CreateDirectory(directory);
   if ((File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0)

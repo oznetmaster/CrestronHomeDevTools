@@ -13,6 +13,11 @@ internal sealed record SubmissionDispatchPreparationSettings (int SchemaVersion,
 	string MailReceiptDirectory, string SmtpHost, int SmtpPort, int RevalidationTimeoutSeconds,
 	int UploadTimeoutSeconds, int MailTimeoutSeconds);
 
+internal sealed record SubmissionRehearsalPreparationSettings (int SchemaVersion, SubmissionDeliveryEnvironment Environment,
+	string PreparedDirectory, string PreparationSettingsPath, string DeliveryReviewSha256,
+	string JournalDirectory, string AttemptsDirectory, string DestinationDirectory, int RevalidationTimeoutSeconds,
+	SubmissionRehearsalMailSettings? Mail = null);
+
 /// <summary>Creates private dispatch settings for independent review. Never grants approval or contacts a provider.</summary>
 internal static class SubmissionDispatchPreparationCommand
 	{
@@ -23,25 +28,33 @@ internal static class SubmissionDispatchPreparationCommand
 		UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
 		AllowDuplicateProperties = false,
 		RespectNullableAnnotations = true,
-		RespectRequiredConstructorParameters = true
+		RespectRequiredConstructorParameters = true,
+		Converters = { new JsonStringEnumConverter (allowIntegerValues: false) }
 		};
 
 	internal static async Task<int> RunAsync (string[] args, TextWriter output, TextWriter error, CancellationToken token = default)
 		{
 		if (args is ["--help"] or ["help"] or ["-h"])
 			{
-			await output.WriteLineAsync ("submission-delivery-settings --settings PRIVATE_JSON --output NEW_PRIVATE_JSON\nCreate settings for review from this installed console and a completed delivery preparation. No credentials, approval, upload or email are created.");
+			await output.WriteLineAsync ("submission-delivery-settings [--rehearsal] --settings PRIVATE_JSON --output NEW_PRIVATE_JSON\nCreate settings for review from this installed console and a completed delivery preparation. No credentials, approval, upload or email are created.");
 			return 0;
 			}
 		try
 			{
+			bool rehearsal = args.FirstOrDefault () == "--rehearsal";
+			if (rehearsal) args = args[1..];
 			if (args is not ["--settings", var source, "--output", var destination])
 				throw new ArgumentException ("Specify private setup settings and a new private output file.");
 			await SubmissionToolsCommand.VerifyInstalledBundleAsync (token);
-			var settings = JsonSerializer.Deserialize<SubmissionDispatchPreparationSettings> (await ReadAsync (source, token), Options)
-				?? throw new InvalidDataException ("Missing setup settings.");
-			var prepared = await PrepareAsync (settings, AppContext.BaseDirectory, destination, token);
-			byte[] bytes = JsonSerializer.SerializeToUtf8Bytes (prepared, Options);
+			byte[] sourceBytes = await ReadAsync (source, token);
+			object prepared;
+			if (rehearsal)
+				prepared = await PrepareRehearsalAsync (JsonSerializer.Deserialize<SubmissionRehearsalPreparationSettings> (sourceBytes, Options)
+					?? throw new InvalidDataException ("Missing rehearsal setup settings."), AppContext.BaseDirectory, destination, token);
+			else
+				prepared = await PrepareAsync (JsonSerializer.Deserialize<SubmissionDispatchPreparationSettings> (sourceBytes, Options)
+					?? throw new InvalidDataException ("Missing setup settings."), AppContext.BaseDirectory, destination, token);
+			byte[] bytes = JsonSerializer.SerializeToUtf8Bytes (prepared, prepared.GetType (), Options);
 			await using (var file = new FileStream (destination, FileMode.CreateNew, FileAccess.Write, FileShare.None))
 				{
 				await file.WriteAsync (bytes, token);
@@ -50,7 +63,8 @@ internal static class SubmissionDispatchPreparationCommand
 			await output.WriteLineAsync (JsonSerializer.Serialize (new
 				{
 				schemaVersion = 1,
-				state = "DispatchSettingsPrepared",
+				state = rehearsal ? "RehearsalDispatchSettingsPrepared" : "DispatchSettingsPrepared",
+				environment = rehearsal ? "Rehearsal" : "Production",
 				settingsSha256 = Hash (bytes),
 				approvalRequired = true,
 				deliveryAttempted = false
@@ -65,8 +79,43 @@ internal static class SubmissionDispatchPreparationCommand
 			}
 		}
 
+	private sealed record PreparationInputs (int SchemaVersion, string PreparedDirectory, string PreparationSettingsPath,
+		string DeliveryReviewSha256, string AttemptsDirectory, int RevalidationTimeoutSeconds,
+		SubmissionDeliveryEnvironment Environment = SubmissionDeliveryEnvironment.Production);
+
 	internal static async Task<SubmissionDispatchSettings> PrepareAsync (SubmissionDispatchPreparationSettings input,
 		string consoleDirectory, string destination, CancellationToken token)
+		{
+		var (plan, bundle) = await PrepareCoreAsync (new (input.SchemaVersion, input.PreparedDirectory,
+			input.PreparationSettingsPath, input.DeliveryReviewSha256, input.AttemptsDirectory, input.RevalidationTimeoutSeconds),
+			consoleDirectory, destination, [destination, input.AttemptsDirectory, input.JournalDirectory, input.UploadReceiptDirectory, input.MailReceiptDirectory], token);
+		var settings = new SubmissionDispatchSettings (2, plan, input.JournalDirectory,
+			Path.Combine (input.PreparedDirectory, "delivery", plan.PackageFileName),
+			Path.Combine (input.PreparedDirectory, "delivery", plan.SignedFormFileName), null,
+			input.UploadReceiptDirectory, input.ReviewedUploadFormSha256, input.AcceptedUploadTermsSha256, input.UploadTimeoutSeconds,
+			input.MailReceiptDirectory, input.SmtpHost, input.SmtpPort, input.MailTimeoutSeconds, bundle);
+		SubmissionDispatchCommand.Validate (settings);
+		return settings;
+		}
+
+	internal static async Task<SubmissionRehearsalDispatchSettings> PrepareRehearsalAsync (SubmissionRehearsalPreparationSettings input,
+		string consoleDirectory, string destination, CancellationToken token)
+		{
+		if (input.Environment != SubmissionDeliveryEnvironment.Rehearsal)
+			throw new InvalidDataException ("Select the rehearsal environment explicitly.");
+		var (plan, bundle) = await PrepareCoreAsync (new (input.SchemaVersion, input.PreparedDirectory,
+			input.PreparationSettingsPath, input.DeliveryReviewSha256, input.AttemptsDirectory, input.RevalidationTimeoutSeconds, input.Environment),
+			consoleDirectory, destination, [destination, input.AttemptsDirectory, input.JournalDirectory, input.DestinationDirectory,
+			.. input.Mail == null ? Array.Empty<string> () : new[] { input.Mail.ReceiptDirectory }], token);
+		var settings = new SubmissionRehearsalDispatchSettings (1, SubmissionDeliveryEnvironment.Rehearsal, plan,
+			input.JournalDirectory, Path.Combine (input.PreparedDirectory, "delivery", plan.PackageFileName),
+			Path.Combine (input.PreparedDirectory, "delivery", plan.SignedFormFileName), input.DestinationDirectory, BundledRevalidation: bundle, Mail: input.Mail);
+		SubmissionDispatchCommand.ValidateRehearsal (settings);
+		return settings;
+		}
+
+	private static async Task<(SubmissionDeliveryPlan Plan, SubmissionBundledRevalidationSettings Bundle)> PrepareCoreAsync (
+		PreparationInputs input, string consoleDirectory, string destination, string[] mutable, CancellationToken token)
 		{
 		if (input.SchemaVersion != 1)
 			throw new InvalidDataException ("Unsupported setup settings.");
@@ -91,17 +140,15 @@ internal static class SubmissionDispatchPreparationCommand
 			throw new InvalidDataException ("Prepared plan changed.");
 		var plan = JsonSerializer.Deserialize<SubmissionDeliveryPlan> (planBytes, Options) ?? throw new InvalidDataException ("Missing delivery plan.");
 		_ = SubmissionDelivery.PlanDigest (plan);
+		if (plan.Environment != input.Environment || EnvironmentOf (root) != input.Environment)
+			throw new InvalidDataException ("Preparation belongs to another delivery environment.");
 		if (plan.ReviewSha256 != root.GetProperty ("signedReviewSha256").GetString () ||
 			plan.AuthorizationSha256 != root.GetProperty ("authorizationSha256").GetString ())
 			throw new InvalidDataException ("Prepared plan does not match its reviewed approval.");
-		var settings = new SubmissionDispatchSettings (2, plan, input.JournalDirectory,
-			Path.Combine (input.PreparedDirectory, "delivery", plan.PackageFileName),
-			Path.Combine (input.PreparedDirectory, "delivery", plan.SignedFormFileName), null,
-			input.UploadReceiptDirectory, input.ReviewedUploadFormSha256, input.AcceptedUploadTermsSha256, input.UploadTimeoutSeconds,
-			input.MailReceiptDirectory, input.SmtpHost, input.SmtpPort, input.MailTimeoutSeconds, bundle);
-		SubmissionDispatchCommand.Validate (settings);
 		// Keep output and mutable receipts outside the extracted program and all retained preparation inputs.
 		using var preparation = Parse (await ReadAsync (input.PreparationSettingsPath, token));
+		if (EnvironmentOf (preparation.RootElement) != input.Environment)
+			throw new InvalidDataException ("Preparation settings belong to another environment.");
 		if (preparation.RootElement.GetProperty ("output").GetString () is not string preparedOutput ||
 			!Path.GetFullPath (preparedOutput).TrimEnd ('/', '\\').Equals (Path.GetFullPath (input.PreparedDirectory).TrimEnd ('/', '\\'), StringComparison.OrdinalIgnoreCase))
 			throw new InvalidDataException ("Preparation settings refer to a different delivery directory.");
@@ -109,7 +156,6 @@ internal static class SubmissionDispatchPreparationCommand
 			preparation.RootElement.GetProperty ("signedReviewDirectory").GetString ()!,
 			preparation.RootElement.GetProperty ("reviewDirectory").GetString ()!,
 			preparation.RootElement.GetProperty ("authorization").GetString ()!];
-		string[] mutable = [destination, input.AttemptsDirectory, input.JournalDirectory, input.UploadReceiptDirectory, input.MailReceiptDirectory];
 		foreach (string first in mutable)
 			foreach (string second in immutable)
 				if (!Path.IsPathFullyQualified (second) || Overlap (first, second))
@@ -119,8 +165,12 @@ internal static class SubmissionDispatchPreparationCommand
 				throw new InvalidDataException ("Keep reviewed settings outside mutable receipt directories.");
 		if (File.Exists (destination) || Directory.Exists (destination))
 			throw new IOException ("Use a new settings file.");
-		return settings;
+		return (plan, bundle);
 		}
+
+	private static SubmissionDeliveryEnvironment EnvironmentOf (JsonElement value) =>
+		value.TryGetProperty ("environment", out var environment)
+			? environment.Deserialize<SubmissionDeliveryEnvironment> (Options) : SubmissionDeliveryEnvironment.Production;
 
 	private static bool Overlap (string first, string second)
 		{

@@ -28,6 +28,10 @@ public sealed record SubmissionOperatorStatus(SubmissionOperatorRequest Request,
  public bool Waiting => Response == null;
 }
 
+/// <summary>A workflow-owned withdrawal, never a response attributed to the operator.</summary>
+public sealed record SubmissionReadinessWithdrawal(int SchemaVersion, string RequestId, string RequestSha256,
+ string Reason, DateTimeOffset RecordedUtc);
+
 /// <summary>Durable operator participation, never evidence of a physical event or a passing test.
 /// Keep the directory private and on storage shared by the fixture and operator UI.</summary>
 public static class SubmissionOperatorStep
@@ -138,6 +142,37 @@ public static class SubmissionOperatorStep
   if(Read(handle).Request.IsReadiness && outcome==SubmissionOperatorOutcome.Unable && string.IsNullOrWhiteSpace(reason))
    throw new ArgumentException("Explain why the action cannot be performed.");
   return Finish(handle,outcome,TimeProvider.System,reason);
+ }
+ /// <summary>Withdraws an unanswered readiness checkpoint before any physical action is requested.
+ /// Retains a separate workflow audit record and a backward-compatible cancellation outcome.
+ /// Never withdraw an action prompt: after a possible interruption the worker must restore it.
+ /// An existing operator response wins; it cannot be overwritten by a workflow repair.</summary>
+ public static SubmissionOperatorResponse WithdrawReadiness(SubmissionOperatorHandle handle,string reason) {
+  if(!Text(reason,2048))throw new ArgumentException("Explain the workflow withdrawal in 1-2048 characters.",nameof(reason));
+  using var gate=OpenGate(handle,TimeProvider.System);
+  var status=Read(handle);
+  if(!status.Request.IsReadiness)throw new InvalidOperationException("Only an unanswered readiness checkpoint can be withdrawn.");
+  string auditPath=Path.Combine(handle.Directory,"workflow-withdrawal.json");
+  SubmissionReadinessWithdrawal audit;
+  if(File.Exists(auditPath)) {
+   audit=JsonSerializer.Deserialize<SubmissionReadinessWithdrawal>(Bytes(auditPath),Json)
+    ??throw new InvalidDataException("Empty workflow withdrawal.");
+   if(audit.SchemaVersion!=1 || audit.RequestId!=status.Request.Id || audit.RequestSha256!=handle.RequestSha256 ||
+    audit.Reason!=reason || audit.RecordedUtc<status.Request.CreatedUtc || audit.RecordedUtc>DateTimeOffset.UtcNow)
+    throw new InvalidDataException("Workflow withdrawal differs from this request or reason.");
+  } else {
+   if(status.Response!=null)throw new InvalidOperationException("This readiness checkpoint already has a recorded outcome.");
+   audit=new(1,status.Request.Id,handle.RequestSha256,reason,DateTimeOffset.UtcNow);
+   WriteNew(auditPath,JsonSerializer.SerializeToUtf8Bytes(audit,Json));
+  }
+  var response=new SubmissionOperatorResponse(1,status.Request.Id,handle.RequestSha256,
+   SubmissionOperatorOutcome.Cancelled,audit.RecordedUtc);
+  if(status.Response!=null) {
+   if(status.Response!=response)throw new InvalidOperationException("An existing response cannot be replaced by withdrawal.");
+   return status.Response;
+  }
+  WriteNew(Path.Combine(handle.Directory,"response.json"),JsonSerializer.SerializeToUtf8Bytes(response,Json));
+  return response;
  }
  internal static SubmissionOperatorResponse Finish(SubmissionOperatorHandle handle, SubmissionOperatorOutcome outcome, TimeProvider clock,string? reason=null) {
   using var gate=OpenGate(handle,clock);

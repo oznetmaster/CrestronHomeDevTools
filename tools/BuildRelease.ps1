@@ -24,6 +24,12 @@ try {
     dotnet pack CrestronHomeDevTools/CrestronHomeDevTools.csproj -c Release "-p:Version=$Version" -o $release
     if ($LASTEXITCODE -ne 0) { throw 'Library pack failed.' }
     ./tools/Test-NuGetDocumentation.ps1 -PackagePath (Join-Path $release "CrestronHomeDevTools.$Version.nupkg")
+    foreach ($id in @('CrestronHomeDevTools.Automation','CrestronHomeDevTools.SubmissionTests')) {
+        dotnet pack "$id/$id.csproj" -c Release "-p:Version=$Version" -o $release
+        if ($LASTEXITCODE -ne 0) { throw "$id pack failed." }
+        & ./tools/Test-NuGetDocumentation.ps1 -PackagePath (Join-Path $release "$id.$Version.nupkg")
+    }
+    & ./tools/Test-SubmissionNuGetConsumer.ps1 -PackageDirectory $release -Version $Version -ResultsDirectory (Join-Path $root ('artifacts/package-consumer-' + [Guid]::NewGuid().ToString('N')))
     $console = Join-Path $root ('artifacts/console-' + [Guid]::NewGuid().ToString('N'))
     & ./tools/BuildSubmissionConsole.ps1 -OutputDirectory $console -Version $Version
     & ./tools/TestSubmissionConsole.ps1 -ConsoleDirectory $console
@@ -53,7 +59,7 @@ try {
                 $entry = $zip.Entries | Where-Object FullName -Like '*.nuspec' | Select-Object -First 1
                 $reader = [IO.StreamReader]::new($entry.Open())
                 try { [xml]$spec = $reader.ReadToEnd() } finally { $reader.Dispose() }
-                if ($spec.package.metadata.id -ne 'CrestronHomeDevTools' -or $spec.package.metadata.version -ne $Version) { throw 'Unexpected NuGet identity.' }
+                if ($spec.package.metadata.id -notin @('CrestronHomeDevTools','CrestronHomeDevTools.Automation','CrestronHomeDevTools.SubmissionTests') -or $spec.package.metadata.version -ne $Version) { throw 'Unexpected NuGet identity.' }
             }
         } finally { $zip.Dispose() }
     }

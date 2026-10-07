@@ -101,8 +101,26 @@ public sealed class SubmissionOutageRecorderTests
 			Assert.That (_hardware.CheckedFunctions, Is.Empty);
 		});
 		}
-	[TestCase (false, 1)]
-	[TestCase (true, 2)]
+    [Test] public async Task UnboundInstanceObserverIsRejectedBeforeAnyInterruption() {
+        _plan=_plan with{RecoveryClock=SubmissionOutageRecoveryClock.ProgramLoaded,ProgramComponent="processor",
+            DriverInstances=[new("root",null,["control"]),new("child","root",["feedback"])]};
+        await Assert.ThatAsync(async()=>await Run(),Throws.TypeOf<InvalidDataException>());
+        Assert.That(_hardware.PreflightCalls,Is.Zero);
+        Assert.That(_hardware.Commands,Is.Empty);
+    }
+    [Test] public async Task RecorderRetainsSeparateInstanceClocks() {
+        _plan=_plan with{RecoveryClock=SubmissionOutageRecoveryClock.ProgramLoaded,ProgramComponent="processor",
+            DriverInstances=[new("root",null,["control"]),new("child","root",["feedback"])]};
+        _hardware.StartupInstanceIds=["root","child"];
+        var result=await Run();
+        Assert.That(result.Passed,Is.True);
+        using var saved=JsonDocument.Parse(File.ReadAllText(Path.Combine(_root,"measurements.json")));
+        Assert.That(saved.RootElement.GetProperty("schemaVersion").GetInt32(),Is.EqualTo(4));
+        Assert.That(saved.RootElement.GetProperty("driverInitializations").GetArrayLength(),Is.EqualTo(2));
+        Assert.That(result.Measurements!.FunctionTimings!.Select(t=>t.InstanceId),Is.EqualTo(new[]{"root","child"}));
+    }
+    [TestCase (false, 3)]
+	[TestCase (true, 3)]
 	public async Task RecorderRetainsProgramClockMeaning (bool lowerBound, int schema)
 		{
 		_plan = _plan with { RecoveryClock = SubmissionOutageRecoveryClock.ProgramLoaded, ProgramComponent = "processor" };
@@ -237,8 +255,45 @@ public sealed class SubmissionOutageRecorderTests
 		Assert.That (all, Does.Not.Contain ("synthetic-secret"));
 		}
 
+    [TestCase(SubmissionRecoveryPhase.Clock)]
+    [TestCase(SubmissionRecoveryPhase.Binding)]
+    [TestCase(SubmissionRecoveryPhase.Readiness)]
+    [TestCase(SubmissionRecoveryPhase.Control)]
+    public async Task ConcurrentFailureKeepsItsRealBranchAndCauseThroughRecorderCleanup(SubmissionRecoveryPhase phase)
+    {
+        _plan=_plan with {RecoveryClock=SubmissionOutageRecoveryClock.ProgramLoaded,ProgramComponent="processor"};
+        _hardware.ConcurrentFailure=phase;
+        var result=await Run();
+        Assert.That(result.Issues,Does.Contain("recovery-"+phase.ToString().ToLowerInvariant()+":InvalidDataException"));
+        Assert.That(result.Issues,Does.Not.Contain("program-load:InvalidDataException"));
+        Assert.That(result.Disposition,Is.EqualTo(SubmissionRecoveryDisposition.HarnessFailed));
+        Assert.That(_hardware.RestoreOriginalCalls,Is.EqualTo(1));
+        var diagnostic=Directory.GetFiles(_root,"*-failure.json").Single();
+        var text=File.ReadAllText(diagnostic);
+        Assert.That(text,Does.Contain("binding-changed"));
+        Assert.That(text,Does.Contain("awaitingStage"));
+        Assert.That(text,Does.Not.Contain("secret-canary"));
+        using var saved=JsonDocument.Parse(text);
+        Assert.That(saved.RootElement.GetProperty("value").GetProperty("callSites").GetArrayLength(),Is.GreaterThan(0));
+    }
+    [Test] public async Task RequestTimeoutIsHarnessFailureAndStillRestoresOriginalState()
+    {
+        _hardware.Failure="request-timeout";
+        var result=await Run();
+        Assert.That(result.Disposition,Is.EqualTo(SubmissionRecoveryDisposition.HarnessFailed));
+        Assert.That(_hardware.RestoreOriginalCalls,Is.EqualTo(1));
+        Assert.That(result.Issues,Does.Contain("function:IOException"));
+    }
+    [Test] public async Task CallerCancellationRemainsCancellation()
+    {
+        _hardware.Failure="cancel";
+        var result=await Run();
+        Assert.That(result.Disposition,Is.EqualTo(SubmissionRecoveryDisposition.Cancelled));
+        Assert.That(_hardware.RestoreOriginalCalls,Is.EqualTo(1));
+    }
+
 	[TestCase ("failed-function", SubmissionEvidenceOutcome.Failed)]
-	[TestCase ("late-function", SubmissionEvidenceOutcome.Failed)]
+	[TestCase ("late-function", SubmissionEvidenceOutcome.Partial)]
 	[TestCase ("early-restoration", SubmissionEvidenceOutcome.Partial)]
 	public async Task RealMeasurementLimitsStillApplyAfterSuccessfulCallbacks (string failure, SubmissionEvidenceOutcome outcome)
 		{
@@ -286,11 +341,15 @@ public sealed class SubmissionOutageRecorderTests
 	private sealed class Hardware (Clock clock, CancellationTokenSource caller) : ISubmissionOutageHardware, ISubmissionOutageReadiness
 		{
 		public bool ProgramLoadIsLowerBound { get; set; }
+        public IReadOnlyList<string> StartupInstanceIds {get;set;}=[];
+        public Task<SubmissionOutageDriverInitialization[]> ObserveDriverInitializationsAsync(CancellationToken token)
+            =>Task.FromResult(StartupInstanceIds.Select(id=>new SubmissionOutageDriverInitialization(id,Capture(),true)).ToArray());
 		public Func<CancellationToken,Task>? Ready;
 		public Task WaitUntilReadyAsync(CancellationToken token)=>Ready?.Invoke(token)??Task.CompletedTask;
 		public IReadOnlyList<string> Components => ["processor", "device"];
 		public IReadOnlyList<string> Functions => ["control", "feedback"];
 		public string Failure = "";
+        public SubmissionRecoveryPhase? ConcurrentFailure;
 		public readonly List<string> Commands = [];
 		public readonly List<string> Interrupted = [];
 		public readonly List<string> Restored = [];
@@ -372,11 +431,25 @@ public sealed class SubmissionOutageRecorderTests
 				}
 			return Capture ();
 			}
-		public Task<SubmissionOutageCapture?> ObserveProgramLoadedAsync (string component, CancellationToken token) =>
-			 Task.FromResult (Failure == "no-load-marker" ? null : Capture ());
+		public async Task<SubmissionOutageCapture?> ObserveProgramLoadedAsync (string component, CancellationToken token)
+        {
+            if(ConcurrentFailure is {} phase) {
+                async Task Fail(){await Task.Yield();var error=new InvalidDataException("Configuration or identity differs from the approved baseline.");error.Data["password"]="secret-canary";throw error;}
+                await using var session=new SubmissionRecoverySession(async ct=>{
+                    if(phase==SubmissionRecoveryPhase.Clock)await SubmissionRecoveryException.ObserveAsync(phase,async()=>{await Fail();return true;});
+                    await Task.Delay(Timeout.Infinite,ct);return null;
+                },async ct=>{
+                    if(phase!=SubmissionRecoveryPhase.Clock)await SubmissionRecoveryException.ObserveAsync(phase,async()=>{await Fail();return true;});
+                    await Task.Delay(Timeout.Infinite,ct);return [];
+                },TimeSpan.FromSeconds(3),token);
+                await session.Completion;
+            }
+            return Failure == "no-load-marker" ? null : Capture();
+        }
 		public Task<SubmissionOutageFunction> VerifyFunctionAsync (string function, CancellationToken token)
 			{
 			CheckedFunctions.Add (function);
+            if(Failure=="request-timeout")throw new TaskCanceledException("secret",new TimeoutException());
 			if (Failure == "function")
 				throw new IOException ("synthetic-secret");
 			if (Failure == "late-function")

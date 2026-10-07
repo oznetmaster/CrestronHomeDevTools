@@ -68,11 +68,45 @@ public sealed class SubmissionSmtpMailer
 		{
 		ArgumentNullException.ThrowIfNull (upload);
 		string digest = SubmissionDelivery.PlanDigest (plan);
+		if (plan.Environment != SubmissionDeliveryEnvironment.Production)
+			throw new InvalidDataException ("Use rehearsal correspondence for a rehearsal plan.");
 		return SendCoreAsync (digest, plan.Sender, plan.Recipient, plan.SignedFormFileName, plan.SignedFormSha256,
 			"Driver Submission Package",
 			"Please review the attached signed self-test form and the driver package at the following download link.\r\n\r\n" +
 				upload.DownloadUrl + "\r\n\r\nPackage: " + plan.PackageFileName + "\r\nSHA-256: " + plan.PackageSha256 + "\r\n",
 			upload, signedForm, messageId, cancellationToken);
+		}
+
+	/// <summary>Send the test submission through normal SMTP, retaining the exact package as an attachment instead of a vendor upload.</summary>
+	public async Task<SubmissionMailReceipt> SendRehearsalAsync (SubmissionDeliveryPlan plan, SubmissionUploadReceipt upload,
+		Stream package, Stream signedForm, string messageId, CancellationToken cancellationToken = default)
+		{
+		string digest = SubmissionDelivery.PlanDigest (plan);
+		if (plan.Environment != SubmissionDeliveryEnvironment.Rehearsal || !plan.SendRehearsalEmail)
+			throw new InvalidDataException ("A rehearsal email requires an approved rehearsal plan.");
+		byte[] packageBytes = await ReadPackageAsync (package, plan.PackageSha256, cancellationToken).ConfigureAwait (false);
+		return await SendCoreAsync (digest, plan.Sender, plan.Recipient, plan.SignedFormFileName, plan.SignedFormSha256,
+			"[REHEARSAL] Driver Submission Package",
+			"REHEARSAL ONLY. This is a test submission to the configured test mailbox.\r\n" +
+			"The exact driver package and signed self-test form are attached. No Crestron upload or submission has occurred.\r\n" +
+			"The rehearsal upload receipt is local; its placeholder URL is not a download link.\r\n\r\n" +
+			"Package: " + plan.PackageFileName + "\r\nSHA-256: " + plan.PackageSha256 + "\r\n",
+			upload, signedForm, messageId, cancellationToken, plan.PackageFileName, packageBytes).ConfigureAwait (false);
+		}
+
+	private static async Task<byte[]> ReadPackageAsync (Stream package, string expected, CancellationToken token)
+		{
+		using var copy = new MemoryStream ();
+		byte[] buffer = new byte[81920];
+		int count;
+		while ((count = await package.ReadAsync (buffer, token).ConfigureAwait (false)) != 0)
+			{
+			if (copy.Length + count > FormLimit) throw new InvalidDataException ("The rehearsal package exceeds 64 MiB.");
+			copy.Write (buffer, 0, count);
+			}
+		byte[] bytes = copy.ToArray ();
+		if (bytes.Length == 0 || Hash (bytes) != expected) throw new InvalidDataException ("The rehearsal package differs from the approved plan.");
+		return bytes;
 		}
 
 	/// <summary>Send the exact reviewed disposition and disclosure attachment without implying a signature or vendor decision.</summary>
@@ -81,6 +115,7 @@ public sealed class SubmissionSmtpMailer
 		{
 		ArgumentNullException.ThrowIfNull (upload);
 		string digest = SubmissionDelivery.ReviewPlanDigest (plan);
+		if (plan.Environment != SubmissionDeliveryEnvironment.Production) throw new InvalidDataException ("Use qualified rehearsal correspondence for a rehearsal plan.");
 		var correspondence = SubmissionDelivery.ReviewCorrespondence (plan);
 		string body = plan.CorrespondenceOverride == null
 			? correspondence.Body + "\r\nConfirmed package download link:\r\n" + upload.DownloadUrl + "\r\n"
@@ -90,9 +125,24 @@ public sealed class SubmissionSmtpMailer
 			upload, attachment, messageId, cancellationToken);
 		}
 
+	/// <summary>Send a qualified rehearsal packet without changing its reviewed gap or signature disposition.</summary>
+	public async Task<SubmissionMailReceipt> SendRehearsalReviewAsync (SubmissionReviewDeliveryPlan plan, SubmissionUploadReceipt upload,
+		Stream package, Stream attachment, string messageId, CancellationToken cancellationToken = default)
+		{
+		string digest = SubmissionDelivery.ReviewPlanDigest (plan);
+		if (plan.Environment != SubmissionDeliveryEnvironment.Rehearsal || !plan.SendRehearsalEmail)
+			throw new InvalidDataException ("Qualified test-mail requires a rehearsal plan.");
+		var correspondence = SubmissionDelivery.ReviewCorrespondence (plan);
+		string body = correspondence.Body.Replace ("{{PACKAGE_DOWNLOAD_URL}}", "[Package attached to this rehearsal email; no vendor download link]", StringComparison.Ordinal);
+		byte[] packageBytes = await ReadPackageAsync (package, plan.PackageSha256, cancellationToken).ConfigureAwait (false);
+		return await SendCoreAsync (digest, plan.Sender, plan.Recipient, plan.AttachmentFileName, plan.AttachmentSha256,
+			correspondence.Subject, body, upload, attachment, messageId, cancellationToken, plan.PackageFileName, packageBytes).ConfigureAwait (false);
+		}
+
 	private async Task<SubmissionMailReceipt> SendCoreAsync (string digest, string sender, string recipient,
 		string attachmentFileName, string attachmentSha256, string subject, string bodyText,
-		SubmissionUploadReceipt upload, Stream attachmentStream, string messageId, CancellationToken cancellationToken)
+		SubmissionUploadReceipt upload, Stream attachmentStream, string messageId, CancellationToken cancellationToken,
+		string? packageFileName = null, byte[]? packageBytes = null)
 		{
 		if (sender != _sender || messageId != "<crestron-" + digest + "@submission.local>")
 			{
@@ -129,6 +179,7 @@ public sealed class SubmissionSmtpMailer
 		message.Subject = subject;
 		var body = new BodyBuilder { TextBody = bodyText };
 		body.Attachments.Add (attachmentFileName, form, new ContentType ("application", "pdf"));
+		if (packageBytes != null) body.Attachments.Add (packageFileName!, packageBytes, new ContentType ("application", "octet-stream"));
 		message.Body = body.ToMessageBody ();
 		string attemptId = "mail-" + Guid.NewGuid ().ToString ("N");
 		string attempt = Path.Combine (_root, attemptId);

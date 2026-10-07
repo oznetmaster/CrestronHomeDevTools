@@ -14,7 +14,7 @@ on:
         required: true
         type: string
       mode:
-        description: Rehearsal prepares unsigned documents; Submit requires separate exact signing and delivery authority
+        description: Rehearsal uses protected test-mail authority; Submit uses protected production authority
         type: choice
         options: [rehearsal, submit]
         default: rehearsal
@@ -57,7 +57,7 @@ jobs:
           }
           if ($result -ne 0) { throw 'The retained workflow requires attention. Inspect its private checkpoint; do not reset or start another run.' }
           if ($env:REQUEST_MODE -eq 'rehearsal') {
-            'Rehearsal documents are ready for private review. No signature, upload or submission email was performed.' >> $env:GITHUB_STEP_SUMMARY
+            'Rehearsal completed through its protected signing, test-mail delivery and retention stages. Inspect the retained test-mail receipt; this is not a Crestron submission.' >> $env:GITHUB_STEP_SUMMARY
           } else {
             'The registered workflow completed. Consult its retained provider receipts; this does not establish Crestron acceptance.' >> $env:GITHUB_STEP_SUMMARY
           }

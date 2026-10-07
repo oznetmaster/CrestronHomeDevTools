@@ -144,3 +144,8 @@ accepted producer's independent pins. Original failures and superseded producers
 remain in the retained inventory. Do not use this operation to hide a failure or
 relax a timing requirement. Do not start a physical test until its measurement
 method and revised scope have been validated.
+
+New schema-2 runs retain post-endurance failures in `FinalizeTests`, before document
+preparation. Use that retained stage for post-endurance inspection/replacement.
+Older schema-1 runs keep their original tools and evidence; they are not silently
+migrated or replayed by the new worker.

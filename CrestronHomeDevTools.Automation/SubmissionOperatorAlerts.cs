@@ -77,7 +77,14 @@ public static class SubmissionOperatorAlerts
    if(!File.Exists(Path.Combine(run,relative)))continue;
    if(!SubmissionEvidence.SafeEvidencePath(run,relative,out var file) || new FileInfo(file).Length>65536)
     throw new InvalidDataException("Unsafe or oversized installed-app outcome.");
-   byte[] bytes=File.ReadAllBytes(file);
+   // InstalledDriverTests holds its report open for writing with FileShare.Read
+   // throughout the run. Readers must reciprocally allow that existing writer;
+   // File.ReadAllBytes uses FileShare.Read and fails even for a flushed snapshot.
+   byte[] bytes;
+   using(var input=new FileStream(file,FileMode.Open,FileAccess.Read,FileShare.ReadWrite)) {
+    if(input.Length>65536)throw new InvalidDataException("Oversized installed-app outcome.");
+    bytes=new byte[checked((int)input.Length)];input.ReadExactly(bytes);
+   }
    using var document=JsonDocument.Parse(bytes);
    var value=document.RootElement;
    bool failed=value.TryGetProperty("State",out var state) && state.GetString()=="Failed" ||
@@ -85,7 +92,8 @@ public static class SubmissionOperatorAlerts
    if(!failed)continue;
    string key=Convert.ToHexStringLower(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(new{entry.SettingsSha256,relative,Hash=Convert.ToHexStringLower(SHA256.HashData(bytes))})));
    yield return new(key,entry.Profile,settings.Release.Repository,settings.Release.Tag,"AttentionRequired","AppTests",
-    "Installed-app test failed. Inspect the retained test output and restoration result; the workflow has not continued.",
+    value.TryGetProperty("Detail",out var detail) && detail.ValueKind==JsonValueKind.String && detail.GetString() is {Length:>0 and <=2000} description
+     ? description : "Installed-app test failed. Inspect the retained test output and restoration result; the workflow has not continued.",
     new DateTimeOffset(File.GetLastWriteTimeUtc(file)),run);
    }
   }
