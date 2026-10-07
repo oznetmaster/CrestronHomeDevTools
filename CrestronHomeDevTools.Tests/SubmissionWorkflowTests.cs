@@ -281,4 +281,76 @@ public sealed class SubmissionWorkflowTests
   Assert.That(Hash(path),Is.EqualTo(pin));
  }
 
+
+ private static readonly SubmissionWorkflowStage[] TestStages=[SubmissionWorkflowStage.ValidateCandidate,
+  SubmissionWorkflowStage.WindowsTests,SubmissionWorkflowStage.ProcessorTests,SubmissionWorkflowStage.AppTests,
+  SubmissionWorkflowStage.Endurance,SubmissionWorkflowStage.FinalizeTests];
+ private async Task CompleteTestStages() {
+  SubmissionWorkflow.Open(root,release);
+  foreach(var stage in TestStages)await SubmissionWorkflow.AdvanceStageAsync(root,release,new Steps(),stage);
+ }
+ [Test] public async Task PhaseThreeRejectsEveryIncompleteTestPositionWithoutCallingAdapters(
+  [ValueSource(nameof(TestStages))] SubmissionWorkflowStage stage,
+  [Values(SubmissionWorkflowStatus.Ready,SubmissionWorkflowStatus.Running,SubmissionWorkflowStatus.Waiting,
+   SubmissionWorkflowStatus.NeedsInput,SubmissionWorkflowStatus.Failed,SubmissionWorkflowStatus.OutcomeUnknown)] SubmissionWorkflowStatus status) {
+  SubmissionWorkflow.Open(root,release);
+  foreach(var preceding in TestStages.TakeWhile(s=>s!=stage))
+   await SubmissionWorkflow.AdvanceStageAsync(root,release,new Steps(),preceding);
+  string path=Path.Combine(RunDirectory,"state.json");
+  var node=System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(path))!;
+  node["status"]=status.ToString();
+  node["operationId"]=status==SubmissionWorkflowStatus.Ready?null:Guid.NewGuid().ToString("N");
+  node["reasonCode"]=status is SubmissionWorkflowStatus.Ready or SubmissionWorkflowStatus.Running?null:"retained-test-wait";
+  File.WriteAllText(path,node.ToJsonString());
+  string before=Hash(path);var steps=new Steps();
+  await Assert.ThrowsAsync<InvalidOperationException>(async()=>await SubmissionWorkflow.AdvancePhaseThreeAsync(root,release,steps));
+  Assert.That(Hash(path),Is.EqualTo(before));Assert.That(steps.Started,Is.Empty);Assert.That(steps.Recovered,Is.Empty);
+ }
+ [Test] public async Task PhaseThreeRunsOnlyDocumentSigningDeliveryAndRetentionAndDoesNotReplayCompletion() {
+  await CompleteTestStages();var steps=new Steps();
+  var complete=await SubmissionWorkflow.AdvancePhaseThreeAsync(root,release,steps);
+  Assert.That(complete.Status,Is.EqualTo(SubmissionWorkflowStatus.Completed));
+  Assert.That(steps.Started,Is.EqualTo(new[]{SubmissionWorkflowStage.PrepareReview,SubmissionWorkflowStage.SignReview,
+   SubmissionWorkflowStage.Deliver,SubmissionWorkflowStage.Retain}));
+  var repeat=new Steps();string before=Hash(Path.Combine(RunDirectory,"state.json"));
+  await SubmissionWorkflow.AdvancePhaseThreeAsync(root,release,repeat);
+  Assert.That(repeat.Started,Is.Empty);Assert.That(repeat.Recovered,Is.Empty);
+  Assert.That(Hash(Path.Combine(RunDirectory,"state.json")),Is.EqualTo(before));
+ }
+ [Test] public async Task PhaseThreeRejectsTamperedTestReceiptBeforeDocumentExecution() {
+  await CompleteTestStages();string before=Hash(Path.Combine(RunDirectory,"state.json"));var steps=new Steps();
+  File.AppendAllText(Path.Combine(RunDirectory,"FinalizeTests.json"),"changed");
+  await Assert.ThrowsAsync<InvalidDataException>(async()=>await SubmissionWorkflow.AdvancePhaseThreeAsync(root,release,steps));
+  Assert.That(steps.Started,Is.Empty);Assert.That(steps.Recovered,Is.Empty);
+  Assert.That(Hash(Path.Combine(RunDirectory,"state.json")),Is.EqualTo(before));
+ }
+ [Test] public async Task PhaseThreeRecoversWaitingDeliveryWithOriginalOperationInsteadOfStartingAnotherSend() {
+  await CompleteTestStages();var first=new Steps {Start=c=>c.Checkpoint.Stage==SubmissionWorkflowStage.Deliver
+   ?new(SubmissionWorkflowStatus.Waiting,ReasonCode:"provider-pending"):Steps.Complete(c)};
+  var wait=await SubmissionWorkflow.AdvancePhaseThreeAsync(root,release,first);
+  var next=new Steps();var complete=await SubmissionWorkflow.AdvancePhaseThreeAsync(root,release,next);
+  Assert.That(complete.Status,Is.EqualTo(SubmissionWorkflowStatus.Completed));
+  Assert.That(next.Recovered,Is.EqualTo(new[]{(SubmissionWorkflowStage.Deliver,wait.OperationId)}));
+  Assert.That(next.Started,Is.EqualTo(new[]{SubmissionWorkflowStage.Retain}));
+ }
+ [TestCase(SubmissionWorkflowStatus.OutcomeUnknown)][TestCase(SubmissionWorkflowStatus.Failed)]
+ [TestCase(SubmissionWorkflowStatus.NeedsInput)]
+ public async Task PhaseThreeDoesNotAutomaticallyRecoverAttentionStates(SubmissionWorkflowStatus status) {
+  await CompleteTestStages();var first=new Steps {Start=c=>c.Checkpoint.Stage==SubmissionWorkflowStage.Deliver
+   ?new(status,ReasonCode:"delivery-needs-inspection"):Steps.Complete(c)};
+  var stopped=await SubmissionWorkflow.AdvancePhaseThreeAsync(root,release,first);
+  string before=Hash(Path.Combine(RunDirectory,"state.json"));var next=new Steps();
+  var observed=await SubmissionWorkflow.AdvancePhaseThreeAsync(root,release,next);
+  Assert.That(observed.Status,Is.EqualTo(status));Assert.That(observed.OperationId,Is.EqualTo(stopped.OperationId));
+  Assert.That(next.Started,Is.Empty);Assert.That(next.Recovered,Is.Empty);
+  Assert.That(Hash(Path.Combine(RunDirectory,"state.json")),Is.EqualTo(before));
+ }
+ [Test] public async Task PhaseThreeCannotEnterAnOwnedRun() {
+  await CompleteTestStages();
+  using var gate=new FileStream(Path.Combine(RunDirectory,"run.lock"),FileMode.Open,FileAccess.ReadWrite,FileShare.None);
+  var steps=new Steps();
+  await Assert.ThrowsAsync<IOException>(async()=>await SubmissionWorkflow.AdvancePhaseThreeAsync(root,release,steps));
+  Assert.That(steps.Started,Is.Empty);
+ }
+
 }
