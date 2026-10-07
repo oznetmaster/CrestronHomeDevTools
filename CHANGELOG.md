@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Rehearsal email supports an approval-bound, hash-verified package download link and a single PDF attachment. New automated rehearsals use the selected release asset; existing journals and production delivery remain unchanged.
+
 ## 1.26.1 - 2026-10-07
 
 Final test assessment now accepts uppercase or lowercase SHA-256 digests from evidence producers. Previously, unchanged endurance samples could be rejected solely because their recorded hexadecimal digest used uppercase letters. The verifier still rejects changed evidence and preserves original producer records.

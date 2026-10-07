@@ -19,6 +19,9 @@ public sealed record SubmissionDeliveryPlan (string CandidateSha256, string Revi
 	public SubmissionDeliveryEnvironment Environment { get; init; }
 	[JsonIgnore (Condition = JsonIgnoreCondition.WhenWritingDefault)]
 	public bool SendRehearsalEmail { get; init; }
+	/// <summary>Approved HTTPS package link, verified against PackageSha256 before rehearsal email. Null preserves legacy plans.</summary>
+	[System.Text.Json.Serialization.JsonIgnore (Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+	public string? RehearsalPackageDownloadUrl { get; init; }
 	}
 public sealed record SubmissionUploadReceipt (string DownloadUrl, string ProviderReceipt);
 public sealed record SubmissionMailReceipt (string ProviderReceipt);
@@ -237,6 +240,12 @@ public static partial class SubmissionDelivery
 		{
 		ArgumentNullException.ThrowIfNull (plan);
 		ArgumentNullException.ThrowIfNull (plan.Recipient);
+		if (plan.RehearsalPackageDownloadUrl is {} link)
+			{
+			if (plan.Environment != SubmissionDeliveryEnvironment.Rehearsal || !plan.SendRehearsalEmail)
+				throw new ArgumentException ("A rehearsal package link requires rehearsal email delivery.");
+			SubmissionPackageLink.Validate (link);
+			}
 		if ((plan.SendRehearsalEmail && plan.Environment != SubmissionDeliveryEnvironment.Rehearsal) ||
 			!Enum.IsDefined (plan.Environment) || (plan.Environment == SubmissionDeliveryEnvironment.Rehearsal &&
 			(plan.Recipient.EndsWith ("@crestron.com", StringComparison.OrdinalIgnoreCase) ||

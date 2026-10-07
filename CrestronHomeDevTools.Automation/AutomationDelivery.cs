@@ -25,6 +25,12 @@ internal static class AutomationDelivery
     throw new InvalidDataException("Configure an explicit rehearsal test mailbox outside Crestron.");
   }
  }
+ internal static string ReleasePackageLink(SubmissionWorkflowRelease release,string filename) {
+  var parts=release.Repository.Split('/');
+  if(parts.Length!=2 || parts.Any(p=>string.IsNullOrWhiteSpace(p) || p.Any(c=>!char.IsAsciiLetterOrDigit(c) && c is not ('-' or '_' or '.'))))
+   throw new InvalidDataException("A GitHub owner/repository is required for the rehearsal package link.");
+  return "https://github.com/"+release.Repository+"/releases/download/"+Uri.EscapeDataString(release.Tag)+"/"+Uri.EscapeDataString(filename);
+ }
  internal sealed record Operation(SubmissionDeliveryPlan? Complete,SubmissionReviewDeliveryPlan? Qualified,SubmissionBundledRevalidationSettings? Revalidation);
  internal static async Task<SubmissionWorkflowStepResult> Advance(SubmissionWorkflowStepContext c,SubmissionAutomationSettings settings,bool recover,CancellationToken token,
   Func<SubmissionAutomationConsole,string[],string,CancellationToken,Task<int>>? documentCommand=null,
@@ -44,18 +50,25 @@ internal static class AutomationDelivery
   if(r.GetProperty("reviewReceiptSha256").GetString()!=AutomationFiles.Hash(Path.Combine(selectedReview,"review-receipt.json")))
    throw new InvalidDataException("The selected review differs from the signed packet.");
   string Text(string key)=>r.GetProperty(key).GetString()!;
+  string? packageLink=rehearsal?ReleasePackageLink(settings.Release,Text("packageFileName")):null;
+  // Preserve the exact identity of earlier retained operations; never convert or replay an existing delivery.
+  string retainedOperation=P("delivery-operation.json");
+  if(File.Exists(retainedOperation)) {
+   var retained=AutomationFiles.Read<Operation>(retainedOperation);
+   packageLink=retained.Complete?.RehearsalPackageDownloadUrl ?? retained.Qualified?.RehearsalPackageDownloadUrl;
+  }
   bool qualified=r.TryGetProperty("reviewMode",out var mode)&&mode.GetString()=="DeclaredGaps";
   if(!qualified && (delivery.Correspondence!=null || delivery.GapSummary!=null))throw new InvalidDataException("Custom correspondence and gap summaries apply only to the declared-gap route; do not silently ignore them.");
   SubmissionReviewDeliveryPlan Qualified(string approval)=>new(Text("candidateSha256"),signedHash,approval,Text("packageSha256"),Text("signedFormSha256"),
    Text("packageFileName"),Text("signedFormFileName"),delivery.Sender,recipient,SubmissionReviewMode.DeclaredGaps,
    Enum.Parse<SubmissionVerificationStatus>(Text("verificationStatus")),SubmissionReviewAttachmentKind.SignedSelfTest,Text("declarationsSha256"),delivery.GapSummary,null)
-   {CorrespondenceOverride=delivery.Correspondence,Environment=environment,SendRehearsalEmail=rehearsal};
+   {CorrespondenceOverride=delivery.Correspondence,Environment=environment,SendRehearsalEmail=rehearsal,RehearsalPackageDownloadUrl=packageLink};
   if(qualified)AutomationReview.WriteDocument(P("delivery-request.json"),SubmissionReviewApproval.Preview(Qualified(new('0',64))));
   else {
    var request=new Dictionary<string,object?>{{"schemaVersion",1},{"signedReviewSha256",signedHash},{"candidateSha256",Text("candidateSha256")},
     {"packageSha256",Text("packageSha256")},{"signedFormSha256",Text("signedFormSha256")},{"sender",delivery.Sender},{"recipient",recipient},
     {"subject",rehearsal?"[REHEARSAL] Driver Submission Package":"Driver Submission Package"},{"deliveryAuthorized",false}};
-   if(rehearsal){request["environment"]="Rehearsal";request["sendRehearsalEmail"]=true;}
+   if(rehearsal){request["environment"]="Rehearsal";request["sendRehearsalEmail"]=true;if(packageLink!=null)request["rehearsalPackageDownloadUrl"]=packageLink;}
    AutomationReview.WriteDocument(P("delivery-request.json"),request);
   }
 
@@ -65,7 +78,7 @@ internal static class AutomationDelivery
   if(File.Exists(operationPath)) {
    operation=AutomationFiles.Read<Operation>(operationPath);
    if(operation.Complete is {} p) {
-    if(p.PackageSha256!=settings.Release.PackageSha256 || p.ReviewSha256!=signedHash || p.Sender!=delivery.Sender || p.Recipient!=recipient || p.Environment!=environment || p.SendRehearsalEmail!=rehearsal)throw new InvalidDataException("Retained delivery targets another packet.");
+    if(p.PackageSha256!=settings.Release.PackageSha256 || p.ReviewSha256!=signedHash || p.Sender!=delivery.Sender || p.Recipient!=recipient || p.Environment!=environment || p.SendRehearsalEmail!=rehearsal || p.RehearsalPackageDownloadUrl!=packageLink)throw new InvalidDataException("Retained delivery targets another packet.");
     var v=operation.Revalidation??throw new InvalidDataException("Missing retained revalidation.");
     if(v.ConsoleDirectory!=review.Console.Directory || !v.ConsoleFiles.SequenceEqual(review.Console.Files) || v.PreparationSettingsPath!=P("delivery-preparation-settings.json") ||
      v.PreparedDirectory!=P("delivery-prepared") || v.AttemptsDirectory!=P("delivery-attempts") || v.PreparationSettingsSha256!=AutomationFiles.Hash(v.PreparationSettingsPath))
@@ -86,7 +99,7 @@ internal static class AutomationDelivery
     string prep=P("delivery-preparation-settings.json"),output=P("delivery-prepared"),intent=P("delivery-preparation-intent.json");
     var preparation=new Dictionary<string,object?>{{"schemaVersion",1},{"signedReviewDirectory",P("signed-review")},
      {"reviewDirectory",selectedReview},{"authorization",protection.DeliveryApproval.DocumentPath},{"output",output}};
-    if(rehearsal){preparation["environment"]="Rehearsal";preparation["rehearsalRecipient"]=recipient;preparation["sendRehearsalEmail"]=true;}
+    if(rehearsal){preparation["environment"]="Rehearsal";preparation["rehearsalRecipient"]=recipient;preparation["sendRehearsalEmail"]=true;if(packageLink!=null)preparation["rehearsalPackageDownloadUrl"]=packageLink;}
     AutomationReview.WriteDocument(prep,preparation);
     if(File.Exists(intent)) {
      if(!File.Exists(Path.Combine(output,"COMPLETE")))return new(SubmissionWorkflowStatus.OutcomeUnknown,ReasonCode:"inspect-delivery-preparation");
@@ -105,7 +118,7 @@ internal static class AutomationDelivery
     string planFile=Path.Combine(output,"delivery-plan.json");
     if(AutomationFiles.Hash(planFile)!=receiptDoc.RootElement.GetProperty("planFileSha256").GetString())throw new InvalidDataException("Delivery plan changed.");
     var plan=AutomationFiles.Read<SubmissionDeliveryPlan>(planFile);
-    if(plan.PackageSha256!=settings.Release.PackageSha256 || plan.ReviewSha256!=signedHash || plan.AuthorizationSha256!=approval || plan.Sender!=delivery.Sender || plan.Recipient!=recipient || plan.Environment!=environment || plan.SendRehearsalEmail!=rehearsal)
+    if(plan.PackageSha256!=settings.Release.PackageSha256 || plan.ReviewSha256!=signedHash || plan.AuthorizationSha256!=approval || plan.Sender!=delivery.Sender || plan.Recipient!=recipient || plan.Environment!=environment || plan.SendRehearsalEmail!=rehearsal || plan.RehearsalPackageDownloadUrl!=packageLink)
      throw new InvalidDataException("Delivery plan differs from the selected packet.");
     operation=new(plan,null,new(review.Console.Directory,review.Console.Files,prep,AutomationFiles.Hash(prep),output,P("delivery-attempts"),receiptHash,TimeSpan.FromMinutes(3)));
    }

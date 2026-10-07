@@ -20,7 +20,8 @@ public sealed class SubmissionRehearsalTransport : ISubmissionDeliveryTransport
 	private readonly string _root;
 	private readonly SubmissionDeliveryPlan _plan;
 	private readonly string _digest;
-	private SubmissionUploadReceipt UploadReceipt => new ("https://rehearsal.invalid/" + _digest, "rehearsal-local-upload:" + _digest);
+	private SubmissionUploadReceipt UploadReceipt => new (_plan.RehearsalPackageDownloadUrl ?? "https://rehearsal.invalid/" + _digest,
+			(_plan.RehearsalPackageDownloadUrl == null ? "rehearsal-local-upload:" : "rehearsal-retained-package-link:") + _digest);
 
 	public SubmissionRehearsalTransport (string privateDirectory, SubmissionDeliveryPlan plan)
 		: this (privateDirectory, plan, false) { }

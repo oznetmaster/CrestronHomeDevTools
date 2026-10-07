@@ -45,10 +45,23 @@ credentials, not uploader credentials; it never contacts the Crestron uploader.
 Required TLS, sender/host/port binding and private provider receipts use the existing
 mail implementation. Credentials must remain on their owner's computer.
 
-The rehearsal upload is retained locally with a placeholder rehearsal.invalid URL.
-The real email attaches the exact package and signed PDF, and explains that the
-placeholder is not a download link. This substitutes the test destination for the
-vendor upload while preserving the same artifact validation and delivery sequence.
+New automated rehearsals use the selected GitHub release's package download link
+and attach only the signed PDF, matching production email structure. Before SMTP
+connects, the worker anonymously downloads that link and requires its SHA-256 to
+match the approved package. Downloads are bounded to 64 MiB and 90 seconds;
+redirects must remain HTTPS. A missing, private or changed asset stops delivery.
+
+For standalone preparation, set rehearsalPackageDownloadUrl to a recipient-accessible
+HTTPS package URL in both the preparation settings and delivery authorization.
+The C# complete and qualified plans expose RehearsalPackageDownloadUrl. The URL
+is covered by the plan/approval digest; changing it invalidates approval.
+The package is still retained locally for rehearsal evidence. The receipt identifies
+local retention plus the existing link; it does not claim a new vendor upload.
+
+Old plans without this property retain their original digest, correspondence and
+attachment behavior so existing journals are not rewritten or automatically resent.
+Use link mode for new rehearsals: some mail paths accept package attachments at
+SMTP yet do not deliver the messages to the recipient.
 The message is visibly labelled REHEARSAL. SMTP acceptance does not prove inbox
 receipt, Crestron acceptance or certification.
 
@@ -91,10 +104,10 @@ are covered by its approval digest. Production defaults retain their old seriali
 shape and digests. A production transport cannot execute a rehearsal plan.
 
 SubmissionRehearsalReviewMailTransport retains the upload locally and sends the
-exact package and reviewed PDF through the owner-bound SMTP service. Correspondence
+reviewed PDF and verified package link through the owner-bound SMTP service. Correspondence
 is labelled [REHEARSAL]; any custom body must use that subject and one
-{{PACKAGE_DOWNLOAD_URL}} token, which becomes an explanation that the package is
-attached, never a vendor download URL. The generated rehearsal notice is always
+{{PACKAGE_DOWNLOAD_URL}} token, which becomes the approved package URL in link mode.
+Legacy plans retain their package-attached wording. The generated rehearsal notice is always
 included. Qualified rehearsal requires explicit email delivery; it cannot be
 completed using the complete-plan local-only mock.
 

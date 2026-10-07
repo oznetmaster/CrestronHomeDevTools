@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 import zipfile
+from urllib.parse import urlsplit
 
 from build_help import keys, sha, strict_object
 from package_help import read_json, write_json
@@ -25,6 +26,15 @@ def delivery_environment(settings):
     environment = settings.get("environment", "Production")
     recipient = settings.get("rehearsalRecipient")
     send_email = settings.get("sendRehearsalEmail", False)
+    link = settings.get("rehearsalPackageDownloadUrl")
+    if link is not None:
+        if not isinstance(link, str):
+            raise ValueError("Package link must be HTTPS text")
+        parsed = urlsplit(link)
+        if (environment != "Rehearsal" or send_email is not True or len(link) > 8192 or
+                any(c.isspace() or ord(c) < 32 for c in link) or parsed.scheme != "https" or not parsed.hostname or
+                parsed.username is not None or parsed.password is not None or parsed.fragment or parsed.hostname.endswith(".invalid")):
+            raise ValueError("Approved rehearsal email requires a usable HTTPS package link")
     if type(send_email) is not bool or (send_email and environment != "Rehearsal"):
         raise ValueError("Only rehearsal can select test email delivery")
     if environment not in ("Production", "Rehearsal"):
@@ -50,7 +60,7 @@ def require_mailbox(address):
 def require_authorization(approval, receipt, receipt_digest, now, settings=None):
     keys(approval, ("schemaVersion", "signedReviewSha256", "candidateSha256", "packageSha256",
                     "signedFormSha256", "sender", "recipient", "subject", "expiresUtc",
-                    "signedVisualReviewCompleted", "deliveryAuthorized"), ("environment", "sendRehearsalEmail"))
+                    "signedVisualReviewCompleted", "deliveryAuthorized"), ("environment", "sendRehearsalEmail", "rehearsalPackageDownloadUrl"))
     if (type(approval["schemaVersion"]) is not int or approval["schemaVersion"] != 1 or
             approval["signedVisualReviewCompleted"] is not True or approval["deliveryAuthorized"] is not True):
         raise ValueError("Separate final signed-form review and delivery authorization are required")
@@ -67,6 +77,7 @@ def require_authorization(approval, receipt, receipt_digest, now, settings=None)
     if (approval.get("environment", "Production") != environment or
             type(approval.get("sendRehearsalEmail", False)) is not bool or
             approval.get("sendRehearsalEmail", False) != (settings or {}).get("sendRehearsalEmail", False) or
+            approval.get("rehearsalPackageDownloadUrl") != (settings or {}).get("rehearsalPackageDownloadUrl") or
             approval["recipient"] != recipient or approval["subject"] != subject):
         raise ValueError("Delivery approval must match the selected environment, recipient and subject")
 
@@ -74,7 +85,7 @@ def require_authorization(approval, receipt, receipt_digest, now, settings=None)
 def prepare(settings_path, signed_review_digest, authorization_digest):
     _, settings = read_json(settings_path)
     keys(settings, ("schemaVersion", "signedReviewDirectory", "reviewDirectory", "authorization",
-                    "output"), ("dotnet", "validator", "environment", "rehearsalRecipient", "sendRehearsalEmail"))
+                    "output"), ("dotnet", "validator", "environment", "rehearsalRecipient", "sendRehearsalEmail", "rehearsalPackageDownloadUrl"))
     if type(settings["schemaVersion"]) is not int or settings["schemaVersion"] != 1:
         raise ValueError("Unsupported delivery-stage settings version")
     for name in ("signedReviewDirectory", "reviewDirectory", "authorization", "output"):
@@ -156,6 +167,8 @@ def prepare(settings_path, signed_review_digest, authorization_digest):
             plan["environment"] = environment
             if settings.get("sendRehearsalEmail", False):
                 plan["sendRehearsalEmail"] = True
+            if settings.get("rehearsalPackageDownloadUrl") is not None:
+                plan["rehearsalPackageDownloadUrl"] = settings["rehearsalPackageDownloadUrl"]
         write_json(completed / "delivery-plan.json", plan)
         write_json(completed / "validation-report.json", bundle)
         (completed / "signed-review-receipt.json").write_bytes(receipt_bytes)

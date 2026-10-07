@@ -1,8 +1,10 @@
-# CrestronHomeDevTools 1.26.1
+# CrestronHomeDevTools 1.26.2
 
-Final test assessment now accepts uppercase or lowercase SHA-256 digests from evidence producers. Previously, unchanged endurance samples could be rejected solely because their recorded hexadecimal digest used uppercase letters. The verifier still rejects changed evidence and preserves original producer records.
+New automated rehearsals email the signed PDF with a download link to the selected release's exact driver package, matching the production submission email structure. The worker downloads the package anonymously and verifies its SHA-256 before connecting to SMTP. Unavailable or changed downloads stop delivery.
 
-Regression coverage exercises finalization and recovery with uppercase digests, rejection of altered evidence, and the separation between tests and document preparation. No driver or device protocol changes are included.
+Standalone complete and qualified rehearsal plans also support an approved HTTPS package link. The link is included in approval and plan digests. Existing plans, completed journals and production delivery keep their previous identity and behavior; no completed submission is resent. Declared gaps and shortened-endurance disclosures remain in the signed form and correspondence.
+
+Regression coverage includes PDF-only messages, exact package verification, redirects, invalid links, cancellation, preserved disclosures, approval changes and duplicate-send prevention. No driver, client or physical-test behavior changes.
 
 Requires Crestron Home NUnit 2.3.0.
 

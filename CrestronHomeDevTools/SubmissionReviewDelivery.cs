@@ -18,6 +18,9 @@ public sealed record SubmissionReviewDeliveryPlan (string CandidateSha256, strin
 	public SubmissionDeliveryEnvironment Environment { get; init; }
 	[System.Text.Json.Serialization.JsonIgnore (Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
 	public bool SendRehearsalEmail { get; init; }
+	/// <summary>Approved HTTPS package link, verified against PackageSha256 before rehearsal email. Null preserves legacy plans.</summary>
+	[System.Text.Json.Serialization.JsonIgnore (Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+	public string? RehearsalPackageDownloadUrl { get; init; }
 	/// <summary>Optional independently reviewed correspondence. Its body must contain exactly one
 	/// {{PACKAGE_DOWNLOAD_URL}} token. The caller must review all disclosures; changing this text invalidates approval.</summary>
 	[System.Text.Json.Serialization.JsonIgnore (Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
@@ -112,14 +115,16 @@ public static partial class SubmissionDelivery
 
 	private static SubmissionReviewCorrespondence RehearsalCorrespondence (SubmissionReviewDeliveryPlan plan, SubmissionReviewCorrespondence correspondence) =>
 		plan.Environment == SubmissionDeliveryEnvironment.Rehearsal
-		? new ("[REHEARSAL] Driver Submission Package", "REHEARSAL ONLY. This is a test submission to the configured test mailbox. No Crestron upload or submission has occurred. The package is attached; any rehearsal upload receipt is local.\r\n\r\n" + correspondence.Body)
+		? new ("[REHEARSAL] Driver Submission Package", "REHEARSAL ONLY. This is a test submission to the configured test mailbox. No Crestron upload or submission has occurred. " +
+			(plan.RehearsalPackageDownloadUrl == null ? "The package is attached; any rehearsal upload receipt is local." :
+			"The signed review is attached. The existing package download will be verified; no new vendor upload is performed.\r\nPackage download link: " + plan.RehearsalPackageDownloadUrl) + "\r\n\r\n" + correspondence.Body)
 		: correspondence;
 
 	// Shared artifact/address syntax only; this never changes the reviewed qualification or its digest.
 	internal static SubmissionDeliveryPlan ReviewArtifactPlan (SubmissionReviewDeliveryPlan plan) =>
 		new (plan.CandidateSha256, plan.ReviewSha256, plan.AuthorizationSha256, plan.PackageSha256,
 			plan.AttachmentSha256, plan.PackageFileName, plan.AttachmentFileName, plan.Sender, plan.Recipient)
-		{ Environment = plan.Environment, SendRehearsalEmail = plan.SendRehearsalEmail };
+		{ Environment = plan.Environment, SendRehearsalEmail = plan.SendRehearsalEmail, RehearsalPackageDownloadUrl = plan.RehearsalPackageDownloadUrl };
 
 	private static void ValidateReviewPlan (SubmissionReviewDeliveryPlan plan)
 		{

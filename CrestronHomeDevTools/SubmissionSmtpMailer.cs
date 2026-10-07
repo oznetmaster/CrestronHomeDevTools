@@ -21,6 +21,7 @@ public sealed class SubmissionSmtpMailer
 	private readonly NetworkCredential _credential;
 	private readonly TimeSpan _timeout;
 	private readonly Func<ISubmissionSmtpSession> _sessionFactory;
+	private readonly Func<string,string,CancellationToken,Task> _verifyPackageLink;
 
 	/// <summary>Port 465 uses implicit TLS; port 587 requires STARTTLS. The receipt directory must already be private.</summary>
 	public SubmissionSmtpMailer (string host, int port, string sender, NetworkCredential credential,
@@ -30,7 +31,8 @@ public sealed class SubmissionSmtpMailer
 		}
 
 	internal SubmissionSmtpMailer (string host, int port, string sender, NetworkCredential credential,
-		string privateReceiptDirectory, TimeSpan timeout, Func<ISubmissionSmtpSession> sessionFactory)
+		string privateReceiptDirectory, TimeSpan timeout, Func<ISubmissionSmtpSession> sessionFactory,
+		Func<string,string,CancellationToken,Task>? verifyPackageLink = null)
 		{
 		if (Uri.CheckHostName (host) != UriHostNameType.Dns || host.Any (char.IsWhiteSpace) || port is not (465 or 587))
 			{
@@ -60,6 +62,7 @@ public sealed class SubmissionSmtpMailer
 		_credential = new NetworkCredential (credential.UserName, credential.Password);
 		_timeout = timeout;
 		_sessionFactory = sessionFactory;
+		_verifyPackageLink = verifyPackageLink ?? SubmissionPackageLink.VerifyAsync;
 		}
 
 	/// <summary>Send once and retain the SMTP acceptance response. Acceptance does not establish inbox delivery or certification.</summary>
@@ -85,13 +88,19 @@ public sealed class SubmissionSmtpMailer
 		if (plan.Environment != SubmissionDeliveryEnvironment.Rehearsal || !plan.SendRehearsalEmail)
 			throw new InvalidDataException ("A rehearsal email requires an approved rehearsal plan.");
 		byte[] packageBytes = await ReadPackageAsync (package, plan.PackageSha256, cancellationToken).ConfigureAwait (false);
+		if (plan.RehearsalPackageDownloadUrl is {} link)
+			{
+			if (upload.DownloadUrl != link) throw new InvalidDataException ("Package receipt differs from the approved link.");
+			await _verifyPackageLink(link,plan.PackageSha256,cancellationToken).ConfigureAwait(false);
+			}
 		return await SendCoreAsync (digest, plan.Sender, plan.Recipient, plan.SignedFormFileName, plan.SignedFormSha256,
 			"[REHEARSAL] Driver Submission Package",
 			"REHEARSAL ONLY. This is a test submission to the configured test mailbox.\r\n" +
-			"The exact driver package and signed self-test form are attached. No Crestron upload or submission has occurred.\r\n" +
-			"The rehearsal upload receipt is local; its placeholder URL is not a download link.\r\n\r\n" +
+			(plan.RehearsalPackageDownloadUrl == null ?
+			"The exact driver package and signed self-test form are attached. No Crestron upload or submission has occurred.\r\nThe rehearsal upload receipt is local; its placeholder URL is not a download link.\r\n\r\n" :
+			"The signed self-test form is attached. No Crestron upload or submission has occurred.\r\nVerified existing package download link:\r\n" + plan.RehearsalPackageDownloadUrl + "\r\n\r\n") +
 			"Package: " + plan.PackageFileName + "\r\nSHA-256: " + plan.PackageSha256 + "\r\n",
-			upload, signedForm, messageId, cancellationToken, plan.PackageFileName, packageBytes).ConfigureAwait (false);
+			upload, signedForm, messageId, cancellationToken, plan.PackageFileName, plan.RehearsalPackageDownloadUrl == null ? packageBytes : null).ConfigureAwait (false);
 		}
 
 	private static async Task<byte[]> ReadPackageAsync (Stream package, string expected, CancellationToken token)
@@ -133,10 +142,15 @@ public sealed class SubmissionSmtpMailer
 		if (plan.Environment != SubmissionDeliveryEnvironment.Rehearsal || !plan.SendRehearsalEmail)
 			throw new InvalidDataException ("Qualified test-mail requires a rehearsal plan.");
 		var correspondence = SubmissionDelivery.ReviewCorrespondence (plan);
-		string body = correspondence.Body.Replace ("{{PACKAGE_DOWNLOAD_URL}}", "[Package attached to this rehearsal email; no vendor download link]", StringComparison.Ordinal);
+		string body = correspondence.Body.Replace ("{{PACKAGE_DOWNLOAD_URL}}", plan.RehearsalPackageDownloadUrl ?? "[Package attached to this rehearsal email; no vendor download link]", StringComparison.Ordinal);
 		byte[] packageBytes = await ReadPackageAsync (package, plan.PackageSha256, cancellationToken).ConfigureAwait (false);
+		if (plan.RehearsalPackageDownloadUrl is {} link)
+			{
+			if (upload.DownloadUrl != link) throw new InvalidDataException ("Package receipt differs from the approved link.");
+			await _verifyPackageLink(link,plan.PackageSha256,cancellationToken).ConfigureAwait(false);
+			}
 		return await SendCoreAsync (digest, plan.Sender, plan.Recipient, plan.AttachmentFileName, plan.AttachmentSha256,
-			correspondence.Subject, body, upload, attachment, messageId, cancellationToken, plan.PackageFileName, packageBytes).ConfigureAwait (false);
+			correspondence.Subject, body, upload, attachment, messageId, cancellationToken, plan.PackageFileName, plan.RehearsalPackageDownloadUrl == null ? packageBytes : null).ConfigureAwait (false);
 		}
 
 	private async Task<SubmissionMailReceipt> SendCoreAsync (string digest, string sender, string recipient,

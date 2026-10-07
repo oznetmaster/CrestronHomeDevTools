@@ -48,6 +48,34 @@ class DeliveryStageTests(unittest.TestCase):
         self.settings.update(environment="Rehearsal", sendRehearsalEmail=send_email, rehearsalRecipient=self.approval["recipient"])
         self.settings_path.write_text(json.dumps(self.settings), encoding="utf-8")
 
+    def test_linked_rehearsal_pins_url_in_authorization_and_plan(self):
+        self.select_rehearsal(send_email=True)
+        link = "https://packages.example.org/driver.pkg"
+        self.settings["rehearsalPackageDownloadUrl"] = link
+        self.settings_path.write_text(json.dumps(self.settings), encoding="utf-8")
+        self.approval["rehearsalPackageDownloadUrl"] = link
+        self.save_approval()
+        self.run_stage()
+        plan = json.loads((self.output / "delivery-plan.json").read_bytes())
+        self.assertEqual(plan["rehearsalPackageDownloadUrl"], link)
+
+    def test_linked_rehearsal_rejects_unapproved_url(self):
+        self.select_rehearsal(send_email=True)
+        self.settings["rehearsalPackageDownloadUrl"] = "https://packages.example.org/driver.pkg"
+        self.settings_path.write_text(json.dumps(self.settings), encoding="utf-8")
+        with self.assertRaises(ValueError):
+            self.run_stage()
+        self.assertFalse(self.output.exists())
+
+    def test_link_requires_rehearsal_email_and_real_https(self):
+        for link in ("http://example.org/driver.pkg", "https://user:password@example.org/file",
+                     "https://rehearsal.invalid/placeholder", "https://example.org/file#fragment"):
+            with self.subTest(link=link), self.assertRaises(ValueError):
+                stage.delivery_environment({"environment": "Rehearsal", "sendRehearsalEmail": True,
+                                            "rehearsalRecipient": "test@example.org", "rehearsalPackageDownloadUrl": link})
+        with self.assertRaises(ValueError):
+            stage.delivery_environment({"rehearsalPackageDownloadUrl": "https://example.org/driver.pkg"})
+
     def test_rehearsal_binds_test_recipient_environment_and_label(self):
         self.select_rehearsal(send_email=True)
         result = self.run_stage()
