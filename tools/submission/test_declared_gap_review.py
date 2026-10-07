@@ -83,35 +83,76 @@ class DeclaredGapReviewTests(unittest.TestCase):
             self.run_stage()
         self.assertFalse(self.output.exists())
 
+    def bundle_input(self, arguments, option, original_path):
+        self.assertIn("submission-review-bundle-create", arguments)
+        retained = Path(arguments[arguments.index(option) + 1]).resolve()
+        inputs = self.output.with_name(self.output.name + ".inputs").resolve()
+        self.assertTrue(retained.is_relative_to(inputs))
+        self.assertNotEqual(retained, original_path.resolve())
+        return retained
+
     def test_changed_declarations_between_form_and_bundle_publish_nothing(self):
         original = stage.run_process
+        changed_paths = []
         def changed(arguments, timeout):
-            if "submission-review-bundle-create" in arguments:
-                self.declarations.write_text(self.declarations.read_text() + " ", encoding="utf-8")
+            retained = self.bundle_input(arguments, "--declarations", self.declarations)
+            retained.write_text(retained.read_text() + " ", encoding="utf-8")
+            changed_paths.append(retained)
             return original(arguments, timeout)
         with patch.object(stage, "run_process", changed), self.assertRaisesRegex(ValueError, "bundle validation failed"):
             self.run_stage()
+        self.assertEqual(len(changed_paths), 1)
         self.assertFalse(self.output.exists())
         self.assertEqual(list(self.f.root.glob(".submission-review-*")), [])
 
     def test_changed_declarations_after_archive_cannot_replace_retained_copy(self):
         original = stage.run_process
+        changed_paths = []
         def changed(arguments, timeout):
+            retained = self.bundle_input(arguments, "--declarations", self.declarations)
             result = original(arguments, timeout)
-            self.declarations.write_text(self.declarations.read_text() + " ", encoding="utf-8")
+            retained.write_text(retained.read_text() + " ", encoding="utf-8")
+            changed_paths.append(retained)
             return result
         with patch.object(stage, "run_process", changed), self.assertRaisesRegex(ValueError, "pinned digest"):
             self.run_stage()
+        self.assertEqual(len(changed_paths), 1)
         self.assertFalse(self.output.exists())
 
     def test_changed_evidence_between_form_and_archive_cannot_be_excused(self):
         original = stage.run_process
+        changed_paths = []
         def changed(arguments, timeout):
-            (self.f.evidence / "synthetic.txt").write_text("Altered measurement", encoding="utf-8")
+            retained = self.bundle_input(arguments, "--evidence", self.f.evidence) / "synthetic.txt"
+            self.assertTrue(retained.is_file())
+            retained.write_text("Altered measurement", encoding="utf-8")
+            changed_paths.append(retained)
             return original(arguments, timeout)
         with patch.object(stage, "run_process", changed), self.assertRaisesRegex(ValueError, "bundle validation failed"):
             self.run_stage()
+        self.assertEqual(len(changed_paths), 1)
         self.assertFalse(self.output.exists())
+
+    def test_original_changes_after_freeze_do_not_replace_reviewed_snapshot(self):
+        original = stage.run_process
+        declaration_bytes = self.declarations.read_bytes()
+        evidence_bytes = (self.f.evidence / "synthetic.txt").read_bytes()
+        retained_inputs = []
+        def changed(arguments, timeout):
+            retained = self.bundle_input(arguments, "--evidence", self.f.evidence)
+            retained_inputs.append(retained)
+            self.declarations.write_text(self.declarations.read_text() + " ", encoding="utf-8")
+            (self.f.evidence / "synthetic.txt").write_text("Later original measurement", encoding="utf-8")
+            return original(arguments, timeout)
+        with patch.object(stage, "run_process", changed):
+            receipt = self.run_stage()
+        self.assertEqual(len(retained_inputs), 1)
+        self.assertEqual(receipt["declarationsSha256"], self.digest)
+        self.assertEqual((self.output / "declarations.json").read_bytes(), declaration_bytes)
+        self.assertEqual((retained_inputs[0] / "synthetic.txt").read_bytes(), evidence_bytes)
+        with ZipFile(self.output / "evidence.zip") as archive:
+            self.assertEqual(archive.read("declarations.json"), declaration_bytes)
+        self.assertTrue((self.output / "COMPLETE").is_file())
 
     def test_archive_assessment_must_match_generated_form(self):
         original = stage.run_process
