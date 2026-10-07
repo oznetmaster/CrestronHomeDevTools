@@ -72,4 +72,3 @@ public sealed class CrestronHomeLoadLogTests
   Assert.That(result.EarliestLoadedUtc,Is.EqualTo(epoch.AddSeconds(107).AddMilliseconds(-1)));
  }
 }
-
