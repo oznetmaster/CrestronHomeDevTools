@@ -1,6 +1,6 @@
 # Native NUnit submission suite
 
-A dedicated NUnit 5 test project can inherit `CrestronHomeDevTools.SubmissionTests.SubmissionFixture`. Use this same project in Visual Studio, VS Code and CI. Reference the SubmissionTests project while this integration is being validated; the new `CrestronHomeDevTools.SubmissionTests` package has passed staged package build and fresh-cache consumer discovery but is not yet published. Its `CrestronHomeDevTools.Automation` dependency supplies the same test-session controller used by CI.
+A dedicated NUnit 5 test project can inherit `CrestronHomeDevTools.SubmissionTests.SubmissionFixture`. Use this same project in Visual Studio, VS Code and CI. Reference `CrestronHomeDevTools.SubmissionTests` 1.25.0 from the configured NuGet feed. Before public publication, validation uses a staged feed containing that exact package and its dependencies. Its `CrestronHomeDevTools.Automation` dependency supplies the same test-session controller used by CI.
 
 ```csharp
 [TestFixture]
@@ -48,6 +48,6 @@ The release build stages the main library, Automation and SubmissionTests packag
 The staged main library, Automation and SubmissionTests packages have passed build, documentation validation and fresh-cache consumer discovery with the staged SDK 2.3.0 package. All six inherited tests were discovered without running equipment tests. The SDK Android, Workflow, TestAdapter and Client software suites also passed. This verifies the package path; the complete release pipeline and public publication remain separate requirements.
 
 
-The prepared submission packages require CrestronHomeNUnit.TestAdapter 2.3.0, including the public Android session opening API used for endpoint-verified placement and removal checks. The published 2.2.0 package lacks that API. The 2.3.0 dependency and submission packages must be published before ordinary NuGet consumers can use them; a successful local project-reference build is insufficient evidence.
+Submission packages 1.25.0 require CrestronHomeNUnit.TestAdapter 2.3.0, including the public Android session opening API used for endpoint-verified placement and removal checks. Version 2.2.0 lacks that API. Verify that both versions are available from the configured package sources before starting a run; a successful local project-reference build is insufficient evidence of public package availability.
 
 Routine run retention follows [current plus one previous generation](RoutineRunRetention.md). New-run startup rotates registered, explicitly closed routine generations; existing unregistered evidence and active runs remain protected.
