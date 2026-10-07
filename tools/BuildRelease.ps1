@@ -8,19 +8,19 @@ Push-Location $root
 try {
     $release = Join-Path $root 'artifacts/release'
     if (Test-Path $release) { throw 'Use fresh release staging.' }
-    & (Join-Path $PSHOME 'pwsh.exe') -NoProfile -File ./tools/endurance/Test-EnduranceDirectoryPermissions.ps1 -ResultsDirectory artifacts/directory-permissions-tests
+    & (Join-Path $PSHOME 'pwsh.exe') -NoProfile -File ./tools/endurance/Test-EnduranceDirectoryPermissions.ps1 -ResultsDirectory (Join-Path $root 'artifacts/directory-permissions-tests')
     if ($LASTEXITCODE -ne 0) { throw 'Monitoring directory permission checks failed.' }
-    & ./tools/endurance/Test-EnduranceScheduler.ps1 -ResultsDirectory artifacts/scheduler-tests
-    & ./tools/endurance/Test-EnduranceWatchScheduler.ps1 -ResultsDirectory artifacts/watch-scheduler-tests
-    & ./tools/endurance/Test-EnduranceSnapshot.ps1 -ResultsDirectory artifacts/endurance-snapshot-tests
-    & (Join-Path $PSHOME 'pwsh.exe') -NoProfile -File ./tools/endurance/Test-EnduranceHealthSnapshot.ps1 -ResultsDirectory artifacts/endurance-health-tests
+    & ./tools/endurance/Test-EnduranceScheduler.ps1 -ResultsDirectory (Join-Path $root 'artifacts/scheduler-tests')
+    & ./tools/endurance/Test-EnduranceWatchScheduler.ps1 -ResultsDirectory (Join-Path $root 'artifacts/watch-scheduler-tests')
+    & ./tools/endurance/Test-EnduranceSnapshot.ps1 -ResultsDirectory (Join-Path $root 'artifacts/endurance-snapshot-tests')
+    & (Join-Path $PSHOME 'pwsh.exe') -NoProfile -File ./tools/endurance/Test-EnduranceHealthSnapshot.ps1 -ResultsDirectory (Join-Path $root 'artifacts/endurance-health-tests')
     if ($LASTEXITCODE -ne 0) { throw 'Passive health snapshot checks failed.' }
     & ./tools/Test-DiscoveredCoverageGuards.ps1
-    & (Join-Path $PSHOME 'pwsh.exe') -NoProfile -File ./tools/Test-SubmissionWorkerProcess.ps1 -ResultsDirectory artifacts/worker-process-tests
+    & (Join-Path $PSHOME 'pwsh.exe') -NoProfile -File ./tools/Test-SubmissionWorkerProcess.ps1 -ResultsDirectory (Join-Path $root 'artifacts/worker-process-tests')
     if ($LASTEXITCODE -ne 0) { throw 'Worker process lifetime tests failed.' }
-    & (Join-Path $PSHOME 'pwsh.exe') -NoProfile -File ./tools/Test-SubmissionWorkerCloseout.ps1 -ResultsDirectory artifacts/worker-closeout-tests
+    & (Join-Path $PSHOME 'pwsh.exe') -NoProfile -File ./tools/Test-SubmissionWorkerCloseout.ps1 -ResultsDirectory (Join-Path $root 'artifacts/worker-closeout-tests')
     if ($LASTEXITCODE -ne 0) { throw 'Worker closeout checks failed.' }
-    & ./tools/Test-DiscoveredCoverage.ps1 -Configuration Release -ResultsDirectory artifacts/tests
+    & ./tools/Test-DiscoveredCoverage.ps1 -Configuration Release -ResultsDirectory (Join-Path $root 'artifacts/tests')
     dotnet pack CrestronHomeDevTools/CrestronHomeDevTools.csproj -c Release "-p:Version=$Version" -o $release
     if ($LASTEXITCODE -ne 0) { throw 'Library pack failed.' }
     ./tools/Test-NuGetDocumentation.ps1 -PackagePath (Join-Path $release "CrestronHomeDevTools.$Version.nupkg")
