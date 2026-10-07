@@ -1,13 +1,15 @@
-# CrestronHomeDevTools 1.24.0
+# CrestronHomeDevTools 1.25.0
 
-Physical action replies are now accepted against elapsed time measured on the recording worker, not by comparing the desktop's clock with the worker's clock. Original desktop replies and separate worker decisions are retained. A live shared-file lock prevents the desktop from displaying a recording prompt after its recording process has exited.
+Submission tests and document preparation now have separate boundaries. The native NUnit 5 fixture and CI helper run the same defined test stages, with endurance explicitly selected. Phase two finishes with verified test results and evidence; phase three consumes a portable, hash-verified review snapshot to prepare documents, obtain approval for signing, and deliver the reviewed artifacts.
 
-Manual app steps can opt in to `PrepareBeforeReadiness`. The cooperating fixture completes preparation and navigation before asking Ready, waits indefinitely for that response, refreshes its baseline and arms observation before publishing the action prompt. The desktop listener detects the next prompt every half second. Readiness waits are excluded from the runner and automation active-work budgets; cancellation still works. Prepared sessions hold their processor/emulator reservations while waiting.
+Recovery retains original failures and accepted results. Corrected app-test attempts have separate identities and require verified restoration and ownership before continuing. Manual processor-network and power interruptions remain separate tests. Operator travel and readiness waits do not establish a driver recovery timestamp, and uncertain physical actions are not replayed automatically.
 
-The same readiness boundary is available to manual outage recorders after preflight and before a fresh baseline. Cannot perform retains the operator's explanation. No acknowledgement establishes an event or pass, and failed or interrupted attempts are never replayed automatically.
+New runs use their own baselines. Routine retention keeps the current generation and one previous explicitly closed generation per driver, while protecting active work, prepared reviews, submitted packets and referenced evidence. Closure requires verified worker termination and cleanup. Existing unregistered historical data is not automatically deleted.
 
-Validation covers clock differences and clock corrections, expiry, retained responses, overnight waits, preparation ordering and synthetic Ready-to-action handoff. The complete physical rehearsal under this version is still pending. Earlier evidence and accepted driver submissions are unchanged.
+Rehearsal uses the shared preparation, signing and delivery stages with an explicitly bound test recipient and local package-upload receipt. Production and rehearsal records cannot substitute for one another. Completed or uncertain email sends are not automatically repeated. Fresh-package validation checks the exact restored package bytes and discovers the native fixture without operating equipment.
 
-Requires Crestron Home NUnit 2.2.0 for the opt-in runner contract. See https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/OperatorSteps.md for preparation, prompts and retained evidence.
+Requires Crestron Home NUnit 2.3.0. Software and package validation cover these contracts; the complete hardware rehearsal, reviewed signature and delivery remain separately verifiable steps. This release does not claim Crestron certification or change the submission acceptance criteria.
+
+See the [native test suite](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/NativeNUnitSuite.md) and [routine retention](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/RoutineRunRetention.md) guides.
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
