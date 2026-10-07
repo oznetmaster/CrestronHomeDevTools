@@ -1,6 +1,6 @@
 # Native NUnit submission suite
 
-A dedicated NUnit 5 test project can inherit `CrestronHomeDevTools.SubmissionTests.SubmissionFixture`. Use this same project in Visual Studio, VS Code and CI. Reference `CrestronHomeDevTools.SubmissionTests` 1.25.0 from the configured NuGet feed. Before public publication, validation uses a staged feed containing that exact package and its dependencies. Its `CrestronHomeDevTools.Automation` dependency supplies the same test-session controller used by CI.
+A dedicated NUnit 5 test project can inherit `CrestronHomeDevTools.SubmissionTests.SubmissionFixture`. Use this same project in Visual Studio, VS Code and CI. Reference `CrestronHomeDevTools.SubmissionTests` 1.25.0 from the configured NuGet feed. Version 1.25.0 and its SDK 2.3.0 dependency are publicly published; release validation also checks the exact packages together in a staged feed. Its `CrestronHomeDevTools.Automation` dependency supplies the same test-session controller used by CI.
 
 ```csharp
 [TestFixture]
@@ -51,3 +51,15 @@ The staged main library, Automation and SubmissionTests packages have passed bui
 Submission packages 1.25.0 require CrestronHomeNUnit.TestAdapter 2.3.0, including the public Android session opening API used for endpoint-verified placement and removal checks. Version 2.2.0 lacks that API. Verify that both versions are available from the configured package sources before starting a run; a successful local project-reference build is insufficient evidence of public package availability.
 
 Routine run retention follows [current plus one previous generation](RoutineRunRetention.md). New-run startup rotates registered, explicitly closed routine generations; existing unregistered evidence and active runs remain protected.
+
+## Invoking phase three independently
+
+The source command `CrestronHomeDevTools.Automation --phase-three --settings PRIVATE_JSON --settings-sha256 PIN` uses the same retained run after the defined NUnit suite passes. Alternatively, supply the ordinary `--registry PRIVATE_JSON --profile NAME --release-id ID --mode rehearsal|submit` selectors after `--phase-three`. This new command requires a build containing the phase-three gate; it is not part of the already published 1.25.0 executable.
+
+It refuses incomplete test stages before changing the checkpoint or invoking any stage adapter. It never starts missing tests. The adapters still validate the original detailed results and final assessment; receipt presence alone is not a test pass.
+
+The default evidence role prepares review documents and returns waiting at the protected-role handoff. The protected worker uses the same `--phase-three` prefix followed by its existing independently pinned configuration and role options. Existing exact review/signing and delivery authorizations apply in both submission and rehearsal modes. Reinvoke the same command for a waiting operation; failed or unknown outcomes still require their existing inspected recovery path.
+
+Do not attach `--phase-three` to the registry watcher or release-intake commands. The general automation command remains the whole-workflow entry point and can execute tests; use the explicit prefix when invoking phase three from IDE test results.
+
+The shared `submission-automation.yml.example` dispatch exposes `scope: phase-three` for this handoff. Its existing `full-workflow` default remains available for orchestration from phase one. A waiting role handoff or operation is not reported as completion.

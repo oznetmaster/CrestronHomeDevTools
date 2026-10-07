@@ -34,6 +34,7 @@ if(args is ["--bind-endurance-baseline-repair","--settings",var baselineSettings
 }
 if(args is ["--help"])
 {
+ Console.WriteLine("Phase three only: --phase-three followed by the ordinary --settings or --registry selectors and optional worker role. Requires all six completed test stages, including final assessment; never starts tests. Original evidence and exact signing/delivery authorizations are still verified. Reinvoke this same command to reconcile a waiting operation.");
  Console.WriteLine("Additional phase-two performance capture: --capture-performance --settings FILE --settings-sha256 PIN --capture-plan FILE --capture-plan-sha256 PIN. Runs only reviewed ordinary post-test cases to fill an evidence gap. Preserves original measurements and accepted tests; never repeats endurance or Explicit physical tests. Reusing an attempt never replays equipment input.");
  Console.WriteLine("Explicit postcheck fixture repair: --bind-post-fixture-repair --settings FILE --settings-sha256 PIN --state-sha256 PIN --repair-plan FILE --repair-plan-sha256 PIN. Carries an accepted main-app fixture repair into unstarted postchecks before endurance; preserves candidate, test scope, original settings and results.");
  Console.WriteLine("Read-only phase-two continuation inspection: --inspect-test-continuation --settings FILE --settings-sha256 PIN --state-sha256 PIN --composition RELATIVE_FILE --composition-sha256 PIN --changed-requirements JSON_ARRAY --changed-requirements-sha256 PIN. Reports coupled fresh testing and scopes requiring prior-pass review; never runs tests, modifies results or authorizes phase three.");
@@ -119,12 +120,17 @@ try
  }
  if(releaseProfiles!=null)throw new InvalidDataException("Release discovery must be attached to a background evidence worker.");
  if(exitWhenFinished)throw new InvalidDataException("Exit-when-finished applies only to a registry watcher.");
+ bool phaseThreeOnly=args.Length>0 && args[0]=="--phase-three";
+ if(phaseThreeOnly)args=args[1..];
  var request=AutomationRequest.Load(args);
  var settings=request.Settings;
  using var cancellation=new CancellationTokenSource();
  Console.CancelKeyPress+=(_,e)=>{e.Cancel=true;cancellation.Cancel();};
  await using var deadline=new CrestronHomeNUnit.Workflow.WorkflowActiveDeadline(TimeSpan.FromHours(6),cancellation.Token,()=>AutomationAppSteps.PreparedWaitPending(settings));
- var state=await SubmissionWorkflow.AdvanceAsync(settings.PrivateRoot,settings.Release,new SubmissionAutomationStages(settings,request.Sha256,role,protection),deadline.Token);
+ var stages=new SubmissionAutomationStages(settings,request.Sha256,role,protection);
+ var state=phaseThreeOnly
+  ?await SubmissionWorkflow.AdvancePhaseThreeAsync(settings.PrivateRoot,settings.Release,stages,deadline.Token)
+  :await SubmissionWorkflow.AdvanceAsync(settings.PrivateRoot,settings.Release,stages,deadline.Token);
  deadline.ThrowIfFaulted();
  bool rehearsed=settings.Mode==SubmissionAutomationMode.Rehearsal && state.Stage==SubmissionWorkflowStage.Retain &&
   state.Status==SubmissionWorkflowStatus.Completed;

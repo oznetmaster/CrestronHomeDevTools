@@ -46,15 +46,19 @@ class SubmissionTemplateTests(unittest.TestCase):
         step = load("submission-automation")["jobs"]["advance"]["steps"][0]
         shell = shutil.which("pwsh")
         self.assertIsNotNone(shell)
-        for mode, result, succeeds, summary in [
-            ("rehearsal", 0, True, "Rehearsal completed through its protected signing, test-mail delivery and retention stages"),
-            ("rehearsal", 4, True, "Waiting for a recorded operation"),
-            ("submit", 0, True, "registered workflow completed"),
-            ("rehearsal", 3, False, ""),
-            ("rehearsal", 2, False, ""),
-            ("invalid", 0, False, ""),
+        for scope, mode, result, succeeds, summary in [
+            ("full-workflow", "rehearsal", 0, True, "Rehearsal completed through its protected signing, test-mail delivery and retention stages"),
+            ("full-workflow", "rehearsal", 4, True, "Waiting for a recorded operation"),
+            ("full-workflow", "submit", 0, True, "registered workflow completed"),
+            ("full-workflow", "rehearsal", 3, False, ""),
+            ("full-workflow", "rehearsal", 2, False, ""),
+            ("full-workflow", "invalid", 0, False, ""),
+            ("phase-three", "rehearsal", 4, True, "Waiting for a recorded operation"),
+            ("phase-three", "submit", 0, True, "registered workflow completed"),
+            ("phase-three", "rehearsal", 2, False, ""),
+            ("invalid", "rehearsal", 0, False, ""),
         ]:
-            with self.subTest(mode=mode, result=result), tempfile.TemporaryDirectory() as directory:
+            with self.subTest(scope=scope, mode=mode, result=result), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
                 fake = root / "worker.ps1"
                 fake.write_text('[IO.File]::WriteAllText($env:CAPTURE, ($args -join "|"))\nexit ' + str(result), encoding="utf-8")
@@ -63,7 +67,7 @@ class SubmissionTemplateTests(unittest.TestCase):
                 registry = root / "registry.json"
                 registry.write_text("{}")
                 env = dict(os.environ, AUTOMATION_EXE=str(fake), AUTOMATION_REGISTRY=str(registry),
-                           REQUEST_PROFILE="weather-driver", REQUEST_RELEASE="123456", REQUEST_MODE=mode,
+                           REQUEST_PROFILE="weather-driver", REQUEST_RELEASE="123456", REQUEST_MODE=mode, REQUEST_SCOPE=scope,
                            GITHUB_STEP_SUMMARY=str(root / "summary.txt"), CAPTURE=str(root / "args.txt"))
                 run = subprocess.run([shell, "-NoProfile", "-NonInteractive", "-File", str(script)], env=env,
                                      capture_output=True, text=True, timeout=20)
@@ -79,8 +83,8 @@ class SubmissionTemplateTests(unittest.TestCase):
                         self.assertIn("this is not a Crestron submission", text)
                 else:
                     self.assertFalse((root / "summary.txt").exists())
-                if mode != "invalid":
-                    self.assertEqual("|".join(["--registry", str(registry), "--profile", "weather-driver",
+                if mode != "invalid" and scope != "invalid":
+                    self.assertEqual("|".join((["--phase-three"] if scope == "phase-three" else []) + ["--registry", str(registry), "--profile", "weather-driver",
                                               "--release-id", "123456", "--mode", mode]),
                                      (root / "args.txt").read_text(encoding="utf-8-sig"))
                 else:

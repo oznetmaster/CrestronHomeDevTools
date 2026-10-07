@@ -95,7 +95,7 @@ public static class SubmissionWorkflow
  /// Restarting a Running step calls RecoverAsync with the original operation ID, never ExecuteAsync again.</summary>
  public static Task<SubmissionWorkflowCheckpoint> AdvanceAsync(string privateRoot, SubmissionWorkflowRelease release,
   ISubmissionWorkflowSteps steps, CancellationToken cancellationToken = default)
-  =>AdvanceCoreAsync(privateRoot,release,steps,null,cancellationToken);
+  =>AdvanceCoreAsync(privateRoot,release,steps,null,false,cancellationToken);
 
  /// <summary>Execute or recover only the selected stage. Completed stages are verified and reused.
  /// Missing prerequisites are rejected; selecting a test never runs other stages or delivery.</summary>
@@ -103,10 +103,17 @@ public static class SubmissionWorkflow
   ISubmissionWorkflowSteps steps,SubmissionWorkflowStage stage,CancellationToken cancellationToken=default)
  {
   if(!Enum.IsDefined(stage))throw new ArgumentOutOfRangeException(nameof(stage));
-  return AdvanceCoreAsync(privateRoot,release,steps,stage,cancellationToken);
+  return AdvanceCoreAsync(privateRoot,release,steps,stage,false,cancellationToken);
  }
+ /// <summary>Advance only document preparation, signing, delivery and retention after all test stages completed.
+ /// Missing or changed test receipts are rejected before checkpoint mutation or adapter execution.
+ /// Domain adapters still verify the actual test evidence and exact signing/delivery authority.</summary>
+ public static Task<SubmissionWorkflowCheckpoint> AdvancePhaseThreeAsync(string privateRoot,SubmissionWorkflowRelease release,
+  ISubmissionWorkflowSteps steps,CancellationToken cancellationToken=default)
+  =>AdvanceCoreAsync(privateRoot,release,steps,null,true,cancellationToken);
+
  private static async Task<SubmissionWorkflowCheckpoint> AdvanceCoreAsync(string privateRoot,SubmissionWorkflowRelease release,
-  ISubmissionWorkflowSteps steps,SubmissionWorkflowStage? selected,CancellationToken cancellationToken)
+  ISubmissionWorkflowSteps steps,SubmissionWorkflowStage? selected,bool phaseThreeOnly,CancellationToken cancellationToken)
  {
   ArgumentNullException.ThrowIfNull(steps);
   string directory = DirectoryFor(privateRoot, release);
@@ -116,6 +123,10 @@ public static class SubmissionWorkflow
   MatchInput(state, release);
   VerifyReceipts(directory, state);
   if(state.SchemaVersion!=2)throw new InvalidDataException("This retained run uses the earlier test/review boundary. Keep its pinned worker; do not replay or silently migrate it.");
+  if(phaseThreeOnly && (CurrentStages.TakeWhile(s=>s!=SubmissionWorkflowStage.PrepareReview)
+    .Any(s=>!state.CompletedStages.ContainsKey(s)) ||
+    state.Stage is not (SubmissionWorkflowStage.PrepareReview or SubmissionWorkflowStage.SignReview or SubmissionWorkflowStage.Deliver or SubmissionWorkflowStage.Retain)))
+   throw new InvalidOperationException("Phase three requires completed test stages, including final test assessment. Run the defined test suite first.");
   if(selected is {} requested) {
    if(state.CompletedStages.ContainsKey(requested))return state;
    if(state.Stage!=requested)throw new InvalidOperationException("Complete the preceding stages before selecting this stage.");
