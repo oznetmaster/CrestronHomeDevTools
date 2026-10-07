@@ -276,16 +276,31 @@ class ReviewStageTests(unittest.TestCase):
         self.assertEqual(list(self.root.glob(".submission-review-*")), [])
 
     def test_interrupted_output_has_no_completion_marker_and_cannot_be_reused(self):
+        self.assert_interrupted_publication()
+
+    def test_interruption_is_injected_when_output_path_is_normalized(self):
+        alias = self.root / "output-parent"
+        alias.mkdir()
+        self.output = alias / ".." / "review"
+        self.assertNotEqual(self.output, self.output.resolve())
+        self.settings["output"] = str(self.output)
+        self.fixture.write_json(self.settings_path, self.settings)
+        self.assert_interrupted_publication()
+
+    def assert_interrupted_publication(self):
         original = Path.rename
+        interrupted_targets = []
 
         def interrupted(path, target):
-            if Path(target).parent == self.output:
+            if Path(target).parent.resolve() == self.output.resolve():
+                interrupted_targets.append(Path(target))
                 raise OSError("synthetic interrupted publication")
             return original(path, target)
 
         with patch.object(Path, "rename", interrupted):
             with self.assertRaisesRegex(OSError, "interrupted publication"):
                 self.run_stage()
+        self.assertEqual(len(interrupted_targets), 1)
         self.assertTrue(self.output.is_dir())
         self.assertFalse((self.output / "COMPLETE").exists())
         with self.assertRaisesRegex(ValueError, "new review"):
