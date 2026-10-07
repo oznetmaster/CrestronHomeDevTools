@@ -72,6 +72,20 @@ public sealed class DriverRemovalAppObserverTests
         Assert.That(File.Exists(Path.Combine(folder, "outcome.json")), Is.False);
     }
 
+    [Test]public async Task SlowSuccessfulPageReadIsNotCancelledByReadinessBudget()
+    {
+        var adb=new FakeAdb{TileExists=true};
+        var observer=new DriverRemovalAppObserver(Plan,_=>Task.CompletedTask,new SlowReads(adb),TimeSpan.FromMilliseconds(1));
+        var result=await observer.ObserveAsync(Tree,false,folder);
+        Assert.That(result.Passed,Is.True);Assert.That(result.HomeRestored,Is.True);
+    }
+    private sealed class SlowReads(IAndroidCommandTransport inner):IAndroidCommandTransport
+    {
+        public async Task<byte[]> ExecuteAsync(IReadOnlyList<string> args,CancellationToken token){
+            if(args.Count>1 && args[1]=="uiautomator")await Task.Delay(15,token);
+            return await inner.ExecuteAsync(args,token);
+        }
+    }
     private sealed class FakeAdb : IAndroidCommandTransport
     {
         public string Page = "home";
@@ -81,10 +95,9 @@ public sealed class DriverRemovalAppObserverTests
         public Task<byte[]> ExecuteAsync(IReadOnlyList<string> args, CancellationToken token)
         {
             token.ThrowIfCancellationRequested();
-            if (args[0] == "exec-out") return Task.FromResult(new byte[] {137,80,78,71,13,10,26,10});
-            if (args[1] == "uiautomator") return Task.FromResult(Encoding.UTF8.GetBytes("UI hierarchy dumped to: test.xml"));
-            if (args[1] == "cat") return Task.FromResult(Encoding.UTF8.GetBytes(Xml()));
-            if (args[1] == "rm") return Task.FromResult(Array.Empty<byte>());
+            if (args.SequenceEqual(new[] {"exec-out", "screencap", "-p"})) return Task.FromResult(new byte[] {137,80,78,71,13,10,26,10});
+            if (args.SequenceEqual(new[] {"exec-out", "uiautomator", "dump", "/proc/self/fd/1"}))
+                return Task.FromResult(Encoding.UTF8.GetBytes(Xml() + "\nUI hierarchy dumped to: /proc/self/fd/1"));
             if (args[1] != "input") throw new AssertionException("Unexpected transport command");
             Inputs++; if (FailInput) throw new IOException("Input outcome unknown");
             if (args[2] == "swipe")

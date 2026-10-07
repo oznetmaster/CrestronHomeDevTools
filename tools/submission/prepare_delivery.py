@@ -21,10 +21,36 @@ from self_test_form import pinned_json
 from review_android import retained_files
 
 
-def require_authorization(approval, receipt, receipt_digest, now):
+def delivery_environment(settings):
+    environment = settings.get("environment", "Production")
+    recipient = settings.get("rehearsalRecipient")
+    send_email = settings.get("sendRehearsalEmail", False)
+    if type(send_email) is not bool or (send_email and environment != "Rehearsal"):
+        raise ValueError("Only rehearsal can select test email delivery")
+    if environment not in ("Production", "Rehearsal"):
+        raise ValueError("Unsupported delivery environment")
+    if environment == "Production":
+        if recipient is not None:
+            raise ValueError("Production cannot select a rehearsal recipient")
+        return environment, "drivers@crestron.com", "Driver Submission Package"
+    require_mailbox(recipient)
+    domain = recipient.rsplit("@", 1)[1].lower()
+    if domain == "crestron.com" or domain.endswith(".crestron.com"):
+        raise ValueError("Rehearsal requires a test mailbox outside Crestron")
+    return environment, recipient, "[REHEARSAL] Driver Submission Package"
+
+
+def require_mailbox(address):
+    if (not isinstance(address, str) or len(address) > 254 or not re.fullmatch(
+            r"[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+)*@"
+            r"[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+", address)):
+        raise ValueError("Provide one approved plain mailbox")
+
+
+def require_authorization(approval, receipt, receipt_digest, now, settings=None):
     keys(approval, ("schemaVersion", "signedReviewSha256", "candidateSha256", "packageSha256",
                     "signedFormSha256", "sender", "recipient", "subject", "expiresUtc",
-                    "signedVisualReviewCompleted", "deliveryAuthorized"))
+                    "signedVisualReviewCompleted", "deliveryAuthorized"), ("environment", "sendRehearsalEmail"))
     if (type(approval["schemaVersion"]) is not int or approval["schemaVersion"] != 1 or
             approval["signedVisualReviewCompleted"] is not True or approval["deliveryAuthorized"] is not True):
         raise ValueError("Separate final signed-form review and delivery authorization are required")
@@ -36,20 +62,19 @@ def require_authorization(approval, receipt, receipt_digest, now):
     expires = datetime.fromisoformat(approval["expiresUtc"].replace("Z", "+00:00"))
     if expires.tzinfo is None or expires <= now:
         raise ValueError("Delivery authorization has expired or lacks a timezone")
-    # Require a plain ASCII mailbox, not display names, lists or header content.
-    sender = approval["sender"]
-    if (not isinstance(sender, str) or len(sender) > 254 or not re.fullmatch(
-            r"[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+)*@"
-            r"[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+", sender)):
-        raise ValueError("Provide the approved plain sender mailbox")
-    if approval["recipient"] != "drivers@crestron.com" or approval["subject"] != "Driver Submission Package":
-        raise ValueError("Delivery must use the documented Crestron recipient and subject")
+    require_mailbox(approval["sender"])
+    environment, recipient, subject = delivery_environment(settings or {})
+    if (approval.get("environment", "Production") != environment or
+            type(approval.get("sendRehearsalEmail", False)) is not bool or
+            approval.get("sendRehearsalEmail", False) != (settings or {}).get("sendRehearsalEmail", False) or
+            approval["recipient"] != recipient or approval["subject"] != subject):
+        raise ValueError("Delivery approval must match the selected environment, recipient and subject")
 
 
 def prepare(settings_path, signed_review_digest, authorization_digest):
     _, settings = read_json(settings_path)
     keys(settings, ("schemaVersion", "signedReviewDirectory", "reviewDirectory", "authorization",
-                    "output"), ("dotnet", "validator"))
+                    "output"), ("dotnet", "validator", "environment", "rehearsalRecipient", "sendRehearsalEmail"))
     if type(settings["schemaVersion"]) is not int or settings["schemaVersion"] != 1:
         raise ValueError("Unsupported delivery-stage settings version")
     for name in ("signedReviewDirectory", "reviewDirectory", "authorization", "output"):
@@ -58,6 +83,7 @@ def prepare(settings_path, signed_review_digest, authorization_digest):
     for pin in (signed_review_digest, authorization_digest):
         if not isinstance(pin, str) or not re.fullmatch(r"[0-9a-f]{64}", pin):
             raise ValueError("Supply independently approved lowercase SHA-256 pins")
+    environment, _, _ = delivery_environment(settings)
     validator_args = settings_validator(settings)
     signed, review = Path(settings["signedReviewDirectory"]), Path(settings["reviewDirectory"])
     receipt_bytes, receipt = pinned_json(signed / "signed-review-receipt.json", signed_review_digest)
@@ -68,7 +94,7 @@ def prepare(settings_path, signed_review_digest, authorization_digest):
             (signed / "COMPLETE").read_text(encoding="ascii").strip() != signed_review_digest):
         raise ValueError("A completed signed review is required")
     authorization_bytes, approval = pinned_json(settings["authorization"], authorization_digest)
-    require_authorization(approval, receipt, signed_review_digest, datetime.now(timezone.utc))
+    require_authorization(approval, receipt, signed_review_digest, datetime.now(timezone.utc), settings)
     _, unsigned = pinned_json(review / "review-receipt.json", receipt["reviewReceiptSha256"])
     _, retained = pinned_json(signed / "review-receipt.json", receipt["reviewReceiptSha256"])
     if (unsigned != retained or unsigned["state"] != "UnsignedReviewPrepared" or unsigned["signingCopy"] is not True or
@@ -121,11 +147,15 @@ def prepare(settings_path, signed_review_digest, authorization_digest):
                     not re.fullmatch(r"\d+\.\d+\.\d+\.0+", candidate["packageRequirements"]["driverVersion"])):
                 raise ValueError("The reviewed production Release source must be unchanged")
         # Long validation must not let a now-expired approval produce a usable plan.
-        require_authorization(approval, receipt, signed_review_digest, datetime.now(timezone.utc))
+        require_authorization(approval, receipt, signed_review_digest, datetime.now(timezone.utc), settings)
         plan = {key: receipt[key] for key in ("candidateSha256", "packageSha256", "signedFormSha256",
                                              "packageFileName", "signedFormFileName")}
         plan.update(reviewSha256=signed_review_digest, authorizationSha256=authorization_digest,
                     sender=approval["sender"], recipient=approval["recipient"])
+        if environment == "Rehearsal":
+            plan["environment"] = environment
+            if settings.get("sendRehearsalEmail", False):
+                plan["sendRehearsalEmail"] = True
         write_json(completed / "delivery-plan.json", plan)
         write_json(completed / "validation-report.json", bundle)
         (completed / "signed-review-receipt.json").write_bytes(receipt_bytes)
@@ -139,6 +169,8 @@ def prepare(settings_path, signed_review_digest, authorization_digest):
                   "evidenceRevalidatedUtc": datetime.now(timezone.utc).isoformat(), "expiresUtc": approval["expiresUtc"],
                   "subject": approval["subject"], "deliveryAuthorized": True, "deliveryAttempted": False,
                   "submissionReady": False}
+        if environment == "Rehearsal":
+            result["environment"] = environment
         write_json(completed / "delivery-review-receipt.json", result)
         output.mkdir()
         for item in completed.iterdir():

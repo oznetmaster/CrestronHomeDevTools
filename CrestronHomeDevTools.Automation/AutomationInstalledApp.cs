@@ -63,6 +63,13 @@ internal static class AutomationInstalledApp
     intent.SourceDigest!=await WorkflowEvidence.SourceDigestAsync(plan.SourceRoots,token) ||
     intent.ProfileSha256!=AutomationFiles.Hash(plan.AndroidTests.ProfilePath))
     throw new InvalidDataException("Installed-app attempt or fixture source changed.");
+   string completed=Path.Combine(context.RunDirectory,"installed-app-tests.json");
+   if(File.Exists(completed)) {
+    var receipt=AutomationFiles.Read<Receipt>(completed);
+    if(receipt.InputSha256!=context.Checkpoint.InputSha256)throw new InvalidDataException("Completed app tests belong to another input.");
+    VerifyRetained(context.RunDirectory);
+    return new(SubmissionWorkflowStatus.Completed,new("installed-app-tests.json",AutomationFiles.Hash(completed)));
+   }
    if(File.Exists(preflightPath)) {
     var failure=AutomationFiles.Read<PreflightFailure>(preflightPath);
     if(failure.OperationId!=intent.OperationId || failure.InputSha256!=intent.InputSha256 ||
@@ -99,19 +106,47 @@ internal static class AutomationInstalledApp
 
  internal static SubmissionWorkflowReceipt[] Inventory(string root) {
   string folder=Path.Combine(root,"installed-app");
-  var entries=new List<FileSystemInfo>();var pending=new Stack<DirectoryInfo>();pending.Push(new(folder));
+  // Each retained retry is a separately bounded operation. Applying one operation's
+  // limit to all historical retries eventually prevents even inspecting a failure.
+  var entries=new List<FileSystemInfo>();
+  var pending=new Stack<(DirectoryInfo Directory,string Scope)>();pending.Push((new(folder),"main"));
+  var counts=new Dictionary<string,int>(StringComparer.Ordinal){["main"]=0};
+  // Aggregation must preserve the same operation boundaries as direct step
+  // validation. Only the defined step/replacement layout creates a new bound;
+  // arbitrary nested folders cannot evade an operation's limit.
+  var partitionCounts=new Dictionary<string,int>(StringComparer.Ordinal);
   string readiness=folder+"-readiness";
-  if(Directory.Exists(readiness))pending.Push(new(readiness));
+  if(Directory.Exists(readiness))pending.Push((new(readiness),"main"));
   while(pending.Count>0) {
-   var directory=pending.Pop();
+   var (directory,scope)=pending.Pop();
    if((directory.Attributes&FileAttributes.ReparsePoint)!=0)throw new InvalidDataException("Installed-app evidence contains a link.");
    foreach(var entry in directory.EnumerateFileSystemInfos()) {
-    if(entries.Count>=4096 || (entry.Attributes&FileAttributes.ReparsePoint)!=0)
+    if(counts[scope]>=4096 || (entry.Attributes&FileAttributes.ReparsePoint)!=0)
      throw new InvalidDataException("Installed-app evidence exceeds its bound or contains a link.");
-    entries.Add(entry);if(entry is DirectoryInfo child)pending.Push(child);
+    counts[scope]++;entries.Add(entry);
+    if(entry is DirectoryInfo child) {
+     string childScope=scope;
+     string relative=Path.GetRelativePath(folder,directory.FullName).Replace('\\','/');
+     bool steps=relative=="steps";
+     bool attempts=relative==AutomationAppStepRecovery.Attempts ||
+      System.Text.RegularExpressions.Regex.IsMatch(relative,@"\Asteps/[0-9]{3}/installed-app/recovery-attempts\z");
+     if(steps || attempts) {
+      if(steps) {
+       if(child.Name.Length!=3 || child.Name.Any(c=>c<'0'||c>'9') ||
+        int.Parse(child.Name,System.Globalization.CultureInfo.InvariantCulture)>=128)
+        throw new InvalidDataException("Invalid retained app step directory.");
+      } else AutomationAppStepRecovery.RequireId(child.Name);
+      int partitions=partitionCounts.GetValueOrDefault(directory.FullName);
+      if(partitions>=128)throw new InvalidDataException("Too many retained app steps or replacement attempts.");
+      partitionCounts[directory.FullName]=partitions+1;
+      childScope=child.FullName;counts.Add(childScope,0);
+     }
+     pending.Push((child,childScope));
+    }
    }
   }
-  foreach(string name in new[]{"app-fixture-settings.json","target-plan.json","managed-devices.json"}) {
+  foreach(string name in new[]{"app-fixture-settings.json","target-plan.json","managed-devices.json",AutomationPostFixtureRepair.FileName}) {
+   if(name==AutomationPostFixtureRepair.FileName && Path.GetFileName(Path.TrimEndingDirectorySeparator(root))!=AutomationPostEndurance.DirectoryName)continue;
    if(!File.Exists(Path.Combine(root,name)))continue;
    if(!SubmissionEvidence.SafeEvidencePath(root,name,out var fixture))
     throw new InvalidDataException("Unsafe installed-app fixture settings path.");

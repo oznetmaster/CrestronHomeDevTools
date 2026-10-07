@@ -1,0 +1,21 @@
+<!-- Copyright (c) 2026 Neil Colvin. MIT licensed. -->
+<Project>
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>Crestron;CrestronHome;NUnit;submission;testing</PackageTags>
+    <_SubmissionPackageRoot>$(MSBuildThisFileDirectory)..</_SubmissionPackageRoot>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="$(_SubmissionPackageRoot)/README.md;$(_SubmissionPackageRoot)/LICENSE;$(_SubmissionPackageRoot)/CHANGELOG.md;$(_SubmissionPackageRoot)/RELEASE-NOTES.md;$(_SubmissionPackageRoot)/THIRD-PARTY-NOTICES.md;$(_SubmissionPackageRoot)/DEVELOPMENT-HISTORY.md" Pack="true" PackagePath="/" />
+    <None Include="$(_SubmissionPackageRoot)/licenses/*.txt" Pack="true" PackagePath="licenses/" />
+    <None Include="$(_SubmissionPackageRoot)/docs/**/*" Pack="true" PackagePath="docs/%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+  <Target Name="SubmissionPackageReleaseNotes" BeforeTargets="GenerateNuspec">
+    <Error Condition="'$(NUnitWorkflowProject)' != ''" Text="Release packages must use the published workflow dependency, not a local project override." />
+    <ReadLinesFromFile File="$(_SubmissionPackageRoot)/RELEASE-NOTES.md"><Output TaskParameter="Lines" ItemName="_SubmissionReleaseNotes" /></ReadLinesFromFile>
+    <PropertyGroup><PackageReleaseNotes>@(_SubmissionReleaseNotes, '%0a')</PackageReleaseNotes></PropertyGroup>
+    <Error Condition="'$(PackageReleaseNotes)' == ''" Text="Package release notes must not be empty." />
+  </Target>
+</Project>

@@ -7,7 +7,7 @@ using CrestronHomeNUnit.Workflow;
 
 namespace CrestronHomeDevTools.Automation;
 
-/// <summary>Rehearsal runs real permitted tests and prepares documents, but cannot sign or contact delivery providers.</summary>
+/// <summary>Rehearsal runs the submission stages with separately approved signing and a configured test-mail destination.</summary>
 public enum SubmissionAutomationMode { Rehearsal, Submit }
 public enum SubmissionAutomationWorkerRole { Evidence, Protected }
 public sealed record SubmissionAutomationApprovalChannel(string DocumentPath,string PinPath);
@@ -23,11 +23,18 @@ public sealed record SubmissionAutomationProtectedPlan(string CredentialBindings
 {
  /// <summary>Optional independently pinned unsigned supplement; never changes the original run or grants authority.</summary>
  public SubmissionAutomationReviewRevision? ReviewRevision { get; init; }
+ [JsonIgnore(Condition=JsonIgnoreCondition.WhenWritingDefault)]
+ public SubmissionDeliveryEnvironment Environment { get; init; }
 }
 public sealed record SubmissionAutomationReviewRevision(string RelativeDirectory,string OriginalReviewSha256,string ReviewSha256);
 public sealed record SubmissionAutomationDeliverySettings(string Sender,string SmtpHost,int SmtpPort,
  string ReviewedUploadFormSha256,string AcceptedUploadTermsSha256,string? GapSummary=null,
- SubmissionReviewCorrespondence? Correspondence=null);
+ SubmissionReviewCorrespondence? Correspondence=null)
+{
+ /// <summary>Explicit test mailbox for rehearsal; production never consumes this setting.</summary>
+ [JsonIgnore(Condition=JsonIgnoreCondition.WhenWritingNull)]
+ public string? RehearsalRecipient { get; init; }
+}
 
 public sealed record SubmissionAutomationSettings(int SchemaVersion, string PrivateRoot, SubmissionWorkflowRelease Release,
  string SourceRepository, SubmissionPackageRequirements PackageRequirements, string CredentialBindings,
@@ -75,6 +82,14 @@ internal static class AutomationFiles
   UnmappedMemberHandling=JsonUnmappedMemberHandling.Disallow, RespectRequiredConstructorParameters=true,
   RespectNullableAnnotations=true, AllowDuplicateProperties=false, WriteIndented=true,
   Converters={new JsonStringEnumConverter(allowIntegerValues:false)} };
+ // Recovery/removal evidence must identify the exact installed worker assembly bytes.
+ // These operations run in the file-backed worker, never in the bundled setup UI.
+ [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("SingleFile","IL3000",Justification="A missing assembly file is explicitly rejected before hashing.")]
+ internal static string AssemblyHash(System.Reflection.Assembly assembly) {
+  string path=assembly.Location;
+  if(string.IsNullOrEmpty(path))throw new InvalidOperationException("Evidence operations require the installed automation worker with separate assembly files.");
+  return Hash(path);
+ }
  internal static string Hash(string path) { using var f=File.OpenRead(path);return Convert.ToHexStringLower(SHA256.HashData(f)); }
  internal static T Read<T>(string path) {
   if(new FileInfo(path).Length>16*1024*1024) throw new InvalidDataException("Retained document exceeds its size limit.");

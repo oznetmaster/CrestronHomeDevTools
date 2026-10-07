@@ -58,7 +58,7 @@ class DeliveryCommandIntegrationTests(unittest.TestCase):
     def test_command_runs_both_real_revalidations_and_completed_replay_sends_nothing(self):
         run, result = self.command()
         self.assertEqual(run.returncode, 0, run.stderr.decode())
-        self.assertEqual(result, {"Command": {"SchemaVersion": 1, "State": "Submitted", "Submitted": True},
+        self.assertEqual(result, {"Command": {"SchemaVersion": 1, "Environment": "Production", "State": "Submitted", "Submitted": True, "RehearsalCompleted": False},
                                   "Uploads": 1, "Sends": 1, "SyntheticTransport": True})
         folders = [path for path in self.attempts.iterdir() if path.is_dir()]
         self.assertEqual({path.name.split("-")[0] for path in folders}, {"Upload", "Send"})

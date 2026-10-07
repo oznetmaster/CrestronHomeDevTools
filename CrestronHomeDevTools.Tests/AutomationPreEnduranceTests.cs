@@ -79,6 +79,97 @@ public sealed class AutomationPreEnduranceTests
  [Test]public void CompletedInitialCoverageAllowsEnduranceWithoutEnduranceEvidence() {
   Assert.That(AutomationPreEndurance.Check(context,settings,default).EvidenceChecksPassed,Is.True);
  }
+ [TestCase("installed-app/steps/000")]
+ [TestCase("pre-endurance/installed-app/steps/000")]
+ [TestCase("pre-endurance/installed-app/steps/000/installed-app/preparation-recovery")]
+ public void SteppedEvidenceUsesItsActualProducerBase(string producer) {
+  Observations(initial.Where(id=>id!="system.power").Select(Observation).ToArray());
+  string observation=AddProducer(producer,"system.power");
+  PinAppFiles([producer+"/installed-app/trace.txt",observation]);
+  settings=settings with{Review=settings.Review! with{ObservationSources=["nunit/observations.json",observation]}};
+  Assert.That(AutomationPreEndurance.Check(context,settings,default).EvidenceChecksPassed,Is.True);
+  File.AppendAllText(P(producer+"/installed-app/trace.txt"),"changed");
+  Assert.Throws<InvalidDataException>(()=>AutomationPreEndurance.Check(context,settings,default));
+ }
+ [TestCase(false)][TestCase(true)]
+ public void AcceptedSplitReplacementFeedsTheSameEvidenceToGateAndReview(bool tamper) {
+  Observations(initial.Where(id=>id is not ("system.power" or "system.network")).Select(Observation).ToArray());
+  string step="pre-endurance/installed-app/steps/000",id=new('a',32),attempt="installed-app/recovery-attempts/"+id+"/";
+  string[] producers=Enumerable.Range(0,2).Select(i=>attempt+"invocations/"+i.ToString("D3")+"/installed-app/AndroidUI/").ToArray();
+  var files=new List<string>();var mappings=new Dictionary<string,string>();
+  string[] requirements=["system.power","system.network"];
+  for(int i=0;i<2;i++) {
+   string producer=step+"/"+attempt+"invocations/"+i.ToString("D3");
+   files.Add(AddProducer(producer,requirements[i]));files.Add(producer+"/installed-app/trace.txt");
+   mappings.Add(requirements[i]+".json",producers[i]+"observations.json");
+  }
+  Directory.CreateDirectory(P(step+"/installed-app/AndroidUI"));
+  foreach(string requirement in requirements) {
+   // Failed originals remain retained, but cannot replace the accepted observation.
+   string old=step+"/installed-app/AndroidUI/"+requirement+".json";
+   Write(old,new SubmissionEvidenceDocument(1,[Observation(requirement) with{Outcome=SubmissionEvidenceOutcome.Failed}]));files.Add(old);
+  }
+  string pointer=step+"/installed-app/replacement.json";
+  Write(pointer,new AutomationAppStepRecovery.Completion(id,producers[0],new('b',64),producers,mappings));files.Add(pointer);
+  foreach(string name in new[]{"attempt.json","original-evidence.json"}) {
+   string path=step+"/"+attempt+name;Write(path,new{Synthetic=true});files.Add(path);
+  }
+  PinAppFiles(files);
+  settings=settings with{Review=settings.Review! with{ObservationSources=["nunit/observations.json",..requirements.Select(r=>step+"/installed-app/AndroidUI/"+r+".json")]}};
+  if(tamper) {
+   File.AppendAllText(P(pointer)," ");
+   Assert.Throws<InvalidDataException>(()=>AutomationPreEndurance.Check(context,settings,default));
+  } else Assert.That(AutomationPreEndurance.Check(context,settings,default).EvidenceChecksPassed,Is.True);
+ }
+
+ [TestCase("original")][TestCase("accepted")][TestCase("missing")]
+ [TestCase("tampered")][TestCase("unretained")][TestCase("provenance-missing")]
+ public void ResponseBaselineUsesAcceptedProducerLineage(string mode) {
+  var policy=AutomationFiles.Read<SubmissionEvidencePolicy>(P("policy.json"));
+  Write("policy.json",policy with{Requirements=[..policy.Requirements,
+   new("performance",TimeSpan.Zero,Execution:new("candidate","combined",SubmissionEvidenceOutcome.Passed,null,false,null))]});
+  identity=identity with{PolicySha256=Hash("policy.json")};
+  settings=settings with{Review=settings.Review! with{Policy=new(P("policy.json"),identity.PolicySha256)},
+   Endurance=settings.Endurance! with{Plan=settings.Endurance.Plan with{Identity=identity}},
+   PostEnduranceTests=new(){Host="fixture",CertificateSha256=new('e',64),SshFingerprint="fixture",
+    PackagePath="unused.pkg",PackageSha256=settings.Release.PackageSha256,SourceRoots=[root],
+    Target=new(2,-1,"Example","Model",1,"1.0.0.0","catalogue","Example","IP"),AndroidTests=new("unused.csproj","unused.json")}};
+  Observations(initial.Select(Observation).ToArray());
+  string step="installed-app/steps/000",id=new('a',32),attempt="installed-app/recovery-attempts/"+id+"/";
+  string suffix="outlet/response-measurements.json",requested=step+"/installed-app/AndroidUI/"+suffix;
+  string prefix=attempt+"installed-app/AndroidUI/",replacement=step+"/"+prefix+suffix;
+  settings=settings with{ResponseComparison=new("performance",[new("outlet",requested,"post-endurance/installed-app/AndroidUI/"+suffix)],Assessment:"performance-assessment/assessment.json")};
+  var files=new List<string>();
+  void Add(string path,object value){Directory.CreateDirectory(Path.GetDirectoryName(P(path))!);Write(path,value);files.Add(path);}
+  if(mode=="original")Add(requested,new{Synthetic=true});
+  else if(mode!="missing") {
+   Add(replacement,new{Synthetic=true});
+   Add(step+"/installed-app/replacement.json",new AutomationAppStepRecovery.Completion(id,prefix,new('b',64)));
+   Add(step+"/"+attempt+"attempt.json",new{Synthetic=true});
+   if(mode!="provenance-missing")Add(step+"/"+attempt+"original-evidence.json",new{Synthetic=true});
+   if(mode=="unretained")files.Remove(replacement);
+  }
+  PinAppFiles(files);
+  if(mode=="tampered")File.AppendAllText(P(replacement),"changed");
+  if(mode is "tampered" or "unretained" or "provenance-missing")
+   Assert.Throws<InvalidDataException>(()=>AutomationPreEndurance.Check(context,settings,default));
+  else {
+   var report=AutomationPreEndurance.Check(context,settings,default);
+   Assert.That(report.EvidenceChecksPassed,Is.EqualTo(mode!="missing"));
+   if(mode=="missing")Assert.That(report.Issues.Single().Code,Is.EqualTo("response-baseline-missing"));
+  }
+ }
+ private string AddProducer(string producer,string requirement) {
+  Directory.CreateDirectory(P(producer+"/installed-app/AndroidUI"));
+  string trace=producer+"/installed-app/trace.txt",observation=producer+"/installed-app/AndroidUI/observations.json";
+  File.WriteAllText(P(trace),"synthetic producer evidence");
+  Write(observation,new SubmissionEvidenceDocument(1,[Observation(requirement) with{Files=[new("installed-app/trace.txt",Hash(trace))]}]));
+  return observation;
+ }
+ private void PinAppFiles(IEnumerable<string> paths) {
+  Write("app-tests.json",new{context.Checkpoint.InputSha256,Files=paths.Select(p=>new SubmissionWorkflowReceipt(p,Hash(p))).ToArray()});
+  context.Checkpoint.CompletedStages[SubmissionWorkflowStage.AppTests]=new("app-tests.json",Hash("app-tests.json"));
+ }
  [Test]public void OneHourRehearsalKeepsFullInitialCoverageAndDoesNotShortenSubmission() {
   settings=settings with{Mode=SubmissionAutomationMode.Rehearsal,Endurance=settings.Endurance! with{
    Plan=settings.Endurance.Plan with{Requirement=settings.Endurance.Plan.Requirement with{MinimumDuration=TimeSpan.FromHours(1)}}}};

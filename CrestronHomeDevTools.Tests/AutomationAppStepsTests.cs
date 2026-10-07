@@ -93,4 +93,24 @@ public sealed partial class AutomationInstalledAppTests
   File.AppendAllText(settings.InstalledAppTests!.AndroidTests.Project,"changed source");
   await Assert.ThrowsAsync<InvalidDataException>(async()=>await Advance());Assert.That(calls,Is.Zero);
  }
+ [Test] public async Task CompletedStepsWithRetainedRetryHistoryAggregateAndResumeWithoutReplay() {
+  WithManualSteps();
+  settings=settings with{InstalledAppSteps=settings.InstalledAppSteps!.Select(s=>s with{OperatorInstructions=null}).ToArray()};
+  Task<InstalledDriverTestResult> WithHistory(InstalledDriverTestPlan p,System.Net.NetworkCredential c,string f,CancellationToken t) {
+   if(calls==0) {
+    for(int attempt=0;attempt<2;attempt++) {
+     string history=Directory.CreateDirectory(Path.Combine(f,"recovery-attempts",Guid.NewGuid().ToString("N"))).FullName;
+     for(int file=0;file<2100;file++)File.WriteAllText(Path.Combine(history,file+".json"),"original retained evidence");
+    }
+   }
+   return Run(p,c,f,t);
+  }
+  var first=await AutomationInstalledApp.Advance(context,settings,false,WithHistory,_=>new(),default);
+  Assert.That(first.Status,Is.EqualTo(SubmissionWorkflowStatus.Completed));
+  Assert.That(calls,Is.EqualTo(2));
+  AutomationInstalledApp.VerifyRetained(context.RunDirectory);
+  var resumed=await AutomationInstalledApp.Advance(context,settings,true,WithHistory,_=>new(),default);
+  Assert.That(resumed,Is.EqualTo(first));
+  Assert.That(calls,Is.EqualTo(2),"Completed actions must not be replayed when aggregating history.");
+ }
 }

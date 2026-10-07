@@ -14,20 +14,42 @@ public sealed record SubmissionComponentInterruption (string Component,
 	 SubmissionOutageCapture Interrupted, SubmissionOutageCapture Restored);
 public sealed record SubmissionOutageFunction (string Id, SubmissionEvidenceOutcome Outcome,
 	 SubmissionOutageCapture Observation);
+public sealed record SubmissionOutageDriverInstance(string Id, string? ParentId, string[] RequiredFunctions);
+public sealed record SubmissionOutageDriverInitialization(string InstanceId, SubmissionOutageCapture Capture, bool IsLowerBound);
+public sealed record SubmissionOutageFunctionTiming(string FunctionId, string InstanceId,
+    SubmissionOutageCapture Initialization, SubmissionOutageCapture Observation, double MaximumSeconds);
 /// <summary>Independently review and pin the scope and functional assertions before the test.</summary>
 public sealed record SubmissionOutageMeasurementPlan (SubmissionEvidenceIdentity Identity,
 	 string RequirementId, string[] RequiredComponents, string[] RequiredFunctions,
 	 TimeSpan MinimumInterruption, TimeSpan RecoveryLimit, SubmissionOutageRecoveryClock RecoveryClock,
-	 string? ProgramComponent = null);
+	 string? ProgramComponent = null)
+    {
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public SubmissionOutageDriverInstance[]? DriverInstances { get; init; }
+    }
 public sealed record SubmissionOutageMeasurementRecord (int SchemaVersion, SubmissionEvidenceIdentity Identity,
 	 SubmissionComponentInterruption[] Interruptions, SubmissionOutageCapture? ProgramLoaded,
 	 SubmissionOutageFunction[] Functions, SubmissionOutageCapture OriginalState,
-	 SubmissionOutageCapture VerifiedState, bool MatchesOriginal);
+	 SubmissionOutageCapture VerifiedState, bool MatchesOriginal)
+	{
+	/// <summary>Schema 2: ProgramLoaded contains bounds on program START, which is only
+	/// a lower bound for load completion. It can prove early recovery, never late recovery.</summary>
+	[System.Text.Json.Serialization.JsonIgnore (Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+	public bool ProgramLoadIsLowerBound { get; init; }
+    /// <summary>Schema 3: functions bound actual observation, not the unobserved instant of recovery.
+    /// A late positive observation cannot prove a late recovery transition.</summary>
+    [System.Text.Json.Serialization.JsonIgnore (Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public bool FunctionObservationsAreWindows { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public SubmissionOutageDriverInitialization[]? DriverInitializations { get; init; }
+	}
 public sealed record SubmissionOutageMeasurementReport (SubmissionEvidenceIdentity Identity,
 	 string RequirementId, SubmissionEvidenceOutcome Outcome, double? GuaranteedInterruptionSeconds,
 	 double? MinimumRecoverySeconds, double? MaximumRecoverySeconds, string[] Issues)
 	{
 	public bool MeasurementChecksPassed => Outcome == SubmissionEvidenceOutcome.Passed;
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public SubmissionOutageFunctionTiming[]? FunctionTimings { get; init; }
 	}
 
 /// <summary>
@@ -51,6 +73,22 @@ public static class SubmissionOutageMeasurements
 				  !plan.RequiredComponents.Contains (plan.ProgramComponent, StringComparer.Ordinal)) ||
 			 (plan.RecoveryClock == SubmissionOutageRecoveryClock.NetworkRestored && plan.ProgramComponent != null))
 			throw new InvalidDataException ("Outage measurements require the pinned identity, explicit scope, functions and positive timing limits.");
+        if(plan.DriverInstances is {} instances) {
+            if(plan.RecoveryClock != SubmissionOutageRecoveryClock.ProgramLoaded || instances.Length is <1 or >128 ||
+                instances.Any(i=>i==null || !Names(i.RequiredFunctions)) || !Names(instances.Select(i=>i.Id).ToArray()) ||
+                !instances.SelectMany(i=>i.RequiredFunctions).Order(StringComparer.Ordinal).SequenceEqual(plan.RequiredFunctions.Order(StringComparer.Ordinal)))
+                throw new InvalidDataException("Bind every function to exactly one startup instance before recording.");
+            var map=instances.ToDictionary(i=>i.Id,StringComparer.Ordinal);
+            foreach(var instance in instances) {
+                var seen=new HashSet<string>(StringComparer.Ordinal){instance.Id};
+                var parent=instance.ParentId;
+                while(parent!=null) {
+                    if(!seen.Add(parent) || !map.TryGetValue(parent,out var value))
+                        throw new InvalidDataException("Startup instance parentage must be complete and acyclic.");
+                    parent=value.ParentId;
+                }
+            }
+        }
 		}
 	public static SubmissionOutageMeasurementReport Assess (SubmissionOutageMeasurementPlan plan,
 		 SubmissionOutageMeasurementRecord record, string evidenceDirectory, DateTimeOffset now,
@@ -60,7 +98,10 @@ public static class SubmissionOutageMeasurements
 		ArgumentNullException.ThrowIfNull (record);
 		cancellationToken.ThrowIfCancellationRequested ();
 		static bool Hex (string? value, int length) => value?.Length == length && value.All (char.IsAsciiHexDigit);
-		if (record.SchemaVersion != 1 || record.Identity != plan.Identity || now == default ||
+		if (record.SchemaVersion != (plan.DriverInstances!=null ? 4 : record.FunctionObservationsAreWindows ? 3 : record.ProgramLoadIsLowerBound ? 2 : 1) ||
+             (plan.DriverInstances!=null ? record.DriverInitializations is not {Length:<=128} || !record.FunctionObservationsAreWindows : record.DriverInitializations!=null) ||
+			 (record.ProgramLoadIsLowerBound && (plan.RecoveryClock != SubmissionOutageRecoveryClock.ProgramLoaded || record.ProgramLoaded == null)) ||
+			 record.Identity != plan.Identity || now == default ||
 			 record.Interruptions is not { Length: <= 128 } || record.Functions is not { Length: <= 128 })
 			throw new InvalidDataException ("Outage measurements require the pinned identity, explicit scope, functions and positive timing limits.");
 		string root = Path.GetFullPath (evidenceDirectory);
@@ -161,26 +202,67 @@ public static class SubmissionOutageMeasurements
 			}
 		if (plan.RecoveryClock == SubmissionOutageRecoveryClock.ProgramLoaded && record.ProgramLoaded == null)
 			issues.Add ("program-load-time-not-observed");
-		if (clockEarliest != null && clockLatest != null && functions.Count == plan.RequiredFunctions.Length)
+		if (plan.DriverInstances==null && clockEarliest != null && clockLatest != null && functions.Count == plan.RequiredFunctions.Length)
 			{
 			DateTimeOffset allRestored = record.Interruptions.Max (i => i.Restored.LatestUtc);
 			if (record.Functions.Any (f => f.Observation.EarliestUtc < clockLatest || f.Observation.EarliestUtc < allRestored))
 				issues.Add ("functional-evidence-not-after-restoration");
 			else
 				{
-				minimumRecovery = (record.Functions.Max (f => f.Observation.EarliestUtc) - clockLatest.Value).TotalSeconds;
+					// Program start precedes load completion, but supplies no upper bound
+					// for it. Missing the conservative deadline is unproven, not failed.
+					minimumRecovery = record.ProgramLoadIsLowerBound || record.FunctionObservationsAreWindows ? null :
+						(record.Functions.Max (f => f.Observation.EarliestUtc) - clockLatest.Value).TotalSeconds;
 				maximumRecovery = (record.Functions.Max (f => f.Observation.LatestUtc) - clockEarliest.Value).TotalSeconds;
 				if (minimumRecovery > plan.RecoveryLimit.TotalSeconds)
 					{
 					issues.Add ("recovery-deadline-exceeded");
 					failed = true;
 					}
-				else if (maximumRecovery > plan.RecoveryLimit.TotalSeconds)
-					issues.Add ("recovery-deadline-unproven");
+					else if (maximumRecovery > plan.RecoveryLimit.TotalSeconds)
+						{
+						issues.Add ("recovery-deadline-unproven");
+						if (record.ProgramLoadIsLowerBound) issues.Add ("program-load-completion-not-observed");
+						}
 				}
 			}
+        var timings=new List<SubmissionOutageFunctionTiming>();
+        if(plan.DriverInstances is {} drivers) {
+            var initialized=new Dictionary<string,SubmissionOutageDriverInitialization>(StringComparer.Ordinal);
+            foreach(var entry in record.DriverInitializations!) {
+                if(entry==null || !drivers.Any(d=>d.Id==entry.InstanceId) || !initialized.TryAdd(entry.InstanceId,entry))
+                    throw new InvalidDataException("Unexpected or duplicate initialization instance.");
+                Capture(entry.Capture);
+                if(entry.Capture.EarliestUtc<record.OriginalState.LatestUtc || entry.Capture.LatestUtc>record.VerifiedState.EarliestUtc)
+                    throw new InvalidDataException("Initialization is outside the captured test.");
+                if(record.ProgramLoaded is {} home && entry.Capture.EarliestUtc<home.EarliestUtc)
+                    throw new InvalidDataException("Initialization prerequisites precede Home load completion.");
+            }
+            foreach(var driver in drivers) {
+                if(!initialized.TryGetValue(driver.Id,out var initialization)) { issues.Add("initialization-not-observed:"+driver.Id); continue; }
+                if(components.Count!=plan.RequiredComponents.Length)continue;
+                var start=initialization.Capture;
+                var restoredAt=record.Interruptions.Max(i=>i.Restored.LatestUtc);
+                if(start.EarliestUtc<record.Interruptions.Single(i=>i.Component==plan.ProgramComponent).Restored.LatestUtc)
+                    issues.Add("initialization-not-after-power-restoration:"+driver.Id);
+                foreach(var function in record.Functions.Where(f=>driver.RequiredFunctions.Contains(f.Id,StringComparer.Ordinal))) {
+                    if(function.Observation.EarliestUtc<start.LatestUtc || function.Observation.EarliestUtc<restoredAt) {
+                        issues.Add("functional-evidence-not-after-initialization:"+function.Id); continue;
+                    }
+                    var seconds=(function.Observation.LatestUtc-start.EarliestUtc).TotalSeconds;
+                    timings.Add(new(function.Id,driver.Id,start,function.Observation,seconds));
+                    if(seconds>plan.RecoveryLimit.TotalSeconds) {
+                        issues.Add("recovery-deadline-unproven:"+function.Id);
+                        if(initialization.IsLowerBound)issues.Add("initialization-receipt-not-observed:"+driver.Id);
+                    }
+                }
+            }
+            minimumRecovery=null; // Positive observations do not establish the actual recovery transition.
+            maximumRecovery=timings.Count==plan.RequiredFunctions.Length ? timings.Max(t=>t.MaximumSeconds) : null;
+        }
 		return new (plan.Identity, plan.RequirementId, failed ? SubmissionEvidenceOutcome.Failed :
 			 issues.Count == 0 ? SubmissionEvidenceOutcome.Passed : SubmissionEvidenceOutcome.Partial,
-			 interruptionSeconds, minimumRecovery, maximumRecovery, issues.ToArray ());
+			 interruptionSeconds, minimumRecovery, maximumRecovery, issues.ToArray ())
+            {FunctionTimings=plan.DriverInstances==null ? null : timings.ToArray()};
 		}
 	}

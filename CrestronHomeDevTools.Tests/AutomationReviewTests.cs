@@ -6,12 +6,23 @@ using NUnit.Framework;
 
 namespace CrestronHomeDevTools.Tests;
 [TestFixture]
-public sealed class AutomationReviewTests
+public sealed partial class AutomationReviewTests
 {
  private string root=null!;
  private SubmissionAutomationSettings settings=null!;
  private SubmissionWorkflowStepContext context=null!;
  private int executions;
+ private AutomationReview.Prepared PrepareAssessedInputs(SubmissionWorkflowStepContext c,SubmissionAutomationSettings s,SubmissionAutomationReviewPlan p,CancellationToken token) {
+  if(!AutomationTestAssessment.Prepare(c,s with{Review=p},token))throw new InvalidDataException("Phase-two assessment failed.");
+  return AutomationReview.PrepareInputs(c,s,p,token);
+ }
+ private Task<SubmissionWorkflowStepResult> SealAssessedInputs(SubmissionWorkflowStepContext c,SubmissionAutomationSettings s,CancellationToken token,
+  Func<SubmissionAutomationConsole,string[],string,CancellationToken,Task<int>> execute) {
+  if(!File.Exists(Path.Combine(c.RunDirectory,"review-snapshot-intent.json")) && !File.Exists(Path.Combine(c.RunDirectory,AutomationReviewInputs.ReceiptName)) &&
+   !AutomationTestAssessment.Prepare(c,s,token))throw new InvalidDataException("Phase-two assessment failed.");
+  return AutomationReviewInputs.Seal(c,s,token,execute);
+ }
+
  private string P(string name)=>Path.Combine(root,name);
  private void Write<T>(string name,T value)=>AutomationReview.WriteDocument(P(name),value);
  private string Hash(string name)=>AutomationFiles.Hash(P(name));
@@ -66,19 +77,83 @@ public sealed class AutomationReviewTests
    AndroidTests=new(P("unused.csproj"),P("unused-profile.json"))},
    Review=settings.Review! with{ObservationSources=[folder+"/installed-app/observations.json"]}};
   if(folder=="pre-endurance")settings=settings with{PreEnduranceTests=settings.PostEnduranceTests,PostEnduranceTests=null};
-  AutomationReview.PrepareInputs(context,settings,settings.Review!,default);
-  var rebased=AutomationFiles.Read<SubmissionEvidenceDocument>(Directory.GetFiles(P("review-inputs"),folder+"-*.json").Single());
+  PrepareAssessedInputs(context,settings,settings.Review!,default);
+  var rebased=AutomationFiles.Read<SubmissionEvidenceDocument>(Directory.GetFiles(P("test-assessment"),folder+"-*.json").Single());
   Assert.That(rebased.Observations.Single().Files.Single().RelativePath,Is.EqualTo(folder+"/installed-app/trace.txt"));
   Assert.That(rebased.Observations.Single().Identity,Is.EqualTo(identity));
   File.AppendAllText(P(folder+"/installed-app/trace.txt"),"changed");
-  Assert.Throws<InvalidDataException>(()=>AutomationReview.PrepareInputs(context,settings,settings.Review!,default));
+  Assert.Throws<InvalidDataException>(()=>PrepareAssessedInputs(context,settings,settings.Review!,default));
  }
- private Task<int> Prepare(SubmissionAutomationConsole console,string[] args,string logs,CancellationToken token) {
-  executions++;Assert.That(args.Take(2),Is.EqualTo(new[]{"submission","prepare-review"}));
-  using var config=JsonDocument.Parse(File.ReadAllBytes(args[3]));var s=config.RootElement;
-  string Field(string key)=>s.GetProperty(key).GetString()!;
+
+ private async Task<SubmissionWorkflowStepResult> AdvanceReview(SubmissionWorkflowStepContext c,SubmissionAutomationSettings s,bool recover,
+  CancellationToken token,Func<SubmissionAutomationConsole,string[],string,CancellationToken,Task<int>> execute) {
+  if(s.Review!=null && !recover && !File.Exists(P(AutomationReviewInputs.ReceiptName))) {
+   var sealedInputs=await SealAssessedInputs(c,s,token,Publish);
+   Assert.That(sealedInputs.Status,Is.EqualTo(SubmissionWorkflowStatus.Completed));
+  }
+  return await AutomationReview.Advance(c,s,recover,token,execute);
+ }
+ // Small synthetic publisher for adapter tests. Packaged tests execute the actual bundled Python publisher.
+ private Task<int> Publish(SubmissionAutomationConsole console,string[] args,string logs,CancellationToken token) {
+  Assert.That(args[1],Is.EqualTo("freeze-review-inputs"));
   string Arg(string key)=>args[Array.IndexOf(args,key)+1];
-  string output=Field("output");Directory.CreateDirectory(output);
+  var config=AutomationFiles.Read<Dictionary<string,JsonElement>>(Arg("--settings"));
+  string folder=Arg("--output");Directory.CreateDirectory(folder);
+  var portable=new Dictionary<string,object>{{"schemaVersion",1},{"title","Synthetic"},{"author","Synthetic"},{"evidence","evidence"}};
+  var files=new Dictionary<string,string>();
+  string Copy(string source,string name) {
+   string target=Path.Combine(folder,name);Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+   if(!File.Exists(target))File.Copy(source,target);files[name]=AutomationFiles.Hash(target);return name;
+  }
+  foreach(var field in new[]{"candidate","inventory","mapping","policy","observations","package","template"})
+   portable[field]=Copy(config[field].GetString()!,"documents/"+Path.GetFileName(config[field].GetString()!));
+  var observations=AutomationFiles.Read<SubmissionEvidenceDocument>(config["observations"].GetString()!);
+  Directory.CreateDirectory(Path.Combine(folder,"evidence"));
+  foreach(var file in observations.Observations.SelectMany(o=>o.Files))Copy(Path.Combine(config["evidence"].GetString()!,file.RelativePath),"evidence/"+file.RelativePath);
+  var options=new Dictionary<string,string>{{"reviewMode","complete"}};
+  foreach(var pair in new[]{("candidateSha256","--candidate-sha256"),("inventorySha256","--inventory-sha256"),("mappingSha256","--mapping-sha256"),("sourceCommit","--source-commit")})options[pair.Item1]=Arg(pair.Item2);
+  AutomationReview.WriteDocument(Path.Combine(folder,"review-inputs.json"),new{schemaVersion=1,settings=portable,options,
+   files=files.OrderBy(p=>p.Key,StringComparer.Ordinal).Select(p=>new{relativePath=p.Key,sha256=p.Value}).ToArray()});
+  File.WriteAllText(Path.Combine(folder,"COMPLETE"),AutomationFiles.Hash(Path.Combine(folder,"review-inputs.json"))+"\n");
+  return Task.FromResult(0);
+ }
+ [Test]public async Task ReviewConsumesCompletedSnapshotAfterProducerFoldersAreUnavailable() {
+  Assert.That((await SealAssessedInputs(context,settings,default,Publish)).Status,Is.EqualTo(SubmissionWorkflowStatus.Completed));
+  Directory.Move(P("nunit"),P("original-nunit"));Directory.Move(P("review-inputs"),P("original-preparation"));
+  var result=await AutomationReview.Advance(context,settings,false,default,Prepare);
+  Assert.That(result.Status,Is.EqualTo(SubmissionWorkflowStatus.Completed));
+  Assert.That((await AutomationReview.Advance(context,settings,true,default,Prepare)).Receipt,Is.EqualTo(result.Receipt));
+  Assert.That(executions,Is.EqualTo(1));
+ }
+ [Test]public async Task CompletePublicationAfterInterruptedReturnIsReconciledWithoutRepublishing() {
+  await Assert.ThrowsAsync<IOException>(async()=>await SealAssessedInputs(context,settings,default,async(c,a,l,t)=>{await Publish(c,a,l,t);throw new IOException("synthetic lost return");}));
+  Assert.That(File.Exists(P(AutomationReviewInputs.ReceiptName)),Is.False);
+  var result=await SealAssessedInputs(context,settings,default,(_,_,_,_)=>throw new InvalidOperationException("No replay"));
+  Assert.That(result.Status,Is.EqualTo(SubmissionWorkflowStatus.Completed));
+ }
+ [Test]public async Task PartialPublicationRemainsUncertainAndIsNotReplaced() {
+  await Assert.ThrowsAsync<IOException>(async()=>await SealAssessedInputs(context,settings,default,(_,_,_,_)=>{Directory.CreateDirectory(P("review-snapshot"));throw new IOException("synthetic interrupted publication");}));
+  var result=await SealAssessedInputs(context,settings,default,(_,_,_,_)=>throw new InvalidOperationException("No replay"));
+  Assert.That(result.Status,Is.EqualTo(SubmissionWorkflowStatus.OutcomeUnknown));Assert.That(File.Exists(P(AutomationReviewInputs.ReceiptName)),Is.False);
+ }
+ [TestCase("review-snapshot/documents/policy.json")][TestCase("review-snapshot/COMPLETE")][TestCase("review-snapshot/evidence/nunit/trace.txt")]
+ public async Task ChangedSnapshotStopsReviewWithoutRunningPreparation(string path) {
+  await SealAssessedInputs(context,settings,default,Publish);File.AppendAllText(P(path),"changed");
+  await Assert.ThrowsAsync<InvalidDataException>(async()=>await AutomationReview.Advance(context,settings,false,default,Prepare));Assert.That(executions,Is.Zero);
+ }
+ [Test]public async Task AdditionalSnapshotFileIsRejected() {
+  await SealAssessedInputs(context,settings,default,Publish);File.WriteAllText(P("review-snapshot/unexpected.txt"),"extra");
+  Assert.Throws<InvalidDataException>(()=>AutomationReviewInputs.Verify(context));
+ }
+
+ private Task<int> Prepare(SubmissionAutomationConsole console,string[] args,string logs,CancellationToken token) {
+  executions++;Assert.That(args.Take(2),Is.EqualTo(new[]{"submission","prepare-frozen-review"}));
+  string inputs=args[Array.IndexOf(args,"--inputs")+1];
+  using var config=JsonDocument.Parse(File.ReadAllBytes(Path.Combine(inputs,"review-inputs.json")));var s=config.RootElement.GetProperty("settings");
+  string Field(string key)=>Path.Combine(inputs,s.GetProperty(key).GetString()!);
+  string Arg(string key)=>config.RootElement.GetProperty("options").GetProperty(key switch{
+   "--candidate-sha256"=>"candidateSha256","--inventory-sha256"=>"inventorySha256","--mapping-sha256"=>"mappingSha256",_=>throw new InvalidOperationException()}).GetString()!;
+  string output=args[Array.IndexOf(args,"--output")+1];Directory.CreateDirectory(output);
   var bundle=SubmissionBundle.Create(Path.Combine(output,"evidence.zip"),Field("candidate"),Arg("--candidate-sha256"),Field("package"),Field("policy"),Field("template"),Field("observations"),Field("evidence"),DateTimeOffset.UtcNow,token);
   Assert.That(bundle.ValidationChecksPassed,Is.True);
   File.WriteAllText(Path.Combine(output,"self-test.review.pdf"),"Synthetic form bytes: adapter test only");File.WriteAllText(Path.Combine(output,"form-report.json"),"{}");
@@ -88,9 +163,9 @@ public sealed class AutomationReviewTests
   File.WriteAllText(P("review/COMPLETE"),Hash("review/review-receipt.json")+"\n");return Task.FromResult(0);
  }
  [Test]public async Task PreparesFromRetainedObservationsAndRecoveryDoesNotRegenerate() {
-  var result=await AutomationReview.Advance(context,settings,false,default,Prepare);
+  var result=await AdvanceReview(context,settings,false,default,Prepare);
   Assert.That(result.Status,Is.EqualTo(SubmissionWorkflowStatus.Completed));
-  var recovered=await AutomationReview.Advance(context,settings,true,default,Prepare);
+  var recovered=await AdvanceReview(context,settings,true,default,Prepare);
   Assert.That(recovered.Receipt,Is.EqualTo(result.Receipt));Assert.That(executions,Is.EqualTo(1));
   var sources=AutomationFiles.Read<SubmissionEvidenceDocument>(P("review-inputs/observations.json"));
   Assert.That(sources.Observations.Single().Files.Any(f=>f.RelativePath=="nunit/observations.json"),Is.True);
@@ -99,7 +174,7 @@ public sealed class AutomationReviewTests
  [Test]public void UnretainedObservationCannotBecomeChecklistEvidence() {
   File.Copy(P("nunit/observations.json"),P("untrusted.json"));
   var plan=settings.Review! with{ObservationSources=["untrusted.json"]};
-  Assert.Throws<InvalidDataException>(()=>AutomationReview.PrepareInputs(context,settings,plan,default));
+  Assert.Throws<InvalidDataException>(()=>PrepareAssessedInputs(context,settings,plan,default));
  }
  private SubmissionAutomationReviewPlan InstalledObservations(bool completed=true,string? inputSha256=null) {
   Directory.CreateDirectory(P("installed-app"));
@@ -115,54 +190,54 @@ public sealed class AutomationReviewTests
  }
  [Test]public async Task CompletedSeparateAppObservationsReachReviewAndBundle() {
   settings=settings with{Review=InstalledObservations()};
-  var result=await AutomationReview.Advance(context,settings,false,default,Prepare);
+  var result=await AdvanceReview(context,settings,false,default,Prepare);
   Assert.That(result.Status,Is.EqualTo(SubmissionWorkflowStatus.Completed));
   var combined=AutomationFiles.Read<SubmissionEvidenceDocument>(P("review-inputs/observations.json"));
   Assert.That(combined.Observations.Single().Files.Any(f=>f.RelativePath=="installed-app/trace.txt"),Is.True);
  }
  [Test]public void UncompletedSeparateAppReceiptDoesNotAuthorizeObservations() {
   var plan=InstalledObservations(completed:false);
-  Assert.Throws<InvalidDataException>(()=>AutomationReview.PrepareInputs(context,settings,plan,default));
+  Assert.Throws<InvalidDataException>(()=>PrepareAssessedInputs(context,settings,plan,default));
  }
  [Test]public void ChangedSeparateAppEvidenceBlocksReview() {
   var plan=InstalledObservations();File.AppendAllText(P("installed-app/trace.txt"),"changed");
-  Assert.Throws<InvalidDataException>(()=>AutomationReview.PrepareInputs(context,settings,plan,default));
+  Assert.Throws<InvalidDataException>(()=>PrepareAssessedInputs(context,settings,plan,default));
  }
  [Test]public void SeparateAppReceiptFromAnotherWorkflowBlocksReview() {
   var plan=InstalledObservations(inputSha256:new('f',64));
-  Assert.Throws<InvalidDataException>(()=>AutomationReview.PrepareInputs(context,settings,plan,default));
+  Assert.Throws<InvalidDataException>(()=>PrepareAssessedInputs(context,settings,plan,default));
  }
  [Test]public void ChangedProducerOutputIsNotRehashedIntoTrustedEvidence() {
   File.AppendAllText(P("nunit/observations.json")," ");
-  Assert.Throws<InvalidDataException>(()=>AutomationReview.PrepareInputs(context,settings,settings.Review!,default));
+  Assert.Throws<InvalidDataException>(()=>PrepareAssessedInputs(context,settings,settings.Review!,default));
  }
  [Test]public void MissingRequirementIsNotFilledFromTheNUnitPassReceipt() {
   Write("extended-policy.json",new SubmissionEvidencePolicy(1,[new("ui.navigation",TimeSpan.Zero),new("power.interruption",TimeSpan.Zero)]));
   settings=settings with{Review=settings.Review! with{Policy=Input("extended-policy.json")}};
   // Original observations still name the old policy. Retain the original mismatch, do not rebind it.
-  var prepared=AutomationReview.PrepareInputs(context,settings,settings.Review!,default);
-  using var report=JsonDocument.Parse(File.ReadAllBytes(P("review-inputs/composition-report.json")));
+  Assert.Throws<InvalidDataException>(()=>PrepareAssessedInputs(context,settings,settings.Review!,default));
+  using var report=JsonDocument.Parse(File.ReadAllBytes(P("test-assessment/composition-report.json")));
   Assert.That(report.RootElement.GetProperty("compositionChecksPassed").GetBoolean(),Is.False);
-  Assert.That(AutomationFiles.Read<SubmissionEvidenceDocument>(P("review-inputs/observations.json")).Observations,Has.Count.EqualTo(1));
+  Assert.That(AutomationFiles.Read<SubmissionEvidenceDocument>(P("test-assessment/observations.json")).Observations,Has.Count.EqualTo(1));
  }
  [Test]public async Task InterruptedDocumentOperationStopsRatherThanRepeating() {
-  await AutomationReview.Advance(context,settings,false,default,(_,_,_,_)=>throw new IOException("synthetic interrupted process"))
+  await AdvanceReview(context,settings,false,default,(_,_,_,_)=>throw new IOException("synthetic interrupted process"))
    .ContinueWith(t=>Assert.That(t.IsFaulted,Is.True));
-  var result=await AutomationReview.Advance(context,settings,true,default,Prepare);
+  var result=await AdvanceReview(context,settings,true,default,Prepare);
   Assert.That(result.Status,Is.EqualTo(SubmissionWorkflowStatus.OutcomeUnknown));Assert.That(executions,Is.Zero);
  }
  [Test]public async Task ChangedPreparedPacketBlocksRecoveryAndContinuation() {
-  await AutomationReview.Advance(context,settings,false,default,Prepare);
+  await AdvanceReview(context,settings,false,default,Prepare);
   File.AppendAllText(P("review/self-test.review.pdf"),"changed");
   Assert.Throws<InvalidDataException>(()=>AutomationReview.VerifyRetained(root));
-		await Assert.ThrowsAsync<InvalidDataException>(async()=>await AutomationReview.Advance(context,settings,true,default,Prepare));
+		await Assert.ThrowsAsync<InvalidDataException>(async()=>await AdvanceReview(context,settings,true,default,Prepare));
  }
  [Test]public async Task ProcessFailureIsNotACompletedReview() {
-  var result=await AutomationReview.Advance(context,settings,false,default,(_,_,_,_)=>Task.FromResult(2));
+  var result=await AdvanceReview(context,settings,false,default,(_,_,_,_)=>Task.FromResult(2));
   Assert.That(result.Status,Is.EqualTo(SubmissionWorkflowStatus.Failed));Assert.That(File.Exists(P("review-evidence.json")),Is.False);
  }
  [Test]public async Task NoReviewPlanIsAnExplicitMissingInput() {
-  var result=await AutomationReview.Advance(context,settings with{Review=null},false,default,Prepare);
+  var result=await AdvanceReview(context,settings with{Review=null},false,default,Prepare);
   Assert.That(result.ReasonCode,Is.EqualTo("review-plan-required"));Assert.That(executions,Is.Zero);
  }
  private void ConfigureApplicability(SubmissionEvidenceOutcome outcome=SubmissionEvidenceOutcome.NotApplicable,
@@ -181,7 +256,7 @@ public sealed class AutomationReviewTests
  [Test]public async Task ReviewedApplicabilityTravelsWithPortableBundleAndNeedsNoSourceOnRecovery() {
   ConfigureApplicability();AutomationApplicability.Prepare(root,ReviewedIdentity(),settings.Review!,default);
   Directory.Delete(P("applicability-source"),true);
-  var result=await AutomationReview.Advance(context,settings,false,default,Prepare);
+  var result=await AdvanceReview(context,settings,false,default,Prepare);
   Assert.That(result.Status,Is.EqualTo(SubmissionWorkflowStatus.Completed));
   var combined=AutomationFiles.Read<SubmissionEvidenceDocument>(P("review-inputs/observations.json"));
   Assert.That(combined.Observations.Single().Outcome,Is.EqualTo(SubmissionEvidenceOutcome.NotApplicable));
@@ -192,23 +267,23 @@ public sealed class AutomationReviewTests
  [TestCase(SubmissionEvidenceOutcome.ReviewedPriorPass)]
  public void ApplicabilityCannotImportTestResults(SubmissionEvidenceOutcome outcome) {
   ConfigureApplicability(outcome);
-  Assert.Throws<InvalidDataException>(()=>AutomationReview.PrepareInputs(context,settings,settings.Review!,default));
+  Assert.Throws<InvalidDataException>(()=>PrepareAssessedInputs(context,settings,settings.Review!,default));
  }
  [TestCase(false,true,"Has no slider")]
  [TestCase(true,false,"Has no slider")]
  [TestCase(true,true,"")]
  public void ApplicabilityRequiresPermissionCandidateAndReason(bool allowed,bool correctCandidate,string rationale) {
   ConfigureApplicability(allowed:allowed,correctCandidate:correctCandidate,rationale:rationale);
-  Assert.Throws<InvalidDataException>(()=>AutomationReview.PrepareInputs(context,settings,settings.Review!,default));
+  Assert.Throws<InvalidDataException>(()=>PrepareAssessedInputs(context,settings,settings.Review!,default));
  }
  [Test]public void ApplicabilitySourceChangesCannotBeRehashedIntoEvidence() {
   ConfigureApplicability();File.AppendAllText(P("applicability-source/ui.xml"),"<slider />");
-  Assert.Throws<InvalidDataException>(()=>AutomationReview.PrepareInputs(context,settings,settings.Review!,default));
+  Assert.Throws<InvalidDataException>(()=>PrepareAssessedInputs(context,settings,settings.Review!,default));
  }
  [Test]public void MissingRetainedApplicabilityIsNotSilentlyRestored() {
   ConfigureApplicability();AutomationApplicability.Prepare(root,ReviewedIdentity(),settings.Review!,default);
   File.Delete(P("applicability/ui.xml"));
-  Assert.Throws<InvalidDataException>(()=>AutomationReview.PrepareInputs(context,settings,settings.Review!,default));
+  Assert.Throws<InvalidDataException>(()=>PrepareAssessedInputs(context,settings,settings.Review!,default));
  }
  private void ConfigureQualification(SubmissionEvidenceOutcome outcome) {
   Directory.CreateDirectory(P("qualification-source"));
@@ -226,8 +301,8 @@ public sealed class AutomationReviewTests
  public void QualificationRetainsOutcomeAndStillRequiresExplicitReview(SubmissionEvidenceOutcome outcome) {
   ConfigureQualification(outcome);AutomationQualifications.Prepare(root,ReviewedIdentity(),settings.Review!,default);
   Directory.Delete(P("qualification-source"),true);
-  AutomationReview.PrepareInputs(context,settings,settings.Review!,default);
-  var report=AutomationFiles.Read<SubmissionEvidenceCompositionReport>(P("review-inputs/composition-report.json"));
+  Assert.Throws<InvalidDataException>(()=>PrepareAssessedInputs(context,settings,settings.Review!,default));
+  var report=AutomationFiles.Read<SubmissionEvidenceCompositionReport>(P("test-assessment/composition-report.json"));
   Assert.That(report.CompositionChecksPassed,Is.False);
   Assert.That(report.Observations.Observations.Single().Outcome,Is.EqualTo(outcome));
   var rules=AutomationFiles.Read<SubmissionEvidencePolicy>(settings.Review!.Policy.Path).Requirements;
@@ -240,11 +315,11 @@ public sealed class AutomationReviewTests
  [TestCase(SubmissionEvidenceOutcome.ReviewedPriorPass)]
  public void QualificationCannotImportSatisfactoryOutcomes(SubmissionEvidenceOutcome outcome) {
   ConfigureQualification(outcome);
-  Assert.Throws<InvalidDataException>(()=>AutomationReview.PrepareInputs(context,settings,settings.Review!,default));
+  Assert.Throws<InvalidDataException>(()=>PrepareAssessedInputs(context,settings,settings.Review!,default));
  }
  [Test]public void QualificationRejectsChangedOriginalEvidence() {
   ConfigureQualification(SubmissionEvidenceOutcome.Partial);File.AppendAllText(P("qualification-source/outage.txt"),"changed");
-  Assert.Throws<InvalidDataException>(()=>AutomationReview.PrepareInputs(context,settings,settings.Review!,default));
+  Assert.Throws<InvalidDataException>(()=>PrepareAssessedInputs(context,settings,settings.Review!,default));
  }
  private void ConfigurePrior(SubmissionEvidenceOutcome originalOutcome=SubmissionEvidenceOutcome.Passed) {
   Directory.CreateDirectory(P("originals/source"));
@@ -277,21 +352,15 @@ public sealed class AutomationReviewTests
   File.Delete(P("windows-tests.json"));
   AutomationFiles.Write(P("windows-tests.json"),new{Files=new[]{new SubmissionWorkflowReceipt("nunit/incomplete.json",Hash("nunit/incomplete.json")),new("nunit/trace.txt",Hash("nunit/trace.txt"))}});
   settings=settings with{Review=settings.Review with{ObservationSources=["nunit/incomplete.json"]}};
-  var prepared=AutomationReview.PrepareInputs(context,settings,settings.Review,default);
-  var declaration=AutomationFiles.Read<SubmissionGapDeclarations>(prepared.DeclarationsPath!);
-  Assert.That(declaration.Identity,Is.EqualTo(ReviewedIdentity()));
-  Assert.That(declaration.Mode,Is.EqualTo(SubmissionReviewMode.DeclaredGaps));
-  var result=SubmissionReviewFiles.Check(P("review-inputs/candidate.json"),prepared.CandidateSha256,
-   P("review-inputs/ExampleDeveloper_Test_Example_IP.pkg"),P("review-inputs/policy.json"),P("review-inputs/template.pdf"),
-   P("review-inputs/observations.json"),root,prepared.DeclarationsPath!,prepared.DeclarationsSha256!,SubmissionReviewMode.DeclaredGaps,DateTimeOffset.UtcNow);
-  Assert.That(result.ReadyForReview,Is.True);
-  Assert.That(result.Assessment!.VerificationStatus,Is.EqualTo(SubmissionVerificationStatus.GapsDeclared));
-  Assert.That(result.Assessment.Requirements.Single().ObservedOutcome,Is.EqualTo(SubmissionEvidenceOutcome.NotTested));
+  Assert.Throws<InvalidDataException>(()=>PrepareAssessedInputs(context,settings,settings.Review!,default));
+  Assert.That(Directory.Exists(P("review-inputs")),Is.False);
+  var result=AutomationFiles.Read<SubmissionEvidenceDocument>(P("test-assessment/observations.json"));
+  Assert.That(result.Observations.Single().Outcome,Is.EqualTo(SubmissionEvidenceOutcome.NotTested));
  }
  [Test]public void PlannedGapCannotQuietlySurviveAnActualPass() {
   settings=settings with{Review=settings.Review! with{PlannedGaps=[new("ui.navigation","No test planned.")]}};
-  var prepared=AutomationReview.PrepareInputs(context,settings,settings.Review,default);
-  var document=AutomationFiles.Read<SubmissionEvidenceDocument>(P("review-inputs/observations.json"));
+  AutomationTestEvidence.Collect(context,settings,settings.Review!,"test-assessment",default);
+  var document=AutomationFiles.Read<SubmissionEvidenceDocument>(P("test-assessment/observations.json"));
   var rules=AutomationFiles.Read<SubmissionEvidencePolicy>(P("policy.json"));
   Assert.Throws<ArgumentException>(()=>SubmissionReviewAssessment.Assess(ReviewedIdentity(),rules.Requirements,document.Observations,root,
    SubmissionReviewMode.DeclaredGaps,settings.Review.PlannedGaps!,DateTimeOffset.UtcNow));
@@ -323,7 +392,7 @@ public sealed class AutomationReviewTests
   var first=AutomationSourceApplicability.Prepare(root,settings,default);
   Directory.Delete(P("candidate-source"),true);
   Assert.That(AutomationSourceApplicability.Prepare(root,settings,default),Is.EqualTo(first));
-  var result=await AutomationReview.Advance(context,settings,false,default,Prepare);
+  var result=await AdvanceReview(context,settings,false,default,Prepare);
   Assert.That(result.Status,Is.EqualTo(SubmissionWorkflowStatus.Completed));
   var document=AutomationFiles.Read<SubmissionEvidenceDocument>(P("review-inputs/observations.json"));
   var observation=document.Observations.Single();
@@ -368,7 +437,7 @@ public sealed class AutomationReviewTests
   // Candidate preparation retains inputs before a potentially long hardware run.
   AutomationPriorEvidence.Prepare(root,ReviewedIdentity(),settings.Review!,default);
   Directory.Delete(P("originals"),true);
-  var result=await AutomationReview.Advance(context,settings,false,default,Prepare);
+  var result=await AdvanceReview(context,settings,false,default,Prepare);
   Assert.That(result.Status,Is.EqualTo(SubmissionWorkflowStatus.Completed));
   var combined=AutomationFiles.Read<SubmissionEvidenceDocument>(P("review-inputs/observations.json"));
   Assert.Multiple(()=>{
@@ -378,28 +447,28 @@ public sealed class AutomationReviewTests
    Assert.That(AutomationFiles.Read<SubmissionEvidenceDocument>(P("prior-evidence/source/observations.json")).Observations[1].Outcome,
     Is.EqualTo(SubmissionEvidenceOutcome.Failed));
   });
-  var recovered=await AutomationReview.Advance(context,settings,true,default,Prepare);
+  var recovered=await AdvanceReview(context,settings,true,default,Prepare);
   Assert.That(recovered.Receipt,Is.EqualTo(result.Receipt));Assert.That(executions,Is.EqualTo(1));
  }
  [Test]public void ChangedOriginalCannotBeRepinnedDuringAutomaticHandoff() {
   ConfigurePrior();File.AppendAllText(P("originals/source/raw.txt"),"changed");
-  Assert.Throws<InvalidDataException>(()=>AutomationReview.PrepareInputs(context,settings,settings.Review!,default));
+  Assert.Throws<InvalidDataException>(()=>PrepareAssessedInputs(context,settings,settings.Review!,default));
  }
  [Test]public void DeletedRetainedEvidenceIsNotSilentlyRestoredFromSource() {
   ConfigurePrior();AutomationPriorEvidence.Prepare(root,ReviewedIdentity(),settings.Review!,default);
   File.Delete(P("prior-evidence/source/raw.txt"));
-  Assert.Throws<InvalidDataException>(()=>AutomationReview.PrepareInputs(context,settings,settings.Review!,default));
+  Assert.Throws<InvalidDataException>(()=>PrepareAssessedInputs(context,settings,settings.Review!,default));
   Assert.That(File.Exists(P("prior-evidence/source/raw.txt")),Is.False);
  }
  [Test]public void FailedOriginalCannotBecomeReviewedPassThroughController() {
   ConfigurePrior(SubmissionEvidenceOutcome.Failed);
-  Assert.Throws<InvalidDataException>(()=>AutomationReview.PrepareInputs(context,settings,settings.Review!,default));
+  Assert.Throws<InvalidDataException>(()=>PrepareAssessedInputs(context,settings,settings.Review!,default));
   Assert.That(File.Exists(P("prior-evidence-receipt.json")),Is.False);
  }
  [Test]public void PriorInventoryCannotWriteOutsideItsDedicatedFolder() {
   ConfigurePrior();settings=settings with{Review=settings.Review! with{PriorEvidence=new(P("originals"),[
    new("../candidate.pkg",Hash("candidate.pkg"))])}};
-  Assert.Throws<InvalidDataException>(()=>AutomationReview.PrepareInputs(context,settings,settings.Review!,default));
+  Assert.Throws<InvalidDataException>(()=>PrepareAssessedInputs(context,settings,settings.Review!,default));
   Assert.That(File.Exists(P("prior-evidence-receipt.json")),Is.False);
  }
  [Test]public void FreshFailureAndPriorPassRemainAConflictInsteadOfChoosingThePass() {
@@ -410,10 +479,10 @@ public sealed class AutomationReviewTests
   File.WriteAllBytes(P("windows-tests.json"),JsonSerializer.SerializeToUtf8Bytes(new{Files=new[]{
    new SubmissionWorkflowReceipt("nunit/conflict.json",Hash("nunit/conflict.json")),new("nunit/trace.txt",Hash("nunit/trace.txt"))}},AutomationFiles.Json));
   settings=settings with{Review=settings.Review! with{ObservationSources=["nunit/conflict.json"]}};
-  AutomationReview.PrepareInputs(context,settings,settings.Review!,default);
-  using var report=JsonDocument.Parse(File.ReadAllBytes(P("review-inputs/composition-report.json")));
+  Assert.Throws<InvalidDataException>(()=>PrepareAssessedInputs(context,settings,settings.Review!,default));
+  using var report=JsonDocument.Parse(File.ReadAllBytes(P("test-assessment/composition-report.json")));
   Assert.That(report.RootElement.GetProperty("compositionChecksPassed").GetBoolean(),Is.False);
-  var combined=AutomationFiles.Read<SubmissionEvidenceDocument>(P("review-inputs/observations.json"));
+  var combined=AutomationFiles.Read<SubmissionEvidenceDocument>(P("test-assessment/observations.json"));
   Assert.That(combined.Observations.Select(o=>o.Outcome),Is.EquivalentTo(new[]{SubmissionEvidenceOutcome.Failed,SubmissionEvidenceOutcome.ReviewedPriorPass}));
  }
 }

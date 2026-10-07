@@ -10,8 +10,16 @@ namespace CrestronHomeDevTools;
 
 public enum SubmissionDeliveryState { Prepared, UploadPending, Uploaded, SendPending, Submitted, OutcomeUnknown }
 public enum SubmissionDeliveryStep { Upload, Send }
+public enum SubmissionDeliveryEnvironment { Production, Rehearsal }
 public sealed record SubmissionDeliveryPlan (string CandidateSha256, string ReviewSha256, string AuthorizationSha256,
-	string PackageSha256, string SignedFormSha256, string PackageFileName, string SignedFormFileName, string Sender, string Recipient);
+	string PackageSha256, string SignedFormSha256, string PackageFileName, string SignedFormFileName, string Sender, string Recipient)
+	{
+	// Omit the production default to preserve existing approved plan digests.
+	[JsonIgnore (Condition = JsonIgnoreCondition.WhenWritingDefault)]
+	public SubmissionDeliveryEnvironment Environment { get; init; }
+	[JsonIgnore (Condition = JsonIgnoreCondition.WhenWritingDefault)]
+	public bool SendRehearsalEmail { get; init; }
+	}
 public sealed record SubmissionUploadReceipt (string DownloadUrl, string ProviderReceipt);
 public sealed record SubmissionMailReceipt (string ProviderReceipt);
 /// <summary>Returned only after the trusted workflow revalidates the exact plan and its current approval.</summary>
@@ -21,11 +29,13 @@ public sealed record SubmissionDeliveryReconciliation (SubmissionDeliveryStep St
 public sealed record SubmissionDeliveryReceipt (int SchemaVersion, string PlanSha256, SubmissionDeliveryState State,
 	string MessageId, DateTimeOffset UpdatedUtc, SubmissionDeliveryStep? PendingStep = null,
 	SubmissionUploadReceipt? Upload = null, SubmissionMailReceipt? Mail = null,
-	IReadOnlyList<SubmissionDeliveryReconciliation>? Reconciliations = null);
+	IReadOnlyList<SubmissionDeliveryReconciliation>? Reconciliations = null,
+	SubmissionDeliveryEnvironment Environment = SubmissionDeliveryEnvironment.Production);
 
 /// <summary>Implementations must send once, disable automatic POST retries and return confirmed provider receipts.</summary>
 public interface ISubmissionDeliveryTransport
 	{
+	SubmissionDeliveryEnvironment Environment => SubmissionDeliveryEnvironment.Production;
 	Task<SubmissionUploadReceipt> UploadAsync (Stream package, string filename, CancellationToken cancellationToken);
 	Task<SubmissionMailReceipt> SendAsync (SubmissionDeliveryPlan plan, SubmissionUploadReceipt upload,
 		Stream signedForm, string messageId, CancellationToken cancellationToken);
@@ -37,9 +47,13 @@ public static partial class SubmissionDelivery
 	private static readonly JsonSerializerOptions JsonOptions = new ()
 		{ PropertyNamingPolicy = JsonNamingPolicy.CamelCase, Converters = { new JsonStringEnumConverter () }, WriteIndented = true };
 
-	public static SubmissionDeliveryReceipt? Read (string privateJournalDirectory, SubmissionDeliveryPlan plan)
+	public static SubmissionDeliveryReceipt? Read (string privateJournalDirectory, SubmissionDeliveryPlan plan) =>
+		Read (privateJournalDirectory, plan, SubmissionDeliveryEnvironment.Production);
+
+	public static SubmissionDeliveryReceipt? Read (string privateJournalDirectory, SubmissionDeliveryPlan plan, SubmissionDeliveryEnvironment environment)
 		{
-		using var journal = new Journal (privateJournalDirectory, PlanDigest (plan), DeliveryKey (plan));
+		var descriptor = Describe (plan, environment);
+		using var journal = new Journal (privateJournalDirectory, descriptor.Digest, descriptor.Key, environment);
 		return journal.Read ();
 		}
 
@@ -49,7 +63,7 @@ public static partial class SubmissionDelivery
 		CancellationToken cancellationToken = default)
 		{
 		ArgumentNullException.ThrowIfNull (transport);
-		return ExecuteCoreAsync (privateJournalDirectory, Describe (plan), packagePath, signedFormPath, transport.UploadAsync,
+		return ExecuteCoreAsync (privateJournalDirectory, Describe (plan, transport.Environment), packagePath, signedFormPath, transport.UploadAsync,
 			(upload, form, messageId, token) => transport.SendAsync (plan, upload, form, messageId, token), null, cancellationToken);
 		}
 
@@ -64,14 +78,19 @@ public static partial class SubmissionDelivery
 		TimeProvider? timeProvider = null, CancellationToken cancellationToken = default)
 		{
 		ArgumentNullException.ThrowIfNull (transport);
-		return ExecuteAuthorizedCoreAsync (privateJournalDirectory, Describe (plan), packagePath, signedFormPath, transport.UploadAsync,
+		return ExecuteAuthorizedCoreAsync (privateJournalDirectory, Describe (plan, transport.Environment), packagePath, signedFormPath, transport.UploadAsync,
 			(upload, form, messageId, token) => transport.SendAsync (plan, upload, form, messageId, token), revalidate, timeProvider, cancellationToken);
 		}
 
 	private sealed record DeliveryDescriptor (string Digest, string Key, string PackageFileName, string PackageSha256,
-		string AttachmentFileName, string AttachmentSha256);
-	private static DeliveryDescriptor Describe (SubmissionDeliveryPlan plan) => new (PlanDigest (plan), DeliveryKey (plan),
-		plan.PackageFileName, plan.PackageSha256, plan.SignedFormFileName, plan.SignedFormSha256);
+		string AttachmentFileName, string AttachmentSha256, SubmissionDeliveryEnvironment Environment = SubmissionDeliveryEnvironment.Production);
+	private static DeliveryDescriptor Describe (SubmissionDeliveryPlan plan, SubmissionDeliveryEnvironment environment = SubmissionDeliveryEnvironment.Production)
+		{
+		string digest = PlanDigest (plan);
+		if (plan.Environment != environment)
+			throw new InvalidDataException ("Delivery plan and transport environments differ.");
+		return new (digest, DeliveryKey (plan), plan.PackageFileName, plan.PackageSha256, plan.SignedFormFileName, plan.SignedFormSha256, environment);
+		}
 
 	private static Task<SubmissionDeliveryReceipt> ExecuteAuthorizedCoreAsync (string privateJournalDirectory,
 		DeliveryDescriptor plan, string packagePath, string attachmentPath,
@@ -106,9 +125,9 @@ public static partial class SubmissionDelivery
 		Func<SubmissionDeliveryStep, CancellationToken, Task>? authorize, CancellationToken cancellationToken, Action? requireFreshApproval = null)
 		{
 		var digest = plan.Digest;
-		using var journal = new Journal (privateJournalDirectory, digest, plan.Key);
+		using var journal = new Journal (privateJournalDirectory, digest, plan.Key, plan.Environment);
 		var receipt = journal.Read () ?? new (1, digest, SubmissionDeliveryState.Prepared,
-			"<crestron-" + digest + "@submission.local>", DateTimeOffset.UtcNow);
+			"<crestron-" + digest + "@submission.local>", DateTimeOffset.UtcNow, Environment: plan.Environment);
 		if (receipt.State == SubmissionDeliveryState.Submitted) return receipt;
 		if (receipt.State is SubmissionDeliveryState.UploadPending or SubmissionDeliveryState.SendPending or SubmissionDeliveryState.OutcomeUnknown)
 			throw new InvalidOperationException ("Delivery outcome is uncertain. Reconcile the provider result before continuing; no request was replayed.");
@@ -179,14 +198,19 @@ public static partial class SubmissionDelivery
 	/// <summary>Call only after a provider lookup or authorized operator establishes the outcome. Never infer non-delivery from a timeout.</summary>
 	public static SubmissionDeliveryReceipt Reconcile (string privateJournalDirectory, SubmissionDeliveryPlan plan,
 		SubmissionDeliveryStep step, bool performed, string evidence, SubmissionUploadReceipt? upload = null, SubmissionMailReceipt? mail = null)
-		=> ReconcileCore (privateJournalDirectory, Describe (plan), step, performed, evidence, upload, mail);
+		=> Reconcile (privateJournalDirectory, plan, SubmissionDeliveryEnvironment.Production, step, performed, evidence, upload, mail);
+
+	public static SubmissionDeliveryReceipt Reconcile (string privateJournalDirectory, SubmissionDeliveryPlan plan,
+		SubmissionDeliveryEnvironment environment, SubmissionDeliveryStep step, bool performed, string evidence,
+		SubmissionUploadReceipt? upload = null, SubmissionMailReceipt? mail = null)
+		=> ReconcileCore (privateJournalDirectory, Describe (plan, environment), step, performed, evidence, upload, mail);
 
 	private static SubmissionDeliveryReceipt ReconcileCore (string privateJournalDirectory, DeliveryDescriptor plan,
 		SubmissionDeliveryStep step, bool performed, string evidence, SubmissionUploadReceipt? upload, SubmissionMailReceipt? mail)
 		{
 		ArgumentException.ThrowIfNullOrWhiteSpace (evidence);
 		if (!Enum.IsDefined (step)) throw new ArgumentException ("Unknown delivery step.");
-		using var journal = new Journal (privateJournalDirectory, plan.Digest, plan.Key);
+		using var journal = new Journal (privateJournalDirectory, plan.Digest, plan.Key, plan.Environment);
 		var receipt = journal.Read () ?? throw new InvalidOperationException ("There is no delivery attempt to reconcile.");
 		if (receipt.State is not (SubmissionDeliveryState.UploadPending or SubmissionDeliveryState.SendPending or SubmissionDeliveryState.OutcomeUnknown) || receipt.PendingStep != step)
 			throw new InvalidOperationException ("Only the outstanding uncertain step can be reconciled.");
@@ -212,6 +236,12 @@ public static partial class SubmissionDelivery
 	public static string PlanDigest (SubmissionDeliveryPlan plan)
 		{
 		ArgumentNullException.ThrowIfNull (plan);
+		ArgumentNullException.ThrowIfNull (plan.Recipient);
+		if ((plan.SendRehearsalEmail && plan.Environment != SubmissionDeliveryEnvironment.Rehearsal) ||
+			!Enum.IsDefined (plan.Environment) || (plan.Environment == SubmissionDeliveryEnvironment.Rehearsal &&
+			(plan.Recipient.EndsWith ("@crestron.com", StringComparison.OrdinalIgnoreCase) ||
+			 plan.Recipient.EndsWith (".crestron.com", StringComparison.OrdinalIgnoreCase))))
+			throw new ArgumentException ("Rehearsal requires a test recipient outside Crestron.");
 		foreach (var digest in new[] { plan.CandidateSha256, plan.ReviewSha256, plan.AuthorizationSha256, plan.PackageSha256, plan.SignedFormSha256 })
 			if (digest?.Length != 64 || !digest.All (c => char.IsAsciiDigit (c) || c is >= 'a' and <= 'f'))
 				throw new ArgumentException ("Delivery requires independent lowercase SHA-256 pins.");
@@ -255,10 +285,13 @@ public static partial class SubmissionDelivery
 	private sealed class Journal : IDisposable
 		{
 		private readonly string _digest;
+		private readonly SubmissionDeliveryEnvironment _environment;
 		private readonly string _path;
 		private readonly FileStream _lock;
-		internal Journal (string directory, string digest, string deliveryKey)
+		internal Journal (string directory, string digest, string deliveryKey, SubmissionDeliveryEnvironment environment = SubmissionDeliveryEnvironment.Production)
 			{
+			if (!Enum.IsDefined (environment)) throw new ArgumentException ("Unknown delivery environment.", nameof (environment));
+			_environment = environment;
 			if (!Path.IsPathFullyQualified (directory) || !Directory.Exists (directory)) throw new DirectoryNotFoundException ("Provide an existing private durable journal directory.");
 			_digest = digest;
 			_path = Path.Combine (directory, deliveryKey + ".json");
@@ -268,7 +301,7 @@ public static partial class SubmissionDelivery
 			{
 			if (!File.Exists (_path)) return null;
 			var receipt = SubmissionValidation.ReadFile<SubmissionDeliveryReceipt> (_path);
-			if (receipt.SchemaVersion != 1 || receipt.PlanSha256 != _digest || receipt.MessageId != "<crestron-" + _digest + "@submission.local>")
+			if (receipt.SchemaVersion != 1 || receipt.Environment != _environment || receipt.PlanSha256 != _digest || receipt.MessageId != "<crestron-" + _digest + "@submission.local>")
 				throw new InvalidDataException ("Delivery journal identity is inconsistent.");
 			if (!Enum.IsDefined (receipt.State) || receipt.UpdatedUtc == default ||
 				(receipt.State == SubmissionDeliveryState.UploadPending && receipt.PendingStep != SubmissionDeliveryStep.Upload) ||

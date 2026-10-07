@@ -1,5 +1,6 @@
 // Copyright (c) 2026 Neil Colvin. MIT licensed.
 using System.Net;
+using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text.Json;
 using CrestronHomeNUnit.Android;
@@ -105,6 +106,14 @@ public static class DriverRemovalWorkflow
             var selected = await Inventory(token); DriverRemovalAppObserver.ValidateScope(plan.App, selected);
             AutomationFiles.Write(Path.Combine(root, "selected-devices.json"), selected);
             safe = false; Phase("Control", "Starting"); await processor.BeginControlAsync(token); control = true; Phase("Control", "Held");
+            // Recovery can finish on a different explicitly approved processor Home.
+            // Use the same endpoint-verifying session opening as installed-app tests.
+            await PrepareAppAsync(plan, owner, package.DriverId, Path.Combine(root, "app-opening"), Verify, token);
+            // Opening a saved Home has its own bounded preparation phase. It must
+            // not consume the observation/removal operation's entire budget.
+            deadline.CancelAfter(remove ? Timeout.InfiniteTimeSpan : TimeSpan.FromSeconds(plan.TimeoutSeconds));
+            // Removal validation owns separate bounded preflight, removal, UI and
+            // final-inventory/log phases; the caller cancellation still applies.
             var observer = new DriverRemovalAppObserver(plan.App, Verify);
             if (remove)
             {
@@ -123,6 +132,11 @@ public static class DriverRemovalWorkflow
                 safe = baseline.HomeRestored;
             }
         }
+        catch (Exception error)
+        {
+            AutomationFiles.Write(Path.Combine(root,"failure.json"),new { ErrorType=error.GetType().FullName,error.Message,error.StackTrace });
+            throw;
+        }
         finally
         {
             try
@@ -139,5 +153,26 @@ public static class DriverRemovalWorkflow
         }
         var result = new DriverRemovalWorkflowResult(remove, verified, released, removal, baseline);
         AutomationFiles.Write(Path.Combine(root, "result.json"), result); return result;
+    }
+
+    internal static async Task PrepareAppAsync(DriverRemovalWorkflowPlan plan,string owner,string driverId,string folder,
+        Func<CancellationToken,Task> verify,CancellationToken token,
+        Func<AndroidRunContext,CancellationToken,Task>? open=null)
+    {
+        await verify(token);
+        Directory.CreateDirectory(folder);
+        using var process=Process.GetCurrentProcess();
+        string source=AutomationFiles.AssemblyHash(typeof(DriverRemovalWorkflow).Assembly).ToUpperInvariant();
+        var context=new AndroidRunContext(1,owner,Environment.MachineName,process.Id,process.StartTime.ToUniversalTime().Ticks,
+            plan.Host,plan.Target.DeviceId,driverId,plan.Target.Version,plan.PackageSha256,source,plan.App.Profile,folder);
+        AutomationFiles.Write(Path.Combine(folder,"context.json"),context);
+        if(open!=null)await open(context,token);
+        else {
+            var session=await AndroidWorkflowSession.OpenAsync(context,token);
+            // Opening already retained the saved endpoint and returned Home when selection is enabled.
+            await session.CaptureAsync("placement-start-home",h=>CrestronHomePages.RequireHome(h,plan.App.Profile.ExpectedHomeText),token);
+            session.Complete(restorationConfirmed:true);
+        }
+        await verify(token);
     }
 }

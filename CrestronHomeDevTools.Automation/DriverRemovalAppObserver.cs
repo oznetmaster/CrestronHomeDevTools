@@ -1,5 +1,6 @@
 // Copyright (c) 2026 Neil Colvin. MIT licensed.
 using System.Globalization;
+using System.Diagnostics;
 using System.Text.Json;
 using System.Xml.Linq;
 using CrestronHomeNUnit.Android;
@@ -26,15 +27,17 @@ public sealed class DriverRemovalAppObserver
     private readonly IAndroidCommandTransport transport;
     private readonly AndroidDevice device;
     private readonly Func<CancellationToken, Task> verifyOwnership;
+    private readonly TimeSpan pageReadinessTimeout;
     private const string App = "com.crestron.phoenix.app";
     private const string Prefix = CrestronHomePages.ResourcePrefix;
     private static AndroidSelector Id(string id) => CrestronHomePages.Resource(id);
 
     public DriverRemovalAppObserver(DriverRemovalAppPlan plan, Func<CancellationToken, Task> verifyOwnership)
         : this(plan, verifyOwnership, new AdbCommandTransport(plan.Profile.AdbExecutable, plan.Profile.DeviceSerial, TimeSpan.FromSeconds(25))) { }
-    internal DriverRemovalAppObserver(DriverRemovalAppPlan plan, Func<CancellationToken, Task> verifyOwnership, IAndroidCommandTransport transport)
+    internal DriverRemovalAppObserver(DriverRemovalAppPlan plan, Func<CancellationToken, Task> verifyOwnership, IAndroidCommandTransport transport,TimeSpan? pageReadinessTimeout=null)
     {
         this.plan = plan; this.verifyOwnership = verifyOwnership; this.transport = transport;
+        this.pageReadinessTimeout=pageReadinessTimeout??TimeSpan.FromSeconds(45);
         if (plan.Profile.Application != App) throw new ArgumentException("This observer requires the Crestron Home app.");
         device = new(transport, App);
     }
@@ -107,7 +110,7 @@ public sealed class DriverRemovalAppObserver
         catch (Exception error) when (error is InvalidDataException or InvalidOperationException)
         {
             passed = false;
-            await Write("observation-failure.json", new { ErrorType = error.GetType().Name });
+            await Write("observation-failure.json", new { ErrorType = error.GetType().Name, error.Message, error.StackTrace });
         }
         // Only known navigation pages can be restored. Uncertain ADB/lease failures propagate.
         await Restore(room, token);
@@ -122,12 +125,17 @@ public sealed class DriverRemovalAppObserver
     private async Task<AndroidHierarchy> Read(CancellationToken token) { await verifyOwnership(token); return await device.CaptureAsync(token); }
     private async Task Wait(Action<AndroidHierarchy> guard, CancellationToken token)
     {
-        using var limit = CancellationTokenSource.CreateLinkedTokenSource(token); limit.CancelAfter(TimeSpan.FromSeconds(15));
+        var elapsed=Stopwatch.StartNew();
         while (true)
         {
-            var h = await Read(limit.Token);
+            // Each ADB read already has a bounded transport timeout. Do not cancel
+            // a successful capture midway merely because the page-wait budget elapsed.
+            var h = await Read(token);
             try { guard(h); return; }
-            catch (InvalidOperationException) { await Task.Delay(200, limit.Token); }
+            catch (InvalidOperationException error) {
+                if(elapsed.Elapsed>=pageReadinessTimeout)throw new TimeoutException("The expected app page was not observed within the readiness budget; no input was repeated.",error);
+                await Task.Delay(200, token);
+            }
         }
     }
     private static IEnumerable<XElement> Nodes(AndroidHierarchy h) => XDocument.Parse(h.MaskedXml).Descendants("node").Where(n => (string?)n.Attribute("package") == App);

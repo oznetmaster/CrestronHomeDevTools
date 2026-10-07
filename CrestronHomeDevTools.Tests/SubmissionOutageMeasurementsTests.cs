@@ -31,6 +31,65 @@ public sealed class SubmissionOutageMeasurementsTests
 	[TearDown]
 	public void TearDown () => Directory.Delete (_root, true);
 	private SubmissionOutageMeasurementReport Assess () => SubmissionOutageMeasurements.Assess (_plan, _record, _root, Start.AddSeconds (200));
+    private void IndependentStartup() {
+        _plan=_plan with{RecoveryClock=SubmissionOutageRecoveryClock.ProgramLoaded,ProgramComponent="processor",
+            DriverInstances=[new("root",null,["control"]),new("child","root",["feedback"])]};
+        _record=_record with{SchemaVersion=4,FunctionObservationsAreWindows=true,ProgramLoaded=At(83,84),
+            DriverInitializations=[new("root",At(85,86),true),new("child",At(120,121),true)],
+            Functions=[new("control",SubmissionEvidenceOutcome.Passed,At(130,131)),new("feedback",SubmissionEvidenceOutcome.Passed,At(175,176))],
+            VerifiedState=At(190,191)};
+    }
+    [Test] public void EachStartupInstanceHasItsOwnDeadline() {
+        IndependentStartup();var result=Assess();
+        Assert.That(result.MeasurementChecksPassed,Is.True);
+        Assert.That(result.MaximumRecoverySeconds,Is.EqualTo(56));
+        Assert.That(result.FunctionTimings!.Select(t=>t.MaximumSeconds),Is.EqualTo(new[]{46d,56d}));
+    }
+    [Test] public void LaterChildCannotConcealSlowParent() {
+        IndependentStartup();_record=_record with{Functions=[_record.Functions[0] with{Observation=At(150,151)},_record.Functions[1]]};
+        Assert.That(Assess().Issues,Does.Contain("recovery-deadline-unproven:control"));
+        Assert.That(Assess().MeasurementChecksPassed,Is.False);
+    }
+    [Test] public void MissingChildInitializationCannotPass() {
+        IndependentStartup();_record=_record with{DriverInitializations=[_record.DriverInitializations![0]]};
+        Assert.That(Assess().Issues,Does.Contain("initialization-not-observed:child"));
+    }
+    [Test] public void MissingChildFunctionCannotPass() {
+        IndependentStartup();_record=_record with{Functions=[_record.Functions[0]]};
+        Assert.That(Assess().Issues,Does.Contain("function-not-observed:feedback"));
+    }
+    [Test] public void ChildCannotBorrowEvidenceFromBeforeItsInitialization() {
+        IndependentStartup();_record=_record with{DriverInitializations=[_record.DriverInitializations![0],new("child",At(180),true)]};
+        Assert.That(Assess().Issues,Does.Contain("functional-evidence-not-after-initialization:feedback"));
+    }
+    [Test] public void DuplicateInitializationCannotResetTimer() {
+        IndependentStartup();_record=_record with{DriverInitializations=[.._record.DriverInitializations!,new("root",At(125),true)]};
+        Assert.Throws<InvalidDataException>(()=>Assess());
+    }
+    [Test] public void StartupInstancesRejectCyclesAndUnboundFunctions() {
+        IndependentStartup();_plan=_plan with{DriverInstances=[new("root","child",["control"]),new("child","root",["feedback"])]};
+        Assert.Throws<InvalidDataException>(()=>Assess());
+        _plan=_plan with{DriverInstances=[new("root",null,["control"])]};
+        Assert.Throws<InvalidDataException>(()=>Assess());
+    }
+    [Test] public void SubChildUsesOwnPinnedFunctionAndClock() {
+        IndependentStartup();_plan=_plan with{RequiredFunctions=["control","feedback","sub-control"],
+            DriverInstances=[.._plan.DriverInstances!,new("sub","child",["sub-control"])]};
+        _record=_record with{DriverInitializations=[.._record.DriverInitializations!,new("sub",At(150,151),true)],
+            Functions=[.._record.Functions,new("sub-control",SubmissionEvidenceOutcome.Passed,At(180,181))]};
+        Assert.That(Assess().MeasurementChecksPassed,Is.True);
+        Assert.That(Assess().FunctionTimings!.Single(t=>t.InstanceId=="sub").MaximumSeconds,Is.EqualTo(31));
+    }
+    [Test] public void IndependentClocksCannotBeSmuggledIntoLegacyRecord() {
+        IndependentStartup();_record=_record with{SchemaVersion=3};
+        Assert.Throws<InvalidDataException>(()=>Assess());
+    }
+    [Test] public void IndependentStartupImportsWorstActualPairNotLatestChildPair() {
+        IndependentStartup();_record=_record with{Functions=[_record.Functions[0] with{Observation=At(140,141)},_record.Functions[1] with{Observation=At(170,171)}]};
+        var input=Inputs();var imported=Import(input.Plan,input.Record);
+        Assert.That(imported.Measurements.MeasurementChecksPassed,Is.True);
+        Assert.That(imported.Measurements.MaximumRecoverySeconds,Is.EqualTo(56));
+    }
 	[Test]
 	public void UsesCommonGuaranteedDowntimeAndWorstCaseRecovery ()
 		{
@@ -54,6 +113,30 @@ public sealed class SubmissionOutageMeasurementsTests
 			};
 		Assert.That (Assess ().Outcome, Is.EqualTo (expected));
 		}
+    [TestCase(143,144)][TestCase(170,171)]
+    public void LatePositiveObservationWindowCannotProveLateRecovery(double first,double last)
+    {
+        _record=_record with {SchemaVersion=3,FunctionObservationsAreWindows=true,
+            Functions=[_record.Functions[0],_record.Functions[1] with{Observation=At(first,last)}],VerifiedState=At(190,191)};
+        var report=Assess();
+        Assert.That(report.Outcome,Is.EqualTo(SubmissionEvidenceOutcome.Partial));
+        Assert.That(report.MinimumRecoverySeconds,Is.Null);
+        Assert.That(report.Issues,Does.Contain("recovery-deadline-unproven"));
+        Assert.That(report.Issues,Does.Not.Contain("recovery-deadline-exceeded"));
+    }
+    [Test] public void WindowSchemaDoesNotHideAnExplicitFailedAssertion()
+    {
+        _record=_record with{SchemaVersion=3,FunctionObservationsAreWindows=true,
+            Functions=[_record.Functions[0] with{Outcome=SubmissionEvidenceOutcome.Failed},_record.Functions[1]]};
+        Assert.That(Assess().Outcome,Is.EqualTo(SubmissionEvidenceOutcome.Failed));
+    }
+    [Test] public void TimelyWindowRoundTripsThroughThePublicEvidenceImporter()
+    {
+        _record=_record with{SchemaVersion=3,FunctionObservationsAreWindows=true};
+        var inputs=Inputs();var imported=Import(inputs.Plan,inputs.Record);
+        Assert.That(imported.Measurements.MeasurementChecksPassed,Is.True);
+        Assert.That(imported.Measurements.MinimumRecoverySeconds,Is.Null);
+    }
 	[Test]
 	public void SequentialSixtySecondOutagesDoNotProveCommonOutage ()
 		{
@@ -91,6 +174,48 @@ public sealed class SubmissionOutageMeasurementsTests
 			ProgramComponent = "processor"
 			};
 		Assert.That (Assess ().Issues, Does.Contain ("program-load-time-not-observed"));
+		}
+	[TestCase (140, SubmissionEvidenceOutcome.Passed)]
+	[TestCase (140.001, SubmissionEvidenceOutcome.Partial)]
+	[TestCase (149, SubmissionEvidenceOutcome.Partial)]
+	public void ProgramStartOnlyProvesRecoveryInsideConservativeDeadline (double recovered, SubmissionEvidenceOutcome expected)
+		{
+		_plan = _plan with { RecoveryClock = SubmissionOutageRecoveryClock.ProgramLoaded, ProgramComponent = "processor" };
+		_record = _record with { SchemaVersion = 2, ProgramLoadIsLowerBound = true, ProgramLoaded = At (80, 82),
+			Interruptions = [new ("processor", At (10, 11), At (75, 79)), new ("device", At (12, 13), At (75, 79))],
+			Functions = [new ("control", SubmissionEvidenceOutcome.Passed, At (100)), new ("feedback", SubmissionEvidenceOutcome.Passed, At (recovered))] };
+		var result = Assess ();
+		Assert.That (result.Outcome, Is.EqualTo (expected));
+		Assert.That (result.MinimumRecoverySeconds, Is.Null, "No load-completion upper bound was observed.");
+		Assert.That (result.MaximumRecoverySeconds, Is.EqualTo (recovered - 80).Within (0.000000001));
+		Assert.That (result.Issues, Does.Not.Contain ("recovery-deadline-exceeded"));
+		if (expected == SubmissionEvidenceOutcome.Partial)
+			Assert.That (result.Issues, Does.Contain ("program-load-completion-not-observed"));
+		var inputs = Inputs ();
+		var imported = Import (inputs.Plan, inputs.Record);
+		Assert.That (imported.Measurements.Outcome, Is.EqualTo (expected));
+		Assert.That (SubmissionEvidence.Evaluate (_plan.Identity, [inputs.Rule], imported.Observations.Observations,
+			_root, Start.AddSeconds (200)).EvidenceChecksPassed, Is.EqualTo (expected == SubmissionEvidenceOutcome.Passed));
+		}
+	[TestCase ("old-schema")]
+	[TestCase ("missing-start")]
+	[TestCase ("network")]
+	public void LowerBoundMarkerCannotBeMisinterpreted (string variant)
+		{
+		_plan = _plan with { RecoveryClock = SubmissionOutageRecoveryClock.ProgramLoaded, ProgramComponent = "processor" };
+		_record = _record with { SchemaVersion = 2, ProgramLoadIsLowerBound = true, ProgramLoaded = At (95, 96) };
+		if (variant == "old-schema") _record = _record with { SchemaVersion = 1 };
+		if (variant == "missing-start") _record = _record with { ProgramLoaded = null };
+		if (variant == "network") _plan = _plan with { RecoveryClock = SubmissionOutageRecoveryClock.NetworkRestored, ProgramComponent = null };
+		Assert.Throws<InvalidDataException> (() => Assess ());
+		}
+	[Test]
+	public void ConservativeClockDoesNotHideFunctionalFailure ()
+		{
+		_plan = _plan with { RecoveryClock = SubmissionOutageRecoveryClock.ProgramLoaded, ProgramComponent = "processor" };
+		_record = _record with { SchemaVersion = 2, ProgramLoadIsLowerBound = true, ProgramLoaded = At (95, 96),
+			Functions = [_record.Functions[0] with { Outcome = SubmissionEvidenceOutcome.Failed }, _record.Functions[1]] };
+		Assert.That (Assess ().Outcome, Is.EqualTo (SubmissionEvidenceOutcome.Failed));
 		}
 	[Test]
 	public void ProgramLoadBeforeProvenPowerRestorationCannotPass ()

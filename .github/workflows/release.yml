@@ -78,12 +78,14 @@ jobs:
         uses: NuGet/login@v1
         with:
           user: ${{ vars.NUGET_USER }}
-      - name: Publish NuGet package
+      - name: Publish NuGet packages
         env:
           NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
         run: |
-          dotnet nuget push "artifacts/release/CrestronHomeDevTools.$env:RELEASE_VERSION.nupkg" --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json
-          if ($LASTEXITCODE -ne 0) { throw 'NuGet publication failed.' }
+          foreach ($id in @('CrestronHomeDevTools','CrestronHomeDevTools.Automation','CrestronHomeDevTools.SubmissionTests')) {
+            dotnet nuget push "artifacts/release/$id.$env:RELEASE_VERSION.nupkg" --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json
+            if ($LASTEXITCODE -ne 0) { throw "NuGet publication failed: $id" }
+          }
       - name: Tag and publish GitHub release
         run: |
           git diff --exit-code

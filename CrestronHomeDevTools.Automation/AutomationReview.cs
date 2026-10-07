@@ -31,7 +31,12 @@ internal static class AutomationReview
  internal static async Task<SubmissionWorkflowStepResult> Advance(SubmissionWorkflowStepContext c,SubmissionAutomationSettings settings,
   bool recover,CancellationToken token,Func<SubmissionAutomationConsole,string[],string,CancellationToken,Task<int>>? execute=null)
  {
+  settings=AutomationReviewTooling.Resolve(c,settings);
   if(settings.Review is not {} plan)return new(SubmissionWorkflowStatus.NeedsInput,ReasonCode:"review-plan-required");
+  var published=await AutomationReviewInputs.Seal(c,settings,token,execute);
+  if(published.Status!=SubmissionWorkflowStatus.Completed)return published;
+  var frozen=AutomationReviewInputs.Verify(c);
+  var inputs=frozen.Prepared;
   string output=Path.Combine(c.RunDirectory,"review"),intent=Path.Combine(c.RunDirectory,"review-intent.json");
   if(recover && File.Exists(intent)) {
    if(!File.Exists(Path.Combine(output,"COMPLETE")))return new(SubmissionWorkflowStatus.OutcomeUnknown,ReasonCode:"inspect-review-preparation");
@@ -39,21 +44,16 @@ internal static class AutomationReview
    if(saved.RootElement.GetProperty("OperationId").GetString()!=c.Checkpoint.OperationId ||
     saved.RootElement.GetProperty("InputSha256").GetString()!=c.Checkpoint.InputSha256)
     throw new InvalidDataException("Review operation identity changed.");
-   string preparedPath=Path.Combine(c.RunDirectory,"review-inputs","prepared.json");
-   if(AutomationFiles.Hash(preparedPath)!=saved.RootElement.GetProperty("PreparedSha256").GetString())throw new InvalidDataException("Prepared operation changed.");
-   var prepared=AutomationFiles.Read<Prepared>(preparedPath);
-   if(AutomationFiles.Hash(prepared.SettingsPath)!=saved.RootElement.GetProperty("SettingsSha256").GetString())throw new InvalidDataException("Review settings changed.");
-   return Check(c,prepared,token);
+   if(saved.RootElement.GetProperty("InputsSha256").GetString()!=frozen.InputsSha256 ||
+    saved.RootElement.GetProperty("ReviewInputsReceiptSha256").GetString()!=AutomationFiles.Hash(Path.Combine(c.RunDirectory,AutomationReviewInputs.ReceiptName)))
+    throw new InvalidDataException("Review snapshot changed.");
+   return Check(c,inputs,token);
   }
   if(Directory.Exists(output))return new(SubmissionWorkflowStatus.OutcomeUnknown,ReasonCode:"inspect-existing-review");
-  var inputs=PrepareInputs(c,settings,plan,token);
-  AutomationFiles.Write(intent,new{c.Checkpoint.OperationId,c.Checkpoint.InputSha256,SettingsSha256=AutomationFiles.Hash(inputs.SettingsPath),
-   PreparedSha256=AutomationFiles.Hash(Path.Combine(c.RunDirectory,"review-inputs","prepared.json"))});
-  var arguments=new List<string>{"submission","prepare-review","--settings",inputs.SettingsPath,
-   "--candidate-sha256",inputs.CandidateSha256,"--inventory-sha256",inputs.InventorySha256,"--mapping-sha256",inputs.MappingSha256,
-   "--source-commit",settings.Release.SourceCommit,"--artifact-kind","driver","--prepare-for-signing"};
-  if(inputs.DeclarationsPath!=null)arguments.AddRange(["--review-mode","declared-gaps","--declarations",inputs.DeclarationsPath,"--declarations-sha256",inputs.DeclarationsSha256!]);
-  if(inputs.AndroidPinsPath!=null)arguments.AddRange(["--android-pins",inputs.AndroidPinsPath,"--android-pins-sha256",inputs.AndroidPinsSha256!]);
+  AutomationFiles.Write(intent,new{c.Checkpoint.OperationId,c.Checkpoint.InputSha256,frozen.InputsSha256,
+   ReviewInputsReceiptSha256=AutomationFiles.Hash(Path.Combine(c.RunDirectory,AutomationReviewInputs.ReceiptName))});
+  var arguments=new List<string>{"submission","prepare-frozen-review","--inputs",Path.Combine(c.RunDirectory,AutomationReviewInputs.Folder),
+   "--inputs-sha256",frozen.InputsSha256,"--output",output,"--prepare-for-signing"};
   int result=await (execute??AutomationConsole.Run)(plan.Console,arguments.ToArray(),Path.Combine(c.RunDirectory,"review-process"),token);
   if(result!=0)return new(SubmissionWorkflowStatus.Failed,ReasonCode:"review-preparation-failed");
   return Check(c,inputs,token);
@@ -61,6 +61,7 @@ internal static class AutomationReview
 
  internal static Prepared PrepareInputs(SubmissionWorkflowStepContext c,SubmissionAutomationSettings settings,SubmissionAutomationReviewPlan plan,CancellationToken token)
  {
+  var accepted=AutomationTestAssessment.ReadForReview(c,settings with{Review=plan});
   ValidatePlannedGaps(plan);
   string root=c.RunDirectory,folder=Path.Combine(root,"review-inputs");Directory.CreateDirectory(folder);
   string Copy(SubmissionAutomationInput input,string name) {
@@ -75,72 +76,9 @@ internal static class AutomationReview
   if(Path.GetFileName(name)!=name || name.Contains('/') || name.Contains('\\'))throw new InvalidDataException("Unsafe package name.");
   WriteBytes(Path.Combine(folder,name),File.ReadAllBytes(Path.Combine(root,"candidate.pkg")),settings.Release.PackageSha256);
 
-  // Sources must have been retained by a completed test producer, not dropped into the directory later.
-  using var producer=JsonDocument.Parse(File.ReadAllBytes(Path.Combine(root,"windows-tests.json")));
-  var retained=producer.RootElement.GetProperty("Files").EnumerateArray().ToDictionary(x=>x.GetProperty("RelativePath").GetString()!.Replace('\\','/'),x=>x.GetProperty("Sha256").GetString()!,StringComparer.Ordinal);
-  // Installed-app tests run after the Windows/processor producer has closed its
-  // inventory. Accept their independent receipt only after that stage completed.
-  if(c.Checkpoint.CompletedStages.TryGetValue(SubmissionWorkflowStage.AppTests,out var app) &&
-   app.RelativePath is "installed-app-tests.json" or AutomationInitialAdditionalTests.ReceiptName) {
-   string receipt=Path.Combine(root,app.RelativePath);
-   if(AutomationFiles.Hash(receipt)!=app.Sha256)throw new InvalidDataException("Completed app receipt changed.");
-   AutomationInstalledApp.VerifyRetained(root);
-   using var installed=JsonDocument.Parse(File.ReadAllBytes(receipt));
-   if(installed.RootElement.GetProperty("InputSha256").GetString()!=c.Checkpoint.InputSha256)
-    throw new InvalidDataException("App observations belong to another workflow.");
-   foreach(var file in installed.RootElement.GetProperty("Files").EnumerateArray())
-    if(!retained.TryAdd(file.GetProperty("RelativePath").GetString()!.Replace('\\','/'),file.GetProperty("Sha256").GetString()!))
-     throw new InvalidDataException("Producer evidence paths overlap.");
-  }
-  var sources=new List<SubmissionEvidenceFile>();
-  if(settings.PreEnduranceTests!=null)
-   foreach(var file in AutomationInitialAdditionalTests.RetainedFiles(c))
-    if(!retained.TryAdd(file.RelativePath,file.Sha256) && retained[file.RelativePath]!=file.Sha256)
-     throw new InvalidDataException("Additional initial evidence paths overlap.");
-  if(settings.ResponseComparison!=null)sources.Add(AutomationResponseComparison.VerifyRetained(c));
-  if(settings.Removal!=null)sources.Add(AutomationRemoval.VerifyRetained(c));
-  if(settings.PostEnduranceTests!=null)
-   foreach(var file in AutomationPostEndurance.RetainedFiles(c))
-    if(!retained.TryAdd(file.RelativePath,file.Sha256))throw new InvalidDataException("Post-endurance evidence paths overlap.");
-  if(plan.SourceApplicability is not null)
-   sources.Add(AutomationSourceApplicability.Prepare(root,settings,token));
-  if(plan.Applicability is not null)
-   sources.Add(AutomationApplicability.Prepare(root,identity,plan,token));
-  if(plan.Qualifications is not null)
-   sources.Add(AutomationQualifications.Prepare(root,identity,plan,token));
-  if(plan.PriorEvidence is not null) {
-   var prior=AutomationPriorEvidence.Prepare(root,identity,plan,token);
-   string priorPath=Path.Combine(folder,"prior-observations.json");WriteDocument(priorPath,prior);
-   sources.Add(new("review-inputs/prior-observations.json",AutomationFiles.Hash(priorPath)));
-  }
-  if(plan.ObservationSources.Distinct(StringComparer.Ordinal).Count()!=plan.ObservationSources.Length)throw new InvalidDataException("Duplicate observation source.");
-  foreach(string relative in plan.ObservationSources) {
-   if(!retained.TryGetValue(relative,out var hash) || !SubmissionEvidence.SafeEvidencePath(root,relative,out var path) || AutomationFiles.Hash(path)!=hash)
-    throw new InvalidDataException("Observation source is not retained verified producer output.");
-   string? phase=new[]{AutomationInitialAdditionalTests.DirectoryName,AutomationPostEndurance.DirectoryName}
-    .SingleOrDefault(name=>relative.StartsWith(name+"/",StringComparison.Ordinal));
-   if(phase!=null) {
-    var document=AutomationFiles.Read<SubmissionEvidenceDocument>(path);
-    if(document.SchemaVersion!=1)throw new InvalidDataException("Unsupported additional-test observation document.");
-    string rebased="review-inputs/"+phase+"-"+sources.Count.ToString("D3",System.Globalization.CultureInfo.InvariantCulture)+".json";
-    WriteDocument(Path.Combine(root,rebased),new SubmissionEvidenceDocument(1,document.Observations.Select(o=>Rebase(o,phase)).ToArray()));
-    sources.Add(new(rebased,AutomationFiles.Hash(Path.Combine(root,rebased))));
-   } else sources.Add(new(relative,hash));
-  }
-  if(File.Exists(Path.Combine(root,"endurance-evidence.json"))) {
-   var envelope=AutomationFiles.Read<EnduranceEnvelope>(Path.Combine(root,"endurance-evidence.json"));
-   if(envelope.EvidenceDirectory!="endurance/observations" || envelope.Observation.Identity!=identity)
-    throw new InvalidDataException("Endurance must use the configured review policy and candidate.");
-   var observation=Rebase(envelope.Observation,envelope.EvidenceDirectory);
-   string path=Path.Combine(folder,"endurance.json");WriteDocument(path,new SubmissionEvidenceDocument(1,[observation]));
-   sources.Add(new("review-inputs/endurance.json",AutomationFiles.Hash(path)));
-  }
-  if(sources.Count==0)throw new InvalidDataException("No retained observations were supplied.");
-  string composition=Path.Combine(folder,"composition.json");WriteDocument(composition,new SubmissionEvidenceCompositionPlan(1,identity,sources));
-  var report=SubmissionEvidenceComposition.CombineFiles(root,"review-inputs/composition.json",AutomationFiles.Hash(composition),"review-inputs/policy.json",DateTimeOffset.UtcNow,token);
-  WriteDocument(Path.Combine(folder,"composition-report.json"),report);
-  // Preserve every outcome. The public review command applies the full policy and any explicit gap declarations.
-  string observations=Path.Combine(folder,"observations.json");WriteDocument(observations,report.Observations);
+  // Only package the assessment already retained by phase two. No test collection or new decisions here.
+  WriteDocument(Path.Combine(folder,"observations.json"),accepted);
+  string observations=Path.Combine(folder,"observations.json");
   string? declarations=plan.Declarations==null?null:Copy(plan.Declarations,"declarations.json");
   if(plan.PlannedGaps is {} gaps) {
    declarations=Path.Combine(folder,"declarations.json");
@@ -173,6 +111,48 @@ internal static class AutomationReview
   if(policy.SchemaVersion!=1 || gaps.Any(g=>!policy.Requirements.Any(r=>r.Id==g.RequirementId)))
    throw new InvalidDataException("Every planned gap must belong to the reviewed policy.");
  }
+ internal static string ResolveObservationSource(string requested,IReadOnlyDictionary<string,string> retained,string? root=null) {
+  const string suffix="/installed-app/AndroidUI/";
+  int stepIndex=requested.LastIndexOf(suffix,StringComparison.Ordinal);
+  if(root!=null && stepIndex>=0) {
+   string stepRoot=requested[..stepIndex];
+   string pointer=stepRoot+"/installed-app/replacement.json";
+   if(retained.TryGetValue(pointer,out var pin)) {
+    if(!SubmissionEvidence.SafeEvidencePath(root,pointer,out var path) || AutomationFiles.Hash(path)!=pin)throw new InvalidDataException("Replacement lineage changed.");
+    var accepted=AutomationFiles.Read<AutomationAppStepRecovery.Completion>(path);
+    AutomationAppStepRecovery.RequireId(accepted.AttemptId);
+    string prefix="installed-app/recovery-attempts/"+accepted.AttemptId+"/";
+    _=AutomationAppScopeRevision.Accepted(accepted);
+    if(!retained.ContainsKey(stepRoot+"/"+prefix+"attempt.json") || !retained.ContainsKey(stepRoot+"/"+prefix+"original-evidence.json"))throw new InvalidDataException("Missing replacement provenance.");
+    if(accepted.CaseRecovery is {} caseProof && !retained.ContainsKey(stepRoot+"/"+caseProof.ReceiptPath))throw new InvalidDataException("Missing case recovery receipt.");
+    string requestedSuffix=requested[(stepIndex+suffix.Length)..];
+    string resolved;
+    if(accepted.ObservationSources is {} mappings) {
+     if(!mappings.TryGetValue(requestedSuffix,out var revised))throw new InvalidDataException("Revised observation mapping is missing.");
+     resolved=stepRoot+"/"+revised;
+    } else resolved=stepRoot+"/"+accepted.ProducerPrefix+requestedSuffix;
+    if(!retained.ContainsKey(resolved))throw new InvalidDataException("Replacement observation is missing.");
+    return resolved;
+   }
+  }
+  if(retained.ContainsKey(requested))return requested;
+  const string marker="/installed-app/AndroidUI/";
+  int index=requested.LastIndexOf(marker,StringComparison.Ordinal);
+  if(index<0)return requested;
+  string step=requested[..index];
+  string repair=step+"/installed-app/preparation-recovery/";
+  string replacement=repair+"installed-app/AndroidUI/"+requested[(index+marker.Length)..];
+  // Only a completed coordinator inventory can authorise this explicit repair lineage.
+  return retained.ContainsKey(repair+"repair.json") && retained.ContainsKey(repair+"original-evidence.json") &&
+   retained.ContainsKey(replacement)?replacement:requested;
+ }
+ internal static string? ObservationBase(string relative) {
+  const string marker="/installed-app/AndroidUI/";
+  int index=relative.LastIndexOf(marker,StringComparison.Ordinal);
+  if(index>=0)return relative[..index];
+  return new[]{AutomationInitialAdditionalTests.DirectoryName,AutomationPostEndurance.DirectoryName}
+   .SingleOrDefault(name=>relative.StartsWith(name+"/",StringComparison.Ordinal));
+ }
  internal static SubmissionObservation Rebase(SubmissionObservation o,string root) {
   string P(string path)=>root+"/"+path;
   var e=o.Execution;
@@ -204,7 +184,8 @@ internal static class AutomationReview
    if(!checkedBundle.ValidationChecksPassed)throw new InvalidDataException("Review bundle failed revalidation.");validation=checkedBundle.Validation;
   }
   if(validation.Package?.Sha256!=c.Checkpoint.Release.PackageSha256)throw new InvalidDataException("Review contains another package.");
-  var files=Directory.GetFiles(folder,"*",SearchOption.AllDirectories).Order(StringComparer.Ordinal)
+  var files=Directory.GetFiles(folder,"*",SearchOption.AllDirectories)
+   .Concat(File.Exists(Path.Combine(c.RunDirectory,AutomationReviewTooling.FileName))?[Path.Combine(c.RunDirectory,AutomationReviewTooling.FileName)]:Array.Empty<string>()).Order(StringComparer.Ordinal)
    .Select(p=>new SubmissionWorkflowReceipt(Path.GetRelativePath(c.RunDirectory,p),AutomationFiles.Hash(p))).ToArray();
   return AutomationFiles.Complete(c,"review-evidence.json",new Receipt(c.Checkpoint.InputSha256,hash,files));
  }
@@ -214,7 +195,7 @@ internal static class AutomationReview
     throw new InvalidDataException("Retained review packet changed.");
  }
  internal static void WriteDocument<T>(string path,T value)=>WriteBytes(path,JsonSerializer.SerializeToUtf8Bytes(value,DocumentJson));
- private static void WriteBytes(string path,byte[] bytes,string? expected=null) {
+ internal static void WriteBytes(string path,byte[] bytes,string? expected=null) {
   string digest=Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(bytes));
   if(expected!=null && digest!=expected)throw new InvalidDataException("Review input changed while copying.");
   if(File.Exists(path)) {if(AutomationFiles.Hash(path)!=digest)throw new InvalidDataException("Retained review input changed.");return;}

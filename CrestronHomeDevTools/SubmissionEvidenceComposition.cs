@@ -2,6 +2,7 @@
 // Licensed under the MIT License. See LICENSE in the repository root.
 
 using System.Security.Cryptography;
+using System.Text.Json;
 
 namespace CrestronHomeDevTools;
 
@@ -59,7 +60,7 @@ public static class SubmissionEvidenceComposition
 			foreach (var source in plan.Sources)
 				{
 				var retained = Read (source.RelativePath, source.Sha256);
-				var document = SubmissionValidation.Read<SubmissionEvidenceDocument> (retained.Bytes);
+				var document = ReadSourceDocument (retained.Bytes);
 				if (document.SchemaVersion != 1 || document.Observations.Count == 0 || document.Observations.Any (item => item == null))
 					throw new ArgumentException ("Each source must contain an original, nonempty schema 1 observation document.");
 				var sourceReport = SubmissionEvidence.Evaluate (plan.Identity, policy.Requirements, document.Observations, root, now, cancellationToken);
@@ -85,4 +86,13 @@ public static class SubmissionEvidenceComposition
 			foreach (var input in inputs) input.Dispose ();
 			}
 		}
+	// Older in-tree producers wrote PascalCase. Accept either complete convention,
+	// retaining strict required members, unknown-member rejection and duplicate checks.
+	internal static SubmissionEvidenceDocument ReadSourceDocument(byte[] bytes)
+		{
+		using var json=JsonDocument.Parse(bytes);
+		bool pascal=json.RootElement.ValueKind==JsonValueKind.Object && json.RootElement.TryGetProperty("SchemaVersion",out _);
+		return SubmissionValidation.Read<SubmissionEvidenceDocument>(bytes,pascalCase:pascal);
+		}
+
 	}

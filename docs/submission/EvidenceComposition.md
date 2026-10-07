@@ -64,3 +64,7 @@ The method reads files and returns typed results; it does not write them. The CL
 ## Continue to the submission review
 
 Retain the successful observations and all referenced original files without relocating relative paths. Pass the document to the normal package/evidence validation and unsigned review stage. Full candidate/package validation, approved policy completeness, authenticated producers, Android audits, behavioral assertion review and visual form review remain mandatory. A successful composition is neither certification nor signing or delivery authorization. Ordinary driver, library and client releases remain independent of this optional submission stage.
+
+In the native three-phase workflow, complete requirement assessment belongs to phase two. Phase three packages its retained observations. The standalone composition API remains available for inspecting evidence; its output does not itself establish a passed native test stage.
+
+The source reader accepts canonical camel-case observation documents and complete legacy Pascal-case observation documents, preserving their pinned original bytes. Mixed naming conventions, duplicate or unknown properties, missing required members and numeric enum values remain invalid.

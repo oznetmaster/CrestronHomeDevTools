@@ -23,9 +23,8 @@ function Complete-SubmissionAutomationTask($Launch, [string]$ExpectedArguments, 
         $matches = @($states | Where-Object { $_.Profile -ceq $entry.Profile -and $_.ReleaseId -eq $entry.ReleaseId -and $_.Mode -ceq $entry.Mode })
         if ($matches.Count -ne 1) { throw 'Terminal status identity differs; task retained.' }
         $state = $matches[0]
-        $finished = ($state.State -ceq 'Completed' -and $state.Stage -ceq 'Retain') -or
-            ($state.Mode -ceq 'Rehearsal' -and $state.State -ceq 'NeedsInput' -and $state.Stage -ceq 'SignReview' -and $state.Reason -ceq 'rehearsal-ready-for-review')
-        $failed = $state.State -ceq 'Failed' -and $state.Stage -cin @('ValidateCandidate','WindowsTests','ProcessorTests','AppTests','Endurance','PrepareReview','SignReview','Deliver','Retain') -and ![string]::IsNullOrWhiteSpace($state.Reason)
+        $finished = ($state.State -ceq 'Completed' -and $state.Stage -ceq 'Retain')
+        $failed = $state.State -ceq 'Failed' -and $state.Stage -cin @('ValidateCandidate','WindowsTests','ProcessorTests','AppTests','Endurance','FinalizeTests','PrepareReview','SignReview','Deliver','Retain') -and ![string]::IsNullOrWhiteSpace($state.Reason)
         $hasFailure = $hasFailure -or $failed
         $finished = $finished -or $failed
         if (!$finished) { throw 'Run is not finished; task retained.' }

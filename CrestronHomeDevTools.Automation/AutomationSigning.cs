@@ -7,7 +7,7 @@ internal static class AutomationSigning
  internal static async Task<SubmissionWorkflowStepResult> Advance(SubmissionWorkflowStepContext c,SubmissionAutomationSettings settings,bool recover,
   CancellationToken token,Func<SubmissionAutomationConsole,string[],string,CancellationToken,Task<int>>? execute=null)
  {
-  if(settings.Mode!=SubmissionAutomationMode.Submit)throw new InvalidOperationException("Rehearsal cannot sign.");
+  AutomationDelivery.ValidateMode(settings);
   if(settings.Protected is not {} plan || settings.Review is not {} review)return new(SubmissionWorkflowStatus.NeedsInput,ReasonCode:"protected-signing-plan-required");
   AutomationReview.VerifyRetained(c.RunDirectory);
   string reviewDirectory=AutomationReviewSelection.Resolve(c,settings,token);

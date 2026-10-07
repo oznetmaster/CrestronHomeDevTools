@@ -158,7 +158,7 @@ public static class SubmissionEndurance
 	/// <summary>Exports only a completed, revalidated run; partial time never becomes a passing observation.</summary>
 	public static SubmissionObservation Export (string privateRunDirectory, SubmissionEndurancePlan plan, DateTimeOffset now)
 		{
-		using var journal = new Journal (privateRunDirectory);
+		using var journal = new Journal (privateRunDirectory, existingOnly: true);
 		var checkpoint = journal.Read (PlanDigest (plan));
 		if (checkpoint?.State != SubmissionEnduranceState.Passed)
 			throw new InvalidOperationException ("Endurance collection has not passed.");
@@ -206,16 +206,21 @@ public static class SubmissionEndurance
 		{
 		internal string Root { get; }
 		private readonly FileStream _lock;
-		internal Journal (string directory)
+		internal Journal (string directory, bool existingOnly = false)
 			{
 			Root = Path.GetFullPath (directory);
-			Directory.CreateDirectory (Root);
+			if (existingOnly)
+				{
+				if (!Directory.Exists (Root)) throw new DirectoryNotFoundException ("The retained endurance directory is missing.");
+				}
+			else Directory.CreateDirectory (Root);
 			if ((File.GetAttributes (Root) & FileAttributes.ReparsePoint) != 0)
 				throw new InvalidDataException ("The private run directory must not be a link.");
 			var lockPath = Path.Combine (Root, "collector.lock");
 			if (File.Exists (lockPath) && !SubmissionEvidence.SafeEvidencePath (Root, "collector.lock", out _))
 				throw new InvalidDataException ("The collector lock must not be a link.");
-			_lock = new FileStream (lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+			_lock = new FileStream (lockPath, existingOnly ? FileMode.Open : FileMode.OpenOrCreate,
+				existingOnly ? FileAccess.Read : FileAccess.ReadWrite, FileShare.None);
 			}
 		internal SubmissionEnduranceCheckpoint? Read (string digest)
 			{

@@ -9,7 +9,7 @@ namespace CrestronHomeDevTools;
 public sealed record SubmissionWorkflowRelease(string Repository, long ReleaseId, string Tag,
  string SourceCommit, string PackageSha256, string ProfileSnapshotSha256, string ToolingSha256);
 
-public enum SubmissionWorkflowStage { ValidateCandidate, WindowsTests, ProcessorTests, AppTests, Endurance, PrepareReview, SignReview, Deliver, Retain }
+public enum SubmissionWorkflowStage { ValidateCandidate, WindowsTests, ProcessorTests, AppTests, Endurance, PrepareReview, SignReview, Deliver, Retain, FinalizeTests }
 public enum SubmissionWorkflowStatus { Ready, Running, Waiting, NeedsInput, Failed, OutcomeUnknown, Completed }
 public sealed record SubmissionWorkflowReceipt(string RelativePath, string Sha256);
 public sealed record SubmissionWorkflowStepResult(SubmissionWorkflowStatus Status, SubmissionWorkflowReceipt? Receipt = null, string? ReasonCode = null);
@@ -30,6 +30,15 @@ public interface ISubmissionWorkflowSteps
 /// and does not turn declared gaps into passes. Stage adapters perform those domain-specific checks.</summary>
 public static class SubmissionWorkflow
 {
+ // Enum values remain stable; sequencing is explicit so new phases do not renumber old receipts.
+ internal static readonly SubmissionWorkflowStage[] CurrentStages=[SubmissionWorkflowStage.ValidateCandidate,
+  SubmissionWorkflowStage.WindowsTests,SubmissionWorkflowStage.ProcessorTests,SubmissionWorkflowStage.AppTests,
+  SubmissionWorkflowStage.Endurance,SubmissionWorkflowStage.FinalizeTests,SubmissionWorkflowStage.PrepareReview,
+  SubmissionWorkflowStage.SignReview,SubmissionWorkflowStage.Deliver,SubmissionWorkflowStage.Retain];
+ private static SubmissionWorkflowStage[] Stages(int schema)=>schema switch {
+  1=>CurrentStages.Where(s=>s!=SubmissionWorkflowStage.FinalizeTests).ToArray(),
+  2=>CurrentStages,
+  _=>throw new InvalidDataException("Unsupported workflow checkpoint version.")};
  private static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
   UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow, AllowDuplicateProperties = false,
   RespectRequiredConstructorParameters = true, RespectNullableAnnotations = true,
@@ -45,6 +54,9 @@ public static class SubmissionWorkflow
  public static SubmissionWorkflowCheckpoint Open(string privateRoot, SubmissionWorkflowRelease release)
  {
   string directory = DirectoryFor(privateRoot, release);
+  using var archives=SubmissionRunArchive.Acquire(privateRoot);
+  SubmissionRunArchive.RejectPruned(privateRoot,release);
+  archives.RecoverPruning();
   Directory.CreateDirectory(directory);
   using var gate = Gate(directory);
   string digest = InputDigest(release);
@@ -54,33 +66,60 @@ public static class SubmissionWorkflow
    if (existing.InputSha256 != digest) throw new InvalidDataException("The release, package or frozen inputs changed. Review the existing run instead of restarting it.");
    return existing;
   }
-  var state = new SubmissionWorkflowCheckpoint(1, digest, release, SubmissionWorkflowStage.ValidateCandidate,
+  archives.RejectMissingCheckpoint(release);
+  var state = new SubmissionWorkflowCheckpoint(2, digest, release, SubmissionWorkflowStage.ValidateCandidate,
    SubmissionWorkflowStatus.Ready, null, null, new(), DateTimeOffset.UtcNow);
   Save(directory, state);
+  archives.RegisterNew(release);
+  archives.Rotate(release);
   return state;
  }
 
  public static SubmissionWorkflowCheckpoint Read(string privateRoot, SubmissionWorkflowRelease release)
+  => WithVerifiedCheckpoint(privateRoot, release, context => context.Checkpoint);
+
+ // Keep maintenance verification and writes under the same gate without reacquiring it.
+ internal static T WithVerifiedCheckpoint<T>(string privateRoot, SubmissionWorkflowRelease release,
+  Func<SubmissionWorkflowStepContext,T> action)
  {
-  string directory = DirectoryFor(privateRoot, release);
-  using var gate = Gate(directory);
-  var state = Load(directory);
-  MatchInput(state, release);
-  VerifyReceipts(directory, state);
-  return state;
+  ArgumentNullException.ThrowIfNull(action);
+  string directory=DirectoryFor(privateRoot,release);
+  using var gate=Gate(directory);
+  var state=Load(directory);
+  MatchInput(state,release);
+  VerifyReceipts(directory,state);
+  return action(new(directory,state));
  }
 
  /// <summary>Run ready stages until waiting, attention or completion. Long operations must return Waiting promptly.
  /// Restarting a Running step calls RecoverAsync with the original operation ID, never ExecuteAsync again.</summary>
- public static async Task<SubmissionWorkflowCheckpoint> AdvanceAsync(string privateRoot, SubmissionWorkflowRelease release,
+ public static Task<SubmissionWorkflowCheckpoint> AdvanceAsync(string privateRoot, SubmissionWorkflowRelease release,
   ISubmissionWorkflowSteps steps, CancellationToken cancellationToken = default)
+  =>AdvanceCoreAsync(privateRoot,release,steps,null,cancellationToken);
+
+ /// <summary>Execute or recover only the selected stage. Completed stages are verified and reused.
+ /// Missing prerequisites are rejected; selecting a test never runs other stages or delivery.</summary>
+ public static Task<SubmissionWorkflowCheckpoint> AdvanceStageAsync(string privateRoot,SubmissionWorkflowRelease release,
+  ISubmissionWorkflowSteps steps,SubmissionWorkflowStage stage,CancellationToken cancellationToken=default)
+ {
+  if(!Enum.IsDefined(stage))throw new ArgumentOutOfRangeException(nameof(stage));
+  return AdvanceCoreAsync(privateRoot,release,steps,stage,cancellationToken);
+ }
+ private static async Task<SubmissionWorkflowCheckpoint> AdvanceCoreAsync(string privateRoot,SubmissionWorkflowRelease release,
+  ISubmissionWorkflowSteps steps,SubmissionWorkflowStage? selected,CancellationToken cancellationToken)
  {
   ArgumentNullException.ThrowIfNull(steps);
   string directory = DirectoryFor(privateRoot, release);
   using var gate = Gate(directory);
+  SubmissionRunArchive.RejectClosed(directory);
   var state = Load(directory);
   MatchInput(state, release);
   VerifyReceipts(directory, state);
+  if(state.SchemaVersion!=2)throw new InvalidDataException("This retained run uses the earlier test/review boundary. Keep its pinned worker; do not replay or silently migrate it.");
+  if(selected is {} requested) {
+   if(state.CompletedStages.ContainsKey(requested))return state;
+   if(state.Stage!=requested)throw new InvalidOperationException("Complete the preceding stages before selecting this stage.");
+  }
   while (state.Status is SubmissionWorkflowStatus.Ready or SubmissionWorkflowStatus.Running or SubmissionWorkflowStatus.Waiting)
   {
    cancellationToken.ThrowIfCancellationRequested();
@@ -110,7 +149,7 @@ public static class SubmissionWorkflow
     VerifyReceipt(directory, result.Receipt);
     var completed = new Dictionary<SubmissionWorkflowStage, SubmissionWorkflowReceipt>(state.CompletedStages) { [state.Stage] = result.Receipt };
     bool last = state.Stage == SubmissionWorkflowStage.Retain;
-    state = state with { CompletedStages = completed, Stage = last ? state.Stage : state.Stage + 1,
+    state = state with { CompletedStages = completed, Stage = last ? state.Stage : CurrentStages[Array.IndexOf(CurrentStages,state.Stage)+1],
      Status = last ? SubmissionWorkflowStatus.Completed : SubmissionWorkflowStatus.Ready,
      OperationId = null, ReasonCode = null, UpdatedUtc = DateTimeOffset.UtcNow };
    }
@@ -123,7 +162,7 @@ public static class SubmissionWorkflow
     state = state with { Status = result.Status, ReasonCode = result.ReasonCode, UpdatedUtc = DateTimeOffset.UtcNow };
    }
    Save(directory, state);
-   if (state.Status != SubmissionWorkflowStatus.Ready) return state;
+   if (selected.HasValue || state.Status != SubmissionWorkflowStatus.Ready) return state;
   }
   return state;
  }
@@ -134,6 +173,7 @@ public static class SubmissionWorkflow
  {
   string directory = DirectoryFor(privateRoot, release);
   using var gate = Gate(directory);
+  SubmissionRunArchive.RejectClosed(directory);
   var state = Load(directory);
   MatchInput(state, release);
   if (Hash(File.ReadAllBytes(Path.Combine(directory, "state.json"))) != expectedStateSha256 ||
@@ -142,6 +182,54 @@ public static class SubmissionWorkflow
   state = state with { Status = SubmissionWorkflowStatus.Waiting, ReasonCode = "recovery-requested", UpdatedUtc = DateTimeOffset.UtcNow };
   Save(directory, state);
   return state;
+ }
+
+ /// <summary>Explicitly move an uncompleted legacy review operation to the final-test boundary.
+ /// A trusted adapter must verify quiescence and that document/sign/delivery work has not begun.
+ /// Preserves the original checkpoint bytes, receipts, operation, status and failure reason;
+ /// grants no retry or delivery authority and never executes equipment callbacks.</summary>
+ public static SubmissionWorkflowCheckpoint MigrateTestBoundary(string privateRoot, SubmissionWorkflowRelease release,
+  string expectedStateSha256, Action<SubmissionWorkflowStepContext> verifyBoundary)
+ {
+  ArgumentNullException.ThrowIfNull(verifyBoundary);
+  if(expectedStateSha256 is not {Length:64} || expectedStateSha256.Any(c=>!(char.IsAsciiDigit(c)||c is >= 'a' and <= 'f')))
+   throw new ArgumentException("Pin the exact legacy checkpoint by lowercase SHA256.",nameof(expectedStateSha256));
+  string directory=DirectoryFor(privateRoot,release);
+  using var gate=Gate(directory);
+  SubmissionRunArchive.RejectClosed(directory);
+  var state=Load(directory);MatchInput(state,release);VerifyReceipts(directory,state);
+  string originalPath=Path.Combine(directory,"legacy-boundary-"+expectedStateSha256+".json");
+  string statePath=Path.Combine(directory,"state.json");
+  byte[] original;
+  if(state.SchemaVersion==1) {
+   original=File.ReadAllBytes(statePath);
+   if(Hash(original)!=expectedStateSha256 || state.Stage!=SubmissionWorkflowStage.PrepareReview ||
+    state.Status is not (SubmissionWorkflowStatus.Ready or SubmissionWorkflowStatus.Failed or SubmissionWorkflowStatus.NeedsInput or SubmissionWorkflowStatus.OutcomeUnknown))
+    throw new InvalidDataException("Migration requires the exact stopped legacy test/review boundary.");
+  } else {
+   // A lost acknowledgement may be reconciled only at the exact resulting boundary.
+   if(!File.Exists(originalPath))throw new InvalidDataException("No matching legacy boundary migration exists.");
+   VerifyReceipt(directory,new(Path.GetFileName(originalPath),expectedStateSha256));
+   original=File.ReadAllBytes(originalPath);
+   var prior=JsonSerializer.Deserialize<SubmissionWorkflowCheckpoint>(original,Json)!;
+   var expected=prior with {SchemaVersion=2,Stage=SubmissionWorkflowStage.FinalizeTests,UpdatedUtc=state.UpdatedUtc};
+   if(prior.SchemaVersion!=1 || prior.Stage!=SubmissionWorkflowStage.PrepareReview ||
+    !JsonSerializer.SerializeToUtf8Bytes(state,Json).AsSpan().SequenceEqual(JsonSerializer.SerializeToUtf8Bytes(expected,Json)))
+    throw new InvalidDataException("The run has advanced or changed since boundary migration.");
+  }
+  verifyBoundary(new(directory,state)); // Under the gate, before any checkpoint or archive mutation.
+  if(state.SchemaVersion==2)return state;
+  if(File.Exists(originalPath))VerifyReceipt(directory,new(Path.GetFileName(originalPath),expectedStateSha256));
+  else {
+   string temporary=Path.Combine(directory,"legacy-boundary-"+Guid.NewGuid().ToString("N")+".tmp");
+   try {
+    using(var stream=new FileStream(temporary,FileMode.CreateNew,FileAccess.Write,FileShare.None)){stream.Write(original);stream.Flush(true);}
+    SubmissionJournalFile.Replace(temporary,originalPath,overwrite:false);
+   } finally {if(File.Exists(temporary))File.Delete(temporary);}
+  }
+  var migrated=state with {SchemaVersion=2,Stage=SubmissionWorkflowStage.FinalizeTests,UpdatedUtc=DateTimeOffset.UtcNow};
+  Save(directory,migrated);
+  return migrated;
  }
 
  private static string DirectoryFor(string root, SubmissionWorkflowRelease release)
@@ -175,13 +263,14 @@ public static class SubmissionWorkflow
   string path = Path.Combine(directory, "state.json");
   if (new FileInfo(path).Length > 1024 * 1024) throw new InvalidDataException("Workflow state exceeds its limit.");
   var state = JsonSerializer.Deserialize<SubmissionWorkflowCheckpoint>(File.ReadAllBytes(path), Json) ?? throw new InvalidDataException("Missing workflow state.");
-  if (state.SchemaVersion != 1 || !Enum.IsDefined(state.Stage) || !Enum.IsDefined(state.Status) || state.InputSha256 != InputDigest(state.Release) || state.UpdatedUtc == default)
+  if (state.SchemaVersion is not (1 or 2) || !Enum.IsDefined(state.Stage) || !Enum.IsDefined(state.Status) || state.InputSha256 != InputDigest(state.Release) || state.UpdatedUtc == default)
    throw new InvalidDataException("Invalid workflow checkpoint.");
   bool idle = state.Status is SubmissionWorkflowStatus.Ready or SubmissionWorkflowStatus.Completed;
   if (idle ? state.OperationId != null : state.OperationId == null || !Guid.TryParseExact(state.OperationId, "N", out _))
    throw new InvalidDataException("Invalid operation identity.");
-  int expected = state.Status == SubmissionWorkflowStatus.Completed ? Enum.GetValues<SubmissionWorkflowStage>().Length : (int)state.Stage;
-  if (state.CompletedStages.Count != expected || Enumerable.Range(0, expected).Any(i => !state.CompletedStages.ContainsKey((SubmissionWorkflowStage)i)) ||
+  var order=Stages(state.SchemaVersion);int index=Array.IndexOf(order,state.Stage);
+  int expected=state.Status==SubmissionWorkflowStatus.Completed?order.Length:index;
+  if (index<0 || state.CompletedStages.Count != expected || order.Take(expected).Any(s=>!state.CompletedStages.ContainsKey(s)) ||
    state.Status == SubmissionWorkflowStatus.Completed && state.Stage != SubmissionWorkflowStage.Retain)
    throw new InvalidDataException("Workflow stage history is incomplete.");
   return state;

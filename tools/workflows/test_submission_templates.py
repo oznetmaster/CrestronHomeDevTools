@@ -47,7 +47,7 @@ class SubmissionTemplateTests(unittest.TestCase):
         shell = shutil.which("pwsh")
         self.assertIsNotNone(shell)
         for mode, result, succeeds, summary in [
-            ("rehearsal", 0, True, "Rehearsal documents are ready"),
+            ("rehearsal", 0, True, "Rehearsal completed through its protected signing, test-mail delivery and retention stages"),
             ("rehearsal", 4, True, "Waiting for a recorded operation"),
             ("submit", 0, True, "registered workflow completed"),
             ("rehearsal", 3, False, ""),
@@ -74,6 +74,11 @@ class SubmissionTemplateTests(unittest.TestCase):
                     if result == 4:
                         self.assertNotIn("documents are ready", text)
                         self.assertNotIn("workflow completed", text)
+                        self.assertNotIn("Rehearsal completed", text)
+                    elif mode == "rehearsal":
+                        self.assertIn("this is not a Crestron submission", text)
+                else:
+                    self.assertFalse((root / "summary.txt").exists())
                 if mode != "invalid":
                     self.assertEqual("|".join(["--registry", str(registry), "--profile", "weather-driver",
                                               "--release-id", "123456", "--mode", mode]),

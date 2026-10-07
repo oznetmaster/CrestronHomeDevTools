@@ -66,6 +66,7 @@ public sealed class DriverPayloadInspectionTests
 
 	[TestCase ("chdriver.example.platform.ip.developer.1.002.0003.0000")]
 	[TestCase ("chdriver.example.platform.ip.developer.1.2.3.0")]
+	[TestCase ("chdriver.example.platform.ip.developer.1.002.0003.0000.7066")]
 	public async Task ConfigurationCatalogueIdResolvesToUnversionedStorageKey (string catalogueId)
 		{
 		var source = new Source ();
@@ -79,6 +80,10 @@ public sealed class DriverPayloadInspectionTests
 	[TestCase ("chdriver.example.platform.ip.developer.1.2.3")]
 	[TestCase ("chdriver.1.002.0003.0000")]
 	[TestCase ("chdriver..1.002.0003.0000")]
+	[TestCase ("chdriver.example.platform.ip.developer.1.2.4.0.7066")]
+	[TestCase ("chdriver.example.platform.ip.developer.1.2.3.0.other")]
+	[TestCase ("chdriver.example.platform.ip.developer.1.2.3.0.0")]
+	[TestCase ("chdriver.example.platform.ip.developer.1.2.3.0.7066.7")]
 	public async Task IncorrectOrIncompleteCatalogueVersionIsRejected (string catalogueId)
 		{
 		var expected = await Prepared ();

@@ -14,6 +14,10 @@ public sealed record SubmissionReviewDeliveryPlan (string CandidateSha256, strin
 	SubmissionReviewMode ReviewMode, SubmissionVerificationStatus VerificationStatus, SubmissionReviewAttachmentKind AttachmentKind,
 	string? DeclarationsSha256, string? GapSummary, string? DocumentOmissions)
 	{
+	[System.Text.Json.Serialization.JsonIgnore (Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+	public SubmissionDeliveryEnvironment Environment { get; init; }
+	[System.Text.Json.Serialization.JsonIgnore (Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+	public bool SendRehearsalEmail { get; init; }
 	/// <summary>Optional independently reviewed correspondence. Its body must contain exactly one
 	/// {{PACKAGE_DOWNLOAD_URL}} token. The caller must review all disclosures; changing this text invalidates approval.</summary>
 	[System.Text.Json.Serialization.JsonIgnore (Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
@@ -32,6 +36,7 @@ public sealed record SubmissionReviewDeliveryReceipt (SubmissionReviewMode Revie
 /// implementations must preserve the exact plan's signature and verification distinctions.</summary>
 public interface ISubmissionReviewDeliveryTransport
 	{
+	SubmissionDeliveryEnvironment Environment => SubmissionDeliveryEnvironment.Production;
 	Task<SubmissionUploadReceipt> UploadAsync (Stream package, string filename, CancellationToken cancellationToken);
 	Task<SubmissionMailReceipt> SendReviewAsync (SubmissionReviewDeliveryPlan plan, SubmissionUploadReceipt upload,
 		Stream attachment, string messageId, CancellationToken cancellationToken);
@@ -43,7 +48,7 @@ public static partial class SubmissionDelivery
 	public static SubmissionReviewDeliveryReceipt? ReadReview (string privateJournalDirectory, SubmissionReviewDeliveryPlan plan)
 		{
 		var descriptor = DescribeReview (plan);
-		using var journal = new Journal (privateJournalDirectory, descriptor.Digest, descriptor.Key);
+		using var journal = new Journal (privateJournalDirectory, descriptor.Digest, descriptor.Key, plan.Environment);
 		var receipt = journal.Read ();
 		return receipt == null ? null : ReviewReceipt (plan, receipt);
 		}
@@ -56,6 +61,7 @@ public static partial class SubmissionDelivery
 		TimeProvider? timeProvider = null, CancellationToken cancellationToken = default)
 		{
 		ArgumentNullException.ThrowIfNull (transport);
+		if (transport.Environment != plan.Environment) throw new InvalidDataException ("Delivery plan and transport environments differ.");
 		var receipt = await ExecuteAuthorizedCoreAsync (privateJournalDirectory, DescribeReview (plan), packagePath, attachmentPath,
 			transport.UploadAsync, (upload, attachment, messageId, token) => transport.SendReviewAsync (plan, upload, attachment, messageId, token),
 			revalidate, timeProvider, cancellationToken).ConfigureAwait (false);
@@ -86,7 +92,7 @@ public static partial class SubmissionDelivery
 
 	private static SubmissionReviewCorrespondence ReviewCorrespondenceCore (SubmissionReviewDeliveryPlan plan)
 		{
-		if (plan.CorrespondenceOverride is { } reviewed) return reviewed;
+		if (plan.CorrespondenceOverride is { } reviewed) return RehearsalCorrespondence (plan, reviewed);
 		string verification = plan.VerificationStatus == SubmissionVerificationStatus.GapsDeclared
 			? "Request for review with declared gaps. This submission does not meet all requirements as we interpret Crestron's published submission requirements.\r\n\r\n" +
 				"Declared gaps: " + plan.GapSummary + "\r\nDeclaration SHA-256: " + plan.DeclarationsSha256 + "\r\n"
@@ -97,12 +103,23 @@ public static partial class SubmissionDelivery
 			SubmissionReviewAttachmentKind.UnsignedSelfTest => "The attachment contains an UNSIGNED self-test form and its disclosure report. No signature is supplied.",
 			_ => "The attachment is a disclosure report only. The required official self-test form and signature are NOT supplied."
 			};
-		return new ("Driver Submission Package", verification + "\r\n" + attachment + "\r\n" +
+		return RehearsalCorrespondence (plan, new ("Driver Submission Package", verification + "\r\n" + attachment + "\r\n" +
 			(plan.DocumentOmissions == null ? "" : "Document/signature omissions and reasons: " + plan.DocumentOmissions + "\r\n") +
 			"\r\nOnly Crestron can decide acceptance, publication or certification; none is implied by this request.\r\n\r\n" +
 			"Package: " + plan.PackageFileName + "\r\nPackage SHA-256: " + plan.PackageSha256 + "\r\n" +
-			"Attachment: " + plan.AttachmentFileName + "\r\nAttachment SHA-256: " + plan.AttachmentSha256 + "\r\n");
+			"Attachment: " + plan.AttachmentFileName + "\r\nAttachment SHA-256: " + plan.AttachmentSha256 + "\r\n"));
 		}
+
+	private static SubmissionReviewCorrespondence RehearsalCorrespondence (SubmissionReviewDeliveryPlan plan, SubmissionReviewCorrespondence correspondence) =>
+		plan.Environment == SubmissionDeliveryEnvironment.Rehearsal
+		? new ("[REHEARSAL] Driver Submission Package", "REHEARSAL ONLY. This is a test submission to the configured test mailbox. No Crestron upload or submission has occurred. The package is attached; any rehearsal upload receipt is local.\r\n\r\n" + correspondence.Body)
+		: correspondence;
+
+	// Shared artifact/address syntax only; this never changes the reviewed qualification or its digest.
+	internal static SubmissionDeliveryPlan ReviewArtifactPlan (SubmissionReviewDeliveryPlan plan) =>
+		new (plan.CandidateSha256, plan.ReviewSha256, plan.AuthorizationSha256, plan.PackageSha256,
+			plan.AttachmentSha256, plan.PackageFileName, plan.AttachmentFileName, plan.Sender, plan.Recipient)
+		{ Environment = plan.Environment, SendRehearsalEmail = plan.SendRehearsalEmail };
 
 	private static void ValidateReviewPlan (SubmissionReviewDeliveryPlan plan)
 		{
@@ -110,15 +127,16 @@ public static partial class SubmissionDelivery
 		if (plan.CorrespondenceOverride is { } correspondence)
 			{
 			const string token = "{{PACKAGE_DOWNLOAD_URL}}";
-			if (correspondence.Subject != "Driver Submission Package" || string.IsNullOrWhiteSpace (correspondence.Body) ||
+			if (correspondence.Subject != (plan.Environment == SubmissionDeliveryEnvironment.Rehearsal ? "[REHEARSAL] Driver Submission Package" : "Driver Submission Package") || string.IsNullOrWhiteSpace (correspondence.Body) ||
 				correspondence.Body.Length > 32000 || correspondence.Body.Any (c => char.IsControl (c) && c is not ('\r' or '\n' or '\t')) ||
 				correspondence.Body.IndexOf (token, StringComparison.Ordinal) < 0 ||
 				correspondence.Body.IndexOf (token, StringComparison.Ordinal) != correspondence.Body.LastIndexOf (token, StringComparison.Ordinal))
 				throw new ArgumentException ("Reviewed correspondence requires the submission subject and one package download URL token.");
 			}
 		// Reuse only common byte/name/address syntax validation, not the old signed-form semantics or plan digest.
-		_ = PlanDigest (new (plan.CandidateSha256, plan.ReviewSha256, plan.AuthorizationSha256, plan.PackageSha256,
-			plan.AttachmentSha256, plan.PackageFileName, plan.AttachmentFileName, plan.Sender, plan.Recipient));
+		_ = PlanDigest (ReviewArtifactPlan (plan));
+		if (plan.Environment == SubmissionDeliveryEnvironment.Rehearsal && !plan.SendRehearsalEmail)
+			throw new ArgumentException ("Qualified rehearsal requires explicit test-mail delivery.");
 		if (!Enum.IsDefined (plan.ReviewMode) || !Enum.IsDefined (plan.AttachmentKind) || !Enum.IsDefined (plan.VerificationStatus) ||
 			plan.VerificationStatus == SubmissionVerificationStatus.NeedsCorrection)
 			throw new ArgumentException ("An internally consistent, reviewed submission disposition is required.");
@@ -145,5 +163,5 @@ public static partial class SubmissionDelivery
 	private static DeliveryDescriptor DescribeReview (SubmissionReviewDeliveryPlan plan) => new (ReviewPlanDigest (plan),
 		// Shared with legacy delivery: changing mode, disclosures or approvals must not replay the same outbound bytes.
 		Hash (JsonSerializer.SerializeToUtf8Bytes (new[] { plan.PackageSha256, plan.AttachmentSha256, plan.Sender.ToLowerInvariant (), plan.Recipient.ToLowerInvariant () })),
-		plan.PackageFileName, plan.PackageSha256, plan.AttachmentFileName, plan.AttachmentSha256);
+		plan.PackageFileName, plan.PackageSha256, plan.AttachmentFileName, plan.AttachmentSha256, plan.Environment);
 	}

@@ -25,7 +25,7 @@ internal static class AutomationPostEndurance
   AutomationInstalledApp.ValidateTemplate(Settings(settings),settings.PostEnduranceFromDeployment);
  }
  internal static SubmissionAutomationSettings Resolve(SubmissionWorkflowStepContext context,SubmissionAutomationSettings settings) {
-  var resolved=Settings(settings);
+  var resolved=Settings(AutomationPostFixtureRepair.Resolve(context,settings));
   return ResolveTarget(context,settings,resolved,settings.PostEnduranceFromDeployment);
  }
  internal static SubmissionAutomationSettings ResolveTarget(SubmissionWorkflowStepContext context,SubmissionAutomationSettings settings,
@@ -61,6 +61,8 @@ internal static class AutomationPostEndurance
   Directory.CreateDirectory(folder);
   AutomationFiles.Write(Path.Combine(folder,"endurance-binding.json"),binding);
   var resolved=Resolve(context,settings);
+  string repair=Path.Combine(context.RunDirectory,AutomationPostFixtureRepair.FileName);
+  if(File.Exists(repair))AutomationFiles.Write(Path.Combine(folder,AutomationPostFixtureRepair.FileName),AutomationFiles.Read<System.Text.Json.JsonElement>(repair));
   if(File.Exists(Path.Combine(folder,"installed-app-intent.json")) &&
    !SubmissionEvidence.SafeEvidencePath(folder,"target-plan.json",out _))
    throw new InvalidDataException("The retained post-endurance target plan is missing or unsafe.");

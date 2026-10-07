@@ -59,22 +59,25 @@ internal static class AutomationPreEndurance
    foreach(var file in AutomationInitialAdditionalTests.RetainedFiles(context))
     if(!retained.TryAdd(file.RelativePath,file.Sha256) && retained[file.RelativePath]!=file.Sha256)
      throw new InvalidDataException("Additional initial evidence paths overlap.");
-  if(settings.ResponseComparison is {} comparison && comparison.Pairs.Any(p=>!retained.ContainsKey(p.Before)))
+  if(settings.ResponseComparison is {} comparison && comparison.Pairs.Any(p=>!retained.ContainsKey(AutomationReview.ResolveObservationSource(p.Before,retained,root))))
    return Missing("response-baseline-missing","Retain the configured initial response measurements before endurance.");
   var observations=new List<SubmissionObservation>();
   string[] sources=review.PreEnduranceObservationSources ?? review.ObservationSources
    .Where(p=>!p.StartsWith(AutomationPostEndurance.DirectoryName+"/",StringComparison.Ordinal)).ToArray();
   if(sources.Length>1024 || sources.Distinct(StringComparer.Ordinal).Count()!=sources.Length)
    throw new InvalidDataException("Initial observation sources must be distinct and bounded.");
-  foreach(string relative in sources) {
+  foreach(string requested in sources) {
+   // Use the same accepted replacement lineage and producer-relative paths as
+   // final review. A completed step's evidence is not rooted at the phase root.
+   string relative=AutomationReview.ResolveObservationSource(requested,retained,root);
    if(!retained.TryGetValue(relative,out var hash) || !SubmissionEvidence.SafeEvidencePath(root,relative,out var path) || AutomationFiles.Hash(path)!=hash)
     throw new InvalidDataException("Initial observation is not retained completed producer output.");
    var document=AutomationFiles.Read<SubmissionEvidenceDocument>(path);
    if(document.SchemaVersion!=1 || document.Observations.Count is <1 or >1024)
     throw new InvalidDataException("Invalid initial observation document.");
+   string? producerRoot=AutomationReview.ObservationBase(relative);
    foreach(var raw in document.Observations) {
-    var observation=relative.StartsWith(AutomationInitialAdditionalTests.DirectoryName+"/",StringComparison.Ordinal)
-     ? AutomationReview.Rebase(raw,AutomationInitialAdditionalTests.DirectoryName) : raw;
+    var observation=producerRoot==null?raw:AutomationReview.Rebase(raw,producerRoot);
     if(observation.Files.Any(f=>!retained.TryGetValue(f.RelativePath.Replace('\\','/'),out var pin) || pin!=f.Sha256))
      throw new InvalidDataException("Initial observation references evidence outside its completed producer inventory.");
     observations.Add(observation);
@@ -88,6 +91,7 @@ internal static class AutomationPreEndurance
   if(review.SourceApplicability!=null)AddPrepared(AutomationSourceApplicability.Prepare(root,settings,token));
   if(review.Applicability!=null)AddPrepared(AutomationApplicability.Prepare(root,identity,review,token));
   if(review.PriorEvidence!=null)observations.AddRange(AutomationPriorEvidence.Prepare(root,identity,review,token).Observations);
+  if(File.Exists(Path.Combine(root,AutomationPlacement.ReceiptName)))AddPrepared(AutomationPlacement.VerifyRetained(context));
   // Evaluate the full policy to retain unknown/duplicate/invalid observations. Only missing
   // evidence for the specifically bound later operations is expected at this stage.
   var report=SubmissionEvidence.Evaluate(identity,policy.Requirements,observations,root,DateTimeOffset.UtcNow,token);

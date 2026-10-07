@@ -74,7 +74,8 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 		{
 		if (args.Length == 2 && args[1] == "--help")
 			return await EnduranceWatchCommand.RunAsync (args[1..], Console.In, Console.Out, Console.Error, CancellationToken.None);
-		if (interactive || (!Console.IsInputRedirected && !args.Contains ("--credentials", StringComparer.Ordinal)))
+		bool rehearsal = args is ["submission-deliver", "--rehearsal", ..];
+		if (interactive || (!rehearsal && !Console.IsInputRedirected && !args.Contains ("--credentials", StringComparer.Ordinal)))
 			{
 			Console.Error.WriteLine ("Endurance watch requires noninteractive execution and credentials on standard input.");
 			return 2;
@@ -190,6 +191,8 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
               submission-delivery-settings --settings PRIVATE_JSON --output NEW_PRIVATE_JSON
                                        Prepare bundled delivery settings for review; sends nothing.
               submission-deliver --settings FILE --settings-sha256 SHA256 --execute-approved
+              submission-deliver --rehearsal --settings FILE --settings-sha256 SHA256 --execute-approved
+                                       Use the local mock destination; no upload or email credentials.
                                        Revalidate approved artifacts before each external step.
                                        Requires private JSON credentials on redirected standard input.
 

@@ -29,7 +29,8 @@ public static class SubmissionDeliveryRevalidation
 	private static readonly JsonSerializerOptions Json = new ()
 		{
 		PropertyNameCaseInsensitive = true, UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
-		RespectRequiredConstructorParameters = true
+		RespectRequiredConstructorParameters = true,
+		Converters = { new JsonStringEnumConverter (allowIntegerValues: false) }
 		};
 	private sealed record Result (int SchemaVersion, string State, string DeliveryReviewSha256, string SignedReviewSha256,
 		string AuthorizationSha256, string PlanFileSha256, SubmissionDeliveryPlan Plan, DateTimeOffset ExpiresUtc,

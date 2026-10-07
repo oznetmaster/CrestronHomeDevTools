@@ -67,12 +67,12 @@ public sealed class SubmissionAutomationTests
  [TestCase(SubmissionWorkflowStage.SignReview)]
  [TestCase(SubmissionWorkflowStage.Deliver)]
  [TestCase(SubmissionWorkflowStage.Retain)]
- public async Task RehearsalCannotEnterSigningOrDeliveryIncludingRecovery(SubmissionWorkflowStage stage) {
+ public async Task RehearsalEvidenceWorkerHandsOffProtectedStagesIncludingRecovery(SubmissionWorkflowStage stage) {
   context=context with{Checkpoint=context.Checkpoint with{Stage=stage}};
   var adapter=Stages();
   foreach(var result in new[]{await adapter.ExecuteAsync(context,default),await adapter.RecoverAsync(context,default)}) {
-   Assert.That(result.Status,Is.EqualTo(SubmissionWorkflowStatus.NeedsInput));
-   Assert.That(result.ReasonCode,Is.EqualTo("rehearsal-ready-for-review"));Assert.That(result.Receipt,Is.Null);
+   Assert.That(result.Status,Is.EqualTo(SubmissionWorkflowStatus.Waiting));
+   Assert.That(result.ReasonCode,Is.EqualTo("worker-role-handoff"));Assert.That(result.Receipt,Is.Null);
   }
   Assert.That(executions,Is.Zero);
  }

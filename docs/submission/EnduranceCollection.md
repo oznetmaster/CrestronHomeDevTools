@@ -54,6 +54,14 @@ Choose rehearsal duration before starting the rehearsal. A one-hour rehearsal ex
 
 The journal is private operational evidence, not a cryptographically authenticated log. Protect it and the plan with the worker account's filesystem permissions, pin the producer in trusted CI, and archive completed evidence with independently retained digests before signing. No credentials, local paths or raw device evidence should be uploaded as public release assets.
 
+## Run-owned baseline state (source preview)
+
+For new deployment-bound automation runs, a producer using `BaselineFile` receives `endurance-lifetime.json` inside that run. A baseline path inherited from a template is not reused. The worker rejects an existing unbound file at the new destination rather than adopting or overwriting it. The producer creates the baseline on its first observation; later observations and resumed invocations use exactly that baseline. Legacy deployment bindings keep their recorded paths and bytes.
+
+A stopped first-sample configuration failure can be reviewed separately from a driver failure. `--bind-endurance-identity-repair` accepts only the specific stale-policy validation failure, and `--bind-endurance-baseline-repair` accepts only the specific mismatched lifetime-baseline failure. Both require the original reservation to be released and an explicitly pinned repair request. They preserve original failed collections and create a separate, unstarted collection with a new reservation. The baseline repair changes only the baseline destination; it cannot replace a functional failure, change duration or criteria, alter producer binaries, or erase previous observations. Later result verification follows the recorded replacement and revalidates the originals. Binding alone does not run a test.
+
+Archived runs must never supply a fresh run's working baseline. Archive rotation is separate from starting or resuming a collection; these APIs do not delete previous runs. Keep every file referenced by an unfinished run or accepted evidence chain until that run is finalized and its retained packet is verified.
+
 ## Deployment still required
 
 The remaining integration is a driver-specific trusted producer, deployment of a supervised scheduled worker with automatic startup and alerts, private credential provisioning, and validation across an actual operating-system restart. The monitoring computer can be separate from the development computer; it needs compatible .NET, processor/device connectivity and private storage. Android UI tests need an emulator only when the approved producer actually uses the app.

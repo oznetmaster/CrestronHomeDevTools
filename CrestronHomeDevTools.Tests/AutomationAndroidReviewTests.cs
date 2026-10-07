@@ -89,4 +89,30 @@ public sealed class AutomationAndroidReviewTests
   Arrange(false);File.AppendAllText(P(prefix+"discovery.dump")," ");Retain(false);
   Assert.Throws<InvalidDataException>(()=>Bind(false));
  }
+ [Test] public void ReplacementAuditKeepsOriginalFailureVerifiedButSelectsOnlyAcceptedAttempt() {
+  Arrange(true);
+  string step="installed-app/steps/000/",id=new('a',32);
+  string before=step+"installed-app/preparation-recovery/installed-app/AndroidUI/";
+  string attempt="installed-app/recovery-attempts/"+id+"/";
+  string after=step+attempt+"installed-app/AndroidUI/";
+  foreach(string target in new[]{before,after})
+   foreach(string file in Directory.GetFiles(P(prefix),"*",SearchOption.AllDirectories)) {
+    string copy=P(target+Path.GetRelativePath(P(prefix),file));Directory.CreateDirectory(Path.GetDirectoryName(copy)!);File.Copy(file,copy);
+   }
+  // A failed original must not become a passing producer merely because its
+  // replacement passed; retain its bytes and verify them independently.
+  File.WriteAllText(P(before+"producer-pin.json"),"original failed producer");
+  AutomationFiles.Write(P(step+"installed-app/replacement.json"),new AutomationAppStepRecovery.Completion(id,attempt+"installed-app/AndroidUI/",new('b',64)));
+  File.WriteAllText(P(step+attempt+"attempt.json"),"synthetic retained attempt");
+  File.WriteAllText(P(step+attempt+"original-evidence.json"),"synthetic original inventory");
+  var files=Directory.GetFiles(P(step),"*",SearchOption.AllDirectories)
+   .Select(p=>new SubmissionWorkflowReceipt(Path.GetRelativePath(root,p),AutomationFiles.Hash(p))).ToArray();
+  File.WriteAllText(P(receiptName),JsonSerializer.Serialize(new{context.Checkpoint.InputSha256,Files=files}));
+  context.Checkpoint.CompletedStages[SubmissionWorkflowStage.AppTests]=new(receiptName,Hash(receiptName));
+  var binding=Bind(true);
+  Assert.That(binding.Evidence.GetArrayLength(),Is.EqualTo(1));
+  Assert.That(binding.Evidence[0].GetProperty("path").GetString(),Is.EqualTo(Path.GetDirectoryName(P(after+"context.json"))));
+  File.AppendAllText(P(before+"producer-pin.json"),"tampered");
+  Assert.Throws<InvalidDataException>(()=>Bind(true));
+ }
 }

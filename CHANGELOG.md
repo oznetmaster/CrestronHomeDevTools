@@ -1,5 +1,99 @@
 # Changelog
 
+## Unreleased
+
+New workflow generations now register in a private retention catalogue. Startup keeps the current run and one previous explicitly closed routine generation per driver, preserving active work, submitted records, prepared reviews, pins and their evidence dependencies. Closure requires verified worker termination and cleanup; failed status alone does not close a run. Pruning records prevent duplicate release events from replaying removed runs and permit interrupted cleanup to finish. Existing unregistered evidence is never adopted for deletion.
+
+New deployment-bound runs receive their own lifetime baseline instead of inheriting
+a previous run's baseline path. Existing bindings remain unchanged. Reviewed
+first-sample policy and baseline configuration failures can use separate retained
+replacement collections; original failures, binaries, test criteria and passed
+results remain pinned. Full simulated collection, export and retained verification
+cover the baseline correction; this does not claim completed hardware endurance
+or introduce automatic archive deletion.
+
+
+Add an explicit stopped-run migration from the legacy test/review boundary to
+FinalizeTests. It pins and archives the exact original checkpoint, retains the
+operation, status, failure reason and completed receipts, and requires verified
+postchecks with no document or delivery activity. An interrupted migration can
+reuse its matching archive; an active or changed run is rejected. Migration
+never starts tests or authorizes recovery, signing or delivery.
+
+
+Carry declared gaps through rehearsal signing, test-mail delivery and retention.
+Qualified plans bind the environment, recipient and correspondence to approval;
+rehearsal keeps the package upload local and attaches the exact package and PDF.
+Existing production plan digests and unknown-outcome/no-resend behavior are preserved.
+
+Keep phase two limited to completed test results and evidence. Phase three now
+retains a verified review snapshot before document generation, reconciles a
+completed publication without recopying producer outputs, and refuses to replace
+a partial or changed snapshot. No document preparation is performed by test
+finalization.
+
+Add a native NUnit 5 submission fixture and a CI helper that selects the same
+tests. Initial dependencies use NUnit 5 attributes; endurance is Explicit and
+selected separately in Strict mode. Completed stages reuse verified evidence,
+cancelled waits preserve operation identity, and test execution stops before
+document preparation. This source integration is not yet a published test package
+or proof of complete requirement coverage or a full hardware rehearsal.
+
+Add a portable, hash-pinned review-input handoff. Normal document preparation
+uses the same snapshot path as standalone IDE/CI handoff commands; relocated
+evidence is revalidated without the original worker folders or equipment.
+Original test outcomes and raw Android audit inputs are retained. This does not
+claim full shared-suite migration or completion of a hardware rehearsal.
+
+Separate configured final tests from document preparation. New schema-2 runs
+complete post-endurance assertions, response comparison, removal and operator
+closeout in FinalizeTests. PrepareReview verifies the retained boundary and never
+operates equipment. Existing schema-1 evidence remains readable on its original
+ordering; the new worker refuses silent migration or test replay. This does not
+yet establish the complete shared IDE/CI suite or full driver submission.
+
+Fix single-file setup publication when recovery/removal code records tool identity.
+Those operations require the installed worker's exact assembly bytes and reject an
+assembly without a backing file rather than producing incomplete evidence.
+
+Add a local rehearsal delivery transport using the shared delivery coordinator.
+It retains exact package and form bytes with explicitly marked mock receipts,
+and binds delivery journals to production or rehearsal so one cannot stand in
+for the other. Existing production journals retain production semantics.
+The transport does not contact Crestron or send email. Shared delivery settings
+and dispatch commands now accept explicit rehearsal mode with the same artifact
+and per-step revalidation checks, and report RehearsalCompleted instead of a real
+submission. Packaged tests now verify PDF generation, synthetic signing, per-step
+evidence checks and local mock delivery.
+
+Add rehearsal email through the existing SMTP sender. Preparation and approval
+bind the test recipient, rehearsal label and local-only versus actual-email mode.
+Rehearsal refuses Crestron destinations, resolves only SMTP credentials, and
+attaches the exact package and signed form while retaining the upload locally.
+Completed or uncertain sends are not repeated; local mock completion cannot be
+promoted to real mail.
+
+Connect rehearsal automation to the shared protected signing, test-mail delivery
+and retention stages. The independently installed rehearsal plan fixes its test
+recipient and approval channels; evidence runs cannot fall back to production
+bindings. Setup preserves explicit rehearsal plans and preflight reports missing
+protected delivery configuration. Unsigned review is no longer a successful
+endpoint for finite workers or scheduled-task cleanup. Final matching delivery
+and retention report RehearsalCompleted. Complete phase-two migration and the
+real driver rehearsal remain unfinished; synthetic validation is not compliance.
+
+Add explicit, pinned replacement of a failed app-test step using corrected fixture
+source. Original failures and earlier passes remain retained. Unconfirmed
+restoration or reservations require independently verified reconciliation before
+another attempt. New attempts have separate readiness identities and failure
+alerts; review selects the accepted producer while continuing to verify all
+retained failures. Started attempts never replay automatically. See
+[failed app-step recovery](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/FailedAppStepRecovery.md).
+
+Manual outage recording accepts cancellation propagated through a linked observation token when deliberately ending the disconnected-device watch. An observer that stopped before the cancellation request still fails. The desktop controller also reads retained installed-app failures independently of the worker status writer, including failed preparation-recovery attempts, so a worker exit cannot leave those failures hidden behind stale status.
+
+Preserve failed preparations while explicitly correcting a same-candidate catalogue discriminator in a separate initial app phase. The repair retains both attempts and executing tool hashes, rejects any started physical operation, and resumes completed steps without replay. Payload inspection accepts the processor catalogue discriminator while still verifying the complete package bytes. Review now discovers every retained app-step producer and rebases observations from their actual producer folders, including an explicitly retained recovery attempt. Offline validation is recorded separately from live rehearsal results.
+
 ## 1.24.0 - 2026-09-29
 
 Physical action replies are now accepted against elapsed time measured on the recording worker, not by comparing the desktop's clock with the worker's clock. Original desktop replies and separate worker decisions are retained. A live shared-file lock prevents the desktop from displaying a recording prompt after its recording process has exited.

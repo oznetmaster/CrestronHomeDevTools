@@ -33,15 +33,72 @@ public sealed class SubmissionWorkflowTests
   SubmissionWorkflow.Open(root,release);var steps=new Steps();
   var done=await SubmissionWorkflow.AdvanceAsync(root,release,steps);
   Assert.That(done.Status,Is.EqualTo(SubmissionWorkflowStatus.Completed));
-  Assert.That(steps.Started,Is.EqualTo(Enum.GetValues<SubmissionWorkflowStage>()));
+  Assert.That(steps.Started,Is.EqualTo(new[]{SubmissionWorkflowStage.ValidateCandidate,SubmissionWorkflowStage.WindowsTests,SubmissionWorkflowStage.ProcessorTests,SubmissionWorkflowStage.AppTests,SubmissionWorkflowStage.Endurance,SubmissionWorkflowStage.FinalizeTests,SubmissionWorkflowStage.PrepareReview,SubmissionWorkflowStage.SignReview,SubmissionWorkflowStage.Deliver,SubmissionWorkflowStage.Retain}));
   var reopened=SubmissionWorkflow.Open(root,release);
   Assert.That(reopened.Status,Is.EqualTo(done.Status));
   Assert.That(reopened.CompletedStages,Is.EquivalentTo(done.CompletedStages));
   Assert.That(reopened.UpdatedUtc,Is.EqualTo(done.UpdatedUtc));
   await SubmissionWorkflow.AdvanceAsync(root,release,steps);
-  Assert.That(steps.Started.Count,Is.EqualTo(9));Assert.That(steps.Recovered,Is.Empty);
+  Assert.That(steps.Started.Count,Is.EqualTo(10));Assert.That(steps.Recovered,Is.Empty);
  }
 
+ [Test] public async Task SelectedStagesNeverExecuteTheNextStageAndReuseVerifiedReceipts() {
+  SubmissionWorkflow.Open(root,release);var steps=new Steps();
+  var order=new[]{SubmissionWorkflowStage.ValidateCandidate,SubmissionWorkflowStage.WindowsTests,SubmissionWorkflowStage.ProcessorTests,
+   SubmissionWorkflowStage.AppTests,SubmissionWorkflowStage.Endurance,SubmissionWorkflowStage.FinalizeTests};
+  foreach(var stage in order) {
+   var checkpoint=await SubmissionWorkflow.AdvanceStageAsync(root,release,steps,stage);
+   Assert.That(checkpoint.CompletedStages.ContainsKey(stage),Is.True);
+   Assert.That(steps.Started.Last(),Is.EqualTo(stage));
+  }
+  Assert.That(SubmissionWorkflow.Read(root,release).Stage,Is.EqualTo(SubmissionWorkflowStage.PrepareReview));
+  string before=Hash(Path.Combine(RunDirectory,"state.json"));
+  foreach(var stage in order)await SubmissionWorkflow.AdvanceStageAsync(root,release,steps,stage);
+  Assert.That(steps.Started,Is.EqualTo(order));Assert.That(steps.Recovered,Is.Empty);
+  Assert.That(Hash(Path.Combine(RunDirectory,"state.json")),Is.EqualTo(before));
+ }
+ [Test] public async Task SelectingALaterStageDoesNotExecuteItsPrerequisites() {
+  SubmissionWorkflow.Open(root,release);var steps=new Steps();var before=Hash(Path.Combine(RunDirectory,"state.json"));
+  await Assert.ThrowsAsync<InvalidOperationException>(async()=>await SubmissionWorkflow.AdvanceStageAsync(root,release,steps,SubmissionWorkflowStage.Endurance));
+  Assert.That(steps.Started,Is.Empty);Assert.That(Hash(Path.Combine(RunDirectory,"state.json")),Is.EqualTo(before));
+ }
+ [Test] public async Task SelectedWaitRecoversOriginalOperationAndStopsAfterItsReceipt() {
+  SubmissionWorkflow.Open(root,release);var steps=new Steps{Start=_=>new(SubmissionWorkflowStatus.Waiting,ReasonCode:"collecting")};
+  var wait=await SubmissionWorkflow.AdvanceStageAsync(root,release,steps,SubmissionWorkflowStage.ValidateCandidate);
+  var done=await SubmissionWorkflow.AdvanceStageAsync(root,release,steps,SubmissionWorkflowStage.ValidateCandidate);
+  Assert.That(done.Stage,Is.EqualTo(SubmissionWorkflowStage.WindowsTests));Assert.That(done.Status,Is.EqualTo(SubmissionWorkflowStatus.Ready));
+  Assert.That(steps.Recovered.Single().Id,Is.EqualTo(wait.OperationId));Assert.That(steps.Started,Has.Count.EqualTo(1));
+ }
+ [Test] public async Task CompletedSelectionStillRejectsChangedReceipt() {
+  SubmissionWorkflow.Open(root,release);var steps=new Steps();await SubmissionWorkflow.AdvanceStageAsync(root,release,steps,SubmissionWorkflowStage.ValidateCandidate);
+  File.AppendAllText(Path.Combine(RunDirectory,"ValidateCandidate.json"),"changed");
+  await Assert.ThrowsAsync<InvalidDataException>(async()=>await SubmissionWorkflow.AdvanceStageAsync(root,release,steps,SubmissionWorkflowStage.ValidateCandidate));
+  Assert.That(steps.Started,Has.Count.EqualTo(1));
+ }
+ [Test] public async Task CancelledSelectionDoesNotStartAnyStage() {
+  SubmissionWorkflow.Open(root,release);var steps=new Steps();using var cancel=new CancellationTokenSource();cancel.Cancel();
+  await Assert.ThrowsAsync<OperationCanceledException>(async()=>await SubmissionWorkflow.AdvanceStageAsync(root,release,steps,SubmissionWorkflowStage.ValidateCandidate,cancel.Token));
+  Assert.That(steps.Started,Is.Empty);
+ }
+
+ [Test] public async Task LegacyCheckpointCanBeInspectedButCannotSilentlyReplayThroughNewBoundary() {
+  SubmissionWorkflow.Open(root,release);string path=Path.Combine(RunDirectory,"state.json");
+  var node=System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(path))!;node["schemaVersion"]=1;File.WriteAllText(path,node.ToJsonString());
+  var before=File.ReadAllBytes(path);Assert.That(SubmissionWorkflow.Read(root,release).SchemaVersion,Is.EqualTo(1));
+  var steps=new Steps();await Assert.ThrowsAsync<InvalidDataException>(async()=>await SubmissionWorkflow.AdvanceAsync(root,release,steps));
+  Assert.That(steps.Started,Is.Empty);Assert.That(File.ReadAllBytes(path),Is.EqualTo(before));
+ }
+ [Test] public async Task FinalTestFailurePreventsReviewAndResumeKeepsOriginalOperation() {
+  SubmissionWorkflow.Open(root,release);
+  var steps=new Steps{Start=c=>c.Checkpoint.Stage==SubmissionWorkflowStage.FinalizeTests?new(SubmissionWorkflowStatus.Failed,ReasonCode:"post-test-failed"):Steps.Complete(c)};
+  var failed=await SubmissionWorkflow.AdvanceAsync(root,release,steps);
+  Assert.That(failed.Stage,Is.EqualTo(SubmissionWorkflowStage.FinalizeTests));Assert.That(steps.Started,Does.Not.Contain(SubmissionWorkflowStage.PrepareReview));
+  SubmissionWorkflow.RequestRecovery(root,release,Hash(Path.Combine(RunDirectory,"state.json")));
+  var completed=await SubmissionWorkflow.AdvanceAsync(root,release,steps);
+  Assert.That(completed.Status,Is.EqualTo(SubmissionWorkflowStatus.Completed));
+  Assert.That(steps.Recovered.Single().Id,Is.EqualTo(failed.OperationId));
+  Assert.That(steps.Started.Count(s=>s==SubmissionWorkflowStage.FinalizeTests),Is.EqualTo(1));
+ }
  [Test] public async Task EnduranceWaitReturnsAndNextTickRecoversSameOperationWithoutRepeatedStart()
  {
   SubmissionWorkflow.Open(root,release);var steps=new Steps { Start=c=>c.Checkpoint.Stage==SubmissionWorkflowStage.Endurance ? new(SubmissionWorkflowStatus.Waiting,ReasonCode:"collecting") : Steps.Complete(c) };
@@ -109,7 +166,7 @@ public sealed class SubmissionWorkflowTests
  public async Task TrustedMountAboveRunAcceptsEquivalentWindowsPathSpellings(bool upperCase)
  {
   string storage=Path.Combine(root,"storage"),mount=Path.Combine(root,"mount");
-  Directory.CreateDirectory(storage);Directory.CreateSymbolicLink(mount,storage);
+  Directory.CreateDirectory(storage);CreateJunction(mount,storage);
   try {
    string supplied=mount.Replace('\\','/');if(upperCase)supplied=supplied.ToUpperInvariant();
    SubmissionWorkflow.Open(supplied,release);
@@ -126,11 +183,102 @@ public sealed class SubmissionWorkflowTests
  public async System.Threading.Tasks.Task ReceiptLinkInsideRunRemainsRejected ()
  {
   SubmissionWorkflow.Open(root,release);
-  string target=Path.Combine(root,"outside.json"),link=Path.Combine(RunDirectory,"linked.json");
-  File.WriteAllText(target,"{}");File.CreateSymbolicLink(link,target);
+  string storage=Path.Combine(root,"outside");Directory.CreateDirectory(storage);
+  string target=Path.Combine(storage,"proof.json"),link=Path.Combine(RunDirectory,"linked");
+  File.WriteAllText(target,"{}");CreateJunction(link,storage);
   try {
-   var steps=new Steps{Start=_=>new(SubmissionWorkflowStatus.Completed,new("linked.json",Hash(target)))};
+   var steps=new Steps{Start=_=>new(SubmissionWorkflowStatus.Completed,new("linked/proof.json",Hash(target)))};
 			await Assert.ThrowsAsync<InvalidDataException>(async()=>await SubmissionWorkflow.AdvanceAsync(root,release,steps));
-  } finally {File.Delete(link);}
+  } finally {Directory.Delete(link);}
  }
+ private static void CreateJunction(string link,string target) {
+  // Junctions exercise Windows reparse-point handling without an administrator
+  // token or Developer Mode. All targets are isolated inside this test's root.
+  var info=new System.Diagnostics.ProcessStartInfo("powershell.exe") {UseShellExecute=false,CreateNoWindow=true,RedirectStandardOutput=true,RedirectStandardError=true};
+  foreach(var arg in new[]{"-NoProfile","-NonInteractive","-Command",
+   "$ErrorActionPreference='Stop'; New-Item -ItemType Junction -Path '"+link.Replace("'","''")+"' -Target '"+target.Replace("'","''")+"' | Out-Null"})info.ArgumentList.Add(arg);
+  using var process=System.Diagnostics.Process.Start(info)!;
+  string output=process.StandardOutput.ReadToEnd(),error=process.StandardError.ReadToEnd();process.WaitForExit();
+  if(process.ExitCode!=0)throw new IOException("Could not create isolated test junction: "+error+output);
+ }
+
+ private async Task<SubmissionWorkflowCheckpoint> LegacyBoundary(SubmissionWorkflowStatus status=SubmissionWorkflowStatus.Failed) {
+  SubmissionWorkflow.Open(root,release);
+  var steps=new Steps{Start=c=>c.Checkpoint.Stage==SubmissionWorkflowStage.FinalizeTests
+   ?new(status==SubmissionWorkflowStatus.Ready?SubmissionWorkflowStatus.Failed:status,ReasonCode:"retained-original-failure"):Steps.Complete(c)};
+  await SubmissionWorkflow.AdvanceAsync(root,release,steps);
+  string path=Path.Combine(RunDirectory,"state.json");
+  var node=System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(path))!;
+  node["schemaVersion"]=1;node["stage"]="PrepareReview";
+  if(status==SubmissionWorkflowStatus.Ready){node["status"]="Ready";node["operationId"]=null;node["reasonCode"]=null;}
+  File.WriteAllText(path,node.ToJsonString());return SubmissionWorkflow.Read(root,release);
+ }
+ [TestCase(SubmissionWorkflowStatus.Failed)][TestCase(SubmissionWorkflowStatus.NeedsInput)]
+ [TestCase(SubmissionWorkflowStatus.OutcomeUnknown)][TestCase(SubmissionWorkflowStatus.Ready)]
+ public async Task ExplicitBoundaryMigrationPreservesOriginalEvidenceAndDoesNotAuthorizeRecovery(SubmissionWorkflowStatus status) {
+  var prior=await LegacyBoundary(status);string path=Path.Combine(RunDirectory,"state.json"),pin=Hash(path);
+  byte[] original=File.ReadAllBytes(path);int verified=0;
+  var migrated=SubmissionWorkflow.MigrateTestBoundary(root,release,pin,c=>{verified++;Assert.That(c.Checkpoint.OperationId,Is.EqualTo(prior.OperationId));});
+  Assert.That(migrated.SchemaVersion,Is.EqualTo(2));Assert.That(migrated.Stage,Is.EqualTo(SubmissionWorkflowStage.FinalizeTests));
+  Assert.That(migrated.OperationId,Is.EqualTo(prior.OperationId));Assert.That(migrated.Status,Is.EqualTo(prior.Status));
+  Assert.That(migrated.ReasonCode,Is.EqualTo(prior.ReasonCode));Assert.That(migrated.CompletedStages,Is.EquivalentTo(prior.CompletedStages));
+  Assert.That(File.ReadAllBytes(Path.Combine(RunDirectory,"legacy-boundary-"+pin+".json")),Is.EqualTo(original));
+  var after=File.ReadAllBytes(path);
+  SubmissionWorkflow.MigrateTestBoundary(root,release,pin,_=>verified++);
+  Assert.That(verified,Is.EqualTo(2));Assert.That(File.ReadAllBytes(path),Is.EqualTo(after));
+  if(status!=SubmissionWorkflowStatus.Ready) {
+   var steps=new Steps();await SubmissionWorkflow.AdvanceStageAsync(root,release,steps,SubmissionWorkflowStage.FinalizeTests);
+   Assert.That(steps.Started,Is.Empty);Assert.That(steps.Recovered,Is.Empty);
+   SubmissionWorkflow.RequestRecovery(root,release,Hash(path));
+   await SubmissionWorkflow.AdvanceStageAsync(root,release,steps,SubmissionWorkflowStage.FinalizeTests);
+   Assert.That(steps.Started,Is.Empty);Assert.That(steps.Recovered.Single().Id,Is.EqualTo(prior.OperationId));
+   Assert.That(SubmissionWorkflow.Read(root,release).Stage,Is.EqualTo(SubmissionWorkflowStage.PrepareReview));
+  }
+ }
+ [TestCase("pin")][TestCase("receipt")][TestCase("release")][TestCase("archive")][TestCase("verifier")]
+ public async Task BoundaryMigrationRejectsInvalidEvidenceBeforeChangingCheckpoint(string change) {
+  await LegacyBoundary();string path=Path.Combine(RunDirectory,"state.json"),pin=Hash(path);
+  byte[] original=File.ReadAllBytes(path);var target=release;
+  if(change=="pin")pin=new('e',64);
+  if(change=="receipt")File.AppendAllText(Path.Combine(RunDirectory,"WindowsTests.json"),"changed");
+  if(change=="release")target=release with {PackageSha256=new('e',64)};
+  if(change=="archive")File.WriteAllText(Path.Combine(RunDirectory,"legacy-boundary-"+pin+".json"),"changed");
+  Assert.Throws<InvalidDataException>(()=>SubmissionWorkflow.MigrateTestBoundary(root,target,pin,_=>{if(change=="verifier")throw new InvalidDataException("worker still active or review began");}));
+  Assert.That(File.ReadAllBytes(path),Is.EqualTo(original));
+  if(change!="archive")Assert.That(Directory.GetFiles(RunDirectory,"legacy-boundary-*.json"),Is.Empty);
+ }
+ [TestCase(SubmissionWorkflowStatus.Running)][TestCase(SubmissionWorkflowStatus.Waiting)]
+ public async Task ActiveLegacyBoundaryCannotBeMigrated(SubmissionWorkflowStatus status) {
+  await LegacyBoundary();string path=Path.Combine(RunDirectory,"state.json");
+  var node=System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(path))!;node["status"]=status.ToString();File.WriteAllText(path,node.ToJsonString());
+  string pin=Hash(path);bool called=false;
+  Assert.Throws<InvalidDataException>(()=>SubmissionWorkflow.MigrateTestBoundary(root,release,pin,_=>called=true));
+  Assert.That(called,Is.False);Assert.That(Hash(path),Is.EqualTo(pin));
+ }
+ [Test] public async Task MigrationCannotEnterAnOwnedRun() {
+  await LegacyBoundary();string pin=Hash(Path.Combine(RunDirectory,"state.json"));
+  using var gate=new FileStream(Path.Combine(RunDirectory,"run.lock"),FileMode.Open,FileAccess.ReadWrite,FileShare.None);
+  Assert.Throws<IOException>(()=>SubmissionWorkflow.MigrateTestBoundary(root,release,pin,_=>{}));
+ }
+ [Test] public async Task InterruptedMigrationReusesExactOriginalArchive() {
+  await LegacyBoundary();string path=Path.Combine(RunDirectory,"state.json"),pin=Hash(path);
+  File.Copy(path,Path.Combine(RunDirectory,"legacy-boundary-"+pin+".json"));
+  Assert.That(SubmissionWorkflow.MigrateTestBoundary(root,release,pin,_=>{}).Stage,Is.EqualTo(SubmissionWorkflowStage.FinalizeTests));
+  Assert.That(Directory.GetFiles(RunDirectory,"legacy-boundary-*.json"),Has.Length.EqualTo(1));
+ }
+ [Test] public async Task MigrationRetryRejectsAnAlreadyAdvancedRun() {
+  await LegacyBoundary(SubmissionWorkflowStatus.Ready);string path=Path.Combine(RunDirectory,"state.json"),pin=Hash(path);
+  SubmissionWorkflow.MigrateTestBoundary(root,release,pin,_=>{});
+  await SubmissionWorkflow.AdvanceStageAsync(root,release,new Steps(),SubmissionWorkflowStage.FinalizeTests);
+  string after=Hash(path);
+  Assert.Throws<InvalidDataException>(()=>SubmissionWorkflow.MigrateTestBoundary(root,release,pin,_=>{}));
+  Assert.That(Hash(path),Is.EqualTo(after));
+ }
+ [Test] public void MigrationRejectsEarlierLegacyStage() {
+  SubmissionWorkflow.Open(root,release);string path=Path.Combine(RunDirectory,"state.json");
+  var node=System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(path))!;node["schemaVersion"]=1;File.WriteAllText(path,node.ToJsonString());
+  string pin=Hash(path);Assert.Throws<InvalidDataException>(()=>SubmissionWorkflow.MigrateTestBoundary(root,release,pin,_=>{}));
+  Assert.That(Hash(path),Is.EqualTo(pin));
+ }
+
 }

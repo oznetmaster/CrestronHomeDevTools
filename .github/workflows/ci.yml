@@ -40,4 +40,13 @@ jobs:
       - name: Validate passive endurance health snapshots
         shell: pwsh
         run: ./tools/endurance/Test-EnduranceHealthSnapshot.ps1 -ResultsDirectory artifacts/endurance-health-tests
-      - run: dotnet pack CrestronHomeDevTools/CrestronHomeDevTools.csproj -c Release --no-build -o artifacts
+      - name: Validate shared NUnit packages from a fresh cache
+        shell: pwsh
+        run: |
+          [xml]$properties = Get-Content Directory.Build.props -Raw
+          $version = "$($properties.Project.PropertyGroup.Version)-ci.$env:GITHUB_RUN_ID.$env:GITHUB_RUN_ATTEMPT"
+          foreach ($id in @('CrestronHomeDevTools','CrestronHomeDevTools.Automation','CrestronHomeDevTools.SubmissionTests')) {
+            dotnet pack "$id/$id.csproj" -c Release "-p:Version=$version" -o artifacts/packages
+            if ($LASTEXITCODE -ne 0) { throw "$id pack failed." }
+          }
+          ./tools/Test-SubmissionNuGetConsumer.ps1 -PackageDirectory artifacts/packages -Version $version -ResultsDirectory artifacts/package-consumer

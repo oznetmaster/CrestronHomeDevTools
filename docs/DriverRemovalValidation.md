@@ -31,15 +31,41 @@ The optional automation `Removal` setting contains `App` and `RequirementId`. It
 The worker runs final removal after successful post-endurance checks and before PDF preparation. It obtains root/catalogue identity from retained deployment receipts, uses the same Android profile, saves a durable intent, and inventories the resulting raw evidence. Review consumes the generated observation automatically. Changed prior evidence, an uncertain attempt or a baseline-only result cannot become a pass; an existing attempt is never rerun. A failed result stays failed on recovery. Omit `Removal` when this operation has not been authorized or configured; omission does not satisfy a checklist requirement.
 
 The optional `Removal.PlacementRequirementId` can bind a separate, untimed
-combined placement requirement to the **pre-removal** app observation. This reuses
-the baseline already collected by the removal operation, without another device
-operation. The saved baseline must pass, return Home and match the exact reviewed
+combined placement requirement to an automatic app baseline **before endurance**.
+The worker briefly reserves the configured processor and app, observes the exact
+retained driver tree without removing devices, and releases the reservations.
+No physical action is requested. The saved baseline must pass, return Home and match the exact reviewed
 app selection. The observation covers Home/Room/native Lights membership and
 explicitly nonvisual entities. It does not establish icon artwork, default
 actions, control behavior or response timing; give those their own evidence.
 It cannot reuse the removal requirement ID or turn the empty post-removal screen
 into evidence of correct placement before removal. Missing or changed baseline
-evidence stops review; the removal operation is not replayed.
+evidence stops progression; an interrupted placement operation is not replayed.
+Final removal still collects its own before/after baseline and does not duplicate
+an existing placement claim. Older runs without an initial placement receipt can
+still use their retained pre-removal baseline during review.
+
+Placement and final removal open a workflow-owned Android session first. When
+`AllowedStartingHomes` is configured, the session can select the expected saved
+Home and verify its address and port before observing tiles. A prior test ending
+on a different approved processor therefore does not require manual navigation.
+Unapproved Homes and uncertain navigation still stop the operation.
+
+An interrupted initial placement remains pending for inspection. An explicit
+repair request can authorize one fresh automatic observation only after reviewed
+restoration and release of the original reservations. The request pins all original
+evidence and the review receipt. All attempts remain in the final inventory;
+failure or interruption cannot trigger another automatic replay. A subsequent
+repair needs a new sequential request and a new restoration review; history is
+bounded to sixteen explicitly reviewed recoveries.
+
+The page-readiness budget is distinct from a single bounded Android capture.
+A completed capture is checked before deciding that page readiness has timed out;
+the readiness budget does not cancel a successful read midway. Navigation inputs
+are never retried by that wait. Saved-Home opening and the following observation
+each receive the configured operation budget, so Home selection does not consume
+the placement or removal check's time. These are tooling limits, not driver
+startup or response-time acceptance criteria.
 
 ## Reading and comparing processor logs
 

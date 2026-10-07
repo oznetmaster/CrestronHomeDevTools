@@ -22,7 +22,7 @@ from review_android import audit_runs
 from validator_runtime import settings_validator
 
 
-def prepare(settings_path, candidate_digest, inventory_digest, mapping_digest, source_commit, artifact_kind, *, signing_copy=False,
+def _prepare(settings_path, candidate_digest, inventory_digest, mapping_digest, source_commit, artifact_kind, *, signing_copy=False,
             android_pins=None, android_pins_sha256=None, review_mode="complete", declarations=None, declarations_sha256=None):
     # These pins come from the trusted release job, separately from worker settings.
     if artifact_kind != "driver":
@@ -172,6 +172,28 @@ def prepare(settings_path, candidate_digest, inventory_digest, mapping_digest, s
             marker.write(sha((output / "review-receipt.json").read_bytes()) + "\n")
         return receipt
 
+
+
+def prepare(settings_path, candidate_digest, inventory_digest, mapping_digest, source_commit, artifact_kind, *, signing_copy=False,
+            android_pins=None, android_pins_sha256=None, review_mode="complete", declarations=None, declarations_sha256=None):
+    # The normal automation path and the standalone command use the same portable handoff.
+    # This inventory preserves bytes; _prepare still applies every submission requirement.
+    from freeze_review_inputs import freeze
+    from prepare_frozen_review import prepare_frozen
+    if artifact_kind != "driver":
+        raise ValueError("Submission review is only available for an explicitly selected driver release")
+    if type(signing_copy) is not bool:
+        raise ValueError("Signing-copy selection must be a boolean")
+    _, settings = read_json(settings_path)
+    output = Path(settings["output"])
+    if not output.is_absolute() or output.exists():
+        raise ValueError("Use a new review output directory with an absolute private path")
+    inputs = output.with_name(output.name + ".inputs")
+    retained = freeze(settings_path, inputs, candidate_digest, inventory_digest, mapping_digest, source_commit,
+                      android_pins=android_pins, android_pins_sha256=android_pins_sha256, review_mode=review_mode,
+                      declarations=declarations, declarations_sha256=declarations_sha256)
+    return prepare_frozen(inputs, retained["inputsSha256"], output, signing_copy=signing_copy,
+                          validator_settings={key: settings[key] for key in ("dotnet", "validator") if key in settings})
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)

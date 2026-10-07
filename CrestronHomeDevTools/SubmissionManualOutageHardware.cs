@@ -14,6 +14,10 @@ public sealed record SubmissionManualOutageSettings(SubmissionOperatorInbox Inbo
 /// and throw if a required endpoint returns early or observation becomes unreliable.</summary>
 public interface ISubmissionManualOutageObserver
 {
+ bool ProgramLoadIsLowerBound => false;
+ IReadOnlyList<string> StartupInstanceIds => Array.Empty<string>();
+ Task<SubmissionOutageDriverInitialization[]> ObserveDriverInitializationsAsync(CancellationToken token)
+     => Task.FromResult(Array.Empty<SubmissionOutageDriverInitialization>());
  IReadOnlyList<string> Components { get; }
  IReadOnlyList<string> Functions { get; }
  Task PreflightAsync(SubmissionOutageRecordingContext context, CancellationToken token);
@@ -28,12 +32,24 @@ public interface ISubmissionManualOutageObserver
 
 /// <summary>Optional independent proof that a component was restored no later than a bounded
 /// event. For example, a verified NEW boot proves power was restored by the latest possible
-/// boot start. A reply, open port, or an unchanged old boot does not supply such proof.
+/// boot start. An open port or unchanged old boot cannot prove POWER restoration.
+/// For a network-only interruption, fresh connectivity to the bound endpoint can
+/// prove network restoration occurred no later than that observation. It cannot
+/// establish the earliest physical event time or prove functional recovery.
 /// Each returned capture must retain the raw proof; its LatestUtc caps restoration, while
 /// the operator request remains the lower bound. Unknown or contradictory bounds fail closed.</summary>
 public interface ISubmissionManualRestorationBounds
 {
  Task<IReadOnlyDictionary<string,SubmissionOutageCapture>> CaptureRestoredByAsync(CancellationToken token);
+}
+
+/// <summary>Optional independently observed physical restoration window. Unlike a
+/// restored-by observation, this must bracket the actual bound interface transition
+/// using continuous local observation, with retained clock and identity proof. API
+/// readiness, an operator reply and a new boot alone cannot supply this window.</summary>
+public interface ISubmissionManualRestorationWindow
+{
+ Task<IReadOnlyDictionary<string,SubmissionOutageCapture>> CaptureRestorationWindowAsync(CancellationToken token);
 }
 
 /// <summary>Adapts a grouped manual action to the recorder's component interface. The operator
@@ -73,6 +89,10 @@ public sealed class SubmissionManualOutageHardware : ISubmissionOutageHardware, 
   _settings=settings; _observer=observer; _components=Copy(observer.Components); _functions=Copy(observer.Functions);
  }
  public IReadOnlyList<string> Components=>Array.AsReadOnly(_components);
+ public bool ProgramLoadIsLowerBound=>_observer.ProgramLoadIsLowerBound;
+ public IReadOnlyList<string> StartupInstanceIds=>_observer.StartupInstanceIds;
+ public Task<SubmissionOutageDriverInitialization[]> ObserveDriverInitializationsAsync(CancellationToken token)
+     => _observer.ObserveDriverInitializationsAsync(token);
  public IReadOnlyList<string> Functions=>Array.AsReadOnly(_functions);
  public async Task PreflightAsync(SubmissionOutageRecordingContext context,CancellationToken token)
  {
@@ -118,7 +138,10 @@ public sealed class SubmissionManualOutageHardware : ISubmissionOutageHardware, 
   try {
    await _watch.ConfigureAwait(false);
    if(ended)_watchFailure=new InvalidDataException("Interruption observer stopped before restoration.");
-  } catch(OperationCanceledException error) when(!ended && _watchLifetime.IsCancellationRequested && error.CancellationToken==_watchLifetime.Token) { }
+  // Socket/HTTP observations may use a linked timeout token. On our deliberate stop,
+  // that linked token is cancelled too; its identity need not equal the parent token.
+  // An observer already stopped/cancelled before our request still fails below.
+  } catch(OperationCanceledException error) when(!ended && _watchLifetime.IsCancellationRequested && error.CancellationToken.IsCancellationRequested) { }
   catch(Exception error) { _watchFailure=error; }
   _watch=null;
  }
@@ -130,7 +153,7 @@ public sealed class SubmissionManualOutageHardware : ISubmissionOutageHardware, 
     (reconnect?_settings.ReconnectInstructions:_settings.DisconnectInstructions)+
     (reconnect?" Confirm only after every listed connection has been restored.":
      " Confirm only after every listed disconnection is complete. Leave everything disconnected until the reconnect request appears."),
-    _settings.ResponseTimeout,reconnect?_observer.ObserveRestoredAsync:_observer.ObserveInterruptedAsync,
+    _settings.ResponseTimeout,reconnect?ObserveRestoredAndStartAsync:_observer.ObserveInterruptedAsync,
     token,h=>handle=h).ConfigureAwait(false);
    var status=SubmissionOperatorStep.Read(result.Handle);
    var observations=result.Observation;
@@ -143,10 +166,17 @@ public sealed class SubmissionManualOutageHardware : ISubmissionOutageHardware, 
     p.Value.EarliestUtc>p.Value.LatestUtc || p.Value.LatestUtc<status.Request.CreatedUtc ||
     p.Value.LatestUtc>observations[p.Key].LatestUtc))
     throw new InvalidDataException("Independent restoration proof is stale, contradictory or outside the observed scope.");
+   IReadOnlyDictionary<string,SubmissionOutageCapture> windows = reconnect && _observer is ISubmissionManualRestorationWindow windowed
+    ? await windowed.CaptureRestorationWindowAsync(token).ConfigureAwait(false) : new Dictionary<string,SubmissionOutageCapture>();
+   if(windows.Any(p=>!_components.Contains(p.Key,StringComparer.Ordinal) || p.Value==null ||
+    p.Value.EarliestUtc>p.Value.LatestUtc || p.Value.LatestUtc<status.Request.CreatedUtc ||
+    p.Value.EarliestUtc>observations[p.Key].LatestUtc ||
+    (restoredBy.TryGetValue(p.Key,out var by) && p.Value.EarliestUtc>by.LatestUtc)))
+    throw new InvalidDataException("Physical restoration window contradicts the request, connectivity or component scope.");
    // Copies reference immutable raw evidence. The enclosing record includes the full operator
    // request/response, so source inbox retention is not needed to interpret these bounds.
    var raw=new Dictionary<string,string>(StringComparer.Ordinal);
-   foreach(var capture in observations.Values.Concat(restoredBy.Values)) {
+   foreach(var capture in observations.Values.Concat(restoredBy.Values).Concat(windows.Values)) {
     if(!SubmissionEvidence.SafeEvidencePath(_root!,capture.Evidence.RelativePath,out string path) ||
      new FileInfo(path).Length>65536)
      throw new InvalidDataException("Manual transition raw observation is missing or exceeds 64 KiB; retain a bounded observation summary.");
@@ -156,9 +186,11 @@ public sealed class SubmissionManualOutageHardware : ISubmissionOutageHardware, 
     raw.TryAdd(capture.Evidence.RelativePath,Convert.ToBase64String(content));
    }
    DateTimeOffset latest=observations.Values.Select(c=>c.LatestUtc).Append(result.Response.RecordedUtc).Max();
-   var bounds=_components.ToDictionary(c=>c,c=>new { EarliestUtc=status.Request.CreatedUtc,
-    LatestUtc=restoredBy.TryGetValue(c,out var proof)?proof.LatestUtc:latest },StringComparer.Ordinal);
-   byte[] bytes=JsonSerializer.SerializeToUtf8Bytes(new { Operator=status, Observations=observations, RestoredBy=restoredBy, ComponentBounds=bounds, RawCapturesBase64=raw,
+   var bounds=_components.ToDictionary(c=>c,c=>new {
+    EarliestUtc=windows.TryGetValue(c,out var window) && window.EarliestUtc>status.Request.CreatedUtc?window.EarliestUtc:status.Request.CreatedUtc,
+    LatestUtc=new[]{latest,restoredBy.TryGetValue(c,out var proof)?proof.LatestUtc:latest,
+     windows.TryGetValue(c,out var endWindow)?endWindow.LatestUtc:latest}.Min() },StringComparer.Ordinal);
+   byte[] bytes=JsonSerializer.SerializeToUtf8Bytes(new { Operator=status, Observations=observations, RestoredBy=restoredBy, RestorationWindows=windows, ComponentBounds=bounds, RawCapturesBase64=raw,
     HoldObserverErrorType=reconnect?_watchFailure?.GetType().Name:null,
     PhysicalScope="Operator attestation, independently observed connectivity. Bounds are not exact physical timestamps.",
     EarliestUtc=status.Request.CreatedUtc, LatestUtc=latest },Json);
@@ -175,6 +207,11 @@ public sealed class SubmissionManualOutageHardware : ISubmissionOutageHardware, 
    }
   }
  }
+ private async Task<IReadOnlyDictionary<string,SubmissionOutageCapture>> ObserveRestoredAndStartAsync(CancellationToken token) {
+  var connected=await _observer.ObserveRestoredAsync(token).ConfigureAwait(false);
+  if(_observer is ISubmissionManualRecoverySession recovery)await recovery.StartRecoveryAsync(token).ConfigureAwait(false);
+  return connected;
+ }
  public async Task<SubmissionOutageCapture?> ObserveProgramLoadedAsync(string component,CancellationToken token) {
   Component(component); RequireWatchPassed();
   return await _observer.ObserveProgramLoadedAsync(component,token).ConfigureAwait(false);
@@ -187,9 +224,12 @@ public sealed class SubmissionManualOutageHardware : ISubmissionOutageHardware, 
   if(!_functions.Contains(function,StringComparer.Ordinal))throw new InvalidDataException("Unbound recovery function.");
   return _observer.VerifyFunctionAsync(function,token);
  }
- public Task<SubmissionOutageRestoredState> RestoreOriginalAsync(SubmissionOutageCapture original,CancellationToken token)=>
-  _observer.RestoreOriginalAsync(original,token);
+ public async Task<SubmissionOutageRestoredState> RestoreOriginalAsync(SubmissionOutageCapture original,CancellationToken token) {
+  if(_observer is ISubmissionManualRecoverySession recovery)await recovery.StopRecoveryAsync().ConfigureAwait(false);
+  return await _observer.RestoreOriginalAsync(original,token).ConfigureAwait(false);
+ }
  public async ValueTask DisposeAsync() {
+  if(_observer is ISubmissionManualRecoverySession recovery)await recovery.StopRecoveryAsync().ConfigureAwait(false);
   await StopWatchAsync().ConfigureAwait(false);_watchLifetime?.Dispose();
  }
 }

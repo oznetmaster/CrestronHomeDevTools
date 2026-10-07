@@ -6,11 +6,51 @@ namespace CrestronHomeDevTools.Automation;
 internal static class AutomationWorker
 {
  internal sealed record Status(string Profile,long ReleaseId,SubmissionAutomationMode Mode,string State,string? Stage,string? Reason);
+ // Called by AdvanceAsync only after its exclusive lock and durable stage intent.
+ // Publishing here retires a previous failure before a long recovery starts,
+ // without claiming success or changing any workflow/evidence checkpoint.
+ internal sealed class ReportingStages(ISubmissionWorkflowSteps inner,Action<SubmissionWorkflowCheckpoint> report):ISubmissionWorkflowSteps {
+  public Task<SubmissionWorkflowStepResult> ExecuteAsync(SubmissionWorkflowStepContext context,CancellationToken token) {
+   report(context.Checkpoint);return inner.ExecuteAsync(context,token);
+  }
+  public Task<SubmissionWorkflowStepResult> RecoverAsync(SubmissionWorkflowStepContext context,CancellationToken token) {
+   if(context.Checkpoint.ReasonCode=="recovery-requested")report(context.Checkpoint);
+   return inner.RecoverAsync(context,token);
+  }
+ }
+ internal static Status DispatchStatus(SubmissionAutomationRegistration entry,SubmissionWorkflowCheckpoint checkpoint)=>
+  new(entry.Profile,entry.ReleaseId,entry.Mode,
+   checkpoint.ReasonCode=="recovery-requested"?"Running":checkpoint.Status.ToString(),checkpoint.Stage.ToString(),
+   checkpoint.ReasonCode=="recovery-requested"?"recovery-in-progress":checkpoint.ReasonCode);
+ internal static void PublishDispatch(string directory,Status status,DateTimeOffset observedUtc) {
+  string path=Path.Combine(directory,"worker-status.json");
+  var existing=File.Exists(path)?AutomationFiles.Read<Status[]>(path):[];
+  bool Match(Status s)=>s.Profile==status.Profile && s.ReleaseId==status.ReleaseId && s.Mode==status.Mode;
+  var combined=existing.Any(Match)?existing.Select(s=>Match(s)?status:s).ToArray():[..existing,status];
+  SaveStatus(directory,combined);
+  var notice=Notification(directory,combined,observedUtc);if(notice!=null)Console.WriteLine(notice);
+ }
+ internal static void PublishStageDispatch(string directory,SubmissionAutomationRegistration entry,SubmissionWorkflowCheckpoint checkpoint,DateTimeOffset observedUtc) {
+  // A failing adapter can leave this exact checkpoint intact. Do not repeatedly
+  // clear and recreate its failure notice on polls or worker restarts. A newly
+  // accepted recovery has a different durable checkpoint, even in the same stage.
+  string Hash<T>(T value)=>Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(value,AutomationFiles.Json)));
+  string folder=Path.Combine(directory,"dispatches");Directory.CreateDirectory(folder);
+  string path=Path.Combine(folder,Hash(new{entry.Profile,entry.ReleaseId,entry.Mode})+".sha256"),digest=Hash(checkpoint);
+  if(File.Exists(path)&&File.ReadAllText(path)==digest)return;
+  string pending=path+".tmp";
+  using(var stream=new FileStream(pending,FileMode.Create,FileAccess.Write,FileShare.None)) {
+   stream.Write(System.Text.Encoding.ASCII.GetBytes(digest));stream.Flush(true);
+  }
+  File.Move(pending,path,true);
+  PublishDispatch(directory,DispatchStatus(entry,checkpoint),observedUtc);
+ }
  internal static bool Owns(SubmissionWorkflowStage stage,SubmissionAutomationWorkerRole role)=>
-  (stage>=SubmissionWorkflowStage.SignReview)==(role==SubmissionAutomationWorkerRole.Protected);
+  (stage is SubmissionWorkflowStage.SignReview or SubmissionWorkflowStage.Deliver or SubmissionWorkflowStage.Retain)==(role==SubmissionAutomationWorkerRole.Protected);
 
  internal static async Task<Status[]> Tick(string registryPath,SubmissionAutomationWorkerRole role,CancellationToken token,
-  Func<AutomationRequest,CancellationToken,Task<SubmissionWorkflowCheckpoint>>? advance=null,AutomationProtectedWorker? protection=null)
+  Func<AutomationRequest,CancellationToken,Task<SubmissionWorkflowCheckpoint>>? advance=null,AutomationProtectedWorker? protection=null,
+  Action<SubmissionAutomationRegistration,SubmissionWorkflowCheckpoint>? dispatch=null)
  {
   var registry=AutomationFiles.Read<SubmissionAutomationRegistry>(registryPath);
   if(registry.SchemaVersion!=1 || registry.Entries.Length>1000 || !Enum.IsDefined(role))throw new InvalidDataException("Invalid worker registry.");
@@ -25,7 +65,8 @@ internal static class AutomationWorker
     var checkpoint=SubmissionWorkflow.Read(s.PrivateRoot,s.Release);
     if(Owns(checkpoint.Stage,role) && checkpoint.Status is SubmissionWorkflowStatus.Ready or SubmissionWorkflowStatus.Running or SubmissionWorkflowStatus.Waiting) {
      await using var deadline=new CrestronHomeNUnit.Workflow.WorkflowActiveDeadline(TimeSpan.FromHours(6),token,()=>AutomationAppSteps.PreparedWaitPending(s));
-     checkpoint=await (advance??((r,t)=>SubmissionWorkflow.AdvanceAsync(r.Settings.PrivateRoot,r.Settings.Release,new SubmissionAutomationStages(r.Settings,r.Sha256,role,protection),t)))(request,deadline.Token);
+     checkpoint=await (advance??((r,t)=>SubmissionWorkflow.AdvanceAsync(r.Settings.PrivateRoot,r.Settings.Release,
+      new ReportingStages(new SubmissionAutomationStages(r.Settings,r.Sha256,role,protection),state=>dispatch?.Invoke(entry,state)),t)))(request,deadline.Token);
      deadline.ThrowIfFaulted();
     }
     statuses.Add(new(entry.Profile,entry.ReleaseId,entry.Mode,checkpoint.Status.ToString(),checkpoint.Stage.ToString(),checkpoint.ReasonCode));
@@ -98,7 +139,7 @@ internal static class AutomationWorker
    SaveStatus(Path.Combine(statusDirectory,"release-discovery"),discovered.Select(s=>new Status(s.Profile,s.ReleaseId??0,s.Mode,s.State,"ReleaseIntake",s.Reason)).ToArray());
    nextDiscovery=(observedUtc??DateTimeOffset.UtcNow).AddMinutes(15);
   }
-  var states=await Tick(registryPath,role,token,advance,protection);
+  var states=await Tick(registryPath,role,token,advance,protection,(entry,checkpoint)=>PublishStageDispatch(statusDirectory,entry,checkpoint,observedUtc??DateTimeOffset.UtcNow));
   SaveStatus(statusDirectory,states);
   var notice=Notification(statusDirectory,states,observedUtc??DateTimeOffset.UtcNow);
   if(notice!=null)Console.WriteLine(notice);
@@ -106,9 +147,7 @@ internal static class AutomationWorker
  }
  internal static bool Finished(Status[] statuses)=>statuses.Length>0 && statuses.All(s=>
   s.State=="Completed" && s.Stage==nameof(SubmissionWorkflowStage.Retain) ||
-  s.State=="Failed" && Enum.TryParse<SubmissionWorkflowStage>(s.Stage,out var stage) && Enum.IsDefined(stage) && !string.IsNullOrWhiteSpace(s.Reason) ||
-  s.Mode==SubmissionAutomationMode.Rehearsal && s.State=="NeedsInput" &&
-  s.Stage==nameof(SubmissionWorkflowStage.SignReview) && s.Reason=="rehearsal-ready-for-review");
+  s.State=="Failed" && Enum.TryParse<SubmissionWorkflowStage>(s.Stage,out var stage) && Enum.IsDefined(stage) && !string.IsNullOrWhiteSpace(s.Reason));
 
  internal static async Task<int> Watch(string registryPath,string statusDirectory,SubmissionAutomationWorkerRole role,TimeSpan interval,CancellationToken token,string? profilesPath=null,AutomationProtectedWorker? protection=null,
   bool exitWhenFinished=false,Func<AutomationRequest,CancellationToken,Task<SubmissionWorkflowCheckpoint>>? advance=null) {

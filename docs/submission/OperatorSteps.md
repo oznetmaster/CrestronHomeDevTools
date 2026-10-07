@@ -319,3 +319,10 @@ readiness response and preflight report remain in the step directory, alongside
 reason and does not replay the step. Inspect and resolve the underlying cause
 before preparing another attempt; do not edit frozen evidence or mark the test
 passed merely because its readiness request was acknowledged.
+
+The controller also checks retained installed-app outcomes in the selected run's
+configured app steps. A failed outcome produces an attention notice even if the
+worker exited before updating its status snapshot. Preparation in progress and
+passing results do not produce this notice. A completed step receipt supersedes
+its retained failed attempts. Reading or dismissing the notice never retries a
+test, releases a reservation, or changes the evidence.

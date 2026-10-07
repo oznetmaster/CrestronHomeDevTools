@@ -1,0 +1,9 @@
+<!-- Copyright (c) 2026 Neil Colvin. MIT licensed. -->
+<Project Sdk="Microsoft.NET.Sdk">
+ <ItemGroup>
+  <PackageReference Include="NUnit" Version="5.0.0" />
+  <ProjectReference Include="../CrestronHomeDevTools.Automation/CrestronHomeDevTools.Automation.csproj" />
+ </ItemGroup>
+  <PropertyGroup><PackageId>CrestronHomeDevTools.SubmissionTests</PackageId><Description>Shared NUnit 5 submission fixture for running the same Crestron driver tests in IDEs and CI.</Description></PropertyGroup>
+  <Import Project="../build/SubmissionPackage.targets" />
+</Project>

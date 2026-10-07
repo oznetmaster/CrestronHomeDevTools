@@ -28,7 +28,9 @@ internal static class SubmissionToolsCommand
                   submission coverage-plan          Check the declared official test coverage.
                   submission audit-android          Audit pinned Android run evidence.
                   submission self-test-form         Create a draft or evidence-populated review form.
-                  submission prepare-review         Retain validated evidence and unsigned review.
+                  submission freeze-review-inputs   Retain portable inputs without running tests.
+                  submission prepare-frozen-review  Prepare from independently pinned retained inputs.
+                  submission prepare-review         Freeze inputs, then prepare the unsigned review.
                   submission prepare-review-request Prepare an unsigned request with disclosed omissions.
                   submission sign-self-test-form    Apply an independently authorized signature.
                   submission prepare-signed-review  Validate and retain the signed review.

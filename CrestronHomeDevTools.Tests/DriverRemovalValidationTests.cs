@@ -54,6 +54,42 @@ public sealed class DriverRemovalValidationTests
             current = [Other]; return Task.CompletedTask;
         }, CancellationToken.None);
 
+
+    [Test]
+    public async Task SuccessfulEarlierScanDoesNotConsumeLaterVerificationBudget()
+    {
+        int snapshots=0;var before=new[]{Root,Child,Grandchild,Other};
+        var result=await DriverRemovalValidation.RunCoreAsync(target,folder,TimeSpan.FromMilliseconds(500),
+            _=>Task.CompletedTask,async(selected,after,directory,token)=>{
+                await Task.Delay(300,token);File.WriteAllText(Path.Combine(directory,"ui.xml"),after?"absent":"present");
+                return new DriverRemovalUiOutcome(true,true);
+            },token=>Task.FromResult(ProcessorErrorLog.Parse("processor","Persistent log contents during current boot:\nNotice: Log # time # Log started\nCP4-R>","CP4-R>",DateTimeOffset.UnixEpoch.AddSeconds(snapshots++*2),DateTimeOffset.UnixEpoch.AddSeconds(snapshots*2))),
+            _=>Task.FromResult(removes==0?before:new[]{Other}),_=>{removes++;return Task.CompletedTask;},CancellationToken.None);
+        Assert.That(result.Passed,Is.True);Assert.That(removes,Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task CallerCancellationIsNotResetAtPhaseBoundary()
+    {
+        using var stop=new CancellationTokenSource();
+        await Assert.CatchAsync<OperationCanceledException>(async()=>await DriverRemovalValidation.RunCoreAsync(target,folder,TimeSpan.FromSeconds(5),
+            _=>Task.CompletedTask,(selected,after,directory,token)=>{
+                File.WriteAllText(Path.Combine(directory,"ui.xml"),"present");stop.Cancel();return Task.FromResult(new DriverRemovalUiOutcome(true,true));
+            },_=>throw new AssertionException("Cancelled phase must not read log"),_=>Task.FromResult(new[]{Root,Child,Grandchild,Other}),
+            _=>{removes++;return Task.CompletedTask;},stop.Token));
+        Assert.That(removes,Is.Zero);
+    }
+
+    [Test]
+    public async Task IndividualSlowScanStillExpiresWithoutSendingRemoval()
+    {
+        await Assert.CatchAsync<OperationCanceledException>(async()=>await DriverRemovalValidation.RunCoreAsync(target,folder,TimeSpan.FromMilliseconds(60),
+            _=>Task.CompletedTask,async(selected,after,directory,token)=>{await Task.Delay(2000,token);return new DriverRemovalUiOutcome(true,true);},
+            _=>throw new AssertionException("Expired phase must not read log"),_=>Task.FromResult(new[]{Root,Child,Grandchild,Other}),
+            _=>{removes++;return Task.CompletedTask;},CancellationToken.None));
+        Assert.That(removes,Is.Zero);Assert.That(File.Exists(Path.Combine(folder,"result.json")),Is.False);
+    }
+
     [Test]
     public async Task RemovesExactTreeOnceAndRetainsIndependentEvidence()
     {
