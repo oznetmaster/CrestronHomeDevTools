@@ -61,7 +61,12 @@ internal static class SyntheticAutomationReview
      if(!rehearsal)throw new InvalidDataException("Qualified probe uses test SMTP only.");
      var archive=Directory.CreateDirectory(P("rehearsal-upload")).FullName;
      var mailer=new SubmissionSmtpMailer("smtp.example.invalid",587,"fixture@example.org",new System.Net.NetworkCredential("synthetic","synthetic"),
-      P("mail-receipts"),TimeSpan.FromSeconds(30),()=>new SyntheticSmtp(P("synthetic-provider-calls.txt")));
+      P("mail-receipts"),TimeSpan.FromSeconds(30),()=>new SyntheticSmtp(P("synthetic-provider-calls.txt")),
+       async(url,hash,ct)=>{
+        using var http=new HttpClient(new SyntheticDownload(File.ReadAllBytes(P("candidate.pkg"))));
+        await SubmissionPackageLink.VerifyAsync(http,url,hash,ct);
+        File.AppendAllText(P("synthetic-download-checks.txt"),url+"\n");
+       });
      return (await SubmissionReviewRequestDelivery.ExecuteAsync(P("signed-review"),qualified,settings.Protected!.DeliveryApproval.DocumentPath,
       qualified.AuthorizationSha256,P("delivery-journal"),P("delivery-attempts"),new SubmissionRehearsalReviewMailTransport(archive,qualified,mailer),cancellationToken:t)).Delivery;
     }
@@ -70,7 +75,12 @@ internal static class SyntheticAutomationReview
     if(rehearsal) {
      var archive=Directory.CreateDirectory(P("rehearsal-upload")).FullName;
      var mailer=new SubmissionSmtpMailer("smtp.example.invalid",587,"fixture@example.org",new System.Net.NetworkCredential("synthetic","synthetic"),
-      P("mail-receipts"),TimeSpan.FromSeconds(30),()=>new SyntheticSmtp(P("synthetic-provider-calls.txt")));
+      P("mail-receipts"),TimeSpan.FromSeconds(30),()=>new SyntheticSmtp(P("synthetic-provider-calls.txt")),
+       async(url,hash,ct)=>{
+        using var http=new HttpClient(new SyntheticDownload(File.ReadAllBytes(P("candidate.pkg"))));
+        await SubmissionPackageLink.VerifyAsync(http,url,hash,ct);
+        File.AppendAllText(P("synthetic-download-checks.txt"),url+"\n");
+       });
      transport=new SubmissionRehearsalMailTransport(archive,plan,mailer);
     }
     return await SubmissionDelivery.ExecuteAuthorizedAsync(P("delivery-journal"),plan,P("delivery-prepared/delivery/"+plan.PackageFileName),P("delivery-prepared/delivery/"+plan.SignedFormFileName),
@@ -113,6 +123,14 @@ internal static class SyntheticAutomationReview
    CompletedStages=new(){[SubmissionWorkflowStage.PrepareReview]=result.Receipt!}}},default);
   if(stop.ReasonCode!="worker-role-handoff")throw new InvalidDataException("Evidence worker did not hand off signing.");
   Console.WriteLine(JsonSerializer.Serialize(new{ReviewPrepared=true,RecoveryPreserved=true,ProtectedHandoff=true,SyntheticOnly=true}));return 0;
+ }
+ private sealed class SyntheticDownload(byte[] package):HttpMessageHandler {
+  protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken token) {
+   token.ThrowIfCancellationRequested();
+   if(request.RequestUri?.Host!="github.com" || !request.RequestUri.AbsolutePath.StartsWith("/synthetic/never-submitted/releases/download/synthetic/",StringComparison.Ordinal) ||
+    request.Headers.Authorization!=null)throw new InvalidDataException("Synthetic download escaped its release identity.");
+   return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK){Content=new ByteArrayContent(package)});
+  }
  }
  private sealed class SyntheticSmtp(string record):ISubmissionSmtpSession {
   public Task ConnectAsync(string host,int port,System.Net.NetworkCredential credential,CancellationToken token)=>Task.CompletedTask;

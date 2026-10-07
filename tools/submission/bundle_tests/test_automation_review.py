@@ -240,6 +240,9 @@ class AutomationReviewIntegration(unittest.TestCase):
         if rehearsal:
             approval.update(environment="Rehearsal", sendRehearsalEmail=True, recipient="rehearsal@example.org",
                             subject="[REHEARSAL] Driver Submission Package")
+            if not qualified:
+                request = json.loads((root / "delivery-request.json").read_text())
+                approval["rehearsalPackageDownloadUrl"] = request["rehearsalPackageDownloadUrl"]
         if qualified:
             preview = json.loads((root / "delivery-request.json").read_text())
             approval = {"schemaVersion": 1, "packetSha256": preview["packetSha256"],
@@ -265,8 +268,12 @@ class AutomationReviewIntegration(unittest.TestCase):
             self.assertEqual("rehearsal@example.org", str(message["To"]))
             self.assertEqual("[REHEARSAL] Driver Submission Package", str(message["Subject"]))
             attachments = {part.get_filename(): part.get_payload(decode=True) for part in message.iter_attachments()}
-            self.assertEqual(2, len(attachments))
-            self.assertEqual(signed["packageSha256"], sha(attachments[signed["packageFileName"]]))
+            self.assertEqual(1, len(attachments))
+            from urllib.parse import quote
+            expected_url = "https://github.com/synthetic/never-submitted/releases/download/synthetic/" + quote(signed["packageFileName"], safe="")
+            self.assertIn(expected_url, message.get_body(preferencelist=("plain",)).get_content())
+            self.assertEqual([expected_url], (root / "synthetic-download-checks.txt").read_text().splitlines())
+            self.assertEqual(signed["packageSha256"], sha((root / "rehearsal-upload/package.pkg").read_bytes()))
             self.assertEqual(signed["signedFormSha256"], sha(attachments[signed["signedFormFileName"]]))
 
         if qualified:
