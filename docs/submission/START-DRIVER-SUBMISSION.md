@@ -77,6 +77,13 @@ its frozen settings.
 
 **How to start:** attach this document and supply the driver repository URL. An existing private submission-state file is optional for resuming an attempt. No other prepared plan is required from the developer. The assistant must read the public references below itself; this is one starting document, not a requirement to fit every API schema into one file.
 
+For a driver's first submission, the operator must compose its private executable
+settings from the public contracts and actual fixtures. Saved factual profiles do
+not generate device bindings, test coverage or an endurance producer. Follow the
+[first-driver setup sequence](SetupApp.md#first-submission-for-a-driver) before
+preparing a controller profile; do not ask a supervisor to supply another driver's
+plan or treat the absence of a prior submission as a tooling failure.
+
 ## Assignment
 
 You are the operator. Starting with the supplied driver repository, prepare, build, test and submit the actual driver using released public tools and their public documentation. Continue through the next executable step without waiting for a supervisor to tell you what to do. Ask the developer directly for missing product facts, hardware actions or required authorization. Do not assume they know the workflow, Python, Linux or any programming language other than C#.

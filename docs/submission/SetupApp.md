@@ -78,6 +78,66 @@ User-scoped stores cannot simply be copied to another computer or runner account
 
 ## Prepare a controller profile
 
+### First submission for a driver
+
+A factual Driver/Submission profile is not an executable test plan. An
+`InputsReady:true` result checks saved facts and credential references; it does
+not mean the controller template, fixtures or endurance producer exist. The
+operator prepares those inputs using the public contracts below. The developer
+does not have to supply an earlier submission or another driver's private plan.
+
+1. Reconcile the selected release with its retained test evidence. Tests normally
+   precede publication: use tested source/package identity and the documented
+   [prior-evidence review](PriorEvidence.md), not timestamps alone. Preserve
+   completed results; do not manufacture receipts or repeat physical tests simply
+   because this is a new setup profile.
+2. Create a private settings JSON file using the
+   [worker settings contract](AutomationWorker.md#build-and-run) and the public
+   [`SubmissionAutomationSettings` model](../../CrestronHomeDevTools.Automation/AutomationSettings.cs).
+   Compose its nested plans from the selected driver's actual fixtures and the
+   linked public NUnit, endurance, review and protected-worker contracts. Select
+   the exact processor/instance, permitted disconnect action and restoration,
+   read-only endurance producer and policy. Configuration cannot create missing
+   test coverage. If a required fixture or binding is unavailable, identify that
+   specific missing input rather than substituting another driver's plan.
+3. Apply the [release-template rules](AutomationWorker.md): set
+   `SourceRepository` to the literal `${source}`, keep `NUnit.Host` (and any
+   `InstalledAppTests.Host`) equal to the saved run's processor, and use only the
+   documented release placeholders. Set `CredentialBindings` to the evidence
+   worker's provisioned bindings. Never give it the full setup store containing
+   signing or mail credentials. Supply the separate protected-stage references
+   for Submit mode; they do not grant approval.
+4. Create a private tooling-inventory JSON **object** recording the selected
+   releases, source revisions, verified artifact hashes and required worker
+   prerequisites. This inventory records provenance; stage-specific executable
+   and producer file inventories still enforce their own pins. It is not a
+   replacement for those inventories or an assertion that tests passed.
+5. Load the editable Submission run profile and save these fields through the
+   setup form or the documented `LoadSetupProfile` / `SaveSetupProfile` APIs:
+
+   | Run-profile field | Required value |
+   |---|---|
+   | `AutomationSettingsTemplate` | Absolute path to the reviewed settings JSON. |
+   | `AutomationToolingManifest` | Absolute path to the tooling-inventory JSON object. |
+   | `AutomationPackageName` | Exact intended release asset name or supported package-name template. |
+   | `AutomationNotBeforeUtc` | Explicit release-publication cutoff ending in `Z`, chosen to include the intended release. |
+
+   Both selected JSON files must be at most 16 MiB. They remain private. Loading
+   the current profile revision before saving preserves the normal stale-write
+   check. Review equipment bindings before freezing the snapshot.
+6. Run `submission-setup check`, create a **new** Submission-purpose snapshot,
+   then invoke the preparation command below. An earlier snapshot will not see
+   newly saved automation fields; never edit or overwrite that snapshot. A
+   preparation exit of `3` supplies a report of missing stage bindings; resolve
+   those against the public contracts before starting a worker. Exit `0` still
+   does not prove equipment readiness or completed tests.
+
+Use the exact command syntax, including `--store` even when selecting the default
+store. Unlike the Console setup commands, the Automation preparation command has
+no implicit-store form. Omitting it can produce the generic `InvalidDataException`
+message before saved setup is read. Retain the command, exit code and diagnostics;
+do not infer a stage failure or restart tests from that message alone.
+
 The automation worker exposes the same preparation as the form:
 
 ```powershell
