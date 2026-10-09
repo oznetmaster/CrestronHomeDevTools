@@ -80,6 +80,11 @@ User-scoped stores cannot simply be copied to another computer or runner account
 
 ### First submission for a driver
 
+First follow [worker discovery and provisioning](WorkerDiscovery.md) to verify
+the execution computer/account, existing connection route, public tools and app
+session. Missing tools or infrastructure paths are operator setup tasks; a saved
+worker name alone does not establish remote access or installed prerequisites.
+
 A factual Driver/Submission profile is not an executable test plan. An
 `InputsReady:true` result checks saved facts and credential references; it does
 not mean the controller template, fixtures or endurance producer exist. The

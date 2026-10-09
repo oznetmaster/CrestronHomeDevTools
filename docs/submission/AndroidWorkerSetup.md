@@ -35,6 +35,12 @@ child running behind a failed Windows task or retry app controls.
 
 ## Automatic startup
 
+When reusing an existing worker, complete [worker discovery](WorkerDiscovery.md)
+first. Verify paths and tasks on that worker, not the operator's local computer;
+reuse the existing emulator and shared lock rather than installing a duplicate.
+Provision the public NUnit coordinator separately if it is missing. An emulator
+installation does not include that coordinator or a new driver's fixtures.
+
 In a built source-preview console archive the scripts are under
 `scripts/automation/`; substitute that directory for `tools/` in the example.
 

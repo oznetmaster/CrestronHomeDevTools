@@ -135,6 +135,11 @@ Do not change a frozen run's framework, tools or evidence identities mid-run.
 
 ### Your first session
 
+Use [worker discovery and provisioning](WorkerDiscovery.md) for the concrete
+sequence from saved worker facts to verified remote tools and Android settings.
+It distinguishes reusable infrastructure from driver-specific tests and explains
+when to continue setup versus request a genuinely missing fact or approval.
+
 1. Open the supplied repository, inspect its instructions and working-tree state, and identify the actual driver project, build/release workflows and test projects. If the repository contains several drivers, ask which driver is intended before deploying anything. Preserve existing work.
 2. Look for an explicitly supplied private submission-state record. If present, verify its candidate and live operation handles and resume from its next step. Do not begin a duplicate submission or endurance run.
 3. Select the public tools and matching documentation. Inspect the available Windows environment and existing authorized profiles. Produce a short list of missing inputs; ask only for facts you cannot establish from source, documentation or existing configuration.

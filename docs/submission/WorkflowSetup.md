@@ -10,6 +10,10 @@ The templates connect the public review, signing, delivery-preparation and deliv
 
 ## Install the five workflow files
 
+Before configuring stage execution, follow [worker discovery and provisioning](WorkerDiscovery.md).
+Verify the real execution identity, remote route and required tools; missing
+coordinator binaries are a provisioning task, not evidence of a failed driver test.
+
 Copy these files into `.github/workflows` in your repository, removing the `.example` suffix:
 
 - [submission.yml.example](submission.yml.example): the single manual entry point, **Crestron submission**.
