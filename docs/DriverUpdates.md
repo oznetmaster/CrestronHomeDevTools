@@ -22,7 +22,7 @@ To also save the report for a subsequent update operation, add `--output`:
 CrestronHomeDevTools.Console.exe driver-updates --profile development --output updates.json
 ```
 
-The command reads installed devices, queries the processor's driver catalogue and asks Home which installed instances are eligible for each relevant catalogue entry. It does not download packages, refresh the catalogue, update a device or restart the processor. The JSON report is always printed to standard output. With `--output`, the same report is also saved; choose a new output filename for each scan. Without `--output`, no report file is created.
+The command reads installed devices, searches the processor's driver catalogue separately for each installed model (broad searches can be truncated) and asks Home which installed instances are eligible for each relevant catalogue entry. It does not download packages, refresh the catalogue, update a device or restart the processor. The JSON report is always printed to standard output. With `--output`, the same report is also saved; choose a new output filename for each scan. Without `--output`, no report file is created.
 
 Each entry includes the driver and developer, installed and available versions, affected device names and room IDs, and one of these statuses:
 
@@ -30,14 +30,14 @@ Each entry includes the driver and developer, installed and available versions, 
 | --- | --- |
 | `UpdateAvailable` | Home confirms a newer version and its affected instances; no processor restart is required. |
 | `RebootRequired` | A newer version is eligible but needs explicit restart authorization. |
-| `Current` | Home reports equal installed and available versions. |
+| `Current` | Home reports equal installed and available versions, or a catalogue entry matching the installed model, developer and control type has the same version and Home returns no update eligibility. |
 | `InstalledNewer` | The installed version is newer; the tool will not downgrade it. |
 | `Unsupported` | A newer version exists, but Home does not support an in-place update. |
 | `Unknown` | Versions, eligibility, instance mapping or restart support could not be confirmed. |
 | `Superseded` | A newer eligible catalogue version is reported for the same driver and affected instances. |
 | `Conflict` | Catalogue entries overlap or their identity is ambiguous; neither is automatically selected. |
 
-`UnresolvedDevices` lists installed driver instances for which the scan could not establish an eligible catalogue mapping. An empty update selection is not proof that every driver is current if unknown or unresolved entries remain. Child drivers that Home updates through their platform may not have an independent catalogue entry.
+`UnresolvedDevices` lists installed driver instances for which the scan could not establish a catalogue mapping through Home’s eligible instance IDs or matching model, developer and control type. A current driver can return null update eligibility; identity matching is used only for reporting, never as permission to apply an update. An empty update selection is not proof that every driver is current if unknown or unresolved entries remain. Child drivers that Home updates through their platform may not have an independent catalogue entry.
 
 This is the catalogue exposed by the selected processor at the recorded time, not a direct query of every historical cloud release. The tool does not infer cloud versus side-loaded origin from a version number or an undocumented availability label. It preserves the processor's `AvailabilityState` verbatim. Review development or side-loaded drivers before including them; do not replace a deliberately installed development version merely because the catalogue offers another version.
 
@@ -79,4 +79,4 @@ On a failure or uncertain result, no later update is submitted. A lost reply, ti
 
 `DriverUpdateManager.InspectAsync` produces the same report. `SelectUpdates` validates an explicit selection and restart policy. `ApplyAsync` rechecks and applies that selection with a durable journal. The calling application must hold a `ProcessorOperationLease` for the entire apply/reconnect sequence and release it only when `SafeToReleaseReservation` is true. For restart-required updates, supply an explicitly authorized `DriverRebootHandler` that reconnects and verifies the same reservation. The console implements this orchestration.
 
-Offline regression tests cover eligibility, missing coverage, version alternatives, no downgrades, changed plans, overlapping scopes, terminal failure, uncertain responses, restart callbacks, preserved identity and journal reuse. Live cloud catalogue freshness and update behavior across different driver families still require validation on an available development processor; offline results do not establish that coverage.
+Offline regression tests cover eligibility, missing coverage, version alternatives, no downgrades, changed plans, overlapping scopes, terminal failure, uncertain responses, restart callbacks, preserved identity and journal reuse. A read-only scan on a development processor verified model-specific discovery beyond the broad catalogue result limit, current-driver reporting with null eligibility, and restart-required update reporting. Cloud catalogue freshness and actual update behavior across different driver families still require live validation.

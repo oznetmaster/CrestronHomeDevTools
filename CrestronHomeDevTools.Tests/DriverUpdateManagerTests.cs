@@ -59,6 +59,32 @@ public sealed class DriverUpdateManagerTests
         }
 
     [Test]
+    public async Task TargetedSearchFindsInstalledModelBeyondBroadCatalogueLimit ()
+        {
+        var wire = new Wire { TruncateBroadCatalogue = true };
+        var report = await Inspect (wire);
+        Assert.That (report.Drivers.Single ().Status, Is.EqualTo ("UpdateAvailable"));
+        Assert.That (report.UnresolvedDevices, Is.Empty);
+        Assert.That (wire.Searches, Is.EqualTo (new[] { "Light" }));
+        }
+
+    [TestCase (true, "Current", 0)]
+    [TestCase (false, "Unknown", 1)]
+    public async Task CurrentDriverWithNullEligibilityRequiresMatchingIdentity (bool matchingDeveloper, string status, int unresolved)
+        {
+        var wire = new Wire ();
+        wire.Catalogue["driver-a"] = wire.Catalogue["driver-a"] with { Version = "1.0.0.0", AdditionalFields = new () { ["ControlType"] = JsonSerializer.SerializeToElement ("tcpClient") } };
+        wire.Devices[10].PropertyValues["cp.driverInformation:developer"] = JsonSerializer.SerializeToElement (matchingDeveloper ? "Example" : "Other");
+        wire.Devices[10].PropertyValues["cp.driverInformation:controlType"] = JsonSerializer.SerializeToElement ("tcpclient");
+        wire.Eligibility["driver-a"] = null;
+        var report = await Inspect (wire);
+        Assert.That (report.Drivers.Single ().Status, Is.EqualTo (status));
+        Assert.That (report.UnresolvedDevices.Length, Is.EqualTo (unresolved));
+        Assert.That (DriverUpdateManager.SelectUpdates (report, true, [], false), Is.Empty);
+        Assert.That (wire.Submitted, Is.Empty);
+        }
+
+    [Test]
     public async Task MissingCatalogueCoverageIsExplicit ()
         {
         var wire = new Wire ();
@@ -224,7 +250,8 @@ public sealed class DriverUpdateManagerTests
         public readonly Dictionary<int, DeviceInfo> Devices = [];
         public readonly List<string> Submitted = [], Completed = [], EligibilityQueries = [];
         public string? Fault;
-        public bool QueryFailure;
+        public bool QueryFailure, TruncateBroadCatalogue;
+        public readonly List<string> Searches = [];
         public int DisposeCount;
         public Wire ()
             {
@@ -256,7 +283,12 @@ public sealed class DriverUpdateManagerTests
             {
             object? result;
             if (command.EndsWith (":getDriverMetadataFilterOptions", StringComparison.Ordinal)) result = new[] { new { Id = "Lighting" } };
-            else if (command.EndsWith (":getDrivers", StringComparison.Ordinal)) result = Catalogue.Values.ToArray ();
+            else if (command.EndsWith (":getDrivers", StringComparison.Ordinal))
+                {
+                var tokens = JsonSerializer.SerializeToElement (parameters).GetProperty ("substringFilterTextTokens").EnumerateArray ().Select (x => x.GetString ()!).ToArray ();
+                Searches.Add (string.Join (" ", tokens));
+                result = TruncateBroadCatalogue && tokens.Length == 0 ? Array.Empty<DriverInfo> () : Catalogue.Values.Where (d => tokens.All (t => d.Model!.Contains (t, StringComparison.OrdinalIgnoreCase))).ToArray ();
+                }
             else
                 {
                 var key = JsonSerializer.SerializeToElement (parameters).GetProperty ("driverId").GetString ()!;

@@ -5,7 +5,7 @@ using System.Text.Json;
 namespace CrestronHomeDevTools;
 
 public sealed record DriverUpdateTarget (string Host, int HttpsPort, int WebSocketPort, string CertificateSha256);
-public sealed record DriverUpdateDevice (int Id, string? Name, string? Model, int? RoomId, int? ParentDeviceId, string? Version);
+public sealed record DriverUpdateDevice (int Id, string? Name, string? Model, int? RoomId, int? ParentDeviceId, string? Version, string? Developer = null, string? ControlType = null);
 public sealed record AvailableDriverUpdate (string DriverId, string? Model, string? Manufacturer, string? Developer,
     string? CatalogueVersion, string? AvailabilityState, string Status, string Detail,
     DriverUpdateEligibility? Eligibility, DriverUpdateDevice[] Devices);
@@ -28,7 +28,11 @@ public static class DriverUpdateManager
             .Where (d => d.PropertyValues.ContainsKey ("cp.driverInformation:version")).Select (Snapshot).ToArray ();
         // Model matching only narrows catalogue queries. Home's eligibility IDs establish the update scope.
         var models = devices.Select (d => d.Model).Where (m => !string.IsNullOrWhiteSpace (m)).ToHashSet (StringComparer.Ordinal);
-        var catalogue = await client.GetDriversAsync (cancellationToken: cancellationToken).ConfigureAwait (false);
+        // Broad catalogue searches are capped by Home (observed at 200 entries).
+        // Query each installed model so unrelated entries cannot consume that result window.
+        var catalogue = new List<DriverInfo> ();
+        foreach (var model in models.Order (StringComparer.Ordinal))
+            catalogue.AddRange (await client.GetDriversAsync (model, cancellationToken).ConfigureAwait (false));
         var rows = new List<AvailableDriverUpdate> ();
         foreach (var driver in catalogue.Where (d => models.Contains (d.Model)).DistinctBy (d => d.Id).OrderBy (d => d.Id, StringComparer.Ordinal))
             {
@@ -50,6 +54,14 @@ public static class DriverUpdateManager
                 };
             var ids = eligibility?.EligibleDeviceIds ?? [];
             var affected = devices.Where (d => ids.Contains (d.Id)).OrderBy (d => d.Id).ToArray ();
+            if (ids.Length == 0)
+                {
+                // Current drivers can return null eligibility. Identity matching is for reporting only;
+                // applying an update still requires Home's explicit eligible instance IDs.
+                string? control = driver.AdditionalFields?.GetValueOrDefault ("ControlType") is JsonElement type && type.ValueKind == JsonValueKind.String ? type.GetString () : null;
+                affected = devices.Where (d => d.Model == driver.Model && !string.IsNullOrWhiteSpace (d.Developer) && d.Developer == driver.Developer
+                    && !string.IsNullOrWhiteSpace (d.ControlType) && string.Equals (d.ControlType, control, StringComparison.OrdinalIgnoreCase)).OrderBy (d => d.Id).ToArray ();
+                }
             var (status, detail) = Classify (driver, eligibility, affected);
             rows.Add (new (driver.Id, driver.Model, driver.Manufacturer, driver.Developer, driver.Version,
                 driver.AvailabilityState, status, detail, eligibility, affected));
@@ -71,7 +83,7 @@ public static class DriverUpdateManager
             .GroupBy (x => x.Id).Where (g => g.Count () > 1).SelectMany (g => g.Select (x => x.DriverId)).ToHashSet ();
         for (int i = 0; i < rows.Count; i++)
             if (overlapping.Contains (rows[i].DriverId)) rows[i] = rows[i] with { Status = "Conflict", Detail = "Update scopes overlap; review the catalogue before applying either update." };
-        var resolved = rows.Where (r => r.Eligibility != null).SelectMany (r => r.Devices).Select (d => d.Id).ToHashSet ();
+        var resolved = rows.SelectMany (r => r.Devices).Select (d => d.Id).ToHashSet ();
         return new (1, target, DateTimeOffset.UtcNow, rows.ToArray (), devices.Where (d => !resolved.Contains (d.Id)).ToArray ());
         }
 
@@ -209,7 +221,12 @@ public static class DriverUpdateManager
 
     private static (string, string) Classify (DriverInfo driver, DriverUpdateEligibility? eligibility, DriverUpdateDevice[] devices)
         {
-        if (eligibility == null) return ("Unknown", "No update eligibility returned; this is not proof that the driver is current.");
+        if (eligibility == null)
+            {
+            if (devices.Length > 0 && Version.TryParse (driver.Version, out var listed) && devices.All (d => DriverVersions.Equal (d.Version, driver.Version)))
+                return ("Current", "The matching catalogue entry has the installed version; Home returned no eligible update.");
+            return ("Unknown", "No update eligibility returned; an upgrade cannot be confirmed.");
+            }
         if (!Version.TryParse (eligibility.InstalledDriverVersion, out var installed) || !Version.TryParse (eligibility.AvailableDriverVersion, out var available))
             return ("Unknown", "Both installed and available versions are required.");
         if (available == installed) return ("Current", "The processor reports the same installed and available version.");
@@ -228,7 +245,9 @@ public static class DriverUpdateManager
         }
     private static bool Actionable (AvailableDriverUpdate row) => row.Status is "UpdateAvailable" or "RebootRequired";
     private static DriverUpdateDevice Snapshot (DeviceInfo d) => new (d.Id, d.Name, d.Model, d.LocationId, d.ParentDeviceId,
-        d.PropertyValues.TryGetValue ("cp.driverInformation:version", out var value) && value.ValueKind == JsonValueKind.String ? value.GetString () : null);
+        d.PropertyValues.TryGetValue ("cp.driverInformation:version", out var value) && value.ValueKind == JsonValueKind.String ? value.GetString () : null,
+        Metadata (d, "cp.driverInformation:developer"), Metadata (d, "cp.driverInformation:controlType"));
+    private static string? Metadata (DeviceInfo device, string key) => device.PropertyValues.TryGetValue (key, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString () : null;
     private static void ValidateTarget (DriverUpdateTarget target)
         {
         if (target == null || string.IsNullOrWhiteSpace (target.Host) || target.HttpsPort is < 1 or > 65535 || target.WebSocketPort is < 1 or > 65535
