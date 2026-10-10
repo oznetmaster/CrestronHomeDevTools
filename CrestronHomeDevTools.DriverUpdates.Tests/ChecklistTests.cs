@@ -8,8 +8,9 @@ public sealed class ChecklistTests
     {
     private static readonly IReadOnlyDictionary<int, string> Rooms = new Dictionary<int, string> { [1] = "Lounge", [2] = "Office" };
     private static AvailableDriverUpdate Driver (string id, string status = "UpdateAvailable") => new (id, id, "Example", "Example", "2.0.0.0", "Available", status, "Review all affected instances.",
-        new () { InstalledDriverVersion = "1.0.0.0", AvailableDriverVersion = "2.0.0.0", IsSupportsSwapDriver = true, IsSwapDriverRequiresReboot = status == "RebootRequired", EligibleDeviceIds = [10, 11] },
-        [new (10, "TV", id, 1, null, "1.0.0.0"), new (11, "Display", id, 2, null, "1.0.0.0")]);
+        new () { InstalledDriverVersion = "1.0.0.0", AvailableDriverVersion = "2.0.0.0", IsSupportsSwapDriver = true, IsSwapDriverRequiresReboot = status == "RebootRequired", EligibleDeviceIds = [DeviceId (id), DeviceId (id) + 1] },
+        [new (DeviceId (id), "TV", id, 1, null, "1.0.0.0"), new (DeviceId (id) + 1, "Display", id, 2, null, "1.0.0.0")]);
+    private static int DeviceId (string id) => id switch { "Lighting platform" => 20, "Television" => 30, "Legacy device" => 40, _ => 10 };
     private static DriverUpdateReport Report () => new (1, new ("192.0.2.10", 443, 49000, new string ('A', 64)), DateTimeOffset.UtcNow,
         [Driver ("Streaming player", "RebootRequired"), Driver ("Lighting platform"), Driver ("Television", "Current"), Driver ("Legacy device", "Unknown")],
         [new (99, "Child shade", "Platform child", 1, 8, "1.0.0.0")]);
@@ -17,7 +18,7 @@ public sealed class ChecklistTests
     [Test]
     public void SelectAllOnlyChecksConfirmedEligibleRows ()
         {
-        using var window = new MainWindow ();
+        using var window = new MainWindow (discoverOnOpen: false);
         window.ShowReport (Report (), Rooms);
         window.SetAllSelected (true);
         Assert.That (window.Rows.Where (r => r.Selected).Select (r => r.Driver), Is.EqualTo (new[] { "Streaming player", "Lighting platform" }));
@@ -40,6 +41,44 @@ public sealed class ChecklistTests
         consent.Checked = true; Assert.That (confirm.Enabled, Is.True);
         consent.Checked = false; Assert.That (confirm.Enabled, Is.EqualTo (!restart));
         Assert.That (Controls (window).OfType<ListBox> ().Single ().Items[0]!.ToString (), Does.Contain ("TV, Display"));
+        }
+
+    [Test]
+    public void DiscoveredProcessorsUseAddressesAndPreserveManualSelection ()
+        {
+        using var window = new MainWindow (discoverOnOpen: false);
+        window.ProcessorList.Text = "192.0.2.20";
+        window.ShowProcessors ([new ("Home", "192.0.2.10", "CP4-R", "4"), new ("Home", "192.0.2.20", "MC4-R", "4"), new ("Home", "192.0.2.20", "MC4-R", "4")]);
+        Assert.That (window.ProcessorList.Items.Count, Is.EqualTo (2));
+        Assert.That (window.SelectedProcessor, Is.EqualTo ("192.0.2.20"));
+        Assert.That (window.ProcessorList.Text, Does.Contain ("Home").And.Contain ("MC4-R"));
+        window.ProcessorList.SelectedIndex = 0;
+        Assert.That (window.SelectedProcessor, Is.EqualTo ("192.0.2.10"));
+        window.ProcessorList.Text = "192.0.2.99";
+        window.ShowProcessors ([]);
+        Assert.That (window.SelectedProcessor, Is.EqualTo ("192.0.2.99"));
+        }
+
+    [Test]
+    public void UninstalledCatalogueAlternativesDoNotContradictCurrentDriver ()
+        {
+        var current = Driver ("Television", "Current");
+        var report = Report () with { Drivers = [current, current with { DriverId = "infrared-alternative", Status = "Unknown", Devices = [] }], UnresolvedDevices = [] };
+        var rows = UpdateRow.CreateRows (report, Rooms).ToArray ();
+        Assert.That (rows.Length, Is.EqualTo (1));
+        Assert.That (rows[0].Status, Is.EqualTo ("Current"));
+        }
+
+    [Test]
+    public void ConflictingCatalogueClaimsForSameInstancesBecomeOneUnselectableRow ()
+        {
+        var current = Driver ("Television", "Current");
+        var report = Report () with { Drivers = [current, current with { DriverId = "alternative", Status = "Unknown" }], UnresolvedDevices = [] };
+        var rows = UpdateRow.CreateRows (report, Rooms).ToArray ();
+        Assert.That (rows.Length, Is.EqualTo (1));
+        Assert.That (rows[0].Status, Is.EqualTo ("Unknown"));
+        Assert.That (rows[0].CanSelect, Is.False);
+        Assert.That (rows[0].Detail, Does.Contain ("Multiple catalogue entries"));
         }
 
     [Test]

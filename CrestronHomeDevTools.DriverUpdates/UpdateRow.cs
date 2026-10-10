@@ -20,6 +20,28 @@ internal sealed class UpdateRow : INotifyPropertyChanged
     public string Result { get; private set; } = "";
     public event PropertyChangedEventHandler? PropertyChanged;
     private void Changed ([CallerMemberName] string? property = null) => PropertyChanged?.Invoke (this, new (property));
+    public static IEnumerable<UpdateRow> CreateRows (DriverUpdateReport report, IReadOnlyDictionary<int, string> rooms)
+        {
+        // Catalogue search alternatives with no installed instance are not installed drivers.
+        foreach (var group in report.Drivers.Where (r => r.Devices.Length > 0).GroupBy (r => string.Join (",", r.Devices.Select (d => d.Id).Order ())))
+            {
+            var entries = group.ToArray ();
+            var eligible = entries.Where (r => r.Status is "UpdateAvailable" or "RebootRequired").ToArray ();
+            if (entries.Length == 1) { yield return From (entries[0], rooms); continue; }
+            if (eligible.Length == 1 && entries.All (r => r == eligible[0] || r.Status == "Superseded"))
+                { yield return From (eligible[0], rooms); continue; }
+            string models = string.Join (" / ", entries.Select (r => r.Model).Distinct ());
+            bool current = entries.All (r => r.Status == "Current");
+            yield return From (entries[0] with
+                {
+                Model = models, Status = current ? "Current" : "Unknown",
+                Detail = current ? "Matching catalogue entries report the installed version."
+                    : "Multiple catalogue entries match these installed instances; update identity is unresolved. "
+                        + string.Join ("; ", entries.Select (r => $"{r.Manufacturer} {r.Model}: {r.CatalogueVersion} ({r.Status})"))
+                }, rooms);
+            }
+        foreach (var device in report.UnresolvedDevices) yield return Unresolved (device, rooms);
+        }
     public static UpdateRow From (AvailableDriverUpdate source, IReadOnlyDictionary<int, string> rooms) => new ()
         {
         Source = source, Driver = source.Model ?? source.DriverId,

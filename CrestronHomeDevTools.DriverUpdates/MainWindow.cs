@@ -5,12 +5,13 @@ namespace CrestronHomeDevTools.DriverUpdates;
 internal sealed class MainWindow : Form
     {
     private readonly ComboBox _profiles = new () { DropDownStyle = ComboBoxStyle.DropDownList, Width = 170 };
-    private readonly TextBox _processor = new () { Width = 220, PlaceholderText = "Use saved processor" };
+    private readonly ComboBox _processor = new () { Width = 310, DropDownStyle = ComboBoxStyle.DropDown };
+    private readonly Button _discover = new () { Text = "Find processors", AutoSize = true };
     private readonly Button _scan = new () { Text = "Scan drivers", AutoSize = true };
     private readonly Button _update = new () { Text = "Update selected", AutoSize = true, Enabled = false };
     private readonly CheckBox _selectAll = new () { Text = "Select all eligible updates", AutoSize = true, Enabled = false };
     private readonly Button _results = new () { Text = "Open run folder", AutoSize = true, Enabled = false };
-    private readonly Label _summary = new () { AutoSize = true, Text = "Choose a saved profile and scan the processor." };
+    private readonly Label _summary = new () { AutoSize = true, Text = "Choose a saved connection, find a processor and scan its drivers." };
     private readonly Label _status = new () { Dock = DockStyle.Fill, AutoSize = true, Text = "Ready" };
     private readonly TextBox _detail = new () { Multiline = true, ReadOnly = true, Dock = DockStyle.Fill, BorderStyle = BorderStyle.None, BackColor = Color.FromArgb (243, 246, 249), ScrollBars = ScrollBars.Vertical };
     private readonly DataGridView _grid = new () { Dock = DockStyle.Fill, AutoGenerateColumns = false, AllowUserToAddRows = false, AllowUserToDeleteRows = false, AllowUserToResizeRows = false,
@@ -21,8 +22,10 @@ internal sealed class MainWindow : Form
     private bool _busy, _updating, _selecting;
     private string? _journal;
     internal DataGridView Checklist => _grid;
+    internal ComboBox ProcessorList => _processor;
+    internal string SelectedProcessor => _processor.SelectedItem is ProcessorChoice choice && _processor.Text == choice.ToString () ? choice.Address : _processor.Text.Trim ();
     internal BindingList<UpdateRow> Rows => _rows;
-    public MainWindow ()
+    public MainWindow (bool discoverOnOpen = true)
         {
         Text = "Crestron Home Driver Updates"; StartPosition = FormStartPosition.CenterScreen;
         ClientSize = new (1320, 720); MinimumSize = new (1000, 550); AutoScaleMode = AutoScaleMode.Dpi;
@@ -32,9 +35,9 @@ internal sealed class MainWindow : Form
         foreach (var height in new[] { 45, 45, 38, -1, 80, 44, 30 }) layout.RowStyles.Add (height < 0 ? new (SizeType.Percent, 100) : new (SizeType.Absolute, height));
         layout.Controls.Add (new Label { Text = "Driver updates", AutoSize = true, Font = new ("Segoe UI", 22, FontStyle.Bold), ForeColor = Color.FromArgb (24, 47, 70) }, 0, 0);
         var connection = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false };
-        connection.Controls.Add (new Label { Text = "Profile", AutoSize = true, Margin = new (0, 7, 8, 0) }); connection.Controls.Add (_profiles);
+        connection.Controls.Add (new Label { Text = "Saved connection", AutoSize = true, Margin = new (0, 7, 8, 0) }); connection.Controls.Add (_profiles);
         connection.Controls.Add (new Label { Text = "Processor", AutoSize = true, Margin = new (18, 7, 8, 0) }); connection.Controls.Add (_processor);
-        connection.Controls.Add (_scan); layout.Controls.Add (connection, 0, 1);
+        connection.Controls.Add (_discover); connection.Controls.Add (_scan); layout.Controls.Add (connection, 0, 1);
         layout.Controls.Add (_summary, 0, 2);
         _grid.EnableHeadersVisualStyles = false; _grid.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing; _grid.ColumnHeadersHeight = 38;
         _grid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb (224, 233, 240); _grid.ColumnHeadersDefaultCellStyle.ForeColor = Color.FromArgb (24, 47, 70);
@@ -62,22 +65,23 @@ internal sealed class MainWindow : Form
         _rows.ListChanged += (_, _) => SelectionChanged ();
         _selectAll.CheckedChanged += (_, _) => { if (_selecting) return; SetAllSelected (_selectAll.Checked); };
         _scan.Click += async (_, _) => await ScanAsync ();
+        _discover.Click += async (_, _) => await FindProcessorsAsync ();
+        if (discoverOnOpen) Shown += async (_, _) => await FindProcessorsAsync ();
         _update.Click += async (_, _) => await UpdateAsync ();
         _results.Click += (_, _) => { if (_journal != null) { try { Process.Start (new ProcessStartInfo (_journal) { UseShellExecute = true }); } catch { _status.Text = "Unable to open the run folder: " + _journal; } } };
         _processor.TextChanged += (_, _) => InvalidateScan ();
-        _profiles.SelectedIndexChanged += (_, _) => { _processor.Clear (); InvalidateScan (); };
+        _profiles.SelectedIndexChanged += (_, _) => { _processor.Text = ""; InvalidateScan (); };
         FormClosing += (_, e) => { if (_busy) { e.Cancel = true; _status.Text = _updating ? "Updates are being monitored. Wait for the result before closing." : "Please wait for the scan to finish."; } };
         try { _profiles.Items.AddRange (UpdateSession.Profiles ()); if (_profiles.Items.Count > 0) _profiles.SelectedIndex = Math.Max (0, _profiles.Items.IndexOf ("default")); }
         catch { _status.Text = "Saved profiles could not be read under this Windows account."; }
-        if (_profiles.Items.Count == 0) { _scan.Enabled = false; _status.Text = "No saved profiles. Run DevTools Console configure first, then reopen this app."; }
+        if (_profiles.Items.Count == 0) { _scan.Enabled = false; _status.Text = "No saved connections. Run DevTools Console configure first, then reopen this app. You can still find processors."; }
         }
     private void AddColumn (string property, string title, int width) => _grid.Columns.Add (new DataGridViewTextBoxColumn { DataPropertyName = property, HeaderText = title, Width = width, ReadOnly = true, SortMode = DataGridViewColumnSortMode.NotSortable });
     private void InvalidateScan () { _report = null; _session = null; _selectAll.Enabled = _update.Enabled = false; if (_rows.Count > 0) _status.Text = "Connection changed. Scan again before selecting updates."; }
     internal void ShowReport (DriverUpdateReport report, IReadOnlyDictionary<int, string> rooms)
         {
         _report = report; _rows.Clear ();
-        foreach (var row in report.Drivers) _rows.Add (UpdateRow.From (row, rooms));
-        foreach (var device in report.UnresolvedDevices) _rows.Add (UpdateRow.Unresolved (device, rooms));
+        foreach (var row in UpdateRow.CreateRows (report, rooms)) _rows.Add (row);
         _summary.Text = $"{report.Target.Host}  •  {_rows.Count} entries  •  {_rows.Count (r => r.CanSelect)} eligible updates  •  {report.UnresolvedDevices.Length} unresolved instances";
         SelectionChanged ();
         }
@@ -97,15 +101,50 @@ internal sealed class MainWindow : Form
         }
     private void Busy (bool value)
         {
-        _busy = value; _profiles.Enabled = _processor.Enabled = !value; _scan.Enabled = !value && _profiles.Items.Count > 0;
+        _busy = value; _profiles.Enabled = _processor.Enabled = _discover.Enabled = !value; _scan.Enabled = !value && _profiles.Items.Count > 0;
         SelectionChanged ();
+        }
+    internal void ShowProcessors (IEnumerable<DiscoveredProcessor> processors)
+        {
+        string selected = SelectedProcessor;
+        _processor.BeginUpdate ();
+        try
+            {
+            _processor.Items.Clear ();
+            foreach (var processor in processors.DistinctBy (p => p.Address).OrderBy (p => p.SystemName).ThenBy (p => p.Address))
+                _processor.Items.Add (new ProcessorChoice (processor.SystemName, processor.Address, processor.Model));
+            var match = _processor.Items.Cast<ProcessorChoice> ().FirstOrDefault (p => p.Address == selected);
+            if (match != null) _processor.SelectedItem = match; else _processor.Text = selected;
+            }
+        finally { _processor.EndUpdate (); }
+        }
+    private async Task FindProcessorsAsync ()
+        {
+        if (_busy) return;
+        Busy (true); _status.Text = "Finding Crestron Home processors on the network…";
+        try
+            {
+            using var timeout = new CancellationTokenSource (TimeSpan.FromSeconds (20));
+            var processors = await ProcessorDiscovery.FindAsync (timeout.Token);
+            ShowProcessors (processors);
+            _status.Text = processors.Count > 0 ? $"Found {_processor.Items.Count} processor(s). Choose one, then scan drivers. Leave blank to use the saved connection's processor."
+                : "No processors found. Enter an IP address, or leave blank to use the saved connection's processor.";
+            }
+        catch (Exception e) when (e is OperationCanceledException or IOException or System.Net.Sockets.SocketException or System.Net.Http.HttpRequestException)
+            { _status.Text = "Discovery could not finish. You can enter a processor IP address manually."; }
+        catch (Exception e) { _status.Text = Friendly (e); }
+        finally { Busy (false); }
+        }
+    private sealed record ProcessorChoice (string SystemName, string Address, string Model)
+        {
+        public override string ToString () => $"{SystemName} — {Address} ({Model})";
         }
     private async Task ScanAsync ()
         {
         Busy (true); _status.Text = "Reading installed drivers and checking the catalogue…"; _report = null; _session = null;
         try
             {
-            var session = await UpdateSession.LoadAsync (_profiles.Text, _processor.Text);
+            var session = await UpdateSession.LoadAsync (_profiles.Text, SelectedProcessor);
             var scan = await session.ScanAsync (); _session = session; ShowReport (scan.Report, scan.Rooms);
             _status.Text = session.CanApply ? "Scan complete. Select updates and review the confirmation." : "Scan complete. This profile needs verified SSH trust before updates can be applied.";
             }
