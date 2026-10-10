@@ -1,12 +1,34 @@
 # Driver update manager
 
-The DevTools console can report available updates across installed Crestron Home drivers and apply a reviewed selection. This is general system maintenance, independent of submission testing. These commands are currently available from source; they are not yet in a published console release.
+The Windows desktop app and DevTools console can report available updates across installed Crestron Home drivers and apply a reviewed selection. This is general system maintenance, independent of submission testing. These tools are currently available from source; they are not yet in a published release.
 
 Build the console with the .NET 10 SDK from the repository root, then use the executable in `artifacts/console` for the commands below:
 
 ```powershell
 dotnet publish CrestronHomeDevTools.Console/CrestronHomeDevTools.Console.csproj -c Release -o artifacts/console
 ```
+
+## Desktop checklist (Windows)
+
+Build with the .NET 10 SDK on Windows:
+
+```powershell
+dotnet publish CrestronHomeDevTools.DriverUpdates/CrestronHomeDevTools.DriverUpdates.csproj -c Release -o artifacts/driver-updates-desktop
+```
+
+Open `artifacts/driver-updates-desktop/CrestronHomeDevTools.DriverUpdates.exe`. This is a Windows desktop application with no console window; it calls the DevTools library directly. The .NET 10 Windows Desktop Runtime must be installed. Keep the published folder together when copying it to another computer.
+
+1. Choose an existing DevTools **Profile**. Profiles belong to the Windows account that saved them. To create one, use the console's `configure` command first, including processor credentials and verified HTTPS/SSH trust, then reopen the app. The desktop app does not accept passwords on a command line or save a separate credential store.
+2. Optionally enter a processor address/name, then select **Scan drivers**. Any override must match the certificate and SSH identity trusted by the profile; it does not bypass trust verification. Scanning is read-only.
+3. Review the checklist: driver, affected devices and rooms, installed/available versions, update status, processor restart requirement and result. Select a row to read its explanation. Unknown, unresolved, unsupported and conflicting entries remain visible but cannot be selected.
+4. Tick individual eligible drivers, or **Select all eligible updates**. Select **Update selected** to review the target processor, exact versions and every affected instance. Nothing is submitted until this dialog is confirmed. Restart-required selections additionally require the **Allow the required processor restarts** checkbox. Cancel leaves the processor unchanged.
+5. Watch the same rows progress through checking, updating, restarting (when required), verifying and their final results. Each update is verified before the next starts. More than one processor restart may be needed. Keep the app running until monitoring finishes; normal window closing is disabled during a scan or update.
+
+**Updated** means that the new version, loaded state, instance identity and room have been verified. **Failed** means the processor reported failure. **Needs inspection** means the outcome is uncertain; later updates stop. **Not started** identifies remaining entries. The app preserves completed per-driver results even when a later operation or reservation cleanup fails. A new scan is required before another batch.
+
+**Open run folder** shows the durable journal under `%LOCALAPPDATA%/CrestronHomeDevTools/DriverUpdates`. Its reservation receipt identifies whether the shared processor reservation was released or retained for inspection. A crash or forced application termination can leave an operation and reservation outstanding; do not simply repeat the update. Follow [Results and recovery](#results-and-recovery). The application monitors the selected batch while it is open; it does not install a background service or automatically resume/replay a batch after reopening.
+
+The shared reservation prevents a batch from starting on a processor reserved by a participating submission or test workflow. It does not prevent unrelated manual changes through Configure Pro. The desktop tests use simulated processor responses and check selection, restart consent, progress and retained results. Actual update/restart behavior across driver families still needs live validation.
 
 ## List available updates
 
@@ -77,6 +99,6 @@ On a failure or uncertain result, no later update is submitted. A lost reply, ti
 
 ## Library use
 
-`DriverUpdateManager.InspectAsync` produces the same report. `SelectUpdates` validates an explicit selection and restart policy. `ApplyAsync` rechecks and applies that selection with a durable journal. The calling application must hold a `ProcessorOperationLease` for the entire apply/reconnect sequence and release it only when `SafeToReleaseReservation` is true. For restart-required updates, supply an explicitly authorized `DriverRebootHandler` that reconnects and verifies the same reservation. The console implements this orchestration.
+`DriverUpdateManager.InspectAsync` produces the same report. `SelectUpdates` validates an explicit selection and restart policy. `ApplyAsync` rechecks and applies that selection with a durable journal. The calling application must hold a `ProcessorOperationLease` for the entire apply/reconnect sequence and release it only when `SafeToReleaseReservation` is true. For restart-required updates, supply an explicitly authorized `DriverRebootHandler` that reconnects and verifies the same reservation. The console and desktop app implement this orchestration. An optional `IProgress<DriverUpdateProgress>` argument reports the active driver and stage without exposing raw configuration values.
 
 Offline regression tests cover eligibility, missing coverage, version alternatives, no downgrades, changed plans, overlapping scopes, terminal failure, uncertain responses, restart callbacks, preserved identity and journal reuse. A read-only scan on a development processor verified model-specific discovery beyond the broad catalogue result limit, current-driver reporting with null eligibility, and restart-required update reporting. Cloud catalogue freshness and actual update behavior across different driver families still require live validation.

@@ -12,6 +12,7 @@ public sealed record AvailableDriverUpdate (string DriverId, string? Model, stri
 public sealed record DriverUpdateReport (int SchemaVersion, DriverUpdateTarget Target, DateTimeOffset ObservedUtc,
     AvailableDriverUpdate[] Drivers, DriverUpdateDevice[] UnresolvedDevices);
 public sealed record DriverUpdateStep (string DriverId, string State, string? OperationId, string Detail);
+public sealed record DriverUpdateProgress (string DriverId, string State, string Detail);
 public sealed record DriverUpdateBatchResult (string State, bool SafeToReleaseReservation, DriverUpdateStep[] Steps, string? Reason = null);
 
 /// <summary>Read-only catalogue assessment and sequential, explicitly selected driver updates.
@@ -117,7 +118,7 @@ public static class DriverUpdateManager
 
     public static async Task<DriverUpdateBatchResult> ApplyAsync (ConfigurationClient client, DriverUpdateTarget target,
         DriverUpdateReport report, string[] selectedDriverIds, string journalDirectory, TimeSpan timeout,
-        DriverRebootHandler? reboot = null, CancellationToken cancellationToken = default)
+        DriverRebootHandler? reboot = null, CancellationToken cancellationToken = default, IProgress<DriverUpdateProgress>? progress = null)
         {
         ValidateTarget (target);
         ValidateReport (report);
@@ -136,7 +137,11 @@ public static class DriverUpdateManager
         try
             {
             // Check the entire reviewed selection before changing its first driver.
-            foreach (var row in selected) await RecheckAsync (active, row, cancellationToken).ConfigureAwait (false);
+            foreach (var row in selected)
+                {
+                progress?.Report (new (row.DriverId, "Checking", "Rechecking the reviewed version and affected devices."));
+                await RecheckAsync (active, row, cancellationToken).ConfigureAwait (false);
+                }
             foreach (var row in selected)
                 {
                 phase = "driver-preflight";
@@ -150,16 +155,19 @@ public static class DriverUpdateManager
                 phase = "update-submission";
                 uncertain = true;
                 steps.Add (new (row.DriverId, "Unconfirmed", null, "Update submission may have reached the processor; inspect before retrying."));
+                progress?.Report (new (row.DriverId, "Updating", "Submitting the reviewed update and waiting for completion."));
                 var operation = await active.BeginDriverUpdateAsync (new (row.DriverId, row.Eligibility!), cancellationToken, reboot != null).ConfigureAwait (false);
                 steps[index] = steps[index] with { OperationId = operation };
                 await SaveNewAsync (Path.Combine (journalDirectory, $"{index:D3}-submitted.json"), steps[index], CancellationToken.None).ConfigureAwait (false);
                 phase = "update-completion";
                 if (request != null)
                     {
+                    progress?.Report (new (row.DriverId, "Updating", "Waiting for the driver update to be ready for a processor restart."));
                     var swap = await active.WaitForDriverSwapAsync (operation, row.DriverId, timeout, cancellationToken).ConfigureAwait (false);
                     if (!swap.IsRebootRequired || swap.DeviceIdsRequiringReconfiguration.Length != 0)
                         throw new InvalidOperationException ("Driver swap requires inspection before restart.");
                     phase = "restart-recovery";
+                    progress?.Report (new (row.DriverId, "Restarting", "Restarting the processor and waiting for authenticated reconnection."));
                     var previous = active;
                     active = await reboot!.RecoverAsync (request with { SwapCompletion = swap }, previous, cancellationToken).ConfigureAwait (false);
                     if (!ReferenceEquals (previous, client) && !ReferenceEquals (previous, active))
@@ -176,6 +184,7 @@ public static class DriverUpdateManager
                         }
                     }
                 phase = "loaded-instance-verification";
+                progress?.Report (new (row.DriverId, "Verifying", "Checking the loaded version, device identity and room."));
                 await active.WaitForDriverVersionAsync (row.Devices.Select (d => d.Id).ToArray (), row.Eligibility!.AvailableDriverVersion!, timeout, cancellationToken).ConfigureAwait (false);
                 var after = await active.GetDevicesAsync (cancellationToken).ConfigureAwait (false);
                 foreach (var before in row.Devices)
@@ -187,6 +196,7 @@ public static class DriverUpdateManager
                 steps[index] = steps[index] with { State = "Updated", Detail = "Version, loaded state and instance identity verified." };
                 await SaveNewAsync (Path.Combine (journalDirectory, $"{index:D3}-completed.json"), steps[index], CancellationToken.None).ConfigureAwait (false);
                 uncertain = false;
+                progress?.Report (new (row.DriverId, "Updated", "Update completed and all affected instances verified."));
                 }
             return await FinishAsync (journalDirectory, new ("Completed", true, steps.ToArray ())).ConfigureAwait (false);
             }

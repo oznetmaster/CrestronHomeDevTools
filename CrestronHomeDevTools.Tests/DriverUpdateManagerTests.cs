@@ -239,6 +239,35 @@ public sealed class DriverUpdateManagerTests
         Assert.Throws<ArgumentException> (() => DriverUpdateManager.SelectUpdates (report with { Drivers = [row with { Eligibility = row.Eligibility! with { AvailableDriverVersion = "0.5.0.0" } }] }, true, [], false));
         }
 
+    [TestCase ("success")]
+    [TestCase ("restart")]
+    [TestCase ("failed")]
+    public async Task ProgressOnlyReportsUpdatedAfterVerification (string scenario)
+        {
+        var wire = new Wire ();
+        if (scenario == "restart") wire.Eligibility["driver-a"] = wire.Eligibility["driver-a"]! with { IsSwapDriverRequiresReboot = true };
+        var report = await Inspect (wire);
+        if (scenario == "failed") wire.Fault = "failed";
+        var progress = new RecordedProgress ();
+        DriverRebootHandler? handler = scenario == "restart" ? new ((_, _) => Task.CompletedTask,
+            (_, client, _) => { wire.Complete ("driver-a"); return Task.FromResult (client); }) : null;
+        var result = await DriverUpdateManager.ApplyAsync (new (wire), Target, report, ["driver-a"], _root, TimeSpan.FromSeconds (1), handler, progress: progress);
+        var expected = scenario switch
+            {
+            "restart" => new[] { "Checking", "Updating", "Updating", "Restarting", "Verifying", "Updated" },
+            "failed" => new[] { "Checking", "Updating" },
+            _ => new[] { "Checking", "Updating", "Verifying", "Updated" }
+            };
+        Assert.That (progress.Items.Select (p => p.State), Is.EqualTo (expected));
+        Assert.That (progress.Items.All (p => p.DriverId == "driver-a"), Is.True);
+        Assert.That (result.State, Is.EqualTo (scenario == "failed" ? "Stopped" : "Completed"));
+        }
+    private sealed class RecordedProgress : IProgress<DriverUpdateProgress>
+        {
+        public List<DriverUpdateProgress> Items { get; } = [];
+        public void Report (DriverUpdateProgress value) => Items.Add (value);
+        }
+
     private static Task<DriverUpdateReport> Inspect (Wire wire) => DriverUpdateManager.InspectAsync (new (wire), Target);
     private Task<DriverUpdateBatchResult> Apply (Wire wire, DriverUpdateReport report) => DriverUpdateManager.ApplyAsync (new (wire), Target, report,
         report.Drivers.Where (r => r.Status == "UpdateAvailable").Select (r => r.DriverId).ToArray (), _root, TimeSpan.FromSeconds (1));
