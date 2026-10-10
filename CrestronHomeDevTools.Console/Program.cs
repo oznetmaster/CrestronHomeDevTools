@@ -228,7 +228,7 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
               credentials --help       Set up reusable encrypted private inputs without connecting or sending.
               resources --help         Inspect Windows prerequisites or select a named resource without changing it.
               configure                Choose a processor and save encrypted credentials locally.
-              driver-updates --output updates.json
+              driver-updates [--output updates.json]
                                        Report available updates, versions, rooms and restart requirements.
               update-drivers --plan updates.json --all true --journal NEW_DIRECTORY
                 [--drivers ID,ID instead of --all] [--confirm-reboot PROCESSOR]
@@ -496,7 +496,8 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 		if (command == "update")
 			plan = JsonSerializer.Deserialize<DriverUpdatePlan> (await File.ReadAllTextAsync (Required ("plan"), cancellation.Token), jsonOptions)
 				 ?? throw new ArgumentException ("The plan file was empty.");
-		var output = command is "plan-update" or "driver-updates" ? Required ("output") : null;
+		var output = command == "plan-update" ? Required ("output")
+			: command == "driver-updates" && options.ContainsKey ("output") ? Required ("output") : null;
 		if (output != null && File.Exists (output))
 			throw new ArgumentException ("The plan output file already exists. Choose a new path.");
 		if (options.ContainsKey ("settings") && options.ContainsKey ("profile"))
@@ -684,9 +685,12 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 			case "driver-updates":
 				var updateScan = await DriverUpdateManager.InspectAsync (client, updateTarget!, cancellation.Token);
 				result = updateScan;
-				Console.Error.WriteLine ($"Updates: {updateScan.Drivers.Count (r => r.Status == "UpdateAvailable")} without restart, {updateScan.Drivers.Count (r => r.Status == "RebootRequired")} requiring restart; {updateScan.UnresolvedDevices.Length} installed instances have unresolved catalogue mapping. Review {output}.");
-				await using (var reportStream = new FileStream (output!, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+				Console.Error.WriteLine ($"Updates: {updateScan.Drivers.Count (r => r.Status == "UpdateAvailable")} without restart, {updateScan.Drivers.Count (r => r.Status == "RebootRequired")} requiring restart; {updateScan.UnresolvedDevices.Length} installed instances have unresolved catalogue mapping. Review {output ?? "the console report"}.");
+				if (output != null)
+					{
+					await using var reportStream = new FileStream (output, FileMode.CreateNew, FileAccess.Write, FileShare.None);
 					await JsonSerializer.SerializeAsync (reportStream, result, jsonOptions, cancellation.Token);
+					}
 				break;
 			case "update-drivers":
 				DriverRebootHandler? updateReboot = options.ContainsKey ("confirm-reboot") ? new (

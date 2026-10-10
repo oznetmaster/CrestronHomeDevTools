@@ -13,16 +13,17 @@ public sealed class DriverUpdatesCommandTests
         {
         var result = await Run (["--help"]);
         Assert.That (result.Exit, Is.Zero);
-        Assert.That (result.Output, Does.Contain ("driver-updates --output updates.json"));
+        Assert.That (result.Output, Does.Contain ("driver-updates [--output updates.json]"));
         Assert.That (result.Output, Does.Contain ("update-drivers --plan updates.json --all true --journal NEW_DIRECTORY"));
         }
 
     [Test]
-    public async Task MissingScanOutputFailsBeforeLoadingCredentials ()
+    public async Task ScanWithoutOutputReachesSettingsLoading ()
         {
         var result = await Run (["driver-updates", "--settings", "nonexistent-private-settings.json"]);
-        Assert.That (result.Exit, Is.EqualTo (2));
-        Assert.That (result.Error, Does.Contain ("Missing --output"));
+        Assert.That (result.Exit, Is.EqualTo (1));
+        Assert.That (result.Error, Does.Contain ("Connection or file operation failed"));
+        Assert.That (result.Error, Does.Not.Contain ("Missing --output"));
         }
 
     [TestCase ("no-selection")]

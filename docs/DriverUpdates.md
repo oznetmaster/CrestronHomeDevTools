@@ -10,13 +10,19 @@ dotnet publish CrestronHomeDevTools.Console/CrestronHomeDevTools.Console.csproj 
 
 ## List available updates
 
-Use an existing processor profile:
+Display the report in the console using an existing processor profile:
+
+```powershell
+CrestronHomeDevTools.Console.exe driver-updates --profile development
+```
+
+To also save the report for a subsequent update operation, add `--output`:
 
 ```powershell
 CrestronHomeDevTools.Console.exe driver-updates --profile development --output updates.json
 ```
 
-The command reads installed devices, queries the processor's driver catalogue and asks Home which installed instances are eligible for each relevant catalogue entry. It does not download packages, refresh the catalogue, update a device or restart the processor. Standard output and the saved file contain the same JSON report; choose a new output filename for each scan.
+The command reads installed devices, queries the processor's driver catalogue and asks Home which installed instances are eligible for each relevant catalogue entry. It does not download packages, refresh the catalogue, update a device or restart the processor. The JSON report is always printed to standard output. With `--output`, the same report is also saved; choose a new output filename for each scan. Without `--output`, no report file is created.
 
 Each entry includes the driver and developer, installed and available versions, affected device names and room IDs, and one of these statuses:
 

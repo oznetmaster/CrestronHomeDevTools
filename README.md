@@ -67,7 +67,7 @@ The two target values must match; credentials and verified SSH trust still come 
 
 ## Driver updates across a system
 
-The source version includes `driver-updates --output updates.json` to report available driver upgrades and `update-drivers --plan updates.json --all true --journal NEW_DIRECTORY` to apply a reviewed selection. Both use existing processor profiles or named encrypted credentials. Updates respect shared processor reservations; restarts require explicit authorization. See the [driver update manager](docs/DriverUpdates.md) for selection, scope, restart and recovery behavior. These commands are not yet in a published console release.
+The source version includes `driver-updates` to report available driver upgrades in the console (add `--output updates.json` to save the report) and `update-drivers --plan updates.json --all true --journal NEW_DIRECTORY` to apply a reviewed selection. Both use existing processor profiles or named encrypted credentials. Updates respect shared processor reservations; restarts require explicit authorization. See the [driver update manager](docs/DriverUpdates.md) for selection, scope, restart and recovery behavior. These commands are not yet in a published console release.
 
 ## Get started
 
