@@ -2,13 +2,15 @@
 
 **Processor compatibility:** Configuration-management commands require a **V2 Crestron Home processor**. V1 Crestron Home processors do not support these commands. This refers to the processor platform, not the driver type: supported V2 processors can host V1 drivers, whose update workflow requires an explicitly authorized reboot.
 
-An independent .NET 10 library, interactive console and automation CLI for Crestron Home configuration management. Discover processors, inspect installed devices, deploy driver packages, install or update Entity V2 driver instances, and verify their loaded versions without operating Configure Pro.
+An independent .NET 10 library, Windows driver-update desktop app, interactive console and automation CLI for Crestron Home configuration management. Discover processors, inspect installed devices, deploy driver packages, install or update Entity V2 driver instances, and verify their loaded versions without operating Configure Pro.
 
 The configuration-management interface is unofficial and firmware-dependent, [documented here from verified behavior](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/ProtocolReference.md). This is not an official Crestron API SDK. The library has no dependency on Crestron SDK assemblies, proprietary client binaries or NUnit.
 
 This source includes initial driver configuration and read-only inspection of current settings. See [driver configuration](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/DriverConfiguration.md) for the commands, private input format, masking rules and library API. Shared processor reservations continue to coordinate development operations.
 
 Reviewed V1 removal can preserve other instances sharing the same driver code across an explicitly authorized Home reboot. See [V1 installation and removal](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/V1DriverRemoval.md) for the opt-in scope, preservation checks and validation limits.
+
+The [driver-update desktop app](docs/DriverUpdates.md#desktop-checklist-windows) provides a checklist, select-all, update/restart confirmation and per-driver progress/results using the same DevTools update manager. Available from source pending release.
 
 ## Contents
 
@@ -64,6 +66,10 @@ reboot --processor DEVELOPMENT --confirm-reboot DEVELOPMENT
 ```
 
 The two target values must match; credentials and verified SSH trust still come from the selected profile/settings. Applications can supply their own confirmation dialog through the library API. The NUnit workflow supports reboot-required updates with `allowProcessorReboot: true`; see [V1 development and reboot policy](https://github.com/oznetmaster/CrestronHomeNUnit/blob/HEAD/docs/ContinuousIntegration.md#v1-development-and-reboot-policy).
+
+## Driver updates across a system
+
+The source version includes `driver-updates` to report available driver upgrades in the console (add `--output updates.json` to save the report) and `update-drivers --plan updates.json --all true --journal NEW_DIRECTORY` to apply a reviewed selection. Both use existing processor profiles or named encrypted credentials. Updates respect shared processor reservations; restarts require explicit authorization. See the [driver update manager](docs/DriverUpdates.md) for selection, scope, restart and recovery behavior. These commands are not yet in a published console release.
 
 ## Get started
 
