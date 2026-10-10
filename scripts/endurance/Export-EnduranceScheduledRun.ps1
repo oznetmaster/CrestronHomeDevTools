@@ -113,10 +113,16 @@ try {
 	$config=Get-Content -LiteralPath $Configuration -Raw | ConvertFrom-Json
 	if ($config.SchemaVersion -ne 1) { throw 'Unsupported scheduler configuration.' }
 	foreach ($name in @('CliDirectory','WorkerFile','RunDirectory','StateDirectory','SettingsFile')) { $config.$name=Local-Path $config.$name }
+	$privateInputs = @($config.WorkerFile,$config.SettingsFile,$Configuration,$TickScript)
+	if ($config.PSObject.Properties['CredentialBindingsFile']) {
+		$bindings = Local-Path $config.CredentialBindingsFile
+		if ((Digest $bindings) -ne $config.CredentialBindingsSha256) { throw 'Credential bindings changed.' }
+		$privateInputs += $bindings
+	}
 	foreach ($root in @($config.CliDirectory,$config.RunDirectory,$config.StateDirectory)) {
 		if (-not (Test-Path -LiteralPath $root -PathType Container)) { throw 'Required source directory is missing.' }
 		if (($OutputDirectory + '\').StartsWith($root + '\', [StringComparison]::OrdinalIgnoreCase) -or ($root + '\').StartsWith($OutputDirectory + '\', [StringComparison]::OrdinalIgnoreCase)) { throw 'Keep the snapshot outside all source directories.' }
-		foreach ($inputFile in @($config.WorkerFile,$config.SettingsFile,$Configuration,$TickScript)) {
+		foreach ($inputFile in $privateInputs) {
 			if ($inputFile.StartsWith($root + '\', [StringComparison]::OrdinalIgnoreCase)) { throw 'Keep inputs and private connection settings outside evidence and CLI directories.' }
 		}
 	}

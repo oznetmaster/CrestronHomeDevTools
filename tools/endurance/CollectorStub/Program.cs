@@ -15,6 +15,13 @@ bool tick = args[0] == "endurance-tick";
 bool alreadyTicked = File.Exists (Path.Combine (directory, "ticked"));
 if (tick)
 	{
+	if (document.RootElement.TryGetProperty ("ExpectedCredentials", out var expected))
+		{
+		int index = Array.IndexOf (args, "--credentials");
+		if (index < 0 || index + 1 >= args.Length || args[index + 1] != expected.GetString ())
+			throw new Exception ("Named credential binding was not forwarded exactly.");
+		}
+	File.WriteAllText (Path.Combine (directory, "tick-arguments.json"), JsonSerializer.Serialize (args));
 	File.WriteAllText (Path.Combine (directory, "ticked"), "synthetic");
 	if (scenario == "hang") await Task.Delay (TimeSpan.FromMinutes (10));
 	if (scenario == "error") return 2;

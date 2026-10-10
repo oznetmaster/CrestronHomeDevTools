@@ -67,6 +67,21 @@ foreach ($scenario in @('complete','collecting','held','failed','malformed','exp
 	}
 	$passed.Add($scenario)
 }
+foreach ($mode in @('valid','changed','nested')) {
+	$case=Prepare ('bindings-' + $mode)
+	$binding=Join-Path $case 'credentials.json'
+	[IO.File]::WriteAllText($binding,'SYNTHETIC-PRIVATE-BINDINGS-DO-NOT-COPY')
+	$config=Get-Content (Join-Path $case 'schedule.json') -Raw | ConvertFrom-Json
+	$config | Add-Member CredentialBindingsFile $binding
+	$config | Add-Member CredentialBindingsSha256 (Get-FileHash $binding -Algorithm SHA256).Hash
+	if ($mode -eq 'changed') { [IO.File]::AppendAllText($binding,' ') }
+	if ($mode -eq 'nested') { $config.CredentialBindingsFile=Join-Path $case 'run/bindings.json'; [IO.File]::Copy($binding,$config.CredentialBindingsFile) }
+	$config | ConvertTo-Json -Depth 10 | Set-Content (Join-Path $case 'schedule.json')
+	Assert ((Run $case) -eq $(if($mode -eq 'valid'){0}else{3})) "Bindings export $mode failed."
+	if ($mode -eq 'valid') { Assert (-not (Test-Path (Join-Path $case 'snapshot/credentials.json'))) 'Bindings were copied into snapshot.' }
+	else { Assert (-not (Test-Path (Join-Path $case 'calls.txt'))) 'Invalid bindings reached offline collector.' }
+	$passed.Add('bindings-' + $mode)
+}
 foreach ($scenario in @('wrong-pin','worker-changed','extra-cli','attention','busy','nested-output')) {
 	$case=Prepare $scenario
 	$lock=$null
