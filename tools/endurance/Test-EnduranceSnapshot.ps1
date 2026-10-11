@@ -119,5 +119,36 @@ Assert ($receipt.MaximumEntries -eq 100000) 'Completion receipt did not retain i
 Assert (@($receipt.Files | Where-Object {$_.Path -like 'scheduler-state/reconciliation/entry-*'}).Count -eq 250) 'Scheduler evidence was dropped to fit the budget.'
 Assert (Test-Path (Join-Path $case 'snapshot/failure.json')) 'A new export removed the original failure.'
 $passed.Add('inventory-budget')
+# A complete pinned tool bundle may contain a large self-contained installer.
+# Exercise the real inventory and hashes without contacting hardware.
+$largeTool=Join-Path $bundle 'synthetic-setup.exe'
+try {
+	$stream=[IO.File]::Open($largeTool,'CreateNew','Write','None')
+	try { $stream.SetLength(127502834) } finally { $stream.Dispose() }
+	$case=Prepare 'large-pinned-tool'
+	Assert ((Run $case) -eq 0) 'Pinned self-contained installer prevented snapshot.'
+	Assert (-not (Test-Path (Join-Path $case 'snapshot/synthetic-setup.exe'))) 'Tool bundle was copied into evidence.'
+	$passed.Add('large-pinned-tool')
+	$stream=[IO.File]::Open($largeTool,'Open','Write','None')
+	try { $stream.WriteByte(1) } finally { $stream.Dispose() }
+	$destination=Join-Path $case 'changed-tool-snapshot'
+	Assert ((Run $case -Destination $destination) -eq 3) 'Changed large tool bypassed its pin.'
+	Assert ([IO.File]::ReadAllLines((Join-Path $case 'calls.txt')).Count -eq 4) 'Changed tool reached collector.'
+	Assert (-not (Test-Path $destination)) 'Precreation failure created a snapshot.'
+	Assert ((Get-Content (Join-Path $case 'stderr.txt') -Raw) -match 'Snapshot failure: Type=.+; Line=\d+; OutputCreated=False') 'Precreation diagnostic missing.'
+	$passed.Add('large-tool-pin-change')
+	$stream=[IO.File]::Open($largeTool,'Open','Write','None')
+	try { $stream.SetLength(256MB+1) } finally { $stream.Dispose() }
+	$case=Prepare 'tool-file-limit'
+	Assert ((Run $case) -eq 3) 'Tool file limit was ignored.'
+	Assert (-not (Test-Path (Join-Path $case 'calls.txt'))) 'Oversized tool reached collector.'
+	$passed.Add('tool-file-limit')
+} finally { if (Test-Path $largeTool) { [IO.File]::Delete($largeTool) } }
+$case=Prepare 'evidence-file-limit'
+$stream=[IO.File]::Open((Join-Path $case 'run/oversized.bin'),'CreateNew','Write','None')
+try { $stream.SetLength(64MB+1) } finally { $stream.Dispose() }
+Assert ((Run $case) -eq 3) 'Evidence file limit was relaxed with tool limit.'
+Assert (-not (Test-Path (Join-Path $case 'snapshot/complete.json'))) 'Oversized evidence produced completion.'
+$passed.Add('evidence-file-limit')
 @{Passed=$passed.Count; Scenarios=@($passed); HardwareContacted=$false; SubmissionEvidence=$false} | ConvertTo-Json | Set-Content (Join-Path $ResultsDirectory 'results.json')
 Write-Output "$($passed.Count) synthetic snapshot scenarios passed. No processor was contacted."

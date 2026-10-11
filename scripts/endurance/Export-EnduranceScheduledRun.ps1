@@ -35,7 +35,8 @@ function Save-Json([string]$Name, $Value) {
 	$file = [IO.File]::Open((Join-Path $OutputDirectory $Name), 'CreateNew', 'Write', 'None')
 	try { $file.Write($bytes, 0, $bytes.Length); $file.Flush($true) } finally { $file.Dispose() }
 }
-function Inventory([string]$Root, [string[]]$Exclude = @()) {
+# Tool bundles include self-contained installers; retained evidence keeps its smaller cap.
+function Inventory([string]$Root, [string[]]$Exclude = @(), [long]$MaximumFileBytes = 64MB) {
 	$queue = New-Object 'System.Collections.Generic.Queue[string]'
 	$queue.Enqueue($Root)
 	$files = New-Object 'System.Collections.Generic.List[object]'
@@ -49,7 +50,7 @@ function Inventory([string]$Root, [string[]]$Exclude = @()) {
 			$relative = $item.FullName.Substring($Root.Length + 1).Replace('\','/')
 			if ($relative -in $Exclude) { continue }
 			$bytes += $item.Length
-			if ($item.Length -gt 64MB -or $bytes -gt 1GB) { throw 'Snapshot evidence exceeds its size limit.' }
+			if ($item.Length -gt $MaximumFileBytes -or $bytes -gt 1GB) { throw 'Snapshot evidence exceeds its size limit.' }
 			$files.Add(@{Path=$relative; Length=$item.Length; Sha256=(Digest $item.FullName)})
 		}
 	}
@@ -130,7 +131,7 @@ try {
 	try { $guard=[IO.File]::Open($lockPath,'Open','ReadWrite','None') } catch [IO.IOException] { exit 4 }
 	if (Test-Path -LiteralPath (Join-Path $config.StateDirectory 'attention.json')) { throw 'An unresolved scheduler attention record requires review.' }
 	if ((Digest $config.WorkerFile) -ne $config.WorkerSha256 -or (Digest $TickScript) -ne $config.ScriptSha256) { throw 'Worker plan or scheduled script changed.' }
-	$cli=@(Inventory $config.CliDirectory)
+	$cli=@(Inventory $config.CliDirectory -MaximumFileBytes 256MB)
 	$pins=@{}
 	foreach ($pin in $config.CliFiles) {
 		if ($pins.ContainsKey($pin.Path)) { throw 'Duplicate CLI pin.' }
@@ -155,7 +156,7 @@ try {
 	$copiedExport=Invoke-Offline 'endurance-export' (Join-Path $OutputDirectory 'run') (Join-Path $OutputDirectory 'worker.json') 'copy-export'
 	if ($export.Text -cne $copiedExport.Text) { throw 'The copied run exported a different observation.' }
 	if (-not (Same-Inventory $run @(Inventory $config.RunDirectory $runExclusions)) -or -not (Same-Inventory $run @(Inventory (Join-Path $OutputDirectory 'run') $runExclusions)) -or
-		-not (Same-Inventory $state @(Inventory $config.StateDirectory @('scheduler.lock'))) -or -not (Same-Inventory $cli @(Inventory $config.CliDirectory)) -or
+		-not (Same-Inventory $state @(Inventory $config.StateDirectory @('scheduler.lock'))) -or -not (Same-Inventory $cli @(Inventory $config.CliDirectory -MaximumFileBytes 256MB)) -or
 		(Digest $Configuration) -ne $ConfigurationSha256 -or (Digest (Join-Path $OutputDirectory 'schedule.json')) -ne $ConfigurationSha256 -or
 		(Digest $config.WorkerFile) -ne $config.WorkerSha256 -or (Digest (Join-Path $OutputDirectory 'worker.json')) -ne $config.WorkerSha256 -or
 		(Digest $TickScript) -ne $config.ScriptSha256 -or (Digest (Join-Path $OutputDirectory 'Invoke-EnduranceScheduledTick.ps1')) -ne $config.ScriptSha256) { throw 'Source or copied evidence changed during retention.' }
@@ -164,6 +165,9 @@ try {
 	Write-Output 'Retained and revalidated the completed collection. This private snapshot is not a completed submission bundle. The scheduled task was not changed.'
 	exit 0
 } catch {
+	# Emit only structural diagnostics, even when validation failed before output creation.
+	# Exception messages/IDs may contain private paths or input; do not echo them.
+	[Console]::Error.WriteLine(('Snapshot failure: Type={0}; Line={1}; OutputCreated={2}' -f $_.Exception.GetType().Name, $_.InvocationInfo.ScriptLineNumber, $created))
 	if ($created) { Save-Json 'failure.json' @{Type=$_.Exception.GetType().Name; Line=$_.InvocationInfo.ScriptLineNumber; ErrorId=$_.FullyQualifiedErrorId; SubmissionReady=$false} }
 	Write-Error 'Completion snapshot failed. Inspect its private records; the monitor was not restarted or reconfigured.' -ErrorAction Continue
 	exit 3
