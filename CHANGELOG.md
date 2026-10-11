@@ -14,6 +14,8 @@ Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are tra
 
 ## Unreleased
 
+- Completed endurance export accepts pinned CLI files up to 256 MiB, including self-contained setup programs, while keeping the 64 MiB evidence cap and all inventory/hash checks. Precreation failures now emit structural diagnostics to stderr.
+
 - Rehearsal email supports an approval-bound, hash-verified package download link and a single PDF attachment. New automated rehearsals use the selected release asset; existing journals and production delivery remain unchanged.
 
 ## 1.26.1 — 2026-10-07
