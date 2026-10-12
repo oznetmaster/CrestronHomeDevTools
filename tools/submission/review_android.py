@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from package_help import read_json
 from build_help import keys, sha
 from self_test_form import pinned_json
+from documentary_android import audit_documentary, validate_documentary_bindings
 
 
 def audit_runs(settings, pins_path, pins_sha256, candidate_sha256, *, review_mode="complete"):
@@ -21,7 +22,7 @@ def audit_runs(settings, pins_path, pins_sha256, candidate_sha256, *, review_mod
             "Android review requires an independent absolute pins path")
     digest(pins_sha256)
     _, pins = pinned_json(pins_path, pins_sha256)
-    keys(pins, ("schemaVersion", "candidateSha256", "runs"), ("observationBindings",))
+    keys(pins, ("schemaVersion", "candidateSha256", "runs"), ("observationBindings", "documentaryBindings"))
     require(type(pins["schemaVersion"]) is int and pins["schemaVersion"] == 1 and
             pins["candidateSha256"] == candidate_sha256, "Android pins identify another candidate")
     require(isinstance(pins["runs"], list) and 0 < len(pins["runs"]) <= 128,
@@ -63,10 +64,12 @@ def audit_runs(settings, pins_path, pins_sha256, candidate_sha256, *, review_mod
         if historical is not None:
             report["sourceReview"] = historical["sourceReview"]
         reports.append(report)
+    documentary, documentary_files = audit_documentary(settings, pins.get("documentaryBindings", []), candidate_sha256, review_mode)
+    review_files.update(documentary_files)
     bindings = pins.get("observationBindings", [])
     require(isinstance(bindings, list) and len(bindings) <= 4096, "Invalid observation bindings")
     return {"schemaVersion": 1, "pinsSha256": pins_sha256, "runs": reports,
-            "observationBindings": bindings,
+            "observationBindings": bindings, "documentaryBindings": documentary,
             "reviewFiles": [{"relativePath": name, "sha256": value} for name, value in sorted(review_files.items())],
             "producerAuthenticated": False, "officialRequirementsSatisfied": [], "submissionReady": False}
 
@@ -129,8 +132,9 @@ def validate_observation_bindings(android, android_scopes, observations, declara
     entries = android.get("observationBindings", [])
     observed = {item["requirementId"]: item for item in observations["observations"]}
     declared = {item["requirementId"]: item for item in declarations.get("declarations", [])}
-    bindings, used_historical = {}, set()
     evidence = Evidence(evidence_root)
+    bindings = validate_documentary_bindings(android, android_scopes, observations, declarations, evidence)
+    used_historical = set()
     for entry in entries:
         keys(entry, ("requirementId", "runId", "files"))
         scope = entry["requirementId"]
