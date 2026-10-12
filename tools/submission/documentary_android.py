@@ -67,6 +67,25 @@ def bounds(value, width, height):
     return x1, y1, x2, y2
 
 
+def grouped_container(nodes, app, resource):
+    """Keep direct siblings; allow only the observed native unary-wrapper shape."""
+    parent = nodes[0].getparent()
+    if parent is not None and all(n.getparent() is parent for n in nodes):
+        return
+    require(resource == app + ':id/customdevice_button_root',
+            'Wrapped documentary controls require native button roots')
+    wrappers = [n.getparent() for n in nodes]
+    require(all(w is not None and w.tag == 'node' and list(w) == [n]
+                for w, n in zip(wrappers, nodes)), 'Documentary wrappers must be unary')
+    container = wrappers[0].getparent()
+    require(container is not None and container.tag == 'node' and
+            container.get('resource-id') == app + ':id/customdevice_buttonGroup_container' and
+            container.get('package') == app and container.get('password') == 'false' and
+            all(w.getparent() is container for w in wrappers) and
+            list(container) == wrappers,
+            'Documentary wrappers must be the exact ordered native group children')
+
+
 def audit_documentary(settings, entries, candidate_sha256, review_mode):
     require(isinstance(entries, list) and len(entries) <= 128, 'Invalid documentary bindings')
     if not entries: return [], {}
@@ -180,8 +199,7 @@ def audit_documentary(settings, entries, candidate_sha256, review_mode):
             require(all(ancestor.get('package') == group['appPackage'] and ancestor.get('password') == 'false'
                         for node in nodes for ancestor in node.iterancestors('node')),
                     'Documentary group container path crosses application/password boundary')
-            require(nodes[0].getparent() is not None and all(n.getparent() is nodes[0].getparent() for n in nodes),
-                    'Documentary controls are not in one group container')
+            grouped_container(nodes, group['appPackage'], group['resourceId'])
             require(all(a[1] == b[1] and a[3] == b[3] and a[2] <= b[0] for a, b in zip(rects, rects[1:])),
                     'Documentary group is not an ordered adjacent row')
         require(seen == set(current), 'Documentary group enumeration incomplete')

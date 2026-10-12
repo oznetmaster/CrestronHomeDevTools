@@ -201,6 +201,84 @@ class DocumentaryGroupingTests(unittest.TestCase):
         self.update_hierarchy(split)
         with self.assertRaises(ValueError):self.audit()
 
+    def native_wrapped_layout(self):
+        # Portable minimal fixture faithful to retained Energy/Impact UI:
+        # named buttonGroup container -> exactly three unnamed unary wrappers
+        # -> button_root. No original private labels, values or app content embedded.
+        from lxml import etree
+        tree=etree.fromstring(self.hierarchy)
+        container=tree[0]
+        container.set('resource-id','app:id/customdevice_buttonGroup_container')
+        for node in list(container):
+            container.remove(node)
+            node.set('resource-id','app:id/customdevice_button_root')
+            wrapper=etree.SubElement(container,'node',package='app',password='false')
+            wrapper.set('resource-id','');wrapper.set('bounds',node.get('bounds'))
+            wrapper.append(node)
+        self.entry['groups'][0]['resourceId']='app:id/customdevice_button_root'
+        return tree
+
+    def test_retained_native_unary_wrapper_shape_is_static_only(self):
+        from lxml import etree
+        tree=self.native_wrapped_layout()
+        self.update_hierarchy(etree.tostring(tree))
+        reports,_=self.audit()
+        self.assertEqual('StaticDocumentaryGroupingReviewed',reports[0]['status'])
+        self.assertFalse(reports[0]['producerAuthenticated'])
+        self.assertFalse(reports[0]['testPassClaimed'])
+        self.assertIsNone(reports[0]['identity']['installedPackageSha256'])
+
+    def test_native_wrapper_extra_sibling_and_multi_root_refused(self):
+        from lxml import etree
+        for kind in ('extra-sibling','multi-root'):
+            tree=self.native_wrapped_layout();container=tree[0]
+            if kind=='extra-sibling':
+                etree.SubElement(container,'node',package='app',password='false')
+            else:
+                etree.SubElement(container[0],'node',package='app',password='false')
+            self.update_hierarchy(etree.tostring(tree))
+            with self.subTest(kind=kind),self.assertRaises(ValueError):self.audit()
+
+    def test_native_wrapper_and_ancestor_application_password_boundaries(self):
+        from lxml import etree
+        for where in ('wrapper','container','ancestor'):
+            for attr,value in (('package','other'),('password','true')):
+                tree=self.native_wrapped_layout()
+                target=tree[0][0] if where=='wrapper' else tree[0]
+                if where=='ancestor':
+                    outer=etree.Element('node',package='app',password='false')
+                    container=tree[0];tree.remove(container);outer.append(container);tree.append(outer)
+                    target=outer
+                target.set(attr,value);self.update_hierarchy(etree.tostring(tree))
+                with self.subTest(where=where,attr=attr),self.assertRaises(ValueError):self.audit()
+
+    def test_native_unknown_container_and_arbitrary_common_ancestor_refused(self):
+        from lxml import etree
+        for change in ('unknown','extra-layer'):
+            tree=self.native_wrapped_layout();container=tree[0]
+            if change=='unknown':container.set('resource-id','app:id/other')
+            else:
+                wrapper=container[0];container.remove(wrapper)
+                outer=etree.Element('node',package='app',password='false');outer.append(wrapper)
+                container.insert(0,outer)
+            self.update_hierarchy(etree.tostring(tree))
+            with self.subTest(change=change),self.assertRaises(ValueError):self.audit()
+
+    def test_native_omitted_or_reordered_control_or_wrapper_refused(self):
+        from lxml import etree
+        for change in ('omit','reverse-bounds','reverse-wrappers'):
+            tree=self.native_wrapped_layout();container=tree[0]
+            group=self.entry['groups'][0];before=group['controlBounds']
+            if change=='omit':group['controlBounds']=before[:-1]
+            elif change=='reverse-bounds':group['controlBounds']=list(reversed(before))
+            else:
+                children=list(container)
+                for child in children:container.remove(child)
+                for child in reversed(children):container.append(child)
+            self.update_hierarchy(etree.tostring(tree))
+            with self.subTest(change=change),self.assertRaises(ValueError):self.audit()
+            group['controlBounds']=before
+
     def test_binding_never_accepts_pass_failed_na_or_priorpass(self):
         for outcome in ['Passed','ReviewedPriorPass','Failed','NotApplicable']:
             a,o,d=self.validation_inputs();o['observations'][0]['outcome']=outcome

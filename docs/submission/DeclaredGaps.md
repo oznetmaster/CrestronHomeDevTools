@@ -161,3 +161,15 @@ Each entry has these exact fields:
 The authored observation remains `Partial` or `Inconclusive`. A named `interpretationReview` with the same reviewer and a specific static-scope rationale must retain *every* binding reference, as must the observation. Neither `Passed` nor `ReviewedPriorPass` is allowed. The audit reports `StaticDocumentaryGroupingReviewed`, keeps original reported identity separate from source review, and explicitly leaves producer/installed-package authentication and test-pass claims false. It does not report official acceptance or complete supported-driver functionality.
 
 Portable preparation retains and rechecks the complete original archive, selected captures, Home restoration and source-review bytes. An interrupted run still cannot support any other interpretation or passing observation. Do not manufacture NUnit context, coverage, completion or TRX for documentary work; do not attach it to an unrelated complete run. Checkbox interpretation, artifact review, signing and delivery retain their separate guards. Installed 1.26.2 does not provide this source-only contract until a release is published.
+
+
+Native wrapped grouping captures retain the existing direct-sibling path. The
+alternative accepted shape is exactly the application's
+`customdevice_buttonGroup_container`, whose ordered children are one unary
+wrapper per selected `customdevice_button_root`. Every wrapper and ancestor
+must be in the same application and non-password. Unknown containers, extra
+children, multiple roots in a wrapper, omitted/reordered controls and arbitrary
+common-ancestor matching are refused. This is a static documentary layout
+check; it adds no executed-test, timing or installed-package authentication.
+The portable regression models the retained Energy/Impact hierarchy structure
+without embedding private capture content.
