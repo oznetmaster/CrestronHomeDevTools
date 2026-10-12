@@ -1,5 +1,5 @@
 # Copyright (c) 2026 Neil Colvin. MIT licensed.
-"""Scoped static documentary grouping review; never authenticate an executed test."""
+"""Scoped static documentary review; never authenticate an executed test."""
 from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
@@ -11,6 +11,7 @@ from zipfile import ZipFile
 from audit_android import Evidence, digest, require, timestamp, xml
 from build_help import keys, sha
 from self_test_form import pinned_json
+from documentary_gauges import GAUGE_SCOPES, audit_gauges
 
 SCOPE = 'extension.controls.08.all-declared-button-groups'
 
@@ -102,9 +103,10 @@ def audit_documentary(settings, entries, candidate_sha256, review_mode):
         packaged_ui = archive.read(matches[0])
     evidence, all_files, reports, scopes = Evidence(settings['evidence']), {}, [], set()
     for entry in entries:
-        keys(entry, ('requirementId', 'identity', 'captureResult', 'captureArchive', 'archivePrefix', 'restoration', 'sourceReview', 'groups'))
-        scope = entry['requirementId']
-        require(scope == SCOPE and scope not in scopes, 'Documentary review supports only one static grouping scope')
+        scope = entry.get('requirementId')
+        require(scope in {SCOPE} | GAUGE_SCOPES and scope not in scopes, 'Unknown or duplicate static documentary scope')
+        keys(entry, ('requirementId', 'identity', 'captureResult', 'captureArchive', 'archivePrefix',
+                     'restoration', 'sourceReview', 'groups' if scope == SCOPE else 'gauges'))
         scopes.add(scope)
         files = {}
         identity = entry['identity']
@@ -127,8 +129,12 @@ def audit_documentary(settings, entries, candidate_sha256, review_mode):
                 result.get('originalHomeRestorationPending') is False, 'Original documentary restoration is unverified')
         require(timestamp(identity['completedUtc']) <= datetime.now(timezone.utc), 'Documentary capture is in the future')
         review = entry['sourceReview']
-        keys(review, ('reviewer', 'reviewedUtc', 'rationale', 'originalSourceCommit', 'currentSourceCommit',
-                      'originalUiDefinition', 'currentUiDefinition', 'attestation'))
+        review_keys = ('reviewer', 'reviewedUtc', 'rationale', 'originalSourceCommit', 'currentSourceCommit',
+                       'originalUiDefinition', 'currentUiDefinition', 'attestation')
+        if scope in GAUGE_SCOPES:
+            review_keys += ('originalTranslations', 'currentTranslations', 'translationPackagePath',
+                            'originalPropertyDefinitions', 'currentPropertyDefinitions')
+        keys(review, review_keys)
         named_review(review)
         require(timestamp(review['reviewedUtc']) >= timestamp(identity['completedUtc']), 'Documentary review predates capture')
         require(isinstance(review['originalSourceCommit'], str) and re.fullmatch(r'[a-f0-9]{40}', review['originalSourceCommit']) and
@@ -139,8 +145,9 @@ def audit_documentary(settings, entries, candidate_sha256, review_mode):
         attestation = json.loads(reference(review['attestation'], evidence, files), object_pairs_hook=strict_object)
         require(attestation.get('originalSourceCommit') == review['originalSourceCommit'] and
                 attestation.get('currentSourceCommit') == review['currentSourceCommit'], 'Documentary attestation identifies other sources')
-        old, current = declared_groups(xml(old_data)), declared_groups(xml(current_data))
-        require(isinstance(entry['groups'], list) and len(entry['groups']) == len(current), 'Every current group must be documented')
+        if scope == SCOPE:
+            old, current = declared_groups(xml(old_data)), declared_groups(xml(current_data))
+            require(isinstance(entry['groups'], list) and len(entry['groups']) == len(current), 'Every current group must be documented')
         capture_inventory = result.get('screenshots')
         require(isinstance(capture_inventory, list) and 0 < len(capture_inventory) <= 4096, 'Missing original documentary capture inventory')
         originals = {}
@@ -168,44 +175,49 @@ def audit_documentary(settings, entries, candidate_sha256, review_mode):
             data = reference(restoration[kind], evidence, files)
             require(Path(restoration[kind]['relativePath']).name == expected_name and
                     originals.get(expected_name) == (sha(data), len(data)), 'Missing exact original Home restoration capture')
-        seen = set()
-        for group in entry['groups']:
-            keys(group, ('pageId', 'groupIndex', 'controlIds', 'screenshot', 'hierarchy', 'appPackage', 'resourceId', 'controlBounds'))
-            key = (group['pageId'], group['groupIndex'])
-            require(type(group['groupIndex']) is int and key in current and key not in seen and key in old,
-                    'Unknown or duplicate documentary group')
-            seen.add(key)
-            require(group['controlIds'] == current[key][0] == old[key][0] and page_bytes(old[key][1]) == page_bytes(current[key][1]),
-                    'Documentary page/group implementation changed')
-            png = reference(group['screenshot'], evidence, files)
-            hierarchy = reference(group['hierarchy'], evidence, files)
-            for ref, data in ((group['screenshot'], png), (group['hierarchy'], hierarchy)):
-                require(originals.get(Path(ref['relativePath']).name) == (sha(data), len(data)), 'Capture differs from original documentary receipt')
-            require(png.startswith(b'\x89PNG\r\n\x1a\n') and len(png) > 24 and png[12:16] == b'IHDR', 'Documentary capture requires PNG')
-            width, height = struct.unpack('>II', png[16:24])
-            tree = xml(hierarchy)
-            require(tree.tag == 'hierarchy' and isinstance(group['appPackage'], str) and group['appPackage'] and
-                    isinstance(group['resourceId'], str) and group['resourceId'].startswith(group['appPackage'] + ':id/'),
-                    'Invalid documentary hierarchy/application binding')
-            require(isinstance(group['controlBounds'], list) and len(group['controlBounds']) == len(group['controlIds']) and
-                    len(set(group['controlBounds'])) == len(group['controlBounds']), 'Require exact group control bounds')
-            nodes, rects = [], []
-            for value in group['controlBounds']:
-                rects.append(bounds(value, width, height))
-                matched = [n for n in tree.iter('node') if n.get('bounds') == value and n.get('resource-id') == group['resourceId'] and
-                           n.get('package') == group['appPackage'] and n.get('password') == 'false']
-                require(len(matched) == 1, 'Documentary grouped control is missing or ambiguous')
-                nodes.append(matched[0])
-            require(all(ancestor.get('package') == group['appPackage'] and ancestor.get('password') == 'false'
-                        for node in nodes for ancestor in node.iterancestors('node')),
-                    'Documentary group container path crosses application/password boundary')
-            grouped_container(nodes, group['appPackage'], group['resourceId'])
-            require(all(a[1] == b[1] and a[3] == b[3] and a[2] <= b[0] for a, b in zip(rects, rects[1:])),
-                    'Documentary group is not an ordered adjacent row')
-        require(seen == set(current), 'Documentary group enumeration incomplete')
+        if scope == SCOPE:
+            seen = set()
+            for group in entry['groups']:
+                keys(group, ('pageId', 'groupIndex', 'controlIds', 'screenshot', 'hierarchy', 'appPackage', 'resourceId', 'controlBounds'))
+                key = (group['pageId'], group['groupIndex'])
+                require(type(group['groupIndex']) is int and key in current and key not in seen and key in old,
+                        'Unknown or duplicate documentary group')
+                seen.add(key)
+                require(group['controlIds'] == current[key][0] == old[key][0] and page_bytes(old[key][1]) == page_bytes(current[key][1]),
+                        'Documentary page/group implementation changed')
+                png = reference(group['screenshot'], evidence, files)
+                hierarchy = reference(group['hierarchy'], evidence, files)
+                for ref, data in ((group['screenshot'], png), (group['hierarchy'], hierarchy)):
+                    require(originals.get(Path(ref['relativePath']).name) == (sha(data), len(data)), 'Capture differs from original documentary receipt')
+                require(png.startswith(b'\x89PNG\r\n\x1a\n') and len(png) > 24 and png[12:16] == b'IHDR', 'Documentary capture requires PNG')
+                width, height = struct.unpack('>II', png[16:24])
+                tree = xml(hierarchy)
+                require(tree.tag == 'hierarchy' and isinstance(group['appPackage'], str) and group['appPackage'] and
+                        isinstance(group['resourceId'], str) and group['resourceId'].startswith(group['appPackage'] + ':id/'),
+                        'Invalid documentary hierarchy/application binding')
+                require(isinstance(group['controlBounds'], list) and len(group['controlBounds']) == len(group['controlIds']) and
+                        len(set(group['controlBounds'])) == len(group['controlBounds']), 'Require exact group control bounds')
+                nodes, rects = [], []
+                for value in group['controlBounds']:
+                    rects.append(bounds(value, width, height))
+                    matched = [n for n in tree.iter('node') if n.get('bounds') == value and n.get('resource-id') == group['resourceId'] and
+                               n.get('package') == group['appPackage'] and n.get('password') == 'false']
+                    require(len(matched) == 1, 'Documentary grouped control is missing or ambiguous')
+                    nodes.append(matched[0])
+                require(all(ancestor.get('package') == group['appPackage'] and ancestor.get('password') == 'false'
+                            for node in nodes for ancestor in node.iterancestors('node')),
+                        'Documentary group container path crosses application/password boundary')
+                grouped_container(nodes, group['appPackage'], group['resourceId'])
+                require(all(a[1] == b[1] and a[3] == b[3] and a[2] <= b[0] for a, b in zip(rects, rects[1:])),
+                        'Documentary group is not an ordered adjacent row')
+            require(seen == set(current), 'Documentary group enumeration incomplete')
+            details = {'status': 'StaticDocumentaryGroupingReviewed', 'groups': entry['groups']}
+        else:
+            details = audit_gauges(entry, old_data, current_data, review, attestation, evidence, files,
+                                   originals, package_bytes, reference, page_bytes, bounds)
         all_files.update(files)
-        reports.append({'requirementId': scope, 'status': 'StaticDocumentaryGroupingReviewed', 'identity': identity,
-                        'sourceReview': review, 'groups': entry['groups'],
+        reports.append({'requirementId': scope, 'identity': identity,
+                        'sourceReview': review, **details,
                         'files': [{'relativePath': k, 'sha256': v} for k, v in sorted(files.items())],
                         'producerAuthenticated': False, 'installedPackageAuthenticated': False, 'testPassClaimed': False})
     return reports, all_files
@@ -217,7 +229,7 @@ def validate_documentary_bindings(android, android_scopes, observations, declara
     declared = {x['requirementId']: x for x in declarations.get('declarations', [])}
     for report in android.get('documentaryBindings', []):
         scope = report['requirementId']
-        require(scope == SCOPE and scope in android_scopes and scope not in result and scope in observed,
+        require(scope in {SCOPE} | GAUGE_SCOPES and scope in android_scopes and scope not in result and scope in observed,
                 'Unknown documentary observation scope')
         observation = observed[scope]
         review = declared.get(scope, {}).get('interpretationReview')

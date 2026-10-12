@@ -103,7 +103,7 @@ class DocumentaryGroupingTests(unittest.TestCase):
         self.assertEqual(([],{}),audit_documentary({},[],None,'complete'))
 
     def test_unknown_dynamic_timing_recovery_endurance_gauge_scopes_refused(self):
-        for scope in ['extension.controls.06.every-gauge-labels','extension.views.06','extension.system.03','extension.controls.09.selector']:
+        for scope in ['extension.controls.06.device-change-immediate-gauge','extension.controls.06.every-gauge-labels','extension.views.06','extension.system.03','extension.controls.09.selector']:
             with self.subTest(scope=scope):
                 self.entry['requirementId']=scope
                 with self.assertRaises(ValueError):self.audit()
