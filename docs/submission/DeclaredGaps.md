@@ -61,6 +61,16 @@ Each row retains its original `observedOutcome`: Failed, Partial, Inconclusive a
 
 Corrupt evidence, mixed candidate identities, unknown scopes/outcomes, duplicate observations and invalid timestamps cannot be waived. Correct the review packet while retaining the original failure for diagnosis; do not relabel bad evidence as a pass. Declaration changes invalidate their independent digest. Later signing or sending must bind the exact reviewed packet, mode, gaps and correspondence, not merely this assessment result.
 
+## Reconcile retained work before requesting a signature
+
+A successful form build, matching hashes and a legible PDF prove artifact integrity, not that every completed test has been represented. Before requesting approval to sign, review each unchecked official item against the retained test originals, scoped change-impact decisions and applicability evidence. Record which original assertions support each scope and which measurements are actually missing.
+
+Do not use a generic lack of a current-candidate, same-ID machine row as the reason to discard earlier completed work. Where original native policy and observations exist, evaluate the supported `ReviewedPriorPass` route. Where retained evidence supports an explicit interpretation, use the named `interpretationReview` route and preserve its original outcome and limitations. A changed polling path does not by itself invalidate an unrelated unchanged configuration or navigation assertion; assess the affected behavior for each scope. Conversely, prior evidence cannot establish a new candidate's measured timing or endurance without an explicit, truthful qualification.
+
+When comparing an earlier submission, bind the actual delivered attachment through its delivery receipt. A later rehearsal or superseded unsigned review is not the submitted comparator. Compare evidence treatment and applicable behavior, not just checkbox totals. Keep justified N/A distinct from missing tests, and do not expand the checklist into exhaustive testing of unavailable supported models when the reviewed scope is representative installed hardware.
+
+Keep missing evidence-schema structure distinct from missing functional evidence. Do not fabricate old policies, alter raw outcomes or mark an unperformed test as passed to fill a checkbox. Resolve evidence-mapping omissions before proposing the remaining genuine gaps for human attestation.
+
 ## Generate an unsigned form with declared gaps
 
 The source `submission self-test-form declared-gaps` mode uses the same actual candidate validation and independently reviewed pins. Supply the standard [evidence-backed form inputs](FormGeneration.md), plus `--declarations FILE --declarations-sha256 REVIEWED_SHA256`. The mode runs the .NET review assessment itself; it does not trust a supplied assessment report.
