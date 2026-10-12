@@ -152,6 +152,50 @@ class DocumentaryGaugeTests(unittest.TestCase):
         r['originalUiDefinition']=self.f.write('old.xml',self.ui.replace(b'line2label="{sources}"',b'line2label="{other}"'))
         with self.assertRaises(ValueError):self.audit()
 
+    def test_translation_lf_crlf_equivalence_keeps_both_original_pins(self):
+        original = b'{\n  "ShareLabel": "Share"\n}\n'
+        current = original.replace(b'\n', b'\r\n')
+        r = self.f.entry['sourceReview']
+        r['originalTranslations'] = self.f.write('old-language.json', original)
+        r['currentTranslations'] = self.f.write('language.json', current)
+        self.package(self.ui, current)
+        self.f.candidate['identity']['packageSha256'] = sha(self.f.package.read_bytes())
+        self.f.save_candidate()
+        reports, files = self.audit()
+        self.assertNotEqual(r['originalTranslations']['sha256'], r['currentTranslations']['sha256'])
+        self.assertEqual(original, (self.f.evidence/'old-language.json').read_bytes())
+        self.assertEqual(current, (self.f.evidence/'language.json').read_bytes())
+        for key in ['originalTranslations', 'currentTranslations']:
+            ref = r[key]
+            self.assertEqual(ref['sha256'], files[ref['relativePath']])
+        self.assertFalse(reports[0]['producerAuthenticated'])
+
+    def test_different_original_translation_value_is_not_equivalent(self):
+        self.f.entry['sourceReview']['originalTranslations'] = self.f.write(
+            'old-language.json', b'{"ShareLabel":"Different"}')
+        with self.assertRaisesRegex(ValueError, 'translation implementation changed'):
+            self.audit()
+
+    def test_duplicate_keys_refused_in_both_translation_sources(self):
+        before = copy.deepcopy(self.f.entry['sourceReview'])
+        duplicate = b'{"ShareLabel":"Other","ShareLabel":"Share"}'
+        for key in ['originalTranslations', 'currentTranslations']:
+            self.f.entry['sourceReview'] = copy.deepcopy(before)
+            r = self.f.entry['sourceReview']
+            r[key] = self.f.write('duplicate-'+key+'.json', duplicate)
+            if key == 'currentTranslations':
+                self.package(self.ui, duplicate)
+                self.f.candidate['identity']['packageSha256'] = sha(self.f.package.read_bytes())
+                self.f.save_candidate()
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                self.audit()
+
+    def test_current_semantic_equivalence_cannot_replace_packaged_bytes(self):
+        self.f.entry['sourceReview']['currentTranslations'] = self.f.write(
+            'language.json', b'{\n  "ShareLabel": "Share"\n}\n')
+        with self.assertRaisesRegex(ValueError, 'translation differs from package'):
+            self.audit()
+
     def test_scale_is_static_percent_not_physical_extremes_and_both_sources_match(self):
         g=self.f.entry['gauges'][0]
         for v in [{'minimum':True,'maximum':100,'units':'Percent'},{'minimum':0,'maximum':99,'units':'Percent'},{'minimum':0,'maximum':100,'units':'Watts'}]:

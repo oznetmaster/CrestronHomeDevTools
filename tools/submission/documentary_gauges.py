@@ -73,9 +73,11 @@ def audit_gauges(entry, old_data, current_data, review, attestation, evidence, f
         require(len(members) == 1 and members[0].file_size <= 4 * 1024 * 1024,
                 'Require one bounded packaged gauge translation')
         require(archive.read(members[0]) == translations, 'Gauge translation differs from package')
-    require(old_trans == translations, 'Gauge translation implementation changed')
+    original_language = json.loads(old_trans, object_pairs_hook=strict_object)
     language = json.loads(translations, object_pairs_hook=strict_object)
-    require(isinstance(language, dict), 'Gauge translations must be a dictionary')
+    require(isinstance(original_language, dict) and isinstance(language, dict),
+            'Gauge translations must be dictionaries')
+    require(original_language == language, 'Gauge translation implementation changed')
     old_props = reference(review['originalPropertyDefinitions'], evidence, files)
     props = reference(review['currentPropertyDefinitions'], evidence, files)
     seen, selected = set(), set()
