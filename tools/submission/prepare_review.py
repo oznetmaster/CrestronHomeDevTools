@@ -68,10 +68,22 @@ def _prepare(settings_path, candidate_digest, inventory_digest, mapping_digest, 
     output = Path(settings["output"])
     if output.exists() or not output.parent.is_dir():
         raise ValueError("Use a new review output directory under an existing private parent")
-    android = audit_runs(settings, android_pins, android_pins_sha256, candidate_digest)
+    android = audit_runs(settings, android_pins, android_pins_sha256, candidate_digest, review_mode=review_mode)
     _, policy = forms.pinned_json(settings["policy"], candidate["identity"]["policySha256"])
     android_scopes = {rule["id"] for rule in policy["requirements"]
                       if isinstance(rule.get("execution"), dict) and rule["execution"].get("method") == "android"}
+    if android is not None and any(run["status"] == "InterruptedAndroidEvidencePreserved" for run in android["runs"]):
+        # Preservation is not a passing raw audit. Until observations bind their
+        # producer run individually, no Android verification can rely on this route.
+        _, observed = read_json(settings["observations"])
+        declarations_by_id = {item["requirementId"]: item for item in gap_document["declarations"]}
+        for item in observed["observations"]:
+            if item["requirementId"] in android_scopes and item["outcome"] == "Passed":
+                raise ValueError("Interrupted Android preservation cannot support a Passed Android observation")
+        na_ids = {item["requirementId"] for item in observed["observations"] if item["outcome"] == "NotApplicable"}
+        if not android_scopes - na_ids <= declarations_by_id.keys() or any(
+                "interpretationReview" in item for key, item in declarations_by_id.items() if key in android_scopes):
+            raise ValueError("Interrupted Android scopes require explicit gaps without accepted interpretations")
     if android is None and android_scopes:
         # Only wholly unperformed, explicitly declared scopes can lack Android run evidence.
         # Supplied observations still require the normal raw-run audit, regardless of pass/failure.
@@ -142,7 +154,7 @@ def _prepare(settings_path, candidate_digest, inventory_digest, mapping_digest, 
         # Do not accept a worker's precomputed audit summary in place of raw data.
         android_report_sha256 = None
         if android is not None:
-            if audit_runs(settings, android_pins, android_pins_sha256, candidate_digest) != android:
+            if audit_runs(settings, android_pins, android_pins_sha256, candidate_digest, review_mode=review_mode) != android:
                 raise ValueError("Android evidence changed during review preparation")
             write_json(completed / "android-audit.json", android)
             data, _ = forms.pinned_json(android_pins, android_pins_sha256)

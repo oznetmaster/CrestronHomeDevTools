@@ -14,6 +14,8 @@ Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are tra
 
 ## Unreleased
 
+- Declared-gap source reviews can retain independently inventoried Android runs interrupted before terminal records. Candidate and producer checks remain mandatory; incomplete runs cannot support passed Android scopes, and complete-mode audits remain unchanged.
+
 - Rehearsal email supports an approval-bound, hash-verified package download link and a single PDF attachment. New automated rehearsals use the selected release asset; existing journals and production delivery remain unchanged.
 
 ## 1.26.1 — 2026-10-07

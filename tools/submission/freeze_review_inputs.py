@@ -51,7 +51,7 @@ def freeze(settings_path, output, candidate_digest, inventory_digest, mapping_di
         require(declarations is None and declarations_sha256 is None, "Unexpected declarations")
     _, candidate = pinned_json(settings["candidate"], candidate_digest)
     require(candidate["identity"]["sourceCommit"] == source_commit, "Candidate does not identify the selected release commit")
-    android = audit_runs(settings, android_pins, android_pins_sha256, candidate_digest)
+    android = audit_runs(settings, android_pins, android_pins_sha256, candidate_digest, review_mode=review_mode)
     expected = {"candidate": digest(candidate_digest), "inventory": digest(inventory_digest), "mapping": digest(mapping_digest),
                 "policy": digest(candidate["identity"]["policySha256"]), "template": digest(candidate["identity"]["templateSha256"]),
                 "package": digest(candidate["identity"]["packageSha256"])}
@@ -119,7 +119,8 @@ def freeze(settings_path, output, candidate_digest, inventory_digest, mapping_di
         pin = sha((staging / MANIFEST).read_bytes())
         # Validate the retained snapshot, including raw Android files, without consulting original paths.
         _, frozen_settings, frozen_options = load(staging, pin)
-        audit_runs(frozen_settings, frozen_options.get("androidPins"), frozen_options.get("androidPinsSha256"), candidate_digest)
+        audit_runs(frozen_settings, frozen_options.get("androidPins"), frozen_options.get("androidPinsSha256"), candidate_digest,
+                   review_mode=frozen_options["reviewMode"])
         output.mkdir()
         # Publish COMPLETE last. A partial publication is retained and is never reused as complete.
         for item in staging.iterdir():

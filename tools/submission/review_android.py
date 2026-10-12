@@ -10,7 +10,8 @@ from build_help import keys, sha
 from self_test_form import pinned_json
 
 
-def audit_runs(settings, pins_path, pins_sha256, candidate_sha256):
+def audit_runs(settings, pins_path, pins_sha256, candidate_sha256, *, review_mode="complete"):
+    require(review_mode in ("complete", "declared-gaps"), "Unsupported Android review mode")
     locations = settings.get("androidEvidence")
     if locations is None and pins_path is None and pins_sha256 is None:
         return None
@@ -34,7 +35,10 @@ def audit_runs(settings, pins_path, pins_sha256, candidate_sha256):
         roots[location["runId"]] = location["path"]
     runs = {}
     for run in pins["runs"]:
-        keys(run, ("runId", "assembly", "assemblySha256", "discoverySha256", "producerManifestSha256"), ("selectionSha256",))
+        keys(run, ("runId", "assembly", "assemblySha256", "discoverySha256", "producerManifestSha256"), ("selectionSha256", "interruptedFiles"))
+        if "interruptedFiles" in run:
+            require(review_mode == "declared-gaps" and isinstance(run["interruptedFiles"], list),
+                    "Interrupted evidence requires explicit declared-gaps mode and a complete file inventory")
         if "selectionSha256" in run:
             digest(run["selectionSha256"])
         run_id = run["runId"]
@@ -46,7 +50,8 @@ def audit_runs(settings, pins_path, pins_sha256, candidate_sha256):
     for run_id, run in sorted(runs.items()):
         reports.append(audit(settings["candidate"], candidate_sha256, roots[run_id], run_id,
                              run["assembly"], run["assemblySha256"], run["discoverySha256"],
-                             run["producerManifestSha256"], run.get("selectionSha256")))
+                             run["producerManifestSha256"], run.get("selectionSha256"),
+                             interrupted_files=run.get("interruptedFiles")))
     return {"schemaVersion": 1, "pinsSha256": pins_sha256, "runs": reports,
             "producerAuthenticated": False, "officialRequirementsSatisfied": [], "submissionReady": False}
 

@@ -214,7 +214,7 @@ def selected_inventory(evidence, independent_sha256, context, discovered):
 
 
 def audit(candidate_path, candidate_sha256, evidence_root, run_id, assembly, assembly_sha256, discovery_sha256,
-          producer_manifest_sha256, selection_sha256=None):
+          producer_manifest_sha256, selection_sha256=None, *, interrupted_files=None):
     require(isinstance(run_id, str) and re.fullmatch(r"[a-fA-F0-9]{32}", run_id), "Supply the independently retained workflow run ID")
     require(isinstance(assembly, str) and re.fullmatch(r"[A-Za-z0-9_.-]+\.dll", assembly), "Supply a plain fixture assembly filename")
     data = Path(candidate_path).read_bytes()
@@ -237,10 +237,6 @@ def audit(candidate_path, candidate_sha256, evidence_root, run_id, assembly, ass
             UUID(context["DriverGuid"]) == UUID(package["driverId"]) and
             type(context.get("InstalledDriverId")) is int and context["InstalledDriverId"] > 0, "Android run does not identify this Release candidate")
     digest(context["SourceSha256"])
-    completion = evidence.json("completion.json")
-    require(type(completion.get("SchemaVersion")) is int and completion["SchemaVersion"] == 1 and
-            completion.get("RunId") == run_id and completion.get("PackageSha256") == context["PackageSha256"] and
-            completion.get("RestorationConfirmed") is True, "Android restoration is unconfirmed or belongs to another run")
     require(sha(evidence.read("assembly/" + assembly)) == digest(assembly_sha256), "Retained producer assembly changed")
     producer_files = producer_inventory(evidence, producer_manifest_sha256)
     pin = evidence.json("producer-pin.json")
@@ -258,6 +254,15 @@ def audit(candidate_path, candidate_sha256, evidence_root, run_id, assembly, ass
     if selection_sha256 is not None:
         require(digest(pin.get("SelectionSha256")) == digest(selection_sha256), "Coordinator selection differs from the independent pin")
         expected, excluded_count = selected_inventory(evidence, selection_sha256, context, expected)
+    if interrupted_files is not None:
+        from interrupted_android import preserve
+        return preserve(evidence, interrupted_files, context, candidate_sha256, identity,
+                        assembly, assembly_sha256, producer_manifest_sha256, producer_files,
+                        selection_sha256, discovered_count, excluded_count)
+    completion = evidence.json("completion.json")
+    require(type(completion.get("SchemaVersion")) is int and completion["SchemaVersion"] == 1 and
+            completion.get("RunId") == run_id and completion.get("PackageSha256") == context["PackageSha256"] and
+            completion.get("RestorationConfirmed") is True, "Android restoration is unconfirmed or belongs to another run")
     coverage = evidence.json("coverage.json")
     require(coverage.get("SelectionSha256") is None if selection_sha256 is None else
             digest(coverage.get("SelectionSha256")) == digest(selection_sha256), "Coverage identifies another selection")
