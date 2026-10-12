@@ -139,7 +139,7 @@ def captures(evidence, context, start, end):
         require(type(record.get("SchemaVersion")) is int and record["SchemaVersion"] == 1 and
                 record.get("CheckId") == folder.name and record.get("Outcome") == "Passed", "Unfinished or invalid Android capture")
         for key in ("RunId", "PackageSha256", "SourceSha256", "ReleaseSourceCommit", "InstalledDriverId", "DriverGuid", "DriverVersion"):
-            require(record.get(key) == context[key], "Android capture belongs to a different candidate or run")
+            require(key in record and record[key] == context[key], "Android capture belongs to a different candidate or run")
         require(start <= timestamp(record.get("StartedUtc")) <= timestamp(record.get("FinishedUtc")) <= end,
                 "Android capture is outside the test interval")
         require(sha(evidence.read(prefix + "hierarchy.xml")) == digest(record.get("HierarchySha256")) and
@@ -214,7 +214,7 @@ def selected_inventory(evidence, independent_sha256, context, discovered):
 
 
 def audit(candidate_path, candidate_sha256, evidence_root, run_id, assembly, assembly_sha256, discovery_sha256,
-          producer_manifest_sha256, selection_sha256=None, *, interrupted_files=None):
+          producer_manifest_sha256, selection_sha256=None, *, interrupted_files=None, historical_identity=None):
     require(isinstance(run_id, str) and re.fullmatch(r"[a-fA-F0-9]{32}", run_id), "Supply the independently retained workflow run ID")
     require(isinstance(assembly, str) and re.fullmatch(r"[A-Za-z0-9_.-]+\.dll", assembly), "Supply a plain fixture assembly filename")
     data = Path(candidate_path).read_bytes()
@@ -228,8 +228,29 @@ def audit(candidate_path, candidate_sha256, evidence_root, run_id, assembly, ass
         digest(identity[field])
     require(isinstance(identity["sourceCommit"], str) and re.fullmatch(r"[a-fA-F0-9]{40}|[a-fA-F0-9]{64}", identity["sourceCommit"]), "Missing release source commit")
     require(version(package["driverVersion"])[3] == 0, "Debug packages cannot supply submission evidence")
+    target_identity = identity
+    if historical_identity is not None:
+        # Review-only historical identity is independently pinned by the caller.
+        # Never populate an absent raw commit from an external source review.
+        require(interrupted_files is None, "Historical interpretations require a complete original run")
+        keys(historical_identity, ("packageSha256", "sourceSha256", "releaseSourceCommit", "driverVersion", "driverId", "installedDriverId"))
+        digest(historical_identity["packageSha256"])
+        digest(historical_identity["sourceSha256"])
+        raw_commit = historical_identity["releaseSourceCommit"]
+        require(raw_commit is None or (isinstance(raw_commit, str) and re.fullmatch(r"[a-fA-F0-9]{40}|[a-fA-F0-9]{64}", raw_commit)),
+                "Invalid historical raw commit")
+        require(version(historical_identity["driverVersion"])[3] == 0, "Debug historical evidence is not supported")
+        identity = {"packageSha256": historical_identity["packageSha256"], "sourceCommit": raw_commit}
+        require(UUID(historical_identity["driverId"]) == UUID(package["driverId"]), "Historical review identifies another driver")
+        package = historical_identity
     evidence = Evidence(evidence_root)
     context = evidence.json("context.json")
+    if historical_identity is not None:
+        require("ReleaseSourceCommit" in context and
+                digest(context.get("SourceSha256")) == digest(historical_identity["sourceSha256"]) and
+                type(historical_identity["installedDriverId"]) is int and
+                context.get("InstalledDriverId") == historical_identity["installedDriverId"],
+                "Historical raw identity differs from independent review pins")
     require(type(context.get("SchemaVersion")) is int and context["SchemaVersion"] == 1 and context.get("RunId") == run_id and
             digest(context.get("PackageSha256")) == digest(identity["packageSha256"]) and
             context.get("ReleaseSourceCommit") == identity["sourceCommit"] and
@@ -271,7 +292,7 @@ def audit(candidate_path, candidate_sha256, evidence_root, run_id, assembly, ass
             outcome.get("Complete") is True and outcome.get("MeetsGate") is True,
             "Workflow coverage requires typed successful results")
     require(coverage.get("RunId") == run_id and coverage.get("PackageSha256") == context["PackageSha256"] and
-            coverage.get("ReleaseSourceCommit") == identity["sourceCommit"] and
+            "ReleaseSourceCommit" in coverage and coverage.get("ReleaseSourceCommit") == identity["sourceCommit"] and
             digest(coverage.get("DiscoverySha256")) == sha(discovered) and
             digest(coverage.get("ProducerManifestSha256")) == digest(producer_manifest_sha256) and
             Counter(coverage.get("ExpectedTests", [])) == expected and
@@ -281,11 +302,13 @@ def audit(candidate_path, candidate_sha256, evidence_root, run_id, assembly, ass
     require(len(paths) == 1, "Require exactly one workflow TRX result")
     start, end = results(evidence.read(paths[0].name), expected, assembly)
     count = captures(evidence, context, start, end)
-    return {"schemaVersion": 1, "status": "AndroidEvidenceAudited", "submissionReady": False,
+    return {"schemaVersion": 1, "status": "HistoricalAndroidEvidenceAudited" if historical_identity is not None else "AndroidEvidenceAudited", "submissionReady": False,
             "producerInventoryPinned": True, "producerFiles": producer_files,
             "producerManifestSha256": digest(producer_manifest_sha256),
             "officialRequirementsSatisfied": [], "producerAuthenticated": False,
-            "candidateSha256": digest(candidate_sha256), "identity": identity, "runId": run_id,
+            "candidateSha256": digest(candidate_sha256), "identity": historical_identity if historical_identity is not None else identity, "runId": run_id,
+            "targetIdentity": target_identity, "historicalEvidence": historical_identity is not None,
+            "releaseSourceAuthenticated": False,
             "producerAssembly": assembly, "producerAssemblySha256": digest(assembly_sha256),
             "selectionSha256": digest(selection_sha256) if selection_sha256 is not None else None,
             "discoveredTests": discovered_count, "excludedTests": excluded_count,

@@ -18,7 +18,7 @@ from build_help import keys, sha, strict_object
 from package_help import read_json, write_json
 from render_help import run_process
 import self_test_form as forms
-from review_android import audit_runs
+from review_android import audit_runs, validate_observation_bindings
 from validator_runtime import settings_validator
 
 
@@ -72,18 +72,10 @@ def _prepare(settings_path, candidate_digest, inventory_digest, mapping_digest, 
     _, policy = forms.pinned_json(settings["policy"], candidate["identity"]["policySha256"])
     android_scopes = {rule["id"] for rule in policy["requirements"]
                       if isinstance(rule.get("execution"), dict) and rule["execution"].get("method") == "android"}
-    if android is not None and any(run["status"] == "InterruptedAndroidEvidencePreserved" for run in android["runs"]):
-        # Preservation is not a passing raw audit. Until observations bind their
-        # producer run individually, no Android verification can rely on this route.
+    if android is not None:
         _, observed = read_json(settings["observations"])
-        declarations_by_id = {item["requirementId"]: item for item in gap_document["declarations"]}
-        for item in observed["observations"]:
-            if item["requirementId"] in android_scopes and item["outcome"] == "Passed":
-                raise ValueError("Interrupted Android preservation cannot support a Passed Android observation")
-        na_ids = {item["requirementId"] for item in observed["observations"] if item["outcome"] == "NotApplicable"}
-        if not android_scopes - na_ids <= declarations_by_id.keys() or any(
-                "interpretationReview" in item for key, item in declarations_by_id.items() if key in android_scopes):
-            raise ValueError("Interrupted Android scopes require explicit gaps without accepted interpretations")
+        validate_observation_bindings(android, android_scopes, observed,
+                                      gap_document if declared_gaps else {}, settings["evidence"])
     if android is None and android_scopes:
         # Only wholly unperformed, explicitly declared scopes can lack Android run evidence.
         # Supplied observations still require the normal raw-run audit, regardless of pass/failure.

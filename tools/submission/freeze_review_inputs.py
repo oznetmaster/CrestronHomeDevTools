@@ -103,6 +103,9 @@ def freeze(settings_path, output, candidate_digest, inventory_digest, mapping_di
             options["declarations"] = copy(declarations, "documents/declarations.json", declarations_sha256)
             options["declarationsSha256"] = digest(declarations_sha256)
         if android is not None:
+            for item in android.get("reviewFiles", []):
+                name = relative(item["relativePath"])
+                copy(evidence / name, "evidence/" + name, item["sha256"])
             options["androidPins"] = copy(android_pins, "documents/android-pins.json", android_pins_sha256)
             options["androidPinsSha256"] = digest(android_pins_sha256)
             roots = {item["runId"]: Path(item["path"]) for item in settings["androidEvidence"]}
