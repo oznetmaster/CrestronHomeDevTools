@@ -11,6 +11,7 @@ from lxml.etree import XMLSyntaxError
 from audit_android import Evidence, digest, require
 from build_help import keys, sha, strict_object
 from package_help import read_json, write_json
+from publish_artifacts import publish
 from review_android import audit_runs
 from self_test_form import pinned_json
 
@@ -124,12 +125,7 @@ def freeze(settings_path, output, candidate_digest, inventory_digest, mapping_di
         _, frozen_settings, frozen_options = load(staging, pin)
         audit_runs(frozen_settings, frozen_options.get("androidPins"), frozen_options.get("androidPinsSha256"), candidate_digest,
                    review_mode=frozen_options["reviewMode"])
-        output.mkdir()
-        # Publish COMPLETE last. A partial publication is retained and is never reused as complete.
-        for item in staging.iterdir():
-            item.rename(output / item.name)
-        with (output / "COMPLETE").open("x", encoding="ascii") as marker:
-            marker.write(pin + "\n")
+        publish(staging, output, sha((staging / MANIFEST).read_bytes()))
         return {"schemaVersion": 1, "inputsSha256": pin, "fileCount": len(files), "testsExecuted": False,
                 "submissionReady": False, "deliveryAttempted": False}
 

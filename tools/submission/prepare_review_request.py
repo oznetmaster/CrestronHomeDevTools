@@ -20,6 +20,7 @@ from reportlab.platypus.doctemplate import LayoutError
 
 from build_help import keys, sha, strict_object, text
 from package_help import read_json, write_json
+from publish_artifacts import publish
 from prepare_signed_review import copy_pinned
 from render_help import run_process
 from review_android import retained_files
@@ -231,11 +232,7 @@ def prepare(settings_path, review_digest, disposition_digest):
                   "signatureApplied": False, "visualReviewRequired": True, "producerAuthenticationRequired": True,
                   "deliveryAuthorized": False, "submissionReady": False, "deliveryAttempted": False}
         write_json(completed / "request-receipt.json", result)
-        output.mkdir()
-        for item in completed.iterdir():
-            item.rename(output / item.name)
-        with (output / "COMPLETE").open("x", encoding="ascii") as marker:
-            marker.write(sha((output / "request-receipt.json").read_bytes()) + "\n")
+        publish(completed, output, sha((completed / "request-receipt.json").read_bytes()))
         return result
 
 

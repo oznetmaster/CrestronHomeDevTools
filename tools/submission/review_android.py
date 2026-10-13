@@ -39,7 +39,7 @@ def audit_runs(settings, pins_path, pins_sha256, candidate_sha256, *, review_mod
         roots[location["runId"]] = location["path"]
     runs = {}
     for run in pins["runs"]:
-        keys(run, ("runId", "assembly", "assemblySha256", "discoverySha256", "producerManifestSha256"), ("selectionSha256", "interruptedFiles", "historicalReview"))
+        keys(run, ("runId", "assembly", "assemblySha256", "discoverySha256", "producerManifestSha256"), ("selectionSha256", "interruptedFiles", "historicalReview", "archivedReview"))
         if "interruptedFiles" in run:
             require(review_mode == "declared-gaps" and isinstance(run["interruptedFiles"], list),
                     "Interrupted evidence requires explicit declared-gaps mode and a complete file inventory")
@@ -53,6 +53,11 @@ def audit_runs(settings, pins_path, pins_sha256, candidate_sha256, *, review_mod
     reports, review_files = [], {}
     for run_id, run in sorted(runs.items()):
         historical = run.get("historicalReview")
+        archived = run.get("archivedReview")
+        if archived is not None:
+            require(review_mode == "declared-gaps" and "interruptedFiles" in run and historical is None,
+                    "Archived review requires interrupted evidence in declared-gaps mode only")
+            review_files.update(validate_historical_review(archived, settings["evidence"]))
         if historical is not None:
             require(review_mode == "declared-gaps" and "interruptedFiles" not in run,
                     "Historical evidence is only available for complete-run declared interpretations")
@@ -61,9 +66,12 @@ def audit_runs(settings, pins_path, pins_sha256, candidate_sha256, *, review_mod
                              run["assembly"], run["assemblySha256"], run["discoverySha256"],
                              run["producerManifestSha256"], run.get("selectionSha256"),
                              interrupted_files=run.get("interruptedFiles"),
-                             historical_identity=historical["identity"] if historical is not None else None)
+                             historical_identity=historical["identity"] if historical is not None else None,
+                             archived_identity=archived["identity"] if archived is not None else None)
         if historical is not None:
             report["sourceReview"] = historical["sourceReview"]
+        if archived is not None:
+            report["archiveReview"] = archived["sourceReview"]
         reports.append(report)
     documentary, documentary_files = audit_documentary(settings, pins.get("documentaryBindings", []), candidate_sha256, review_mode)
     review_files.update(documentary_files)

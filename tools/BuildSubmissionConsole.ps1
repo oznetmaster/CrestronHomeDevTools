@@ -4,7 +4,8 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][string] $OutputDirectory,
-    [ValidatePattern('^\d+\.\d+\.\d+$')][string] $Version
+    [ValidatePattern('^\d+\.\d+\.\d+$')][string] $Version,
+    [string] $NUnitWorkflowProject
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
@@ -14,6 +15,13 @@ $bundle = Join-Path $root ('artifacts/submission-runtime-' + [Guid]::NewGuid().T
 & (Join-Path $PSScriptRoot 'BuildSubmissionRuntime.ps1') -OutputDirectory $bundle
 $versionProperties = @()
 if ($Version) { $versionProperties += "-p:Version=$Version" }
+# Explicit source-reference build: do not silently package an older published workflow.
+if ($NUnitWorkflowProject) {
+    $workflowProject = [IO.Path]::GetFullPath($NUnitWorkflowProject)
+    if (-not (Test-Path -LiteralPath $workflowProject -PathType Leaf) -or [IO.Path]::GetFileName($workflowProject) -ne 'CrestronHomeNUnit.Workflow.csproj') { throw 'Supply the exact maintained NUnit workflow project.' }
+    $devToolsProject = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../CrestronHomeDevTools/CrestronHomeDevTools.csproj'))
+    $versionProperties += "-p:NUnitWorkflowProject=$workflowProject", "-p:DevToolsProject=$devToolsProject"
+}
 dotnet publish (Join-Path $root 'CrestronHomeDevTools.Console/CrestronHomeDevTools.Console.csproj') -c Release -r win-x64 --self-contained true -o $output -p:RuntimeFrameworkVersion=10.0.12 -p:DebugType=None -p:DebugSymbols=false "-p:SubmissionBundleDirectory=$bundle" @versionProperties
 if ($LASTEXITCODE -ne 0) { throw 'Console publish failed.' }
 foreach ($script in @('InstallSubmissionOperatorListener.ps1','InstallSubmissionOperatorInbox.ps1','WatchSubmissionOperatorInbox.ps1')) {
@@ -29,6 +37,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Automation worker publish failed.' }
 if ($LASTEXITCODE -ne 0) { throw 'Automation worker smoke test failed.' }
 $setupArguments = @{ OutputDirectory = (Join-Path $output 'setup') }
 if ($Version) { $setupArguments.Version = $Version }
+if ($NUnitWorkflowProject) { $setupArguments.NUnitWorkflowProject = $workflowProject }
 & (Join-Path $PSScriptRoot 'BuildSubmissionSetup.ps1') @setupArguments
 $assets = Get-Content (Join-Path $root 'CrestronHomeDevTools.Console/obj/project.assets.json') -Raw | ConvertFrom-Json -AsHashtable
 $runtimePack = @($assets.packageFolders.Keys | ForEach-Object { Join-Path $_ 'microsoft.netcore.app.runtime.win-x64/10.0.12' } | Where-Object { Test-Path $_ }) | Select-Object -First 1

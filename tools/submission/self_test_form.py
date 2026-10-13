@@ -26,6 +26,7 @@ from package_help import read_json, write_json
 from checklist_notes import notes_document, link_notes, identify_form
 from render_help import run_process
 from validator_runtime import validator_command
+from validator_diagnostics import require_success
 
 
 def pinned_json(path, expected):
@@ -205,7 +206,7 @@ def decisions(inventory, inventory_digest, mapping, policy, observations, assess
 
 def validate_evidence(inventory, inventory_digest, mapping_path, mapping_digest, candidate_path,
                       candidate_digest, policy_path, observations_path, package_path, template_path,
-                      evidence_directory, dotnet=None, validator=None, *, declarations_path=None, declarations_digest=None):
+                      evidence_directory, dotnet=None, validator=None, *, declarations_path=None, declarations_digest=None, diagnostics_parent=None):
     candidate_bytes, candidate = pinned_json(candidate_path, candidate_digest)
     mapping_bytes, mapping = pinned_json(mapping_path, mapping_digest)
     policy_bytes, policy = pinned_json(policy_path, candidate["identity"]["policySha256"])
@@ -223,8 +224,7 @@ def validate_evidence(inventory, inventory_digest, mapping_path, mapping_digest,
     if declared_gaps:
         arguments.extend(("--mode", "declared-gaps", "--declarations", str(declarations_path), "--declarations-sha256", declarations_digest))
     result = run_process(arguments, 120)
-    if result.returncode != 0:
-        raise ValueError("DevTools evidence validation failed; no completed form was generated")
+    require_success(result, "DevTools evidence validation", diagnostics_parent)
     report = json.loads(result.stdout, object_pairs_hook=strict_object)
     assessment = None
     if declared_gaps:
@@ -472,7 +472,7 @@ def main():
                 raise ValueError("Evidence mode requires all pinned candidate, policy and mapping inputs")
             rows, checked, validation_json = validate_evidence(inventory, args.inventory_sha256, args.mapping, args.mapping_sha256,
                 args.candidate, args.candidate_sha256, args.policy, args.observations, args.package, args.template,
-                args.evidence, args.dotnet, args.validator, declarations_path=args.declarations, declarations_digest=args.declarations_sha256)
+                args.evidence, args.dotnet, args.validator, declarations_path=args.declarations, declarations_digest=args.declarations_sha256, diagnostics_parent=Path(args.report).resolve().parent)
             identity.update(checked)
         report = write_form(source, inventory, args.output, args.title, args.author, rows, identity, args.mode == "draft",
                             args.mode in ("for-signing", "declared-gaps-for-signing"), declared_gaps)

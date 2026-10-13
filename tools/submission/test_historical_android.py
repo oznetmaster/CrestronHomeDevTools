@@ -153,6 +153,78 @@ class HistoricalReviewTests(unittest.TestCase):
         self.pins['observationBindings'][0]['runId'] = current.run
         with self.assertRaises(ValueError): self.validate()
 
+    def archive_old_run(self):
+        from test_interrupted_android import interrupt, inventory
+        interrupt(self.a)
+        run = self.pins['runs'][0]
+        run['archivedReview'] = run.pop('historicalReview')
+        run['interruptedFiles'] = inventory(self.a.root)
+        return run
+
+    def test_old_interrupted_archive_preserves_identity_and_never_passes(self):
+        self.archive_old_run()
+        report = self.audit()['runs'][0]
+        self.assertEqual('InterruptedAndroidEvidencePreserved', report['status'])
+        self.assertTrue(report['archivedEvidence'])
+        self.assertEqual(self.historical['identity'], report['identity'])
+        self.assertNotEqual(report['identity']['packageSha256'], report['targetIdentity']['packageSha256'])
+        self.assertFalse(report['completePassingRun'])
+        self.assertIsNone(report['executedTests'])
+        self.assertFalse(report['submissionReady'])
+        with self.assertRaises(ValueError): self.validate()
+        self.pins['observationBindings'] = []
+        self.f.gaps[-1].pop('interpretationReview')
+        self.validate()
+        self.assertIsNone(json.loads((self.a.root / 'context.json').read_bytes())['ReleaseSourceCommit'])
+
+    def test_archived_original_identity_survives_public_review_freeze(self):
+        from freeze_review_inputs import load
+        self.archive_old_run()
+        self.pins['observationBindings'] = []
+        self.f.gaps[-1].pop('interpretationReview')
+        self.f.save()
+        self.save()
+        receipt = self.f.run_stage(**self.options)
+        self.assertFalse(receipt['submissionReady'])
+        frozen = self.f.output.with_name(self.f.output.name + '.inputs')
+        _, settings, opts = load(frozen, (frozen / 'COMPLETE').read_text().strip(), completed=True)
+        result = audit_runs(settings, opts['androidPins'], opts['androidPinsSha256'],
+                            opts['candidateSha256'], review_mode=opts['reviewMode'])
+        self.assertEqual('InterruptedAndroidEvidencePreserved', result['runs'][0]['status'])
+        self.assertTrue(result['runs'][0]['archivedEvidence'])
+        self.assertIsNone(result['runs'][0]['identity']['releaseSourceCommit'])
+
+    def test_archive_rejects_complete_mode_and_missing_interrupted_inventory(self):
+        run = self.archive_old_run()
+        with self.assertRaises(ValueError): self.audit('complete')
+        del run['interruptedFiles']
+        with self.assertRaises(ValueError): self.audit()
+
+    def test_archive_rejects_dual_identity_and_changed_original_identity(self):
+        run = self.archive_old_run()
+        run['historicalReview'] = copy.deepcopy(run['archivedReview'])
+        with self.assertRaises(ValueError): self.audit()
+        del run['historicalReview']
+        for key, value in [('sourceSha256', '1' * 64), ('installedDriverId', 987654),
+                           ('driverVersion', '9.0.0.0'), ('releaseSourceCommit', 'f' * 40)]:
+            before = self.historical['identity'][key]
+            with self.subTest(key=key):
+                self.historical['identity'][key] = value
+                with self.assertRaises(ValueError): self.audit()
+                self.historical['identity'][key] = before
+
+    def test_archive_keeps_terminal_and_tamper_refusals(self):
+        from test_interrupted_android import inventory
+        run = self.archive_old_run()
+        path = self.a.root / 'check/screen.png'
+        original = path.read_bytes()
+        path.write_bytes(original + b'changed')
+        with self.assertRaises(ValueError): self.audit()
+        path.write_bytes(original)
+        self.a.write('completion.json', {'RestorationConfirmed': False})
+        run['interruptedFiles'] = inventory(self.a.root)
+        with self.assertRaises(ValueError): self.audit()
+
     def test_frozen_public_review_checks_only_the_interpreted_item_and_retains_null(self):
         from freeze_review_inputs import load
         from pypdf import PdfReader

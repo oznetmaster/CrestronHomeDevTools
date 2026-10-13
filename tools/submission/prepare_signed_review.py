@@ -18,8 +18,10 @@ from pypdf.errors import PdfReadError
 
 from build_help import keys, sha, strict_object
 from package_help import read_json, write_json
+from publish_artifacts import publish
 from render_help import run_process
 from validator_runtime import settings_validator
+from validator_diagnostics import require_success
 from self_test_form import pinned_json
 import sign_self_test_form as signing
 from review_android import retained_files
@@ -98,8 +100,7 @@ def prepare(settings_path, review_digest, authorization_digest, *, image_bytes=N
                                "--bundle", str(staging / "evidence.zip"),
                                "--bundle-sha256", receipt["bundleSha256"].lower(),
                                "--candidate-sha256", receipt["candidateSha256"], "--scratch", str(staging), *options], 180)
-        if checked.returncode != 0:
-            raise ValueError("Evidence no longer passes validation; no signature was applied")
+        require_success(checked, "Evidence no longer passes validation; no signature was applied", output.parent)
         revalidated_utc = datetime.now(timezone.utc).isoformat()
         bundle = json.loads(checked.stdout, object_pairs_hook=strict_object)
         identity = form_report["identity"]
@@ -173,11 +174,7 @@ def prepare(settings_path, review_digest, authorization_digest, *, image_bytes=N
             for name in ("declarations.json", "inventory.json", "mapping.json", "form-report.json", "self-test.review.pdf", "evidence.zip"):
                 (staging / name).rename(completed / name)
         write_json(completed / "signed-review-receipt.json", result)
-        output.mkdir()
-        for item in completed.iterdir():
-            item.rename(output / item.name)
-        with (output / "COMPLETE").open("x", encoding="ascii") as marker:
-            marker.write(sha((output / "signed-review-receipt.json").read_bytes()) + "\n")
+        publish(completed, output, sha((completed / "signed-review-receipt.json").read_bytes()))
         return result
 
 

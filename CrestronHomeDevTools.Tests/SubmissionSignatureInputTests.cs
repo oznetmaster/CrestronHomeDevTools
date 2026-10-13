@@ -39,4 +39,30 @@ public sealed class SubmissionSignatureInputTests
 		Assert.Throws<ArgumentException> (() => SubmissionSignatureInput.Prepare (["sign-self-test-form", "--signature-stdin", "--credentials", "unused"]));
 		Assert.Throws<ArgumentException> (() => SubmissionSignatureInput.Prepare (["sign-self-test-form", "--credentials", "first", "--credentials", "second"]));
 		}
+    [Test]
+    public void SigningPlanCannotResolveTheNamedCredentialPath()
+        {
+        string[] arguments = ["prepare-signing-plan", "--credentials", "nonexistent-private-binding"];
+        using var input = SubmissionSignatureInput.Prepare(arguments);
+        Assert.That(input.Image, Is.Null);
+        Assert.That(input.Arguments, Is.EqualTo(arguments));
+        }
+    [Test]
+    public void WrongReviewPinIsRejectedBeforeNamedSignatureStoreIsOpened()
+        {
+        string root=Path.Combine(TestContext.CurrentContext.WorkDirectory,"signing-preflight-"+Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+            {
+            File.WriteAllText(Path.Combine(root,"review-receipt.json"),"{}");
+            File.WriteAllText(Path.Combine(root,"COMPLETE"),new string('0',64));
+            var settings=Path.Combine(root,"settings.json");
+            File.WriteAllText(settings,JsonSerializer.Serialize(new {reviewDirectory=root,authorization=Path.Combine(root,"missing-approval")}));
+            Assert.Throws<InvalidDataException>(()=>SubmissionSignatureInput.Prepare([
+                "prepare-signed-review","--settings",settings,"--review-sha256",new string('0',64),
+                "--authorization-sha256",new string('0',64),"--credentials",Path.Combine(root,"missing-store")]));
+            }
+        finally { Directory.Delete(root,true); }
+        }
+
 	}

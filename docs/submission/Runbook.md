@@ -1,5 +1,7 @@
 # Submit a driver: the normal path
 
+Read [workflow reliability](WorkflowReliability.md) before preparing the next run. It covers evidence reconciliation, immutable inputs, retained diagnostics, launch budgets, monitoring and exact signing continuation.
+
 This is the entry point for a developer or an assistant using the public workflow. Use the current stable DevTools release (1.16.1 or later for the first-page driver identification). Follow the linked settings schemas; capitalized command arguments are placeholders to replace.
 
 Submission is optional and applies only to actual Crestron drivers. Library, client and processor-test releases do not use it. Passing these checks means complete against our interpretation of Crestron's requirements, not accepted or certified by Crestron. The protected stages have tooling acceptance tests, and the published console has completed real authorized upload and signed-form email delivery. See [validation status](ValidationStatus.md) for the distinction between this local run, CI rehearsals and the consuming developer's environment validation.
@@ -28,11 +30,21 @@ If the candidate changed after testing, [review prior evidence explicitly](Prior
 
 Record exact input hashes and completed stage receipts in a private handoff record. This allows another person or assistant to resume without a conversation history. A candidate declaration hash identifies the JSON declaration; it is **not** the package hash.
 
+## Compare values according to their meaning
+
+Choose and document comparison semantics when authoring a fixture or workflow guard; do not rely on the language's default string comparison or make every string case-insensitive.
+
+- SHA-256 pins: validate the required hexadecimal length and syntax, then compare decoded digest bytes. Uppercase and lowercase hex represent the same digest; changed or malformed digests must still fail. This does not permit changing the pinned file bytes.
+- Presentation text: when casing is only a rendering choice and is not part of the requirement, use an explicit ordinal case-insensitive comparison, or pin the exact observed rendered value. Check an authentic hierarchy before live execution; a model/property value may render differently. Preserve exact resource, application, front-layer, uniqueness and expected-value checks. Do not use fuzzy matching or broadly strip whitespace/punctuation to make a failed guard pass.
+- Credentials, tokens, opaque identifiers, resource IDs, paths and protocol values: follow the field's documented contract. Preserve case-sensitive equality wherever required or unspecified; do not lowercase them globally. UI presentation rules do not change the semantics of embedded values such as endpoint paths or identifiers.
+
+Validate the chosen comparator offline with permitted casing variants and a genuinely different value that must fail. A corrected comparison must preserve the original failed evidence and candidate identity; it is not permission to replay uncertain input. See [Android fixture guidance](AndroidEvidence.md#fixture-string-comparisons).
+
 ## Run the four protected stages
 
 For direct console use, follow the linked command guide for each stage below. Use the released console and private settings, retain its receipts, and advance only after the required artifact review and authorization. No GitHub setup is needed for this route.
 
-If you chose the optional CI templates, open **Actions → Crestron submission → Run workflow** in your own configured repository. Select its configured branch and enable the requested stage. Repository enablement and environment approvals also apply; a skipped green job is not completion. The stage names below are shared descriptions, not a requirement to use GitHub Actions.
+If you chose the optional CI templates, open **Actions â†’ Crestron submission â†’ Run workflow** in your own configured repository. Select its configured branch and enable the requested stage. Repository enablement and environment approvals also apply; a skipped green job is not completion. The stage names below are shared descriptions, not a requirement to use GitHub Actions.
 
 | Stage | Inputs to supply | Result to inspect before continuing |
 |---|---|---|

@@ -4,7 +4,8 @@
 [CmdletBinding()]
 param(
     [string]$OutputDirectory = (Join-Path $PSScriptRoot '..\artifacts\submission-setup-win-x64'),
-    [ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version
+    [ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version,
+    [string]$NUnitWorkflowProject
 )
 $ErrorActionPreference = 'Stop'
 $project = Join-Path $PSScriptRoot '..\CrestronHomeDevTools.Setup\CrestronHomeDevTools.Setup.csproj'
@@ -12,6 +13,13 @@ $output = [IO.Path]::GetFullPath($OutputDirectory)
 if (Test-Path -LiteralPath $output) { throw 'Use a fresh setup output directory.' }
 $versionProperties = @()
 if ($Version) { $versionProperties = @("-p:Version=$Version") }
+# Explicit source-reference build: do not silently package an older published workflow.
+if ($NUnitWorkflowProject) {
+    $workflowProject = [IO.Path]::GetFullPath($NUnitWorkflowProject)
+    if (-not (Test-Path -LiteralPath $workflowProject -PathType Leaf) -or [IO.Path]::GetFileName($workflowProject) -ne 'CrestronHomeNUnit.Workflow.csproj') { throw 'Supply the exact maintained NUnit workflow project.' }
+    $devToolsProject = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../CrestronHomeDevTools/CrestronHomeDevTools.csproj'))
+    $versionProperties += "-p:NUnitWorkflowProject=$workflowProject", "-p:DevToolsProject=$devToolsProject"
+}
 dotnet publish $project -c Release -r win-x64 --self-contained true -p:RuntimeFrameworkVersion=10.0.12 -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false -o $output @versionProperties
 if ($LASTEXITCODE -ne 0) { throw 'Setup application publication failed.' }
 if (-not (Test-Path -LiteralPath (Join-Path $output 'CrestronHomeDevTools.Setup.exe') -PathType Leaf)) { throw 'Published setup application is missing.' }

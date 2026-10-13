@@ -62,6 +62,35 @@ class BundledConsoleTests(unittest.TestCase):
         self.portable_settings(fixture)
         return fixture
 
+    def test_signing_plan_uses_exact_receipt_without_reading_credentials(self):
+        f = signed.SignedReviewStageTests()
+        f.setUp(declared_gaps=True)
+        self.addCleanup(f.doCleanups)
+        output, _ = self.invoke("prepare-signing-plan", "--review-directory", f.review.output,
+            "--review-sha256", f.review_pin, "--authorization", f.authorization,
+            "--authorization-sha256", f.approval_pin, "--output", f.root / "plan",
+            "--signed-output", f.output, "--credentials", f.root / "missing-credentials")
+        plan = json.loads(output)
+        self.assertFalse(plan["signatureRead"])
+        self.assertFalse(f.output.exists())
+        self.assertEqual(plan["reviewSha256"], f.review_pin)
+        self.assertTrue((f.root / "plan/COMPLETE").is_file())
+
+    def test_explicit_snapshot_preserves_bytes_and_refuses_stale_pin(self):
+        source = self.hostile / "source.bin"
+        source.write_bytes(b"original\r\n\x00bytes")
+        manifest = self.hostile / "inputs-request.json"
+        manifest.write_text(json.dumps({"schemaVersion": 1, "files": [{"source": str(source),
+            "relativePath": "source.bin", "sha256": sha(source.read_bytes())}]}), encoding="utf-8")
+        pin = sha(manifest.read_bytes())
+        self.invoke("snapshot-inputs", "--manifest", manifest, "--manifest-sha256", pin,
+            "--output", self.hostile / "snapshot")
+        self.assertEqual((self.hostile / "snapshot/source.bin").read_bytes(), source.read_bytes())
+        source.write_bytes(b"changed")
+        self.invoke("snapshot-inputs", "--manifest", manifest, "--manifest-sha256", pin,
+            "--output", self.hostile / "refused", success=False)
+        self.assertFalse((self.hostile / "refused").exists())
+
     def test_runtime_and_every_public_command_help_without_installed_runtime(self):
         result = json.loads(self.invoke("runtime-check")[0])
         self.assertTrue(result["ready"])
