@@ -11,6 +11,7 @@ from package_help import read_json
 from build_help import keys, sha
 from self_test_form import pinned_json
 from documentary_android import audit_documentary, validate_documentary_bindings
+from human_history import audit_human_history, validate_human_history_bindings
 
 
 def audit_runs(settings, pins_path, pins_sha256, candidate_sha256, *, review_mode="complete"):
@@ -22,7 +23,7 @@ def audit_runs(settings, pins_path, pins_sha256, candidate_sha256, *, review_mod
             "Android review requires an independent absolute pins path")
     digest(pins_sha256)
     _, pins = pinned_json(pins_path, pins_sha256)
-    keys(pins, ("schemaVersion", "candidateSha256", "runs"), ("observationBindings", "documentaryBindings"))
+    keys(pins, ("schemaVersion", "candidateSha256", "runs"), ("observationBindings", "documentaryBindings", "humanObservationBindings"))
     require(type(pins["schemaVersion"]) is int and pins["schemaVersion"] == 1 and
             pins["candidateSha256"] == candidate_sha256, "Android pins identify another candidate")
     require(isinstance(pins["runs"], list) and 0 < len(pins["runs"]) <= 128,
@@ -66,10 +67,14 @@ def audit_runs(settings, pins_path, pins_sha256, candidate_sha256, *, review_mod
         reports.append(report)
     documentary, documentary_files = audit_documentary(settings, pins.get("documentaryBindings", []), candidate_sha256, review_mode)
     review_files.update(documentary_files)
+    human, human_files = audit_human_history(settings, pins.get("humanObservationBindings", []),
+                                            candidate_sha256, review_mode, documentary)
+    review_files.update(human_files)
     bindings = pins.get("observationBindings", [])
     require(isinstance(bindings, list) and len(bindings) <= 4096, "Invalid observation bindings")
     return {"schemaVersion": 1, "pinsSha256": pins_sha256, "runs": reports,
             "observationBindings": bindings, "documentaryBindings": documentary,
+            "humanObservationBindings": human,
             "reviewFiles": [{"relativePath": name, "sha256": value} for name, value in sorted(review_files.items())],
             "producerAuthenticated": False, "officialRequirementsSatisfied": [], "submissionReady": False}
 
@@ -134,6 +139,9 @@ def validate_observation_bindings(android, android_scopes, observations, declara
     declared = {item["requirementId"]: item for item in declarations.get("declarations", [])}
     evidence = Evidence(evidence_root)
     bindings = validate_documentary_bindings(android, android_scopes, observations, declarations, evidence)
+    human = validate_human_history_bindings(android, android_scopes, observations, declarations, evidence)
+    require(not bindings.keys() & human.keys(), "Duplicate documentary/human observation binding")
+    bindings.update(human)
     used_historical = set()
     for entry in entries:
         keys(entry, ("requirementId", "runId", "files"))

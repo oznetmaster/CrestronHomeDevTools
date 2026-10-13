@@ -192,3 +192,58 @@ The accepted native shape is one exact `android.view.ViewGroup` with an empty re
 Reports are `StaticDocumentaryGaugeLabelsReviewed` or `StaticDocumentaryGaugeScaleReviewed`, with `dynamicDeviceChangeObserved: false`, `physicalExtremesObserved: false` and `staticDeclaredScaleOnly: true`. Raw observations remain `Partial` or `Inconclusive`, original `installedPackageSha256: null`, `testPassClaimed: false` and `candidateAccepted: false` remain unchanged, and producer/installed-package authentication remain false. The observation and its same-reviewer named interpretation must retain every exact original/source reference. Neither a raw `Passed` nor `ReviewedPriorPass` is permitted.
 
 Portable freeze rechecks and copies these files alongside ordinary raw Android runs. This source-only contract is not present in installed 1.26.2. A scoped interpretation, a checkbox, a prepared artifact, a signature, delivery and actual Crestron acceptance remain different facts.
+
+
+## Scoped firsthand history observations
+
+The maintained source-only declared-gaps workflow accepts `humanObservationBindings`
+in independent Android pins, separately from all complete/interrupted machine runs.
+Only `extension.controls.06.device-change-immediate-gauge` and
+`extension.controls.18.repeat-all-applicable-controls-on-every-subpage` are eligible.
+This retains positive firsthand history observations as a named, qualified technical
+interpretation. It does not authenticate an Android test, claim timed device change,
+or establish every control or an unspoken repeated-button sequence. Ordinary Android
+producer auditing remains unchanged; interrupted runs stay interrupted.
+
+Each binding contains `requirementId`, `provenance` (an evidence path/SHA-256),
+`statementIndex`, the exact `quote` and `reportedBehavior`, `reportedIdentity`
+(`deviceId`, `version`, `packageSha256`), all original `limitations`,
+`corroboratingScopes`, and `sourceReview`. The pinned provenance records `source`,
+`recordedUtc` and `statements`; the selected statement records `quote`,
+`reportedObservation`, `scopeLimits` and optionally the exact `reportedIdentity`.
+If the human did not identify an instance/version/package, preserve nulls. Unknown
+identity qualifies the observation; it is not grounds to erase firsthand evidence or
+infer identity from a separate screenshot. A viewed period such as yesterday is not
+an invented observation timestamp.
+
+Gauge-history corroboration requires independently audited documentary gauge-label
+and declared-scale scopes; subpage corroboration requires the audited button-group
+scope. These existing audits preserve original archive, captures, restoration and
+current package/layout/source checks. Their identity remains separate from the human
+observation. `sourceReview` records reviewer, actual reviewed UTC, rationale, current
+source commit, `originalHistorySource` and `currentHistorySource` path/hash references,
+bounded evidence `files`, and pinned `attestation`. The attestation
+must exactly match the binding's eight observation fields and the reviewer's four
+review fields plus both history-source references. Review files include provenance,
+attestation and both nonempty source files. The raw observation
+must remain Partial or Inconclusive; the declaration must have a named interpretation
+retaining every exact human/source/corroboration reference. All references are frozen
+and re-audited through the ordinary portable review workflow. Complete mode, unknown
+scopes, rewritten statements, omitted limits, inferred identity and raw Passed or
+ReviewedPriorPass claims are rejected. This route is not yet in the published tools.
+
+## System 04 applicable removal view
+
+Preserve the official wording: after deleting the driver, it should no longer be
+listed in the room **or** seen in the end-user UIs; the err-log obligation is separate.
+Evaluate the applicable view. A driver with no room UI does not acquire a room-view
+requirement. The legacy `delete-instance-room-and-ui-absence` identifier is retained
+for compatibility, not as an additional AND requirement. The checklist does not
+require deleting a particular retained production/test instance. Identify the actual
+removed instance and its driver/model/version; credit genuine prior presence and
+final API absence without pretending API absence proves end-user UI absence or an
+err-log scan. Conditional cleanup source that writes a removal receipt even when the
+instance was already absent must not be described as proof the removal command ran.
+Restoration policies protect unaffected state; they do not require recreating an
+intentionally deleted test instance or deleting a retained candidate. Keep unobserved
+applicable end-user UI and error-log facts as explicit residuals.
