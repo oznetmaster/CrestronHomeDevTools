@@ -9,6 +9,7 @@
   <ItemGroup>
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.9" />
     <InternalsVisibleTo Include="CrestronHomeDevTools.Tests" />
+    <InternalsVisibleTo Include="CrestronHomeDevTools.DriverUpdates" />
     <InternalsVisibleTo Include="CrestronHomeDevTools.Tests.Probe" />
   </ItemGroup>
   <ItemGroup>
