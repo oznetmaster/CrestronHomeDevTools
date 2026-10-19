@@ -9,6 +9,7 @@ Set-StrictMode -Version Latest
 $guard = $null
 $attempt = $null
 $stateDirectory = $null
+$credentialBindings = $null
 $utf8 = New-Object Text.UTF8Encoding($false)
 
 function Write-AtomicJson([string]$Path, $Value) {
@@ -31,7 +32,10 @@ function Invoke-Collector([string]$Command, [string]$Label) {
 	$start.FileName = Join-Path $config.CliDirectory $config.CliExecutable
 	$start.WorkingDirectory = $config.CliDirectory
 	$arguments = @($Command, '--worker', $config.WorkerFile, '--run', $config.RunDirectory)
-	if ($Command -eq 'endurance-tick') { $arguments += @('--settings', $config.SettingsFile) }
+	if ($Command -eq 'endurance-tick') {
+		$arguments += @('--settings', $config.SettingsFile)
+		if ($credentialBindings) { $arguments += @('--credentials', $credentialBindings) }
+	}
 	$start.Arguments = ($arguments | ForEach-Object { Quote-Argument $_ }) -join ' '
 	$start.UseShellExecute = $false
 	$start.CreateNoWindow = $true
@@ -160,6 +164,15 @@ try {
 	if ($unfinished.Count -gt 0) { exit (Complete-Attempt 'AttentionRequired' 'previous-invocation-incomplete' 3 $null) }
 	if ((Get-FileHash -LiteralPath $PSCommandPath -Algorithm SHA256).Hash -ne $config.ScriptSha256 -or
 		(Get-FileHash -LiteralPath $config.WorkerFile -Algorithm SHA256).Hash -ne $config.WorkerSha256) { throw 'Changed scheduled script or worker plan.' }
+	if ($config.PSObject.Properties['CredentialBindingsFile']) {
+		$credentialBindings = [string]$config.CredentialBindingsFile
+		if (-not [IO.Path]::IsPathRooted($credentialBindings) -or $credentialBindings.StartsWith('\\')) { throw 'Use absolute local credential bindings.' }
+		$credentialBindings = [IO.Path]::GetFullPath($credentialBindings)
+		foreach ($directory in @($config.CliDirectory, $config.RunDirectory, $config.StateDirectory)) {
+			if ($credentialBindings.StartsWith([IO.Path]::GetFullPath($directory).TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase)) { throw 'Keep credential bindings outside CLI and evidence directories.' }
+		}
+		if ((Get-FileHash -LiteralPath $credentialBindings -Algorithm SHA256).Hash -ne $config.CredentialBindingsSha256) { throw 'Credential bindings changed.' }
+	}
 	$cliRoot = [IO.Path]::GetFullPath($config.CliDirectory).TrimEnd('\') + '\'
 	$seen = @{}
 	foreach ($pin in $config.CliFiles) {

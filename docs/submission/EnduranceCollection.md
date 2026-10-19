@@ -1,6 +1,6 @@
 # Resumable endurance collection
 
-`SubmissionEndurance`, `SubmissionEnduranceMonitor`, `SubmissionEnduranceProcessProbe` and the endurance CLI commands require DevTools 1.6.0 or later. Their journals, collection, reservation orchestration and child-process protocol have regression tests and real-processor validation. Consumer-owned probes have also exercised short real-function observations, standard evidence export and deliberate driver-restart rejection. These checks do not constitute a final candidate endurance period. The consuming project remains responsible for its probe, scheduler, interruption/restart validation, approved policy and complete candidate-specific duration.
+`SubmissionEndurance`, `SubmissionEnduranceMonitor`, `SubmissionEnduranceProcessProbe` and the endurance CLI commands require DevTools 1.6.0 or later. Their journals, collection, reservation orchestration and child-process protocol have regression tests and real-processor validation. Consumer-owned probes have also exercised short real-function observations, standard evidence export and deliberate driver-restart rejection. These checks do not constitute a final candidate endurance period. The consuming project remains responsible for its probe, scheduler, approved policy and complete candidate-specific duration. Infrastructure interruption/restart testing is separate from submission acceptance.
 
 ## What the collector does
 
@@ -64,7 +64,7 @@ Archived runs must never supply a fresh run's working baseline. Archive rotation
 
 ## Deployment still required
 
-The remaining integration is a driver-specific trusted producer, deployment of a supervised scheduled worker with automatic startup and alerts, private credential provisioning, and validation across an actual operating-system restart. The monitoring computer can be separate from the development computer; it needs compatible .NET, processor/device connectivity and private storage. Android UI tests need an emulator only when the approved producer actually uses the app.
+The remaining integration is a driver-specific trusted producer, a scheduled worker under the selected existing or explicitly authorized account, private credential access and operational monitoring. Automatic startup, delivered alerts and recovery across an operating-system restart are optional infrastructure capabilities to qualify separately, not additional Crestron submission gates. The monitoring computer can be separate from the development computer; it needs compatible .NET, processor/device connectivity and private storage. Android UI tests need an emulator only when the approved producer actually uses the app.
 
 ## Scheduler command contract
 
@@ -93,6 +93,6 @@ CrestronHomeDevTools.Console.exe endurance-export --worker C:\Private\Endurance\
 
 For Windows Task Scheduler, use the tested published CLI as the executable and the `endurance-tick` arguments above. Configure a startup trigger and a repeating trigger shorter than the approved sample interval, **Do not start a new instance**, and **Run whether the user is logged on or not**. Use a dedicated account with private settings access and network connectivity. A saved encrypted profile must be created by that account on that computer; copying another user's profile is insufficient. Do not pass passwords in the task's arguments. Leave task-level forced time limits disabled for the collector; its probe deadline handles ordinary hangs, and any forced termination requires journal inspection.
 
-Retain private task output and monitor nonzero exit codes and stale sample times through the operator's monitoring system. Task Scheduler alone does not send alerts. Before a real run, verify a scheduled invocation under the actual account, a Windows restart between samples, alert delivery, preservation of the common reservation, and failure when the permitted sample gap is exceeded. These deployment/restart checks have not yet been completed by this source implementation.
+Retain private task output and monitor nonzero exit codes and stale sample times through the operator's monitoring system. Task Scheduler alone does not send alerts. Before collection, verify execution and required input access under the selected account. Preserve the common reservation and enforce the approved sample-gap policy throughout collection. Windows restart, alert-delivery and deliberate gap-failure rehearsals are separate infrastructure exercises; schedule them after submission when requested, without treating them as submission prerequisites.
 
 See the [submission implementation status](../CrestronSubmission.md) and [evidence CLI](EvidenceCli.md) for the surrounding gates.
