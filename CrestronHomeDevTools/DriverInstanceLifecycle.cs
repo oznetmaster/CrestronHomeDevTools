@@ -10,6 +10,18 @@ public sealed record DriverInstanceReady (int DeviceId, string Model, string Ver
 
 public static class DriverInstanceLifecycle
 	{
+	/// <summary>Resolve the named room on this processor before any installation or update.</summary>
+	public static async Task<DriverInstanceReady> EnsureInRoomAsync (ConfigurationClient client, string driverId, string instanceName,
+		string roomName, int? expectedDeviceId, TimeSpan timeout, CancellationToken cancellationToken = default, DriverRebootHandler? reboot = null)
+		{
+		ArgumentNullException.ThrowIfNull (client);
+		if (timeout <= TimeSpan.Zero) throw new ArgumentOutOfRangeException (nameof (timeout));
+		using var deadline = CancellationTokenSource.CreateLinkedTokenSource (cancellationToken);
+		deadline.CancelAfter (timeout);
+		var room = ProcessorTestRooms.Resolve (await client.GetLocationsAsync (deadline.Token).ConfigureAwait (false), roomName);
+		return await EnsureAsync (client, driverId, instanceName, room, expectedDeviceId, timeout, deadline.Token, reboot).ConfigureAwait (false);
+		}
+
 	public static async Task<DriverInstanceReady> EnsureAsync (ConfigurationClient client, string driverId, string instanceName,
 		 int locationId, int? expectedDeviceId, TimeSpan timeout, CancellationToken cancellationToken = default, DriverRebootHandler? reboot = null)
 		{

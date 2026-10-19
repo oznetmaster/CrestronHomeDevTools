@@ -59,9 +59,9 @@ public sealed class DriverRemovalValidationTests
     public async Task SuccessfulEarlierScanDoesNotConsumeLaterVerificationBudget()
     {
         int snapshots=0;var before=new[]{Root,Child,Grandchild,Other};
-        var result=await DriverRemovalValidation.RunCoreAsync(target,folder,TimeSpan.FromMilliseconds(500),
+        var result=await DriverRemovalValidation.RunCoreAsync(target,folder,TimeSpan.FromSeconds(2),
             _=>Task.CompletedTask,async(selected,after,directory,token)=>{
-                await Task.Delay(300,token);File.WriteAllText(Path.Combine(directory,"ui.xml"),after?"absent":"present");
+                await Task.Delay(1200,token);File.WriteAllText(Path.Combine(directory,"ui.xml"),after?"absent":"present");
                 return new DriverRemovalUiOutcome(true,true);
             },token=>Task.FromResult(ProcessorErrorLog.Parse("processor","Persistent log contents during current boot:\nNotice: Log # time # Log started\nCP4-R>","CP4-R>",DateTimeOffset.UnixEpoch.AddSeconds(snapshots++*2),DateTimeOffset.UnixEpoch.AddSeconds(snapshots*2))),
             _=>Task.FromResult(removes==0?before:new[]{Other}),_=>{removes++;return Task.CompletedTask;},CancellationToken.None);

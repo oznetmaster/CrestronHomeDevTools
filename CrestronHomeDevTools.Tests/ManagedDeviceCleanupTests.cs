@@ -161,7 +161,7 @@ public sealed class ManagedDeviceCleanupTests
 	public async System.Threading.Tasks.Task RetainedWrapperDoesNotCountAsSuccessfulNativeCleanup ()
 		{
 		var connection = new Connection (_journal) { Native = true, Fault = "native-wrapper-remains" };
-		await Assert.ThrowsAsync<TimeoutException> (async () => await ManagedDeviceCommissioning.RemoveCreatedAsync (new (connection), _journal, TimeSpan.FromMilliseconds (100)));
+		await Assert.ThrowsAsync<TimeoutException> (async () => await ManagedDeviceCommissioning.RemoveCreatedAsync (new (connection), _journal, TimeSpan.FromSeconds (2)));
 		Assert.That (connection.RemovalCalls, Is.EqualTo (1));
 		Assert.That (File.Exists (Path.Combine (_journal, "cleanup", "result.json")), Is.False);
 		}

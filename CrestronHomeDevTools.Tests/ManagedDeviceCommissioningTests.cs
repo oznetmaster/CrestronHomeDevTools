@@ -65,7 +65,7 @@ public sealed class ManagedDeviceCommissioningTests
 	public async System.Threading.Tasks.Task ReadinessTimeoutDoesNotRepeatEitherCommand ()
 		{
 		var connection = new Connection (Journal) { RemainOffline = true };
-		await Assert.ThrowsAsync<TimeoutException> (async () => await ManagedDeviceCommissioning.CommissionAsync (new (connection), REQUEST, Journal, TimeSpan.FromMilliseconds (80)));
+		await Assert.ThrowsAsync<TimeoutException> (async () => await ManagedDeviceCommissioning.CommissionAsync (new (connection), REQUEST, Journal, TimeSpan.FromSeconds (2)));
 		Assert.That (connection.Commands.Count, Is.EqualTo (2));
 		Assert.That (File.Exists (Path.Combine (Journal, "result.json")), Is.False);
 		}

@@ -12,7 +12,7 @@ public sealed record ManagedDeviceValidationResult (bool Passed, bool Restoratio
 	IReadOnlyList<ManagedDeviceTestBinding> Bindings);
 
 /// <summary>Commission, bind, validate and remove temporary managed children under a caller-owned processor reservation.</summary>
-public static class ManagedDeviceValidation
+public static partial class ManagedDeviceValidation
 	{
 	/// <remarks>
 	/// The connection factory must target the same processor as the held reservation. Ownership is verified around
