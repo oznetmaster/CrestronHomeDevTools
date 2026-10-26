@@ -17,6 +17,8 @@ Reviewed V1 removal can preserve other instances sharing the same driver code ac
 - [PowerShell prerequisite for Windows automation](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/PowerShell.md)
 - [Library example](#library-example)
 - [Driver configuration](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/DriverConfiguration.md)
+- [Cloud configuration backup listing and save APIs](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/CloudConfigurationBackups.md) (validation limits; no historical archive download)
+- [Configuration capture and guarded managed-child repair APIs](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/ManagedChildReplacement.md) (supported scope and persistence checks)
 - [Installed-driver readiness before testing](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/DriverReadiness.md) (requires 1.20.0)
 - [Managed-child validation lifecycle](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/ManagedChildValidation.md)
 - [Moving drivers between rooms](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/RoomMoves.md)
