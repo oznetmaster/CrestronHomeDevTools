@@ -22,6 +22,22 @@ public sealed class ConfigurationClient : IAsyncDisposable
 	public static async Task<ConfigurationClient> ConnectAsync (ProcessorConnectionOptions options, NetworkCredential credential, CancellationToken cancellationToken = default)
 		 => new (await ProcessorConnection.ConnectAsync (options, credential, cancellationToken).ConfigureAwait (false), true);
 
+	/// <summary>Executes an advertised resource command, including programming and scene configuration commands.</summary>
+	/// <remarks>This low-level operation does not validate mutation scope or authorize restoration.</remarks>
+	public Task<JsonElement?> ExecuteConfigurationCommandAsync (string resourcePath, string commandName, object? parameters = null, CancellationToken cancellationToken = default)
+		{
+		ProcessorConnection.ValidateConfigurationResourcePath (resourcePath);
+		ArgumentException.ThrowIfNullOrWhiteSpace (commandName);
+		return _connection.ExecuteResourceCommandAsync<JsonElement?> (resourcePath, commandName, parameters, cancellationToken);
+		}
+
+	/// <summary>Reads a complete configuration resource without dropping unknown fields.</summary>
+	public Task<JsonElement?> GetConfigurationResourceAsync (string resourcePath, CancellationToken cancellationToken = default)
+		{
+		ProcessorConnection.ValidateConfigurationResourcePath (resourcePath);
+		return _connection.GetAsync<JsonElement?> (resourcePath, cancellationToken);
+		}
+
 	public async Task<IReadOnlyList<DriverInfo>> GetDriversAsync (string? search = null, CancellationToken cancellationToken = default)
 		{
 		var tokens = string.IsNullOrWhiteSpace (search) ? [] : search.Split (' ', StringSplitOptions.RemoveEmptyEntries);

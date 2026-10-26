@@ -135,6 +135,7 @@ public sealed class ProcessorApiException (string message, HttpStatusCode? statu
 
 public interface IConfigurationConnection : IAsyncDisposable
 	{
+	Task<T?> ExecuteResourceCommandAsync<T> (string resourcePath, string commandName, object? parameters = null, CancellationToken cancellationToken = default) => throw new NotSupportedException ("This connection does not support configuration-resource commands.");
 	Task<DriverSwapResult> WaitForDriverSwapAsync (string operationId, string driverId, TimeSpan timeout, CancellationToken cancellationToken = default) => throw new NotSupportedException ("This connection cannot confirm driver swap completion.");
 	Task WaitForDisconnectAsync (CancellationToken cancellationToken = default) => throw new NotSupportedException ("This connection cannot observe processor restarts.");
 	Task<T?> GetAsync<T> (string relativePath, CancellationToken cancellationToken = default);

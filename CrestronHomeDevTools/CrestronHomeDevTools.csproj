@@ -9,6 +9,7 @@
     <PackageTags>Crestron;CrestronHome;configuration;drivers</PackageTags>
   </PropertyGroup>
   <ItemGroup>
+    <EmbeddedResource Include="KasaNativeLightConfiguration-4.012.0194.json" LogicalName="CrestronHomeDevTools.KasaNativeLightConfiguration.4.012.0194.json" />
     <EmbeddedResource Include="../scripts/Get-WindowsHostSnapshot.ps1" LogicalName="CrestronHomeDevTools.WindowsHostSnapshot.ps1" />
     <EmbeddedResource Include="../scripts/Set-WindowsSshPrerequisite.ps1" LogicalName="CrestronHomeDevTools.WindowsSshSetup.ps1" />
     <EmbeddedResource Include="../scripts/Get-WindowsRunnerSetup.ps1" LogicalName="CrestronHomeDevTools.WindowsRunnerInspection.ps1" />

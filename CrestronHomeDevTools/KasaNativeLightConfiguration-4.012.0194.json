@@ -1,0 +1,48 @@
+{
+  "FormatVersion": 1,
+  "HomeVersion": "4.012.0194",
+  "DriverVersion": "2.1.002.0004",
+  "CatalogueKey": "tp-link.kasatapoplatform.cloud.neilcolvin",
+  "Attributes": [
+    {
+      "$type": "Crestron.DeviceWrapper.RadUserAttribute, BaseDeviceWrapper",
+      "Label": "Ready",
+      "Description": "Confirms the device configuration has been applied.",
+      "AttributeId": "ActivationMarker",
+      "DefaultValue": "true",
+      "DefaultValueLabel": null,
+      "UserPromptMode": 32767,
+      "AttributeType": 4,
+      "DataType": 3,
+      "RequiresPersistence": true,
+      "PersistedValue": "true",
+      "SecurePersistedValue": null,
+      "AvailableValues": [],
+      "ValueHasRange": false,
+      "MinValue": 0.0,
+      "MaxValue": 0.0,
+      "Flags": 1,
+      "UsageContext": "Generic.Prompt"
+    },
+    {
+      "$type": "Crestron.DeviceWrapper.RadUserAttribute, BaseDeviceWrapper",
+      "Label": null,
+      "Description": null,
+      "AttributeId": "DriverDataStore",
+      "DefaultValue": null,
+      "DefaultValueLabel": null,
+      "UserPromptMode": 32767,
+      "AttributeType": 4,
+      "DataType": 1,
+      "RequiresPersistence": true,
+      "PersistedValue": "",
+      "SecurePersistedValue": null,
+      "AvailableValues": [],
+      "ValueHasRange": false,
+      "MinValue": 0.0,
+      "MaxValue": 0.0,
+      "Flags": 1,
+      "UsageContext": "Data"
+    }
+  ]
+}

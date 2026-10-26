@@ -98,15 +98,28 @@ public sealed class ProcessorConnection : IConfigurationConnection
 		 => SendAsync<T> (HttpMethod.Get, relativePath, null, cancellationToken);
 
 	public Task<T?> ExecuteAsync<T> (int deviceId, string commandName, object? parameters = null, CancellationToken cancellationToken = default)
+		=> ExecuteResourceCommandAsync<T> ($"v2/Devices/{deviceId}", commandName, parameters, cancellationToken);
+
+	/// <summary>Executes an advertised command on a Home configuration resource.</summary>
+	public Task<T?> ExecuteResourceCommandAsync<T> (string resourcePath, string commandName, object? parameters = null, CancellationToken cancellationToken = default)
 		{
+		ArgumentException.ThrowIfNullOrWhiteSpace (resourcePath);
 		ArgumentException.ThrowIfNullOrWhiteSpace (commandName);
-		return SendAsync<T> (HttpMethod.Post, $"v2/Devices/{deviceId}/Command", new
+		ValidateConfigurationResourcePath (resourcePath);
+		return SendAsync<T> (HttpMethod.Post, resourcePath + "/Command", new
 			{
 			CommandName = commandName,
 			Parameters = parameters ?? new
 				{
 				}
 			}, cancellationToken);
+		}
+
+	internal static void ValidateConfigurationResourcePath (string path)
+		{
+		if (path.Length > 256 || !System.Text.RegularExpressions.Regex.IsMatch (path, @"\Av2/[A-Za-z][A-Za-z0-9]*(?:/(?:[A-Za-z][A-Za-z0-9]*|-?[0-9]+))*\z")
+			|| path.Split ('/').Skip (2).Any (part => part.Equals ("Command", StringComparison.OrdinalIgnoreCase)))
+			throw new ArgumentException ("A configuration resource path is required.", nameof (path));
 		}
 
 	public Task<OperationResult> WaitForOperationAsync (string operationId, TimeSpan timeout, CancellationToken cancellationToken = default)
