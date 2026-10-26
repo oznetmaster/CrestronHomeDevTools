@@ -5,12 +5,20 @@
   "distributions": [
     {
       "version": "1.0.0",
-      "status": "reserved",
+      "status": "distributed",
       "reservedUtcDate": "2026-10-26",
       "targetHomeVersion": "4.012.0194",
       "targetDriverVersion": "2.1.002.0004",
-      "publicationApproved": false,
-      "notes": "Local review build only. Record exact artifact hashes in the review receipt before requesting publication. This is a separate utility, not a new driver distribution."
+      "publicationApproved": true,
+      "notes": "Approved customer diagnostic utility. Exact downloaded bytes verified against review receipt. No new driver package or NuGet release. Full Windows write/recovery flow has simulation coverage only; underlying lab repair separately verified through reboot.",
+      "publishedRecordedUtc": "2026-10-26T11:46:38.621054+00:00",
+      "sourceCommit": "a616301c18d3e663b2f00f3562a0b731ca46d00b",
+      "pagesCommit": "d29296e057753325ceac16c48479c229e8ea45b5",
+      "downloadUrl": "https://oznetmaster.github.io/downloads/test-drivers/kasatapo/repair-1.0.0/KasaTapo-Configuration-Repair-1.0.0-win-x64.zip",
+      "zipSha256": "7d255bef4dc07ffb652b2452f04a59262a43cce151d64f7a6fde580f95737d14",
+      "zipBytes": 50227268,
+      "exeSha256": "c7c049296db8ff46a68d428b19afe2beddc343cf84ec91acbb081b43eb3968b4",
+      "publicDownloadVerified": true
     }
   ]
 }
