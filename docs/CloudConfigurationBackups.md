@@ -32,6 +32,8 @@ Dates and optional version, type and verification metadata are retained as retur
 
 If submission, event observation or readback fails or times out, a backup may already exist or still be running. Inspect the cloud list before deciding whether to submit a separate request. The API never retries a submitted save. No public restore or historical file-download helper is added by this change.
 
+A processor-reported failure throws `CloudBackupOperationException`, an `IOException` that preserves `OperationId` and the exact `DiagnosticEvent`, including backend `Message` and `SubsystemCode` when supplied. Retain that event privately; the exception's ordinary message does not print its potentially sensitive contents. Failure evidence is preserved even if later success or end events arrive.
+
 ## Protocol and completion
 
 | Purpose | Command | Parameters |
@@ -70,3 +72,9 @@ Offline coverage exercises exact request arguments and list/save/list command or
 Live validation on 2026-10-26 confirms the typed listing API and 200 entries on MC4-R / Home 4.012.0194. Exactly one explicitly authorized normal-save request was submitted. The client observed a generic operation failure and threw; it did not retry. Subsequent independent read-only listings showed exactly one new normal backup marked `Passed`, and the Home log recorded packaging and upload initiation. Home's program uptime established that it remained running from before the request through reconciliation. This is conflicting completion evidence, not a clean end-to-end save API pass: archive upload completion/integrity and the reason for the failure notification remain unverified. The API deliberately retains failure semantics until that discrepancy is understood.
 
 The full offline suite passed 2,483 tests before the ID-renumbering correction. All 28 focused cloud tests passed after that correction, including two new renumbering cases. Golden save, cloud restore, historical archive download and full local-system recovery have not been exercised by this change. No stop, reboot, golden save or restore was performed during this cloud investigation.
+
+### Diagnostic follow-up
+
+One additional normal backup was separately authorized and submitted on 2026-10-26, with both status streams durably captured. Both reported `Succeeded` about 31 seconds after submission. The same operation ID then reported another `Started` pair, delivered a refreshed 200-entry configuration list, and reported `Ended` in both streams. Independent typed listing identified exactly one new normal entry marked `Passed` relative to the immediately preceding list. Program uptime still placed Home's start at approximately 08:43:23 UTC, before both requests. This protocol-level capture succeeded; it was not a second end-to-end run of the typed save wrapper.
+
+The later-flushed Home log explicitly confirmed successful upload of the first backup at 17:56:18, approximately 64 seconds after its request. The original generic failure therefore did not mean that no backup was uploaded. A timeout/completion-reporting issue is a possible explanation; the original full failure event was not retained and the cause is not established. Generic failures remain terminal in the client; no status check was weakened based on this inference. Future processor-reported failures now retain the exact diagnostic event. All 30 focused cloud tests pass, including diagnostic retention and replay of the captured successful event order. Two normal backups were submitted in total, each separately approved; no automatic write retry occurred.

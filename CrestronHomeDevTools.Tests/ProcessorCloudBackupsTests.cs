@@ -103,13 +103,40 @@ public sealed class ProcessorCloudBackupsTests
     public async Task FailureCannotBeOverwrittenByLaterSuccessOrEnded(object status)
     {
         var tracker=new CloudBackupTracker();tracker.Accept(Status("a",status));tracker.Accept(Status("a","Succeeded"));tracker.Accept(Status("a","Ended"));
-        await Assert.ThrowsAsync<IOException>(async()=>await tracker.WaitForSave("a",Timeout,default));
+        await Assert.ThrowsAsync<CloudBackupOperationException>(async()=>await tracker.WaitForSave("a",Timeout,default));
     }
     [Test]
     public async Task GenericStatusTwoMeansFailureInsteadOfBackupStatusTwoSuccess()
     {
         var tracker=new CloudBackupTracker();tracker.Accept(Status("a",2,"cp.types:operationStatusChanged"));tracker.Accept(Status("a",2));
-        await Assert.ThrowsAsync<IOException>(async()=>await tracker.WaitForSave("a",Timeout,default));
+        await Assert.ThrowsAsync<CloudBackupOperationException>(async()=>await tracker.WaitForSave("a",Timeout,default));
+    }
+    [Test]
+    public async Task FailureRetainsTheExactCorrelatedDiagnosticEventAfterItsDocumentIsDisposed()
+    {
+        var tracker=new CloudBackupTracker();
+        using(var document=JsonDocument.Parse("""{"EventType":"cp.types:operationStatusChanged","OperationId":"save-a","LatestStatus":"Failed","Message":"example backend diagnostic","SubsystemCode":"example-code"}"""))
+            tracker.Accept(document.RootElement);
+        var error=await Assert.ThrowsAsync<CloudBackupOperationException>(async()=>await tracker.WaitForSave("save-a",Timeout,default));
+        Assert.That(error!.OperationId,Is.EqualTo("save-a"));
+        Assert.That(error.DiagnosticEvent.GetProperty("Message").GetString(),Is.EqualTo("example backend diagnostic"));
+        Assert.That(error.DiagnosticEvent.GetProperty("SubsystemCode").GetString(),Is.EqualTo("example-code"));
+        Assert.That(error.Message,Does.Not.Contain("example backend diagnostic"));
+    }
+    [Test]
+    public async Task CapturedSuccessfulSaveSequencePreservesSuccessThroughItsAutomaticListRefresh()
+    {
+        var tracker=new CloudBackupTracker();
+        foreach(string state in new[]{"Started","Succeeded","Started"})
+        {
+            tracker.Accept(Status("save-a",state,"cp.types:operationStatusChanged"));
+            tracker.Accept(Status("save-a",state));
+        }
+        tracker.Accept(ListEvent("save-a",Entry()));
+        tracker.Accept(Status("save-a","Ended","cp.types:operationStatusChanged"));
+        tracker.Accept(Status("save-a","Ended"));
+        await tracker.WaitForSave("save-a",Timeout,default);
+        Assert.That(await tracker.WaitForList("save-a",Timeout,default),Has.Count.EqualTo(1));
     }
     [Test]
     public async Task OtherOperationsCannotCompleteTheSelectedWait()

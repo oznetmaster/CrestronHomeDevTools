@@ -42,7 +42,7 @@ internal sealed class CloudBackupTracker
             try{state=Get(id);}catch(IOException error){FailLocked(error);return;}
             try
             {
-                if(genericFailure)state.Failure??=new IOException("The cloud backup operation reported failure.");
+                if(genericFailure)state.Failure??=new CloudBackupOperationException(message);
                 if(list)state.List=ParseList(message.GetProperty("ConfigurationList"));
                 if(status)
                 {
@@ -50,7 +50,7 @@ internal sealed class CloudBackupTracker
                     // BackupRestoreStatus differs from cp.types operation status: 2 is Succeeded here.
                     switch(latest)
                     {
-                        case "Failed":case "0":case "UnzipFailed":case "1":state.Failure??=new IOException("The cloud backup operation failed.");break;
+                        case "Failed":case "0":case "UnzipFailed":case "1":state.Failure??=new CloudBackupOperationException(message);break;
                         case "Succeeded":case "2":state.Succeeded=true;break;
                         case "Ended":case "4":state.Ended=true;break;
                         case "Started":case "3":case "Unpacked":case "5":break;

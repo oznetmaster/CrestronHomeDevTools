@@ -1,5 +1,21 @@
 // Copyright (c) 2026 Neil Colvin. MIT license.
+using System.Text.Json;
+
 namespace CrestronHomeDevTools;
+
+/// <summary>A processor-reported backup failure. The diagnostic event can contain private data.</summary>
+public sealed class CloudBackupOperationException : IOException
+{
+    public string OperationId { get; }
+    /// <summary>Exact failure event, including any backend Message/SubsystemCode; retain privately.</summary>
+    public JsonElement DiagnosticEvent { get; }
+    internal CloudBackupOperationException(JsonElement diagnosticEvent)
+        :base("The processor reported a cloud backup failure. The backup may still have taken effect; inspect the retained diagnostic event and cloud list before another request.")
+    {
+        OperationId=diagnosticEvent.GetProperty("OperationId").GetString()!;
+        DiagnosticEvent=diagnosticEvent.Clone();
+    }
+}
 
 /// <summary>Metadata returned by the processor. Date is retained verbatim: no timezone is inferred.</summary>
 public sealed record CloudConfigurationBackup(string ConfigurationId,string Filename,string? Date,
