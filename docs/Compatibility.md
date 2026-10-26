@@ -45,7 +45,7 @@ Confirmed reboot handling has simulated coverage for acceptance, cancellation an
 
 - The management interface is unofficial and firmware-dependent; the verified subset is described in the [protocol reference](ProtocolReference.md). It is distinct from the documented public Home control REST API and may change.
 - Supported reboot-free lifecycle operations have been exercised with Entity V2 drivers. The default policy refuses reboot-required changes. Opt-in lifecycle handling supports confirmed driver-swap completion followed by an authorized reboot and explicitly configured reboot-after-install/removal paths. The V1 update path has passed end-to-end hardware validation on MC4-R; initial-install/removal paths have also been verified with explicit shared-scope preservation; see [V1 lifecycle evidence](V1DriverRemoval.md).
-- The general command API is available, but room administration, full backups/restores and arbitrary device commissioning are not complete typed features.
+- [Cloud configuration backups](CloudConfigurationBackups.md) provide typed cloud metadata listing and explicit normal/golden save requests. Historical archive download, full local-system backups/restores and arbitrary device commissioning are not complete typed features. See the linked validation limits for cloud operations.
 - Loaded/version confirmation establishes activation, not correct live device behavior.
 - DevTools does not provide automatic rollback, test cancellation, processor log streaming or a Visual Studio test adapter.
 - A timed-out operation may already have taken effect. Submitted writes are not automatically replayed.

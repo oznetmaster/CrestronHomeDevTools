@@ -11,7 +11,7 @@ using System.Text.Json;
 
 namespace CrestronHomeDevTools;
 
-public sealed class ProcessorConnection : IConfigurationConnection
+public sealed class ProcessorConnection : IConfigurationConnection, ICloudBackupEventSource
 	{
 	private static readonly JsonSerializerOptions JsonOptions = new () { PropertyNameCaseInsensitive = true };
 	private readonly HttpClient _http;
@@ -19,6 +19,7 @@ public sealed class ProcessorConnection : IConfigurationConnection
 	private readonly CancellationTokenSource _lifetime = new ();
 	private readonly SemaphoreSlim _requests = new (1);
 	private readonly OperationTracker _operations = new ();
+	private readonly CloudBackupTracker _cloudBackups = new ();
 	private readonly DriverSwapTracker _swaps = new ();
 	public Task<DriverSwapResult> WaitForDriverSwapAsync (string operationId, string driverId, TimeSpan timeout, CancellationToken cancellationToken = default) => _swaps.WaitAsync (operationId, driverId, timeout, cancellationToken);
 	private Task? _eventsTask;
@@ -124,6 +125,10 @@ public sealed class ProcessorConnection : IConfigurationConnection
 
 	public Task<OperationResult> WaitForOperationAsync (string operationId, TimeSpan timeout, CancellationToken cancellationToken = default)
 		 => _operations.WaitAsync (operationId, timeout, cancellationToken);
+	public Task<IReadOnlyList<CloudConfigurationBackup>> WaitForCloudConfigurationListAsync (string operationId, TimeSpan timeout, CancellationToken token = default)
+		=> _cloudBackups.WaitForList (operationId, timeout, token);
+	public Task WaitForCloudConfigurationSaveAsync (string operationId, TimeSpan timeout, CancellationToken token = default)
+		=> _cloudBackups.WaitForSave (operationId, timeout, token);
 
 	private async Task<T?> SendAsync<T> (HttpMethod method, string path, object? payload, CancellationToken cancellationToken)
 		{
@@ -174,12 +179,14 @@ public sealed class ProcessorConnection : IConfigurationConnection
 				{
 				using var message = await ReadMessageAsync (_socket!, _lifetime.Token).ConfigureAwait (false);
 				_operations.Accept (message.RootElement);
+				_cloudBackups.Accept (message.RootElement);
 				_swaps.Accept (message.RootElement);
 				}
 			}
 		catch (Exception exception)
 			{
 			_operations.Fail (new IOException ("The processor event stream ended.", exception));
+			_cloudBackups.Fail (new IOException ("The processor event stream ended.", exception));
 			_swaps.Fail (new IOException ("The processor event stream ended.", exception));
 			}
 		finally { _disconnected.TrySetResult (); }
@@ -248,6 +255,7 @@ public sealed class ProcessorConnection : IConfigurationConnection
 		if (_eventsTask != null)
 			await _eventsTask.ConfigureAwait (false);
 		_operations.Fail (new ObjectDisposedException (nameof (ProcessorConnection)));
+		_cloudBackups.Fail (new ObjectDisposedException (nameof (ProcessorConnection)));
 		_swaps.Fail (new ObjectDisposedException (nameof (ProcessorConnection)));
 		_socket?.Dispose ();
 		_http.Dispose ();

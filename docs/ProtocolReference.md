@@ -470,7 +470,7 @@ The source is the executable companion to this reference:
 | Reboot handler and restart readiness | [DriverRebootHandler.cs](../CrestronHomeDevTools/DriverRebootHandler.cs) |
 | Separate SSH console reboot | [ProcessorReboot.cs](../CrestronHomeDevTools/ProcessorReboot.cs) |
 
-The complete anonymous configuration schema, complete device/command schemas, discovery header semantics, exact session expiry policy, permission/role matrix, server concurrency rules and cross-session event recovery are not specified by this reference. V1 initial installation/removal requiring reboot, arbitrary commissioning/reconfiguration, backup/restore, broader firmware/model support and rollback are not claimed as validated features.
+The complete anonymous configuration schema, complete device/command schemas, discovery header semantics, exact session expiry policy, permission/role matrix, server concurrency rules and cross-session event recovery are not specified by this reference. V1 initial installation/removal requiring reboot, arbitrary commissioning/reconfiguration, full backup/restore, broader firmware/model support and rollback are not claimed as validated features. The narrower cloud metadata listing and explicit configuration-save protocol, with its separate validation boundaries, is documented in [Cloud configuration backups](CloudConfigurationBackups.md).
 
 When extending this reference, record the tested model/firmware, command spelling and parameter types, response/event fields, correlation requirements and independent final-state checks. Clearly label new observations and unverified assumptions. A passing simulated test establishes client behavior; it does not by itself establish processor behavior.
 
