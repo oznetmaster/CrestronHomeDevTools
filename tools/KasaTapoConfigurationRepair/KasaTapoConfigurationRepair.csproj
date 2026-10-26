@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework><UseWindowsForms>true</UseWindowsForms>
+    <OutputType>WinExe</OutputType><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable>
+    <Version>1.0.0</Version><AssemblyName>KasaTapo-Configuration-Repair</AssemblyName>
+    <IsPackable>false</IsPackable><PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile><PublishTrimmed>false</PublishTrimmed>
+  </PropertyGroup>
+  <ItemGroup><ProjectReference Include="../../CrestronHomeDevTools/CrestronHomeDevTools.csproj" /></ItemGroup>
+  <ItemGroup><InternalsVisibleTo Include="KasaTapoConfigurationRepair.Tests" /></ItemGroup>
+</Project>

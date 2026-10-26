@@ -1,0 +1,22 @@
+Kasa/Tapo Configuration Repair 1.0.0
+Copyright (c) 2026 Neil Colvin. MIT license; see LICENSE.txt.
+
+This independent utility is not affiliated with or endorsed by Crestron or TP-Link.
+No Crestron SDK assemblies, Configure Pro binaries, captured configuration files,
+customer data or credentials are distributed.
+
+Components included by the self-contained Windows x64 build:
+- CrestronHomeDevTools configuration client, MIT (LICENSE.txt).
+- SSH.NET 2026.0.0, MIT (licenses/SSH.NET-LICENSE.txt).
+- System.Security.Cryptography.ProtectedData 10.0.9, MIT
+  (licenses/Microsoft-ProtectedData-LICENSE.txt).
+- MailKit 4.18.0 and MimeKit 4.18.0, MIT
+  (licenses/MailKit-LICENSE.txt, licenses/MimeKit-LICENSE.txt).
+- BouncyCastle.Cryptography 2.7.0, MIT (licenses/BouncyCastle-LICENSE.txt).
+- Microsoft .NET and Windows Desktop runtime 10.0.13, MIT and the included
+  third-party notices under licenses/microsoft.*.runtime.win-x64/.
+- Microsoft cryptography runtime components retain Microsoft's MIT license.
+
+MailKit, MimeKit and Bouncy Castle are dependencies of the embedded DevTools
+library. This utility does not send email or upload support information.
+NUnit and the test adapter are used only for development and are not shipped.

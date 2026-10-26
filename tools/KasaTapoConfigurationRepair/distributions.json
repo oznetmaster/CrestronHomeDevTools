@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "product": "KasaTapo Configuration Repair",
+  "versionPolicy": "Three-part utility versions; never reuse a distributed version for different bytes.",
+  "distributions": [
+    {
+      "version": "1.0.0",
+      "status": "reserved",
+      "reservedUtcDate": "2026-10-26",
+      "targetHomeVersion": "4.012.0194",
+      "targetDriverVersion": "2.1.002.0004",
+      "publicationApproved": false,
+      "notes": "Local review build only. Record exact artifact hashes in the review receipt before requesting publication. This is a separate utility, not a new driver distribution."
+    }
+  ]
+}

@@ -1,0 +1,71 @@
+KASA/TAPO CONFIGURATION REPAIR 1.0.0 — CUSTOMER TEST ONLY
+
+Purpose
+This utility adds two missing saved configuration records to affected HS220(US),
+HS200(US) and S515(US) devices. It keeps their existing device IDs, names, room
+assignments, scenes and programming. It does not remove or reinstall devices.
+
+It is for Crestron Home 4.012.0194 with the diagnostic KasaTapoPlatform driver
+shown in Configure Pro as 2.001.0002.4 (manifest version 2.1.002.0004).
+It refuses other Home/driver versions or inconsistent/partly configured records.
+Keep that diagnostic driver installed; this download contains a repair utility,
+not another driver package. A release driver will follow after testing.
+
+Before starting
+1. Use a 64-bit Windows PC on the same trusted network as the Home processor.
+   Extract the entire ZIP into a local folder. No .NET installation is required.
+2. Have the processor address and its administrator username/password ready.
+   These are the processor login details used for the earlier diagnostic utility,
+   not your TP-Link/Kasa account credentials.
+3. Choose a time when Home can be unavailable for a full processor reboot.
+   Keep the PC awake, plugged in and connected. Allow up to eight minutes for
+   Home startup verification, plus inspection and file transfer time.
+   Do not change the Home configuration in another app during this operation.
+
+Run the repair
+1. Open KasaTapo-Configuration-Repair.exe.
+2. Enter the processor address, administrator name and password.
+3. Select "1. Inspect devices". Confirm the displayed processor address and
+   identities on your trusted local network. Inspection is read-only.
+4. Review the device names, models and rooms. For the reported installation,
+   we expect 11 affected devices: four HS220 dimmers, four HS200 switches and
+   three S515 switches. If the list differs, stop here and tell Neil what is shown.
+5. Tick the acknowledgement that Home will stop and the processor will reboot.
+   Choose "2. Repair and reboot", then confirm the processor and device count.
+6. Keep the utility open. It saves encrypted recovery files, stops Home, checks
+   the stopped configuration, installs the scoped repair and fully reboots the
+   processor. It then checks startup, saved records and device readiness.
+7. Wait for "Repair verified". A reboot acknowledgement alone is not success.
+8. In Crestron Home, check that all switches/dimmers are online. Test each switch
+   on/off, and each HS220 on/off and dimming. Please also check existing scenes
+   and programming. Tell Neil the results, including any remaining failures.
+9. Choose "Open report folder" and send only Support-report.json to Neil.
+
+If the operation is incomplete or interrupted
+Do not repeat Repair. Home may be stopped or still starting. Keep the run folder
+and contact Neil with Support-report.json and the displayed stage/error type.
+If recovery is needed, use the same PC and Windows account, reopen the utility,
+enter the same processor address and administrator credentials, tick the reboot
+acknowledgement and choose "Recover an interrupted repair...". Select that run's
+folder and confirm restoration. Recovery restores the retained original saved
+records and performs another full reboot. This reverses this utility's repair;
+the original offline-device problem may return. Recovery does not retry the repair.
+If recovery refuses because the file changed outside this run or ownership
+cannot be confirmed, stop and contact Neil. Do not delete processor lease files,
+manually move configuration files, or remove/re-add the lights.
+
+Recovery files and privacy
+The run folder is under:
+  %LOCALAPPDATA%\NeilColvin\KasaTapoConfigurationRepair\
+Use "Open report folder" to locate the current run. The numbered .dpapi files
+contain encrypted full configuration snapshots and recovery state. Only the same
+Windows account on the same PC can open them. They are not a complete processor
+or cloud backup. Keep them until Neil confirms testing is finished.
+The processor also retains the original file outside the active configuration
+directory, named /user/KasaTapoRepair-<run ID>.original.cfg. Do not alter it.
+Your administrator login password is not saved. Configuration snapshots can
+contain other system credentials and are encrypted locally. Do not send the
+.dpapi files, original configuration or the entire run folder by email.
+Support-report.json omits credentials and configuration contents; it includes
+device names/IDs/models/rooms, status, error type and file hashes. Nothing is
+automatically emailed or uploaded.
