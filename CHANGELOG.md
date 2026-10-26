@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.28.0 - 2026-10-26
+
+Adds library APIs to list the authenticated processor's cloud configuration backups and explicitly request a normal or golden backup. `ProcessorCloudBackups` checks advertised capabilities, correlates backup events and compares the before/after cloud listings without assuming backup IDs are permanent. Save completion waits for dedicated success and final completion through the processor's automatic list refresh. Submitted saves are never automatically retried. Cloud operations leave Home running; this release adds no backup CLI command, restore helper or historical archive download.
+
+Processor-reported failures retain their exact diagnostic event and operation ID through `CloudBackupOperationException`. Cloud metadata and failure details can contain private information. Listing was verified on an MC4-R running Home 4.012.0194. Two separately authorized normal backups produced new entries marked Passed; one reported failure despite a later log confirming successful upload, while the captured repeat reported success in both event streams. The cause of the first notification remains unproven. Golden save has offline coverage only, and the final typed save wrapper has not received a clean end-to-end live save invocation. Archive integrity and restore readiness are not established. See [cloud configuration backups](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/CloudConfigurationBackups.md).
+
+Also adds private live configuration capture, checksum validation, supported scene/programming reference remapping, guarded managed-light child replacement and missing native-light configuration repair planning. These APIs reject unsupported scope before mutation and retain write intent and readback evidence. A captured resource graph is not a full processor backup. Recommissioning alone did not restore missing saved markers in the lab; replacement remains awaiting persistence verification until the caller completes the documented checks. A separately authorized stopped-Home lab repair preserved identities and scene references through reboot. It does not establish a reproduction or fix of a customer's failing upgrade or physical HS220/KS225 behaviour. See [managed-child replacement and repair limits](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/ManagedChildReplacement.md).
+
+The repository includes the source and publication ledger for the separately distributed Kasa/Tapo Configuration Repair 1.0.0 Windows utility. Its published bytes and download remain unchanged; it is not republished as part of this release's console assets.
+
+Updates the standalone Kasa/Tapo endurance sample to consume published DevTools 1.27.0, including the corrected cryptography dependency, and adds its existing offline self-test to release validation. This closes the gap where the ordinary CI sample check could fail while the release build continued. Device protocol behaviour is unchanged.
+
+Validation includes the full 2,488-test offline suite, focused backup event replay and failure-diagnostic checks, plus the release workflow's discovered-test, package-consumer, documentation and packaged-console checks. Hardware findings and untested paths remain separately documented. The configuration interface is undocumented, unofficial and firmware-dependent.
+
+Requires Crestron Home NUnit 2.3.0 for the existing Automation/SubmissionTests consumer. No driver or device-client production payload changes.
+
+Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
+
 ## 1.27.0 - 2026-10-19
 
 Adds name-based processor-test operations for package-instance provisioning, installed-target assignment checks and managed-child validation. `DriverInstanceLifecycle.EnsureInRoomAsync`, `ProcessorTestRooms` and `ManagedDeviceValidation.RunInRoomsAsync` resolve the intended room on the authenticated processor. Missing or ambiguous room names stop before mutation; managed-child setup checks every requested room before commissioning the first child. Named public results preserve the room name rather than a resolved room-ID plan. Native restoration journals remain private lower-layer evidence.
