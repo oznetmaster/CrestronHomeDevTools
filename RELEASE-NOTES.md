@@ -8,6 +8,8 @@ Also adds private live configuration capture, checksum validation, supported sce
 
 The repository includes the source and publication ledger for the separately distributed Kasa/Tapo Configuration Repair 1.0.0 Windows utility. Its published bytes and download remain unchanged; it is not republished as part of this release's console assets.
 
+Updates the standalone Kasa/Tapo endurance sample to consume published DevTools 1.27.0, including the corrected cryptography dependency, and adds its existing offline self-test to release validation. This closes the gap where the ordinary CI sample check could fail while the release build continued. Device protocol behaviour is unchanged.
+
 Validation includes the full 2,488-test offline suite, focused backup event replay and failure-diagnostic checks, plus the release workflow's discovered-test, package-consumer, documentation and packaged-console checks. Hardware findings and untested paths remain separately documented. The configuration interface is undocumented, unofficial and firmware-dependent.
 
 Requires Crestron Home NUnit 2.3.0 for the existing Automation/SubmissionTests consumer. No driver or device-client production payload changes.

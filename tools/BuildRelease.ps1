@@ -16,6 +16,8 @@ try {
     & (Join-Path $PSHOME 'pwsh.exe') -NoProfile -File ./tools/endurance/Test-EnduranceHealthSnapshot.ps1 -ResultsDirectory (Join-Path $root 'artifacts/endurance-health-tests')
     if ($LASTEXITCODE -ne 0) { throw 'Passive health snapshot checks failed.' }
     & ./tools/Test-DiscoveredCoverageGuards.ps1
+    dotnet run --project samples/KasaTapoEnduranceProducer -c Release -- --self-test
+    if ($LASTEXITCODE -ne 0) { throw 'Kasa/Tapo endurance sample self-test failed.' }
     & (Join-Path $PSHOME 'pwsh.exe') -NoProfile -File ./tools/Test-SubmissionWorkerProcess.ps1 -ResultsDirectory (Join-Path $root 'artifacts/worker-process-tests')
     if ($LASTEXITCODE -ne 0) { throw 'Worker process lifetime tests failed.' }
     & (Join-Path $PSHOME 'pwsh.exe') -NoProfile -File ./tools/Test-SubmissionWorkerCloseout.ps1 -ResultsDirectory (Join-Path $root 'artifacts/worker-closeout-tests')
