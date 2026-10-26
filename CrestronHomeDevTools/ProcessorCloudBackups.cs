@@ -60,7 +60,7 @@ public static class ProcessorCloudBackups
 
     /// <summary>Creates a normal backup, or explicitly replaces/saves the golden configuration.</summary>
     /// <remarks>A golden backup is never selected by default. Calling this method writes to cloud history.
-    /// An acknowledged request or Ended event is not success. Requires the dedicated Succeeded event,
+    /// An acknowledged request or Ended event is not success. Requires dedicated Succeeded and Ended events,
     /// then reads the backup list again. NewEntryVerified is false for absent or ambiguous new entries.
     /// Timeout/transport failure can leave a submitted backup running; inspect before another request.</remarks>
     public static async Task<CloudConfigurationBackupSave> SaveAsync(IConfigurationConnection connection,int processorDeviceId,

@@ -91,7 +91,7 @@ public sealed class ProcessorCloudBackupsTests
     [TestCase("Succeeded")] [TestCase(2)]
     public async Task DedicatedBackupSuccessUsesItsOwnEnumMapping(object status)
     {
-        var tracker=new CloudBackupTracker();tracker.Accept(Status("a",status));await tracker.WaitForSave("a",Timeout,default);
+        var tracker=new CloudBackupTracker();tracker.Accept(Status("a",status));tracker.Accept(Status("a","Ended"));await tracker.WaitForSave("a",Timeout,default);
     }
     [Test]
     public async Task EndedDoesNotMeanSaveSucceeded()
@@ -137,6 +137,19 @@ public sealed class ProcessorCloudBackupsTests
         tracker.Accept(Status("save-a","Ended"));
         await tracker.WaitForSave("save-a",Timeout,default);
         Assert.That(await tracker.WaitForList("save-a",Timeout,default),Has.Count.EqualTo(1));
+    }
+    [Test]
+    public async Task SaveWaitsForAutomaticRefreshToEndAfterUploadSuccess()
+    {
+        var tracker=new CloudBackupTracker();var wait=tracker.WaitForSave("save-a",Timeout,default);
+        tracker.Accept(Status("save-a","Succeeded"));
+        tracker.Accept(Status("save-a","Started"));
+        tracker.Accept(ListEvent("save-a",Entry()));
+        Assert.That(wait.IsCompleted,Is.False);
+        tracker.Accept(Status("save-a","Ended","cp.types:operationStatusChanged"));
+        Assert.That(wait.IsCompleted,Is.False);
+        tracker.Accept(Status("save-a","Ended"));
+        await wait;
     }
     [Test]
     public async Task OtherOperationsCannotCompleteTheSelectedWait()

@@ -101,7 +101,9 @@ internal sealed class CloudBackupTracker
                 {
                     if(failure is not null)throw new IOException("Cloud event connection ended; outcome is unknown.",failure);
                     if(state.Failure is not null)throw state.Failure;
-                    if(save&&state.Succeeded)return null;
+                    // A successful upload is followed by a list-refresh phase under the same operation ID.
+                    // Wait for its dedicated Ended event before submitting an independent verification list.
+                    if(save&&state.Succeeded&&state.Ended)return null;
                     if(!save&&state.List is not null&&(state.Ended||state.Succeeded))return state.List;
                     if(save&&state.Ended)throw new IOException("Cloud operation ended without the required success evidence; outcome is unconfirmed.");
                     change=state.Changed.Task;
