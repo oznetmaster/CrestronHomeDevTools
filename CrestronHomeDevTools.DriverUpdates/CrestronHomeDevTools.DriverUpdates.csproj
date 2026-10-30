@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <AssemblyName>CrestronHomeDevTools.DriverUpdates</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../CrestronHomeDevTools.Console/CrestronHomeDevTools.Console.csproj" />
+    <InternalsVisibleTo Include="CrestronHomeDevTools.DriverUpdates.Tests" />
+    <None Include="../LICENSE;../THIRD-PARTY-NOTICES.md" Link="%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="../docs/DriverUpdates.md" Link="DriverUpdates.md" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
