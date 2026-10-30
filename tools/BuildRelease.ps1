@@ -1,28 +1,33 @@
 #requires -Version 7.6
 #requires -PSEdition Core
 # Copyright (c) 2026 Neil Colvin. Licensed under the MIT License; see LICENSE.
-param([Parameter(Mandatory)][string] $Version)
+param([Parameter(Mandatory)][string] $Version, [switch]$SkipDesktopTests, [string]$DesktopValidationEvidence)
 $ErrorActionPreference = 'Stop'
+if ($SkipDesktopTests -and ([string]::IsNullOrWhiteSpace($DesktopValidationEvidence) -or $DesktopValidationEvidence.Length -gt 500 -or $DesktopValidationEvidence -match '[\x00-\x1f\x7f]')) { throw 'Desktop reuse requires nonempty single-line reviewed source/time/result evidence, at most 500 characters.' }
 $root = Split-Path $PSScriptRoot -Parent
 Push-Location $root
 try {
     $release = Join-Path $root 'artifacts/release'
     if (Test-Path $release) { throw 'Use fresh release staging.' }
-    & (Join-Path $PSHOME 'pwsh.exe') -NoProfile -File ./tools/endurance/Test-EnduranceDirectoryPermissions.ps1 -ResultsDirectory (Join-Path $root 'artifacts/directory-permissions-tests')
-    if ($LASTEXITCODE -ne 0) { throw 'Monitoring directory permission checks failed.' }
-    & ./tools/endurance/Test-EnduranceScheduler.ps1 -ResultsDirectory (Join-Path $root 'artifacts/scheduler-tests')
-    & ./tools/endurance/Test-EnduranceWatchScheduler.ps1 -ResultsDirectory (Join-Path $root 'artifacts/watch-scheduler-tests')
-    & ./tools/endurance/Test-EnduranceSnapshot.ps1 -ResultsDirectory (Join-Path $root 'artifacts/endurance-snapshot-tests')
-    & (Join-Path $PSHOME 'pwsh.exe') -NoProfile -File ./tools/endurance/Test-EnduranceHealthSnapshot.ps1 -ResultsDirectory (Join-Path $root 'artifacts/endurance-health-tests')
-    if ($LASTEXITCODE -ne 0) { throw 'Passive health snapshot checks failed.' }
-    & ./tools/Test-DiscoveredCoverageGuards.ps1
-    dotnet run --project samples/KasaTapoEnduranceProducer -c Release -- --self-test
-    if ($LASTEXITCODE -ne 0) { throw 'Kasa/Tapo endurance sample self-test failed.' }
-    & (Join-Path $PSHOME 'pwsh.exe') -NoProfile -File ./tools/Test-SubmissionWorkerProcess.ps1 -ResultsDirectory (Join-Path $root 'artifacts/worker-process-tests')
-    if ($LASTEXITCODE -ne 0) { throw 'Worker process lifetime tests failed.' }
-    & (Join-Path $PSHOME 'pwsh.exe') -NoProfile -File ./tools/Test-SubmissionWorkerCloseout.ps1 -ResultsDirectory (Join-Path $root 'artifacts/worker-closeout-tests')
-    if ($LASTEXITCODE -ne 0) { throw 'Worker closeout checks failed.' }
-    & ./tools/Test-DiscoveredCoverage.ps1 -Configuration Release -ResultsDirectory (Join-Path $root 'artifacts/tests')
+    if (!$SkipDesktopTests) {
+        & (Join-Path $PSHOME 'pwsh.exe') -NoProfile -File ./tools/endurance/Test-EnduranceDirectoryPermissions.ps1 -ResultsDirectory (Join-Path $root 'artifacts/directory-permissions-tests')
+        if ($LASTEXITCODE -ne 0) { throw 'Monitoring directory permission checks failed.' }
+        & ./tools/endurance/Test-EnduranceScheduler.ps1 -ResultsDirectory (Join-Path $root 'artifacts/scheduler-tests')
+        & ./tools/endurance/Test-EnduranceWatchScheduler.ps1 -ResultsDirectory (Join-Path $root 'artifacts/watch-scheduler-tests')
+        & ./tools/endurance/Test-EnduranceSnapshot.ps1 -ResultsDirectory (Join-Path $root 'artifacts/endurance-snapshot-tests')
+        & (Join-Path $PSHOME 'pwsh.exe') -NoProfile -File ./tools/endurance/Test-EnduranceHealthSnapshot.ps1 -ResultsDirectory (Join-Path $root 'artifacts/endurance-health-tests')
+        if ($LASTEXITCODE -ne 0) { throw 'Passive health snapshot checks failed.' }
+        & ./tools/Test-DiscoveredCoverageGuards.ps1
+        dotnet run --project samples/KasaTapoEnduranceProducer -c Release -- --self-test
+        if ($LASTEXITCODE -ne 0) { throw 'Kasa/Tapo endurance sample self-test failed.' }
+        & (Join-Path $PSHOME 'pwsh.exe') -NoProfile -File ./tools/Test-SubmissionWorkerProcess.ps1 -ResultsDirectory (Join-Path $root 'artifacts/worker-process-tests')
+        if ($LASTEXITCODE -ne 0) { throw 'Worker process lifetime tests failed.' }
+        & (Join-Path $PSHOME 'pwsh.exe') -NoProfile -File ./tools/Test-SubmissionWorkerCloseout.ps1 -ResultsDirectory (Join-Path $root 'artifacts/worker-closeout-tests')
+        if ($LASTEXITCODE -ne 0) { throw 'Worker closeout checks failed.' }
+        & ./tools/Test-DiscoveredCoverage.ps1 -Configuration Release -ResultsDirectory (Join-Path $root 'artifacts/tests')
+    } else {
+        Write-Output "Reusing reviewed desktop validation: $DesktopValidationEvidence. This build does not establish a new desktop-test pass."
+    }
     dotnet pack CrestronHomeDevTools/CrestronHomeDevTools.csproj -c Release "-p:Version=$Version" -o $release
     if ($LASTEXITCODE -ne 0) { throw 'Library pack failed.' }
     ./tools/Test-NuGetDocumentation.ps1 -PackagePath (Join-Path $release "CrestronHomeDevTools.$Version.nupkg")

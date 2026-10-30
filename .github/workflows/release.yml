@@ -3,6 +3,28 @@ name: Release
 on:
   workflow_dispatch:
     inputs:
+      skip_desktop_checks:
+        description: Reuse reviewed desktop results; package integrity checks still run
+        required: false
+        type: boolean
+        default: false
+      desktop_skip_reason:
+        description: Tested source, completion time, frameworks, counts and evidence
+        required: false
+        type: string
+      validation_commit:
+        description: Reuse recent CI from an ancestor SHA with only docs or release-automation changes
+        required: false
+        type: string
+      skip_hardware_checks:
+        description: Reuse reviewed processor results or record unavailable hardware
+        required: false
+        type: boolean
+        default: false
+      hardware_skip_reason:
+        description: Tested source, completion time, results and cleanup or unavailability reason
+        required: false
+        type: string
       documentation_patch:
         description: Publish only the reviewed NuGet documentation patch; preserve existing runtime binaries and GitHub releases
         required: false
@@ -13,6 +35,8 @@ on:
         required: true
         type: string
 permissions:
+  actions: read
+  checks: read
   contents: write
   id-token: write
 concurrency:
@@ -50,6 +74,17 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect release tags.' }
           if ($existingTag) { throw 'Release tag already exists.' }
           if (-not '${{ vars.NUGET_USER }}') { throw 'Configure NUGET_USER and NuGet Trusted Publishing first.' }
+      - name: Validate explicitly reused test evidence
+        if: inputs.skip_desktop_checks == true || inputs.skip_hardware_checks == true || inputs.validation_commit != ''
+        uses: oznetmaster/CrestronHomeNUnit/.github/actions/release-validation@2ae8197c6685099c2133e7bb962d1f3568aae9c3
+        with:
+          required-checks: ${{ vars.RELEASE_REQUIRED_CHECKS }}
+          hosted-workflows: '["ci.yml","help-tests.yml"]'
+          skip-desktop-checks: ${{ inputs.skip_desktop_checks }}
+          desktop-skip-reason: ${{ inputs.desktop_skip_reason }}
+          skip-hardware-checks: ${{ inputs.skip_hardware_checks }}
+          hardware-skip-reason: ${{ inputs.hardware_skip_reason }}
+          validation-commit: ${{ inputs.validation_commit }}
       - name: Prepare version and release changelog locally
         run: |
           $propsPath = Join-Path $PWD 'Directory.Build.props'
@@ -69,7 +104,10 @@ jobs:
           git commit -m "Release CrestronHomeDevTools $env:RELEASE_VERSION"
           if ($LASTEXITCODE -ne 0) { throw 'Release preparation failed.' }
       - name: Build and validate release
-        run: ./tools/BuildRelease.ps1 -Version $env:RELEASE_VERSION
+        env:
+          REUSE_DESKTOP: ${{ inputs.skip_desktop_checks }}
+          DESKTOP_EVIDENCE: ${{ inputs.desktop_skip_reason }}
+        run: ./tools/BuildRelease.ps1 -Version $env:RELEASE_VERSION -SkipDesktopTests:($env:REUSE_DESKTOP -eq 'true') -DesktopValidationEvidence $env:DESKTOP_EVIDENCE
       - uses: actions/upload-artifact@v4
         with:
           name: release-${{ inputs.version }}
