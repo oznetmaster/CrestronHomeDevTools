@@ -16,8 +16,10 @@ permissions:
   contents: write
   id-token: write
 concurrency:
-  group: release
+  group: public-release
   cancel-in-progress: false
+  queue: max
+
 jobs:
   publish:
     if: inputs.documentation_patch != true
