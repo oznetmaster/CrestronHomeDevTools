@@ -95,7 +95,8 @@ jobs:
           $notes = [IO.File]::ReadAllText((Join-Path $PWD 'RELEASE-NOTES.md'))
           if (-not $notes.StartsWith("# CrestronHomeDevTools $env:RELEASE_VERSION")) { throw 'Release notes version mismatch.' }
           $body = $notes.Substring($notes.IndexOf("`n") + 1).Trim()
-          $entry = "## $env:RELEASE_VERSION - $([DateTime]::UtcNow.ToString('yyyy-MM-dd'))`n`n$body`n`n"
+          $releaseUrl = "https://github.com/$env:GITHUB_REPOSITORY/releases/tag/v$env:RELEASE_VERSION"
+          $entry = "## [$env:RELEASE_VERSION]($releaseUrl) - $([DateTime]::UtcNow.ToString('yyyy-MM-dd'))`n`n$body`n`n"
           $firstBreak = $existing.IndexOf("`n")
           [IO.File]::WriteAllText($changelog, $existing.Substring(0, $firstBreak + 1) + "`n" + $entry + $existing.Substring($firstBreak + 1).TrimStart())
           git config user.name 'github-actions[bot]'

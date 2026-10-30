@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.28.0 - 2026-10-26
+## [1.28.0](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.28.0) - 2026-10-26
 
 Adds library APIs to list the authenticated processor's cloud configuration backups and explicitly request a normal or golden backup. `ProcessorCloudBackups` checks advertised capabilities, correlates backup events and compares the before/after cloud listings without assuming backup IDs are permanent. Save completion waits for dedicated success and final completion through the processor's automatic list refresh. Submitted saves are never automatically retried. Cloud operations leave Home running; this release adds no backup CLI command, restore helper or historical archive download.
 
@@ -18,7 +18,7 @@ Requires Crestron Home NUnit 2.3.0 for the existing Automation/SubmissionTests c
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
-## 1.27.0 - 2026-10-19
+## [1.27.0](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.27.0) - 2026-10-19
 
 Adds name-based processor-test operations for package-instance provisioning, installed-target assignment checks and managed-child validation. `DriverInstanceLifecycle.EnsureInRoomAsync`, `ProcessorTestRooms` and `ManagedDeviceValidation.RunInRoomsAsync` resolve the intended room on the authenticated processor. Missing or ambiguous room names stop before mutation; managed-child setup checks every requested room before commissioning the first child. Named public results preserve the room name rather than a resolved room-ID plan. Native restoration journals remain private lower-layer evidence.
 
@@ -32,7 +32,7 @@ Requires Crestron Home NUnit 2.3.0 for the existing Automation consumer. No driv
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
-## 1.26.2 — 2026-10-07
+## [1.26.2](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.26.2) — 2026-10-07
 
 New automated rehearsals email the signed PDF with a download link to the selected release's exact driver package, matching the production submission email structure. The worker downloads the package anonymously and verifies its SHA-256 before connecting to SMTP. Unavailable or changed downloads stop delivery.
 
@@ -48,7 +48,7 @@ Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are tra
 
 - Rehearsal email supports an approval-bound, hash-verified package download link and a single PDF attachment. New automated rehearsals use the selected release asset; existing journals and production delivery remain unchanged.
 
-## 1.26.1 — 2026-10-07
+## [1.26.1](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.26.1) — 2026-10-07
 
 Final test assessment now accepts uppercase or lowercase SHA-256 digests from evidence producers. Previously, unchanged endurance samples could be rejected solely because their recorded hexadecimal digest used uppercase letters. The verifier still rejects changed evidence and preserves original producer records.
 
@@ -58,7 +58,7 @@ Requires Crestron Home NUnit 2.3.0.
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
-## 1.26.0 — 2026-10-07
+## [1.26.0](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.26.0) — 2026-10-07
 
 Developers can invoke phase three directly after the defined submission test suite passes. The new `--phase-three` command and `SubmissionWorkflow.AdvancePhaseThreeAsync` require all six completed test stages, including final assessment, before changing the checkpoint or invoking any stage adapter. They never start missing tests.
 
@@ -70,7 +70,7 @@ Requires Crestron Home NUnit 2.3.0. See the [native test suite and phase-three c
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
-## 1.25.0 — 2026-10-07
+## [1.25.0](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.25.0) — 2026-10-07
 
 Submission tests and document preparation now have separate boundaries. The native NUnit 5 fixture and CI helper run the same defined test stages, with endurance explicitly selected. Phase two finishes with verified test results and evidence; phase three consumes a portable, hash-verified review snapshot to prepare documents, obtain approval for signing, and deliver the reviewed artifacts.
 
@@ -180,7 +180,7 @@ Manual outage recording accepts cancellation propagated through a linked observa
 
 Preserve failed preparations while explicitly correcting a same-candidate catalogue discriminator in a separate initial app phase. The repair retains both attempts and executing tool hashes, rejects any started physical operation, and resumes completed steps without replay. Payload inspection accepts the processor catalogue discriminator while still verifying the complete package bytes. Review now discovers every retained app-step producer and rebases observations from their actual producer folders, including an explicitly retained recovery attempt. Offline validation is recorded separately from live rehearsal results.
 
-## 1.24.0 — 2026-09-29
+## [1.24.0](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.24.0) — 2026-09-29
 
 Physical action replies are now accepted against elapsed time measured on the recording worker, not by comparing the desktop's clock with the worker's clock. Original desktop replies and separate worker decisions are retained. A live shared-file lock prevents the desktop from displaying a recording prompt after its recording process has exited.
 
@@ -194,7 +194,7 @@ Requires Crestron Home NUnit 2.2.0 for the opt-in runner contract. See https://g
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
-## 1.23.1 — 2026-09-29
+## [1.23.1](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.23.1) — 2026-09-29
 
 When an operator chooses **I'm ready**, a failed driver or app-screen preflight now produces a retained, actionable explanation that the physical test never started. Subsequent observations preserve that explanation instead of replacing it with an uncertain test outcome. No failed test or preparation is automatically replayed.
 
@@ -206,7 +206,7 @@ See https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submissio
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
-## 1.23.0 — 2026-09-29
+## [1.23.0](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.23.0) — 2026-09-29
 
 Manual app tests can now wait overnight for an operator without starting a timed physical action or holding a test host, processor reservation or app reservation.
 
@@ -221,7 +221,7 @@ See https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submissio
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
-## 1.22.4 — 2026-09-29
+## [1.22.4](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.22.4) — 2026-09-29
 
 This release fixes worker shutdown and terminal-failure retirement, adds visible-screen readiness before app tests, and delivers worker notices directly to the controlling computer.
 
@@ -239,7 +239,7 @@ See https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submissio
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
-## 1.22.3 — 2026-09-29
+## [1.22.3](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.22.3) — 2026-09-29
 
 This release corrects mixed automatic/manual test execution and adds finite worker closeout for fixed submission or rehearsal runs.
 
@@ -257,7 +257,7 @@ See https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submissio
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
-## 1.22.2 — 2026-09-29
+## [1.22.2](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.22.2) — 2026-09-29
 
 Managed-child setup now handles a light becoming a native Crestron wrapper and load after initial configuration. Previously, setup could reject that successful transition because the wrapper no longer exposed generic configuration fields.
 
@@ -272,7 +272,7 @@ See https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submissio
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
-## 1.22.1 — 2026-09-29
+## [1.22.1](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.22.1) — 2026-09-29
 
 A fresh rehearsal can now activate an exact release package already stored in a processor's local catalogue without importing the same version again.
 
@@ -288,7 +288,7 @@ See https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submissio
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
-## 1.22.0 — 2026-09-29
+## [1.22.0](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.22.0) — 2026-09-29
 
 This release connects required physical-action tests to the release workflow before endurance, and supports sequential test phases on explicitly selected processors.
 
@@ -306,7 +306,7 @@ See https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submissio
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
-## 1.21.0 — 2026-09-28
+## [1.21.0](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.21.0) — 2026-09-28
 
 This release updates the test workflow to NUnit 5 and adds reusable outage evidence recording and optional stored GitHub authentication.
 
@@ -326,7 +326,7 @@ Use the public starting document, setup guide and worker documentation matching 
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
-## 1.20.0 — 2026-09-28
+## [1.20.0](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.20.0) — 2026-09-28
 
 This release hardens the release-to-submission preview so missing initial evidence, incomplete child-device configuration and broken help links are detected before later stages depend on them.
 
@@ -352,7 +352,7 @@ Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are tra
 
 NuGet-only documentation patch: corrected README links and included package release-note metadata. Runtime binaries and the existing GitHub release remain unchanged.
 
-## 1.19.0 — 2026-09-25
+## [1.19.0](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.19.0) — 2026-09-25
 
 This release adds a preview of the persistent release-to-submission workflow. An opted-in private Windows worker discovers published GitHub driver releases, verifies the package and source, runs configured Windows/processor/Android tests, collects endurance evidence, prepares the review packet and hands off to separately authorized signing and delivery. It resumes recorded waits without an AI heartbeat. Ordinary driver releases and library/client releases remain independent of submission.
 
@@ -428,7 +428,7 @@ Reviewed submission emails can preserve independently approved wording through a
 
 Self-test forms mark entirely non-applicable items simply N/A, without an appended note or link. Notes for checked and qualified items remain consecutively numbered and linked. Applicability evidence and checkbox decisions are unchanged.
 
-## 1.18.2 — 2026-09-23
+## [1.18.2](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.18.2) — 2026-09-23
 
 Evidence mapping now accepts the camelCase worker files used by the endurance console, as well as retained PascalCase API worker files. Previously, mapping a completed console run could fail with a generic input error. Both forms retain their original bytes and hashes; strict schema, identity, producer and measured-result validation remain enforced. No collector restart or evidence rewrite is needed.
 
@@ -440,7 +440,7 @@ Validation covers both worker formats without byte rewriting, original identity 
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
-## 1.18.1 — 2026-09-23
+## [1.18.1](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.18.1) — 2026-09-23
 
 Completed endurance runs can now be retained when their scheduler history exceeds 20,000 filesystem entries. A normal 24-hour run can reach that limit because scheduler diagnostics are recorded more often than functional samples. The exporter now defaults to 100,000 entries and supports an explicit `-MaximumEntries` bound up to 1,000,000, recorded in its receipts. File-size limits, evidence hashes, source/copy revalidation and refusal to overwrite partial exports remain enforced. No evidence is removed to fit the limit.
 
@@ -454,7 +454,7 @@ See [completed-run retention](docs/submission/WindowsEnduranceWorker.md#retain-a
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
-## 1.18.0 — 2026-09-22
+## [1.18.0](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.18.0) — 2026-09-22
 
 Windows automation now requires PowerShell 7.6 or later. Resource assessment, OpenSSH and runner setup, remote Windows credential transfer and endurance observation use PowerShell 7 and reject older engines before performing their operation. New endurance scheduled tasks use the PowerShell 7 executable that registers them.
 
@@ -468,7 +468,7 @@ Validation covers version refusal before execution, Windows setup/observation/cr
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
-## 1.17.5 — 2026-09-21
+## [1.17.5](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.17.5) — 2026-09-21
 
 Self-test review PDFs now retain the explanations attached to verified passing observations. Previously, checked items could omit important context such as whether configuration was verified through an API or by visually inspecting a dialog. The numbered notes now include that context in both complete and declared-gaps reviews, printing repeated identical explanations once per official item.
 
@@ -478,7 +478,7 @@ Regression tests reproduce the missing text in generated PDFs, then verify its p
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
-## 1.17.4 — 2026-09-21
+## [1.17.4](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.17.4) — 2026-09-21
 
 Protected JSON input now works when Windows PowerShell 5.1 supplies a UTF-8 byte-order marker. Previously, the same saved-credential import or remote endurance observation could succeed from PowerShell 7 and fail before making a connection from Windows PowerShell 5.1. Redirected input is now decoded as UTF-8, preserving non-ASCII credential values, and the private JSON readers accept one leading marker.
 
@@ -490,7 +490,7 @@ See [reusable private inputs](docs/PrivateInputs.md). Use the updated console fo
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
-## 1.17.3 — 2026-09-21
+## [1.17.3](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.17.3) — 2026-09-21
 
 The supplied GitHub workflow templates now support signing and preparing delivery of a submission with explicitly declared gaps. Previously, the review template rejected that signing mode even though the public console supported it, and the dispatcher did not expose its required inputs.
 
@@ -502,7 +502,7 @@ Validation exercises the actual complete and declared-gap template sequences aga
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
-## 1.17.2 — 2026-09-21
+## [1.17.2](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.17.2) — 2026-09-21
 
 Preparing a new Windows endurance monitor no longer requires writing a custom folder-permission script. The console ZIP includes the optional `Set-EnduranceDirectoryPermissions.ps1` helper: preview the dedicated directory, then use `-Apply` to make the reviewed change.
 
@@ -514,7 +514,7 @@ See [Windows endurance worker setup](docs/submission/WindowsEnduranceWorker.md).
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
-## 1.17.1 — 2026-09-21
+## [1.17.1](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.17.1) — 2026-09-21
 
 Fix an unhandled exception in passive Windows endurance observation. When the task-status reader failed or returned malformed output, its `InvalidDataException` escaped the observer and could leave a Windows application-error dialog. The observer now returns a fresh, run-bound `observer-query-failed` attention report and exit code 3. It does not reuse old healthy status, retry the query, restart a collector or contact the processor.
 
@@ -526,7 +526,7 @@ Update the independent observer installation after stopping and inspecting any f
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
-## 1.17.0 — 2026-09-21
+## [1.17.0](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.17.0) — 2026-09-21
 
 DevTools can now collect private inputs once and reuse named encrypted entries across processor commands, monitoring, signing and delivery. Windows setup and resource assessment help prepare one or more development and monitoring computers.
 
@@ -544,7 +544,7 @@ This release does not change a driver or automatically migrate credentials, inst
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
-## 1.16.3 — 2026-09-20
+## [1.16.3](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.16.3) — 2026-09-20
 
 Dependency-notice preparation now accepts merged DLL filenames containing spaces. Previously, a valid filename such as `Example Library.dll` failed validation before its reviewed notices could be staged.
 
@@ -554,7 +554,7 @@ See [reviewed dependency notices](docs/submission/DependencyNotices.md) for the 
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
-## 1.16.2 — 2026-09-20
+## [1.16.2](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.16.2) — 2026-09-20
 
 Failed installation attempts now retain the processor's preparation or commissioning reply so developers can investigate without repeating the command merely to recover its result.
 
@@ -567,7 +567,7 @@ See [deployment and activation](docs/UserGuide.md#deploy-and-activate), [library
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
-## 1.16.1 — 2026-09-20
+## [1.16.1](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.16.1) — 2026-09-20
 
 Generated self-test forms now identify the driver and developer on the first page, so the checklist remains identifiable without turning to its notes.
 
@@ -579,7 +579,7 @@ See [form generation](docs/submission/FormGeneration.md). The developer uses the
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
-## 1.16.0 — 2026-09-20
+## [1.16.0](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.16.0) — 2026-09-20
 
 Submission checklists now place numbered, linked notes after the unchanged official form. Reviewers can record a scoped interpretation of retained evidence without rewriting the original automatic findings.
 
@@ -593,7 +593,7 @@ See [reviewing declared gaps and interpretations](docs/submission/DeclaredGaps.m
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
-## 1.15.0 — 2026-09-20
+## [1.15.0](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.15.0) — 2026-09-20
 
 Submission reviewers can now retain relevant passing evidence from an earlier candidate through an explicit, scoped change-impact review. Original package identities, execution times, measurements and failures remain intact; a reviewed earlier pass is never labelled as a new test run.
 
@@ -609,7 +609,7 @@ Validation covers prior-evidence import, changed assertions, invalid original me
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
-## 1.14.0 — 2026-09-20
+## [1.14.0](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.14.0) — 2026-09-20
 
 Submission reviews with declared test gaps can now proceed through approved form signing and delivery. Developers can document unavailable equipment or unperformed checks without converting those results into passes. Crestron alone decides whether to accept a submission.
 
@@ -623,7 +623,7 @@ Validation covers declared-gap signing, changed or revoked authorization, docume
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
-## 1.13.1 — 2026-09-19
+## [1.13.1](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.13.1) — 2026-09-19
 
 Fix package verification when the caller supplies the full catalogue ID returned by the processor. `compare-payload` and `DriverPayloadInspection.CompareAsync` now resolve the unversioned driver storage key and separate version directory, instead of looking for a folder named after the entire catalogue ID. This also fixes installed-driver test workflows that stopped before running their fixtures.
 
@@ -633,7 +633,7 @@ Validation includes the complete .NET regression suite and a successful read-onl
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
-## 1.13.0 — 2026-09-19
+## [1.13.0](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.13.0) — 2026-09-19
 
 This release connects candidate-bound evidence from multiple test phases and adds an explicit submission route for developers who choose to disclose unmet requirements. The normal signed submission path remains complete-only by default.
 
@@ -651,7 +651,7 @@ The ordinary workflow still requires complete candidate evidence, visual review 
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
-## 1.12.0 — 2026-09-19
+## [1.12.0](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.12.0) — 2026-09-19
 
 This release adds passive endurance monitoring APIs and console commands. Developers can assess a local or remote Windows collector and send authorized operational email alerts without changing the running collector or contacting its processor.
 
@@ -667,7 +667,7 @@ See [endurance notifications and observation](docs/submission/EnduranceNotificat
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
-## 1.11.0 — 2026-09-19
+## [1.11.0](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.11.0) — 2026-09-19
 
 This release adds a reviewed evidence handoff API and CLI, plus completed endurance snapshots. These optional submission tools remain independent of ordinary driver, library and client releases.
 
@@ -682,7 +682,7 @@ See [evidence mapping](docs/submission/EvidenceMapping.md), [completed endurance
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
-## 1.10.0 — 2026-09-18
+## [1.10.0](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.10.0) — 2026-09-18
 
 Protected submission delivery can now use the complete Windows console distribution without configuring separate runtime or validator paths. This optional workflow remains independent of ordinary driver, library and client releases.
 
@@ -697,7 +697,7 @@ See [delivery setup](docs/submission/DeliverySetup.md), [protected execution and
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
-## 1.9.0 — 2026-09-18
+## [1.9.0](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.9.0) — 2026-09-18
 
 The Windows console now includes the optional submission preparation tools and their isolated document runtime. Driver authors use console commands, configuration and C# fixtures without installing or maintaining Python. Ordinary driver, library and client releases remain independent of submission.
 
@@ -713,7 +713,7 @@ Extract the entire console ZIP; do not copy only the executable or combine relea
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
-## 1.8.0 — 2026-09-18
+## [1.8.0](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.8.0) — 2026-09-18
 
 This release adds optional submission delivery and Windows scheduling for endurance observations. Ordinary driver, client and library releases remain independent of Crestron submission.
 
@@ -730,7 +730,7 @@ The library and console are packaged binaries. Python help, evidence, review and
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
-## 1.7.0 — 2026-09-17
+## [1.7.0](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.7.0) — 2026-09-17
 
 Add read-only processor uptime observations and plan validation for independently supplied monitoring producers. These APIs are useful for ordinary development monitoring as well as optional driver submission.
 
@@ -747,7 +747,7 @@ See [processor uptime](docs/ProcessorUptime.md), [endurance collection](docs/sub
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
-## 1.6.0 — 2026-09-17
+## [1.6.0](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.6.0) — 2026-09-17
 
 Add journaled managed-child setup, test bindings and cleanup, resumable endurance collection, and the remaining offline signing and delivery-preparation stages. These tools support ordinary development CI independently of optional driver submission.
 
@@ -765,7 +765,7 @@ See [managed-child validation](docs/ManagedChildValidation.md), [driver configur
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
-## 1.5.0 — 2026-09-16
+## [1.5.0](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.5.0) — 2026-09-16
 
 Add reusable UI instance association and offline tools for preparing optional Crestron driver submission evidence. Ordinary development, testing and publication remain independent of submission.
 
@@ -783,7 +783,7 @@ See [UI binding](docs/DriverUiBinding.md), [submission plan](docs/CrestronSubmis
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
-## 1.4.0 — 2026-09-16
+## [1.4.0](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.4.0) — 2026-09-16
 
 Add opt-in removal of a V1 driver instance when other installed instances share its reload scope.
 
@@ -798,7 +798,7 @@ See [V1 installation and removal](docs/V1DriverRemoval.md), [compatibility](docs
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
-## 1.3.0 — 2026-09-15
+## [1.3.0](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.3.0) — 2026-09-15
 
 Add room inventory and guarded movement of a loaded driver between existing rooms.
 
@@ -820,7 +820,7 @@ Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are tra
 - State that configuration-management commands require V2 Crestron Home processors; V1 processors do not support them. Distinguish processor compatibility from supported V1 driver update/reboot workflows.
 - Correct the README installation example to the current 1.2.0 library release.
 
-## 1.2.0 — 2026-09-15
+## [1.2.0](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.2.0) — 2026-09-15
 
 Add reusable initial-driver configuration and read-only inspection of current settings to the .NET 10 library, interactive console and CLI.
 
@@ -837,7 +837,7 @@ See [driver configuration](docs/DriverConfiguration.md), [protocol reference](do
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are trademarks of Crestron Electronics, Inc. This project is independent and is not affiliated with, endorsed by or sponsored by Crestron Electronics, Inc.
 
-## 1.1.0 — 2026-09-14
+## [1.1.0](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.1.0) — 2026-09-14
 
 - Support catalogue searches longer than three words by issuing bounded search batches and intersecting catalogue IDs. Fixes HTTP 422 when a workflow looks up models such as Example Multi Word Device Model.
 
@@ -849,7 +849,7 @@ Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are tra
 
 - Validate 162 offline tests, cross-tool processor locking, active-test release refusal, reboot recovery, retained-package inspection and complete representative Entity V2 update workflows on MC4-R / Home 4.11.322.
 
-## 1.0.0 — 2026-09-14
+## [1.0.0](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.0.0) — 2026-09-14
 
 - Add a configuration-management protocol reference covering verified discovery, authentication, request/response envelopes, commands, asynchronous events, V1/V2 lifecycle sequences, configuration reboot, retry rules and validation limits. Link it from README and the API/compatibility guides. — initial development preview
 
