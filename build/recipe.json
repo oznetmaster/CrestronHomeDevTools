@@ -1,0 +1,161 @@
+{
+  "schema": 1,
+  "tasks": {
+    "ci-validate-verify-powershell-prerequisite": {
+      "commands": [
+        {
+          "executable": "pwsh",
+          "script": "build/steps/ci-validate-verify-powershell-prerequisite.ps1",
+          "shell": "pwsh"
+        }
+      ]
+    },
+    "ci-validate-verify-complete-discovered-test-coverage": {
+      "commands": [
+        {
+          "executable": "pwsh",
+          "script": "build/steps/ci-validate-verify-complete-discovered-test-coverage.ps1",
+          "shell": "pwsh"
+        }
+      ],
+      "results": [
+        "artifacts/tests/**/*.trx"
+      ]
+    },
+    "ci-validate-validate-windows-scheduled-endurance-worker": {
+      "commands": [
+        {
+          "executable": "pwsh",
+          "script": "build/steps/ci-validate-validate-windows-scheduled-endurance-worker.ps1",
+          "shell": "pwsh"
+        }
+      ]
+    },
+    "ci-validate-validate-kasa-tapo-read-only-endurance-sample": {
+      "commands": [
+        {
+          "executable": "dotnet",
+          "arguments": [
+            "run",
+            "--project",
+            "samples/KasaTapoEnduranceProducer",
+            "-c",
+            "Release",
+            "--",
+            "--self-test"
+          ]
+        }
+      ]
+    },
+    "ci-validate-validate-new-monitoring-directory-permissions": {
+      "commands": [
+        {
+          "executable": "pwsh",
+          "script": "build/steps/ci-validate-validate-new-monitoring-directory-permissions.ps1",
+          "shell": "pwsh"
+        }
+      ]
+    },
+    "ci-validate-validate-scheduled-endurance-notifications": {
+      "commands": [
+        {
+          "executable": "pwsh",
+          "script": "build/steps/ci-validate-validate-scheduled-endurance-notifications.ps1",
+          "shell": "pwsh"
+        }
+      ]
+    },
+    "ci-validate-validate-completed-endurance-snapshots": {
+      "commands": [
+        {
+          "executable": "pwsh",
+          "script": "build/steps/ci-validate-validate-completed-endurance-snapshots.ps1",
+          "shell": "pwsh"
+        }
+      ]
+    },
+    "ci-validate-validate-passive-endurance-health-snapshots": {
+      "commands": [
+        {
+          "executable": "pwsh",
+          "script": "build/steps/ci-validate-validate-passive-endurance-health-snapshots.ps1",
+          "shell": "pwsh"
+        }
+      ]
+    },
+    "ci-validate-validate-shared-nunit-packages-from-a-fresh-cache": {
+      "commands": [
+        {
+          "executable": "pwsh",
+          "script": "build/steps/ci-validate-validate-shared-nunit-packages-from-a-fresh-cache.ps1",
+          "shell": "pwsh"
+        }
+      ]
+    },
+    "help-tests-offline-install-document-dependencies": {
+      "commands": [
+        {
+          "executable": "python",
+          "arguments": [
+            "-m",
+            "pip",
+            "install",
+            "-r",
+            "tools/submission/requirements.txt"
+          ]
+        }
+      ]
+    },
+    "help-tests-offline-build-offline-submission-validator": {
+      "commands": [
+        {
+          "executable": "dotnet",
+          "arguments": [
+            "build",
+            "CrestronHomeDevTools.Console/CrestronHomeDevTools.Console.csproj",
+            "-c",
+            "Release"
+          ]
+        }
+      ]
+    },
+    "help-tests-offline-run-all-discovered-offline-document-tests": {
+      "commands": [
+        {
+          "executable": "python",
+          "arguments": [
+            "tools/submission/run_tests.py"
+          ]
+        }
+      ]
+    },
+    "help-tests-offline-validate-public-submission-workflow-templates": {
+      "commands": [
+        {
+          "executable": "python",
+          "arguments": [
+            "-m",
+            "pip",
+            "install",
+            "PyYAML==6.0.3"
+          ]
+        },
+        {
+          "executable": "python",
+          "arguments": [
+            "tools/workflows/test_submission_templates.py"
+          ]
+        }
+      ]
+    },
+    "help-tests-offline-build-and-test-the-windows-console-download": {
+      "commands": [
+        {
+          "executable": "pwsh",
+          "script": "build/steps/help-tests-offline-build-and-test-the-windows-console-download.ps1",
+          "shell": "pwsh"
+        }
+      ]
+    }
+  }
+}
