@@ -3,14 +3,10 @@
 param([string]$Configuration = 'Release', [string]$ResultsDirectory = 'artifacts/tests')
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+. "$PSScriptRoot/../build/shared/test-coverage/Coverage.ps1"
 
-function Assert-SameTests($Expected, $Actual) {
-    $left = @($Expected | Sort-Object -CaseSensitive)
-    $right = @($Actual | Sort-Object -CaseSensitive)
-    if (!$left.Count -or $left.Count -ne $right.Count) { throw 'Empty or incomplete test execution.' }
-    for ($index = 0; $index -lt $left.Count; $index++) {
-        if ($left[$index] -cne $right[$index]) { throw 'Executed test identities differ from discovery.' }
-    }
+function Assert-SameTests($Expected,$Actual,[string]$Context) {
+    Assert-CoverageTestNames $Expected $Actual $Context
 }
 if ($MyInvocation.InvocationName -eq '.') { return }
 $project = Join-Path $PSScriptRoot '../CrestronHomeDevTools.Tests/CrestronHomeDevTools.Tests.csproj'

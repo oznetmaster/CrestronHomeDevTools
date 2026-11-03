@@ -2,3 +2,4 @@
 docs/submission/*-inventory.json text eol=lf
 # Preserve the exact bytes of the lab-validated, embedded configuration template.
 CrestronHomeDevTools/KasaNativeLightConfiguration-4.012.0194.json text eol=lf
+build/shared/test-coverage/** text eol=lf
