@@ -5,7 +5,8 @@
 param(
 	[Parameter(Mandatory)][string]$TaskName,
 	[Parameter(Mandatory)][string]$Configuration,
-	[Parameter(Mandatory)][string]$TickScript
+	[Parameter(Mandatory)][string]$TickScript,
+	[switch]$CurrentUser
 )
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
@@ -18,13 +19,19 @@ foreach ($path in @($Configuration, $TickScript)) {
 }
 $config = Get-Content -LiteralPath $Configuration -Raw | ConvertFrom-Json
 if ($config.SchemaVersion -ne 1 -or (Get-FileHash -LiteralPath $TickScript -Algorithm SHA256).Hash -ne $config.ScriptSha256) { throw 'Tick script does not match the reviewed configuration.' }
-# ACL provisioning is separate: LocalService reads protected inputs and writes only private state/run directories.
-$principal = New-ScheduledTaskPrincipal -UserId 'S-1-5-19' -LogonType ServiceAccount -RunLevel Limited
+# CurrentUser preserves the existing user profile and encrypted credential access.
+# It requires that user's logged-in session (which may be locked); it stores no login password.
+if ($CurrentUser) {
+	$userSid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+	$principal = New-ScheduledTaskPrincipal -UserId $userSid -LogonType Interactive -RunLevel Limited
+} else {
+	$principal = New-ScheduledTaskPrincipal -UserId 'S-1-5-19' -LogonType ServiceAccount -RunLevel Limited
+}
 $shell = Join-Path $PSHOME 'pwsh.exe'
 $action = New-ScheduledTaskAction -Execute $shell -Argument (
-	'-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + $TickScript + '" -Configuration "' + $Configuration + '"')
+	'-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $TickScript + '" -Configuration "' + $Configuration + '"')
 $triggers = @(
-	New-ScheduledTaskTrigger -AtStartup
+	if ($CurrentUser) { New-ScheduledTaskTrigger -AtLogOn -User $userSid } else { New-ScheduledTaskTrigger -AtStartup }
 	New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 1)
 )
 $settings = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -StartWhenAvailable -ExecutionTimeLimit ([TimeSpan]::Zero) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries

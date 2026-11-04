@@ -99,6 +99,37 @@ foreach ($phase in @('before', 'after')) {
 		$passed.Add($scenario)
 	}
 }
+# Named bindings are forwarded only by the online tick; pin failures must prevent all collector calls.
+foreach ($mode in @('valid','changed','missing','nested')) {
+	$case = Prepare ('credentials-' + $mode) 'collecting'
+	$binding = Join-Path $case 'credential bindings.json'
+	[IO.File]::WriteAllText($binding, '{"storeDirectory":"synthetic","processor":"selected"}')
+	$worker = Join-Path $case 'worker.json'
+	[IO.File]::WriteAllText($worker, (@{Scenario='collecting';ExpectedCredentials=$binding} | ConvertTo-Json))
+	$config = Get-Content (Join-Path $case 'schedule.json') -Raw | ConvertFrom-Json
+	$config.WorkerSha256 = (Get-FileHash $worker -Algorithm SHA256).Hash
+	$config | Add-Member CredentialBindingsFile $binding
+	$config | Add-Member CredentialBindingsSha256 (Get-FileHash $binding -Algorithm SHA256).Hash
+	if ($mode -eq 'changed') { [IO.File]::AppendAllText($binding, ' ') }
+	if ($mode -eq 'missing') { [IO.File]::Delete($binding) }
+	if ($mode -eq 'nested') {
+		[void][IO.Directory]::CreateDirectory((Join-Path $case 'run'))
+		$config.CredentialBindingsFile = Join-Path $case 'run/bindings.json'
+		[IO.File]::Copy($binding, $config.CredentialBindingsFile)
+	}
+	$config | ConvertTo-Json -Depth 10 | Set-Content (Join-Path $case 'schedule.json')
+	$expected = if ($mode -eq 'valid') { 0 } else { 3 }
+	Assert ((Run-Tick $case) -eq $expected) "Named credential case $mode failed."
+	if ($mode -ne 'valid') { Assert (-not (Test-Path (Join-Path $case 'run/calls.txt'))) 'Invalid bindings reached collector.' }
+	$passed.Add('credentials-' + $mode)
+}
+$case = Prepare 'bindings-config' 'collecting'
+$binding = Join-Path $case 'bindings.json'
+[IO.File]::WriteAllText($binding, '{}')
+& (Join-Path $root 'New-EnduranceScheduleConfiguration.ps1') -CliDirectory $bundle -CliExecutable 'CollectorStub.exe' -WorkerFile (Join-Path $case 'worker.json') -RunDirectory (Join-Path $case 'run') -SettingsFile (Join-Path $case 'settings.json') -CredentialBindingsFile $binding -StateDirectory (Join-Path $case 'state') -Output (Join-Path $case 'named-schedule.json') | Out-Null
+$c = Get-Content (Join-Path $case 'named-schedule.json') -Raw | ConvertFrom-Json
+Assert ($c.CredentialBindingsFile -eq $binding -and $c.CredentialBindingsSha256 -eq (Get-FileHash $binding -Algorithm SHA256).Hash) 'Configuration did not pin bindings.'
+$passed.Add('bindings-config')
 $case = Prepare 'changed-worker' 'collecting'
 Add-Content -LiteralPath (Join-Path $case 'worker.json') -Value ' '
 Assert ((Run-Tick $case) -eq 3) 'Changed worker was accepted.'

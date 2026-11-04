@@ -9,6 +9,7 @@ param(
 	[Parameter(Mandatory)][string]$WorkerFile,
 	[Parameter(Mandatory)][string]$RunDirectory,
 	[Parameter(Mandatory)][string]$SettingsFile,
+	[string]$CredentialBindingsFile,
 	[Parameter(Mandatory)][string]$StateDirectory,
 	[Parameter(Mandatory)][string]$Output,
 	[string]$TickScript = (Join-Path $PSScriptRoot 'Invoke-EnduranceScheduledTick.ps1')
@@ -17,6 +18,10 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 foreach ($path in @($CliDirectory, $WorkerFile, $RunDirectory, $SettingsFile, $StateDirectory, $Output, $TickScript)) {
 	if (-not [IO.Path]::IsPathRooted($path) -or $path.StartsWith('\\')) { throw 'Use absolute local paths.' }
+}
+if ($CredentialBindingsFile) {
+	if (-not [IO.Path]::IsPathRooted($CredentialBindingsFile) -or $CredentialBindingsFile.StartsWith('\\')) { throw 'Use an absolute local credential bindings path.' }
+	$CredentialBindingsFile = (Resolve-Path -LiteralPath $CredentialBindingsFile).Path
 }
 $CliDirectory = (Resolve-Path -LiteralPath $CliDirectory).Path.TrimEnd('\')
 $WorkerFile = (Resolve-Path -LiteralPath $WorkerFile).Path
@@ -31,7 +36,7 @@ foreach ($left in @($CliDirectory, $RunDirectory, $StateDirectory)) {
 	}
 }
 if ($CliDirectory -eq $RunDirectory -or $CliDirectory -eq $StateDirectory -or $RunDirectory -eq $StateDirectory) { throw 'Use separate directories.' }
-foreach ($path in @($WorkerFile, $SettingsFile, $Output, $TickScript)) {
+foreach ($path in @($WorkerFile, $SettingsFile, $Output, $TickScript) + @($CredentialBindingsFile | Where-Object { $_ })) {
 	foreach ($directory in @($CliDirectory, $RunDirectory, $StateDirectory)) {
 		if ([IO.Path]::GetFullPath($path).StartsWith($directory + '\', [StringComparison]::OrdinalIgnoreCase)) { throw 'Keep inputs and configuration outside CLI, run and scheduler state directories.' }
 	}
@@ -45,6 +50,10 @@ $configuration = @{SchemaVersion=1; CliDirectory=$CliDirectory; CliExecutable=$C
 	WorkerFile=$WorkerFile; WorkerSha256=(Get-FileHash -LiteralPath $WorkerFile -Algorithm SHA256).Hash;
 	RunDirectory=$RunDirectory; SettingsFile=$SettingsFile; StateDirectory=$StateDirectory;
 	ScriptSha256=(Get-FileHash -LiteralPath $TickScript -Algorithm SHA256).Hash}
+if ($CredentialBindingsFile) {
+	$configuration.CredentialBindingsFile = $CredentialBindingsFile
+	$configuration.CredentialBindingsSha256 = (Get-FileHash -LiteralPath $CredentialBindingsFile -Algorithm SHA256).Hash
+}
 $bytes = (New-Object Text.UTF8Encoding($false)).GetBytes(($configuration | ConvertTo-Json -Depth 10))
 $file = [IO.File]::Open($Output, 'CreateNew', 'Write', 'None')
 try { $file.Write($bytes, 0, $bytes.Length); $file.Flush($true) } finally { $file.Dispose() }
