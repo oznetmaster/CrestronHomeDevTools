@@ -26,6 +26,13 @@ property is unconfirmed, not necessarily unsupported. A missing or malformed
 empty list. Unknown future port types remain visible. Matching schema versions
 and an Early Access release level do not establish SDK 30 support.
 
+The SDK 30 video probe's import rejection was specifically a manifest-version
+gate: its minimum SDK was 30, and Home reported a maximum of 29. This is not a
+test of SDK 30 binary compatibility. A shade probe built with SDK 30 and declaring
+minimum SDK 29 imported and loaded, but never completed configuration. Both were
+packaged with ManifestUtil 30.0.9. Native video/shade functionality therefore
+remains unqualified; importing a package alone is insufficient evidence.
+
 ## Preparing a port connection
 
 `IoPortConnections.Parse` reads both `deviceId|portNumber` and

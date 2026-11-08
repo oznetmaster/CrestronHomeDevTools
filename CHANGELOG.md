@@ -1,24 +1,5 @@
 # Changelog
 
-## Unreleased - processor compatibility
-
-Adds opt-in correlated import receipts, managed-child descriptor snapshots and
-bounded state-event monitoring, plus typed read-only dynamic device-settings
-inspection. Missing 4.13 fields remain unavailable on 4.12. Existing connection
-interfaces, deployment verification and default refresh JSON are unchanged.
-Settings commands are never invoked; property values are opt-in. Inspection
-accepts system ID zero as well as negative IDs without changing mutation rules.
-See [receipt and inspection behaviour](docs/ImportReceiptsAndInspection.md).
-
-Adds authenticated, read-only processor capability reporting, preserving existing
-custom connection implementations. Reports Home/firmware/schema/release-level
-and advertised command/property/port identifiers without configuration values.
-Adds explicit, read-only I/O connection preparation for legacy Home 4.7–4.12 and
-typed Home 4.13 formats, including `Com` normalization and CEC direction checks.
-Unknown versions and unconfirmed selections are rejected before any command.
-Existing raw configuration strings and the console's local `capabilities`
-command are unchanged. See [capability discovery and limits](docs/ProcessorCapabilities.md).
-
 ## [1.28.0](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.28.0) - 2026-10-26
 
 Adds library APIs to list the authenticated processor's cloud configuration backups and explicitly request a normal or golden backup. `ProcessorCloudBackups` checks advertised capabilities, correlates backup events and compares the before/after cloud listings without assuming backup IDs are permanent. Save completion waits for dedicated success and final completion through the processor's automatic list refresh. Submitted saves are never automatically retried. Cloud operations leave Home running; this release adds no backup CLI command, restore helper or historical archive download.

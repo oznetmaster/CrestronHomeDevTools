@@ -1,6 +1,6 @@
 # Driver update manager
 
-The Windows desktop app and DevTools console can report available updates across installed Crestron Home drivers and apply a reviewed selection. This is general system maintenance, independent of submission testing. These tools are currently available from source; they are not yet in a published release.
+The Windows desktop app and DevTools console can report available updates across installed Crestron Home drivers and apply a reviewed selection. This is general system maintenance, independent of submission testing. Version 1.29.0 includes the console commands and library APIs. The desktop checklist is built from source using the instructions below.
 
 Build the console with the .NET 10 SDK from the repository root, then use the executable in `artifacts/console` for the commands below:
 

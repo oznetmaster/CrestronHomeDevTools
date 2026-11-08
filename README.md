@@ -1,10 +1,10 @@
 # CrestronHomeDevTools
 
-Unreleased source work and its validation limits are recorded in the [development status](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/DevelopmentStatus.md). Published releases and existing frozen submission tooling remain separate.
+Version 1.29.0 adds processor compatibility discovery, import receipts, managed-child monitoring and read-only dynamic-settings inspection, together with the reconciled driver-update and submission tooling. [Validation scope and remaining limits](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/DevelopmentStatus.md) are recorded separately from individual driver submissions.
 
 Read-only [processor capability discovery and version-aware I/O preparation](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/ProcessorCapabilities.md) support Official and Early Access Home connections without rewriting existing configuration inputs.
 
-The source also adds optional [import receipts, managed-child monitoring and read-only dynamic-settings inspection](docs/ImportReceiptsAndInspection.md). Newer fields remain optional on Home 4.12; property values are excluded from inspection output unless requested.
+Optional [import receipts, managed-child monitoring and read-only dynamic-settings inspection](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/ImportReceiptsAndInspection.md) preserve compatibility with Home 4.12. Newer fields remain optional; property values are excluded from inspection output unless requested.
 
 **Processor compatibility:** Configuration-management commands require a **V2 Crestron Home processor**. V1 Crestron Home processors do not support these commands. This refers to the processor platform, not the driver type: supported V2 processors can host V1 drivers, whose update workflow requires an explicitly authorized reboot.
 
@@ -16,7 +16,7 @@ This source includes initial driver configuration and read-only inspection of cu
 
 Reviewed V1 removal can preserve other instances sharing the same driver code across an explicitly authorized Home reboot. See [V1 installation and removal](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/V1DriverRemoval.md) for the opt-in scope, preservation checks and validation limits.
 
-The [driver-update desktop app](docs/DriverUpdates.md#desktop-checklist-windows) provides a checklist, select-all, update/restart confirmation and per-driver progress/results using the same DevTools update manager. Available from source pending release.
+The [source-built driver-update desktop app](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/DriverUpdates.md#desktop-checklist-windows) provides a checklist, select-all, update/restart confirmation and per-driver progress/results using the same DevTools update manager. The console's corresponding commands are included in the Windows console download.
 
 ## Contents
 
@@ -79,7 +79,7 @@ The two target values must match; credentials and verified SSH trust still come 
 
 ## Driver updates across a system
 
-The source version includes `driver-updates` to report available driver upgrades in the console (add `--output updates.json` to save the report) and `update-drivers --plan updates.json --all true --journal NEW_DIRECTORY` to apply a reviewed selection. Both use existing processor profiles or named encrypted credentials. Updates respect shared processor reservations; restarts require explicit authorization. See the [driver update manager](docs/DriverUpdates.md) for selection, scope, restart and recovery behavior. These commands are not yet in a published console release.
+Version 1.29.0 includes `driver-updates` to report available driver upgrades in the console (add `--output updates.json` to save the report) and `update-drivers --plan updates.json --all true --journal NEW_DIRECTORY` to apply a reviewed selection. Both use existing processor profiles or named encrypted credentials. Updates respect shared processor reservations; restarts require explicit authorization. See the [driver update manager](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/DriverUpdates.md) for selection, scope, restart and recovery behavior.
 
 ## Get started
 

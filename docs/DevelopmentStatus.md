@@ -1,10 +1,11 @@
-# Reconciled development work
+# Version 1.29.0 scope and validation limits
 
 The development branch and its uncommitted files were reconciled with current
 `main` on 8 November 2026. The published 1.28.0 release, its cloud-backup and
 managed-child repair APIs, and all previously frozen submission artifacts remain
-unchanged. This source reconciliation is not a new public release or a completed
-live submission qualification.
+unchanged. Version 1.29.0 includes the reconciled source and subsequent
+processor-compatibility and read-only inspection APIs. Publication does not
+establish a completed live submission qualification.
 
 | Area | Reconciled source | Validation and remaining limits |
 | --- | --- | --- |
