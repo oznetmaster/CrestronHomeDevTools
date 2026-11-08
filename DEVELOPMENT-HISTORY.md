@@ -1,5 +1,30 @@
 # Development history
 
+## 8 November 2026 - Isolated EAP serial-selection test
+
+An authorized transport-free SDK 29 V2 mock on Home 4.013.0134 received a typed
+serial selection through its advertised configuration wizard. Home retained the
+Serial spelling in configuration metadata and delivered/stored the Com alias.
+The first strict mock rejected that spelling difference; its original failed
+attempt and package remain retained. A separately frozen diagnostic revision
+accepted only the same provider/port in the known Serial, Com or legacy forms.
+The configured live item passed the read-only preparation helper.
+
+After an isolated V2 reload, both displayed selection and saved manifest value
+remained present. The operation reported Ended, not explicit success. Home's log
+said it was delaying configuration until the previous port connection was
+applied; the deliberately transport-free mock did not return to ready. This is
+not a full connected-lifecycle pass or proof of a firmware defect. No physical
+I/O was opened or sent, no reboot was performed, and physical communication and
+Home 4.12 server assignment remain unqualified.
+
+The mock instance, stored package and exact-hash extracted payloads were removed.
+All ten original inventory records, captured configuration fields, placements,
+scenes, programming and Quick Actions matched the baseline. The exact lease was
+released after confirming no installed mock, executable payload or pending
+refresh. One non-executable catalogue metadata entry remained after refresh and
+was explicitly retained as a cleanup limit; no global cache was edited.
+
 ## 8 November 2026 - Read-only processor compatibility
 
 Added fresh authenticated processor identity and capability reports and explicit

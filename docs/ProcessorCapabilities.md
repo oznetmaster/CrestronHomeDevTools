@@ -43,11 +43,22 @@ Pro's installed version or the resource schema version:
 
 The compatibility rule follows the reviewed Configure Pro 4.13 conversion path
 for older Home versions. Live read-only reports were verified on Home 4.012.0194
-and 4.013.0134. Wire formats and rejected selections have fixture coverage;
-server acceptance of newly assigned I/O configuration remains unqualified.
-Neither processor currently advertises a suitable writable flat I/O item for a
-read-only preparation check. This work has not assigned a physical port on
-either processor. Existing raw configuration APIs retain their behaviour.
+and 4.013.0134. On 4.013.0134, an isolated SDK 29 V2 mock accepted a typed serial
+selection through its initial configuration wizard. Home presented the value as
+`deviceId|Serial|portNumber`, delivered the `Com` alias to the mock and retained
+that alias in saved configuration. The displayed value and saved selection
+survived reload. Treat `Com` and `Serial` as the same type rather than requiring
+byte-for-byte equality across this boundary.
+
+The read-only preparation helper also passed against that completed live setting.
+The initial flat item list was empty; the advertised wizard supplied the initial
+prompt. This does not add automatic wizard handling to the helper.
+
+The mock had no transport or physical I/O calls. After reload Home delayed applying
+its saved settings pending restoration of the previous port connection, which
+this mock never establishes. Consequently a full connected/ready lifecycle is
+not qualified. Physical communication and server assignment on Home 4.12 remain
+unqualified. Existing raw configuration APIs retain their behaviour.
 
 To prepare one value with live checks, use
 `IoPortConnections.PrepareValueAsync(client, target, itemId, selection)`, or:
