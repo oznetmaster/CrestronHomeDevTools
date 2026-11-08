@@ -11,7 +11,7 @@ using System.Text.Json;
 
 namespace CrestronHomeDevTools;
 
-public sealed class ProcessorConnection : IConfigurationConnection, ICloudBackupEventSource
+public sealed class ProcessorConnection : IConfigurationConnection, ICloudBackupEventSource, IProcessorIdentitySource
 	{
 	private static readonly JsonSerializerOptions JsonOptions = new () { PropertyNameCaseInsensitive = true };
 	private readonly HttpClient _http;
@@ -130,10 +130,21 @@ public sealed class ProcessorConnection : IConfigurationConnection, ICloudBackup
 	public Task WaitForCloudConfigurationSaveAsync (string operationId, TimeSpan timeout, CancellationToken token = default)
 		=> _cloudBackups.WaitForSave (operationId, timeout, token);
 
-	private async Task<T?> SendAsync<T> (HttpMethod method, string path, object? payload, CancellationToken cancellationToken)
+	/// <summary>Reads raw identification only at the fixed API root, using this connection's existing authenticated transport.</summary>
+	public async Task<ProcessorIdentity> ReadProcessorIdentityAsync (CancellationToken cancellationToken = default)
+		{
+		var identity = await SendAsync<ProcessorIdentity> (HttpMethod.Get, "v2", null, cancellationToken, identityRead: true).ConfigureAwait (false);
+		if (identity == null || string.IsNullOrWhiteSpace (identity.SystemType))
+			throw new ProcessorApiException ("The processor returned incomplete identification.");
+		return identity;
+		}
+
+	private async Task<T?> SendAsync<T> (HttpMethod method, string path, object? payload, CancellationToken cancellationToken, bool identityRead = false)
 		{
 		ObjectDisposedException.ThrowIf (_disposed, this);
-		ValidatePath (path);
+		if (!identityRead) ValidatePath (path);
+		else if (method != HttpMethod.Get || path != "v2" || payload != null)
+			throw new ArgumentException ("Identification requires a read of the fixed API root.");
 		if (_socket != null && _socket.State != WebSocketState.Open)
 			throw new ProcessorApiException ("The processor event connection is closed. Reconnect before submitting another request.");
 		using var linked = CancellationTokenSource.CreateLinkedTokenSource (cancellationToken, _lifetime.Token);
@@ -152,6 +163,8 @@ public sealed class ProcessorConnection : IConfigurationConnection, ICloudBackup
 			var root = document.RootElement;
 			if (root.TryGetProperty ("Error", out var error) && error.ValueKind != JsonValueKind.Null)
 				throw new ProcessorApiException ("The processor rejected the request. Response details are withheld because they may contain configuration credentials.");
+			if (identityRead)
+				return root.Deserialize<T> (JsonOptions);
 			if (!root.TryGetProperty ("Result", out var result))
 				throw new ProcessorApiException ("Processor returned an unexpected response envelope.");
 			return result.ValueKind == JsonValueKind.Null ? default : result.Deserialize<T> (JsonOptions);

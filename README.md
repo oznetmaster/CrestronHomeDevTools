@@ -2,6 +2,8 @@
 
 Unreleased source work and its validation limits are recorded in the [development status](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/DevelopmentStatus.md). Published releases and existing frozen submission tooling remain separate.
 
+Read-only [processor capability discovery and version-aware I/O preparation](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/ProcessorCapabilities.md) support Official and Early Access Home connections without rewriting existing configuration inputs.
+
 **Processor compatibility:** Configuration-management commands require a **V2 Crestron Home processor**. V1 Crestron Home processors do not support these commands. This refers to the processor platform, not the driver type: supported V2 processors can host V1 drivers, whose update workflow requires an explicitly authorized reboot.
 
 An independent .NET 10 library, Windows driver-update desktop app, interactive console and automation CLI for Crestron Home configuration management. Discover processors, inspect installed devices, deploy driver packages, install or update Entity V2 driver instances, and verify their loaded versions without operating Configure Pro.

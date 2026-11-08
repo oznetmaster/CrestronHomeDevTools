@@ -13,6 +13,7 @@ live submission qualification.
 | Submission evidence and review | Retained interrupted/history observations, scoped documentary reviews, pinned snapshots and signing-plan preparation | Offline .NET/Python tests; no new compliance passes, signature access, upload or email follows from reconciliation |
 | Artifact delivery and packaging | Verified-byte publication, complete Python import closure, native output-path admission and private diagnostics | Source regressions and complete packaged-console checks are recorded in development history; old failed outputs remain private |
 | Worker execution | Explicit local/shared input/output roles, host checks, private terminal diagnostics and collection verification | Offline real-file permission/path tests; this does not qualify every remote worker or grant new access |
+| Processor compatibility | Fresh authenticated capability reports and explicit version-aware I/O preparation | Read-only discovery verified on Official 4.12 and EAP 4.13; wire formats and selection guards have fixture coverage, while server acceptance of newly assigned physical I/O remains unqualified |
 | Submission procedure | Execution/transfer protocol, coverage/run-state templates, bounded recovery and approval/continuation guidance | Documentation/process clarification; no full initial or update submission is newly certified |
 
 The old checkout also contained stale copies of changes already integrated in

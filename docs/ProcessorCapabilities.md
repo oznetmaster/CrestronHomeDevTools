@@ -1,0 +1,72 @@
+# Processor capabilities and I/O connections
+
+`ConfigurationClient.GetCapabilitiesAsync()` reads the authenticated processor's
+identification and device inventory. It reports the raw Home and firmware
+versions, resource schema versions, advertised release level, command IDs,
+property IDs and available I/O ports. It excludes configuration property values,
+serial settings, credentials and command parameters. It does not run device
+commands or fetch arbitrary URLs advertised by a processor.
+
+The console equivalent is:
+
+```powershell
+CrestronHomeDevTools.Console.exe processor-capabilities --processor 192.168.8.244 --credentials C:\Private\processor-bindings.json
+```
+
+The existing `capabilities` command still reports the console's own automation
+features without connecting. The new report describes the processor instead.
+Custom `IConfigurationConnection` implementations remain compatible; they may
+optionally implement `IProcessorIdentitySource`. Without that interface the
+report retains advertised device capabilities but leaves processor identity and
+automatic port formatting unknown.
+
+These are observations, not a promise of successful command execution. A missing
+property is unconfirmed, not necessarily unsupported. A missing or malformed
+`cp.ioPorts` value produces `IoPorts: null`; an advertised empty array produces an
+empty list. Unknown future port types remain visible. Matching schema versions
+and an Early Access release level do not establish SDK 30 support.
+
+## Preparing a port connection
+
+`IoPortConnections.Parse` reads both `deviceId|portNumber` and
+`deviceId|portType|portNumber`. It normalizes the documented `Com` alias to
+`Serial`. It does not scan or modify existing configuration strings.
+
+Automatic formatting is based on the processor's **Home** version, not Configure
+Pro's installed version or the resource schema version:
+
+| Home version | Prepared value |
+| --- | --- |
+| 4.7 through 4.12 | `52001|1` |
+| 4.13 | `52001|Serial|1` |
+| Missing, malformed, older or future version | Refuse automatic preparation |
+
+The compatibility rule follows the reviewed Configure Pro 4.13 conversion path
+for older Home versions. Live read-only reports were verified on Home 4.012.0194
+and 4.013.0134. Wire formats and rejected selections have fixture coverage;
+server acceptance of newly assigned I/O configuration remains unqualified.
+Neither processor currently advertises a suitable writable flat I/O item for a
+read-only preparation check. This work has not assigned a physical port on
+either processor. Existing raw configuration APIs retain their behaviour.
+
+To prepare one value with live checks, use
+`IoPortConnections.PrepareValueAsync(client, target, itemId, selection)`, or:
+
+```powershell
+CrestronHomeDevTools.Console.exe port-value --device 100 --model Mock --version 1.0.0.0 --item serialPort --provider 52001 --port-type Serial --port 1 --processor 192.168.8.241 --credentials C:\Private\processor-bindings.json
+```
+
+The command returns a JSON string only. It verifies the expected driver identity,
+unique writable configuration item, its I/O usage context, and a uniquely
+advertised provider/type/number. Generic CEC requires an explicit `CecInput` or
+`CecOutput`; a legacy value that would lose an ambiguous direction is rejected.
+Unknown types, unavailable metadata and future versions stop before commands.
+This first helper covers advertised flat configuration items. It does not start
+a wizard to discover additional prompts.
+
+Preparation does not grant permission to apply configuration. For an authorized
+configuration operation, hold the usual processor operation lease, prepare
+against current metadata immediately before applying, review the resulting
+value, and place it only in the intended item in the existing configuration
+input. Retain unrelated string values exactly. A separately prepared value can
+become stale; the helper does not make preparation and application atomic.

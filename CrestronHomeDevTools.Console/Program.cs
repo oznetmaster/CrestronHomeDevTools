@@ -178,6 +178,10 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
             Inspect configuration (read-only):
               discover                 Find Crestron Home processors on the local network.
               capabilities             Show automation features without connecting.
+              processor-capabilities   Read processor versions, schema and advertised command/property/port IDs.
+              port-value --device ID --model MODEL --version VERSION --item ITEM
+                         --provider ID --port-type TYPE --port NUMBER
+                                       Prepare a version-aware I/O value; does not apply configuration.
               drivers [--search text]  List available driver packages and their catalogue IDs.
               published-drivers [--search text]
                                        Search the published Crestron portal independently of local copies.
@@ -351,7 +355,8 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 				"drivers" => ["search"],
 				"driver-configuration" => ["device"],
 				"driver-readiness" => ["device", "model", "version"],
-				"devices" or "locations" or "refresh" or "stored-packages" => [],
+				"devices" or "locations" or "processor-capabilities" or "refresh" or "stored-packages" => [],
+				"port-value" => ["device", "model", "version", "item", "provider", "port-type", "port"],
 				"move" => ["device", "model", "version", "from-room", "room"],
 				"reboot" => ["confirm-reboot"],
 				"deploy" => ["package"],
@@ -409,7 +414,7 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 				throw new ArgumentException ("The candidate package file does not exist.");
 			}
 		var deviceId = 0;
-		if (command is "move" or "reload" or "reload-scope" or "remove" or "configure-driver" or "driver-configuration" or "driver-readiness")
+		if (command is "move" or "reload" or "reload-scope" or "remove" or "configure-driver" or "driver-configuration" or "driver-readiness" or "port-value")
 			{
 			if (!int.TryParse (Required ("device"), out deviceId) || deviceId <= 0)
 				throw new ArgumentException ("Device ID must be a positive integer.");
@@ -627,6 +632,15 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 		string? operationId = null;
 		switch (command)
 			{
+			case "processor-capabilities":
+				result = await client.GetCapabilitiesAsync (cancellation.Token);
+				break;
+			case "port-value":
+				if (!int.TryParse (Required ("provider"), out var provider) || !uint.TryParse (Required ("port"), out var port))
+					throw new ArgumentException ("Provide a device ID and unsigned port number.");
+				result = await IoPortConnections.PrepareValueAsync (client, new (deviceId, Required ("model"), Required ("version"), "Inspect"),
+					Required ("item"), new (provider, Required ("port-type"), port), cancellation.Token);
+				break;
 			case "driver-configuration":
 				result = await DriverConfigurationInspection.GetAsync (client, deviceId, cancellation.Token);
 				break;

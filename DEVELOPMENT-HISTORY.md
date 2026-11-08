@@ -1,5 +1,28 @@
 # Development history
 
+## 8 November 2026 - Read-only processor compatibility
+
+Added fresh authenticated processor identity and capability reports and explicit
+I/O connection preparation. Home 4.7-4.12 uses legacy selections and Home 4.13
+uses typed selections; unconfirmed versions are refused. Existing custom
+connections and raw configuration strings retain their previous behaviour.
+The console's local capabilities command is unchanged; processor-capabilities
+and port-value are separate read-only commands.
+
+All 2,621 discovered .NET tests passed, including 55 new capability and port
+checks. After restricting the implementation helper to internal visibility,
+all 66 focused connection/compatibility tests passed again. APICompat against
+public 1.28.0 found no breaking changes. Earlier reconciliation validation also
+passed the Python, desktop and complete packaged-console suites.
+
+Pinned live read-only discovery passed on Official Home 4.012.0194 (.244) and
+EAP Home 4.013.0134 (.241), including release levels and advertised physical I/O
+ports. Neither inventory exposed a suitable writable flat I/O configuration
+item, so no live prepared selection or server-side assignment pass is claimed.
+Wire formats and rejection guards have fixture coverage. No device command,
+configuration application, physical I/O operation, reboot, publication or
+installed-worker replacement was performed. Documentation records these limits.
+
 ## 8 November 2026 - Reconcile retained development source
 
 Reconciled fourteen development commits with current main, then integrated the

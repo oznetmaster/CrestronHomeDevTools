@@ -22,6 +22,10 @@ public sealed class ConfigurationClient : IAsyncDisposable
 	public static async Task<ConfigurationClient> ConnectAsync (ProcessorConnectionOptions options, NetworkCredential credential, CancellationToken cancellationToken = default)
 		 => new (await ProcessorConnection.ConnectAsync (options, credential, cancellationToken).ConfigureAwait (false), true);
 
+	/// <summary>Reads processor identity and advertised identifiers without executing configuration commands.</summary>
+	public Task<ProcessorCapabilityReport> GetCapabilitiesAsync (CancellationToken cancellationToken = default)
+		=> ProcessorCapabilities.ReadAsync (this, _connection as IProcessorIdentitySource, cancellationToken);
+
 	/// <summary>Executes an advertised resource command, including programming and scene configuration commands.</summary>
 	/// <remarks>This low-level operation does not validate mutation scope or authorize restoration.</remarks>
 	public Task<JsonElement?> ExecuteConfigurationCommandAsync (string resourcePath, string commandName, object? parameters = null, CancellationToken cancellationToken = default)
