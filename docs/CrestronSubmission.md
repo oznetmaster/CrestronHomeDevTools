@@ -1,6 +1,12 @@
-# Automated Crestron driver submission
+# Crestron driver submission and optional automation
 
-Start with the [normal-path runbook](submission/Runbook.md), then [workflow setup](submission/WorkflowSetup.md). The [self-contained Windows console](submission/ConsoleTools.md) and C# APIs provide the shared workflow. Driver authors supply their own C# tests and reviewed configuration; no Python or Linux knowledge is required.
+For a new task or model, begin at [START-DRIVER-SUBMISSION](submission/START-DRIVER-SUBMISSION.md),
+apply the [execution protocol](submission/ExecutionProtocol.md), and use the
+[transfer guide](submission/Transfer.md). This is one procedure with stage-specific
+references, not separate competing workflows. Maintenance of these documents does
+not resume a stopped driver submission.
+
+Start with the [48-hour, single-human-period runbook](submission/Runbook.md). Use [workflow setup](submission/WorkflowSetup.md) only when selecting or changing optional CI/automation; it is not another prerequisite for the established direct route. The [self-contained Windows console](submission/ConsoleTools.md) and C# APIs provide the shared workflow. Driver authors supply their own C# tests and reviewed configuration; no Python or Linux knowledge is required.
 
 Submission is optional and applies only to Crestron drivers. Client, library and processor-test releases do not enter these stages. Ordinary driver development, hardware/UI testing and GitHub releases also remain independent of submission.
 

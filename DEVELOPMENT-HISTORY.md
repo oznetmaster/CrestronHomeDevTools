@@ -1,5 +1,29 @@
 # Development history
 
+## 8 November 2026 - Reconcile retained development source
+
+Reconciled fourteen development commits with current main, then integrated the
+preserved working changes. Every one of the forty-four leftover files is
+accounted for: thirty retained unchanged, seven merged with newer main, six
+already present in main, and stale release notes superseded by published 1.28.0
+notes. Original branch history and a checksum-bound file snapshot remain
+recoverable. See [development status](docs/DevelopmentStatus.md) for feature
+boundaries and remaining live qualification.
+
+Validation passed: 2,566 discovered .NET tests with exact coverage matching,
+408 Python tests, eleven Windows checklist tests and all thirty-four complete
+packaged-console acceptance tests. Six native-path admission checks passed;
+APICompat found no public API breaks against 1.28.0. An anonymous public catalogue
+read also succeeded. These synthetic tests did not access a real signature,
+upload a submission, send mail, update a driver or certify hardware behaviour.
+
+The local .NET 10.0.12 SDK host pack was incomplete. The packaged build used
+apphost and single-file host bytes extracted from the signature-verified official
+NuGet host pack through per-process build properties. The installed SDK and
+production scripts were not altered; failed build diagnostics were retained.
+No release version, public release, frozen submission, active worker or processor
+was changed by this reconciliation.
+
 ## 29 September 2026 - Mixed manual selection and finite worker closeout
 
 An actual app run passed twelve ordinary cases while omitting five selected

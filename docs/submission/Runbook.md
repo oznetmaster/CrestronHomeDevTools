@@ -1,84 +1,204 @@
 # Submit a driver: the normal path
 
-This is the entry point for a developer or an assistant using the public workflow. Use the current stable DevTools release (1.16.1 or later for the first-page driver identification). Follow the linked settings schemas; capitalized command arguments are placeholders to replace.
+Use the [execution protocol](ExecutionProtocol.md) for phase exit conditions,
+bounded repair and explicit-stop handling. Use [Transfer.md](Transfer.md) for a
+new task/model. This schedule applies only after intake establishes a feasible
+route for every required measurement and the selected delivery payload. A
+blocked prerequisite remains blocked while independent preparation continues.
 
-Submission is optional and applies only to actual Crestron drivers. Library, client and processor-test releases do not use it. Passing these checks means complete against our interpretation of Crestron's requirements, not accepted or certified by Crestron. The protected stages have tooling acceptance tests, and the published console has completed real authorized upload and signed-form email delivery. See [validation status](ValidationStatus.md) for the distinction between this local run, CI rehearsals and the consuming developer's environment validation.
+The target is **delivery within 48 hours of the submission request, including a
+24-hour endurance test, with at most one coordinated human interaction period**.
+Preparation counts. This is our operational target, not an additional Crestron
+requirement or a reason to weaken a result. A product defect or an unavailable
+prerequisite is an explicit exception, not permission for days of silent drift.
 
-## Set up once
+Submission is optional for actual drivers. Library, client and processor-test
+releases remain independent. Delivery means a verified package upload and SMTP
+acceptance of the approved email; it does not mean Crestron acceptance or publication.
 
-1. Extract the entire Windows console ZIP from the [release](https://github.com/oznetmaster/CrestronHomeDevTools/releases). Keep its files together. Run the commands below from that directory.
-2. Choose how to run the public commands: directly from the Windows console, or through the optional [CI templates](WorkflowSetup.md). Direct console use requires no GitHub runner or orchestration repository. For the supplied GitHub templates, follow their protected worker, repository and environment setup. Both routes use the same public APIs and artifact checks; neither depends on the author's private CI repository. One Windows PC and one processor are sufficient; see [development configurations](DevelopmentConfigurations.md).
-3. Configure the driver-specific verification plan, C# fixtures, actual devices and Android environment where required. Review the complete applicable official requirements. The delivery templates do not create tests or supply missing evidence.
-4. Keep private settings, raw evidence, credentials and the signature outside public source and release assets. Use [named encrypted inputs](../PrivateInputs.md) when reusing saved credentials and signatures; the [workflow setup](WorkflowSetup.md) describes the optional binding variable for signing and delivery. Configure access for the account that actually runs the worker. Leave delivery disabled until provider settings and exact authorization are ready.
+## Schedule and ownership
 
-```powershell
-.\CrestronHomeDevTools.Console.exe submission runtime-check
-.\CrestronHomeDevTools.Console.exe submission --help
-```
+| Elapsed time | Work | Exit evidence |
+| --- | --- | --- |
+| Hours 0-8, target | Reuse saved setup; freeze scope and candidate; run local/processor checks; verify observation, cleanup and document/delivery preparation | Functional baseline, one coverage table, prepared human sequence, collector ready |
+| Hours 8-32, target | One 24-hour interval; prepare/reconcile documents and independent checks concurrently | Actual full interval, periodic functional evidence and endpoint result |
+| Hours 32-40, target | One scheduled human period for required actions, restoration, final checks and exact submission approval; then delivery | Final reviewed artifacts, authorized signature and provider receipts |
+| Hours 40-48 | Contingency for an identified issue | Delivered, or an explicit exception with cause, owner and remaining task |
 
-A successful runtime check validates this console installation, not the processor or driver. No Python or Linux knowledge is required. Help rendering has separate renderer/font prerequisites documented in [help generation](HelpBuild.md).
+Arrange the human period to match actual availability. A period contains several
+short readiness/action/observation/approval exchanges, not one ambiguous blanket
+instruction. Do not hold the human on call throughout endurance. If an unavoidable
+human baseline and endpoint must be a day apart, identify that conflict before
+starting; do not claim the one-period target has been met.
+
+Use one responsible operator and one concise state record: candidate, stage,
+active operation or none, latest verified result, blocker, next action and evidence
+links. Continue completed stages immediately. A periodic monitor observes state;
+it is not the engine that advances the submission. An idle/failed operator is not
+progress. Retain historical status separately instead of accumulating contradictory
+current/next/blocker values. At hour 8, report any risk to starting the interval;
+if it cannot start by hour 20, the normal four-hour closeout allowance no longer
+fits inside 48 hours. Raise the specific exception then, not after the deadline.
+
+## Set up once, reuse each time
+
+Use the existing authorized computer/account, processor and app route. Verify the
+few facts that can change: resource ownership, candidate identity, connectivity,
+writable output and restoration access. Read saved developer facts and credentials
+through their supported bindings. Do not ask again for established access or
+restrictions. One console, one processor and an app observer where needed are
+sufficient; optional CI, alternate hosts, OS-reboot rehearsals and new service
+accounts are not prerequisites for a normal submission.
+
+Pin a known working complete console bundle and matching documentation. Run its
+runtime check when the installation changed or its health is uncertain, not as an
+excuse to migrate a running attempt. Use the normal existing fixture frameworks.
+Infrastructure development and full worker rehearsals belong to separate work.
+Relevant references: [console](ConsoleTools.md), [saved setup](SetupApp.md),
+[execution reliability](WorkflowReliability.md), [optional CI](WorkflowSetup.md).
 
 ## Prepare each candidate
 
-Freeze the actual Release package and its source commit. Retain the candidate declaration, reviewed policy, official form inventory and mapping. Run the applicable automated and manual checks against that candidate, including endurance and its final functional checks. Preserve failed attempts and original results. Changing the candidate requires reassessing which evidence remains valid.
+Before hardware activity, make **one coverage table** for the exact official form:
+official wording; driver capability/applicability; existing evidence and version;
+planned method; pass/N/A/unverified/failure/qualified interpretation; remaining action.
+Include README/help features, optional controls and group/list pages. Do not invent
+exhaustive physical testing of every supported model. Source and automated tests
+can support their actual scope; they do not prove unperformed physical actions.
 
-Use [evidence mapping](EvidenceMapping.md) and, when phases produce separate observation documents, [evidence composition](EvidenceComposition.md). Neither tool infers passing requirements from test names or authenticates a producer. Review coverage and evidence provenance before preparing the form.
+Settle the distinction between not applicable and not verified. A supported control
+without available hardware is unverified, not globally N/A. A documented platform
+singleton does not automatically acquire a two-root-instance test because it has
+several children. Preserve a reviewed applicability decision unless new evidence
+or a changed requirement justifies reopening it. Keep official numeric criteria
+separate from diagnostic thresholds and recorder deadlines. See [coverage](CoveragePlanning.md).
 
-If the candidate changed after testing, [review prior evidence explicitly](PriorEvidence.md) for individual unchanged assertions. Retain original results and assess affected dependencies; do not relabel an earlier run as a fresh execution. This is optional and does not determine whether Crestron will accept that evidence.
+Freeze the release package, source and dependency identity, embedded help and
+reviewed policy. Reconcile prior evidence before requesting new observations.
+If the candidate changes, review the affected behavior once: repeat only justified
+affected checks, preserve historical versions and disclose limits. A form, help or
+tooling correction alone does not demand another 24 hours. A runtime change is not
+automatically exempt either. See [prior evidence](PriorEvidence.md).
 
-Record exact input hashes and completed stage receipts in a private handoff record. This allows another person or assistant to resume without a conversation history. A candidate declaration hash identifies the JSON declaration; it is **not** the package hash.
+**Endurance entry is technical readiness plus a complete plan, not completion of
+every independent physical checklist action.** Establish installed identity,
+stable configuration, an actual functional baseline, suitable periodic checks,
+continuity evidence and a planned endpoint/performance assessment. Unattended tests
+must have passed to the extent needed for that baseline. Book outstanding human
+checks for the final period and keep them visibly pending; this is scheduling, not
+a passing result. Perform the endpoint and any before/after comparison before an
+outage, removal or other action that would disturb the endurance evidence.
 
-## Run the four protected stages
+**Current automation limitation:** `AutomationPreEndurance.Check` requires all
+initial policy observations, allowing only endurance, configured comparison and
+removal to be deferred. It cannot currently defer an arbitrary planned human
+outage/control check or accept a declared gap at that gate. Do not weaken its
+policy, fake observations or patch a frozen checkpoint to get through. For a new
+run needing the final-period schedule, use the established direct console/API
+route with the explicit readiness/coverage review above and the existing collector's
+own checks. A frozen worker run retains its contract; changing routes requires
+settling that run and preserving its evidence. The worker's gate is an implementation
+restriction, not a universal Crestron ordering rule. See [worker contract](AutomationWorker.md#required-checks-before-endurance).
 
-For direct console use, follow the linked command guide for each stage below. Use the released console and private settings, retain its receipts, and advance only after the required artifact review and authorization. No GitHub setup is needed for this route.
+## Endurance: one interval, useful work alongside it
 
-If you chose the optional CI templates, open **Actions → Crestron submission → Run workflow** in your own configured repository. Select its configured branch and enable the requested stage. Repository enablement and environment approvals also apply; a skipped green job is not completion. The stage names below are shared descriptions, not a requirement to use GitHub Actions.
+Start once; schedule collection using the existing validated route. Retain the
+first actual sample, 24-hour endpoint, approved observation cadence, candidate and
+continuity checks. A ping or Ready flag alone is not a functional test. Use suitable
+driver-specific reads/independent comparisons; physical motion or human attendance
+is not inherently required for every periodic sample. A final performance claim
+still needs evidence, not merely elapsed time. See [collection](EnduranceCollection.md).
 
-| Stage | Inputs to supply | Result to inspect before continuing |
-|---|---|---|
-| `review` | Full source commit; candidate declaration, official inventory and mapping hashes; independent Android pins hash when applicable. | Unsigned signing-copy PDF, evidence bundle, reports, `review-receipt.json` and `COMPLETE`. Review every page, full coverage and producer provenance. [Review details](ReviewStage.md). |
-| `sign` | Unsigned review receipt hash and separate exact signing-authorization file hash. | Signed PDF, signing report and signed review receipt. Verify all rendered pages and the intended signature. [Signing details](SigningStage.md). |
-| `delivery-plan` | Signed review receipt hash and separate exact delivery-authorization file hash. | Frozen outgoing package/PDF, delivery plan, receipt and `COMPLETE`. Check sender, recipient, correspondence and expiry. Nothing has been sent. [Preparation details](DeliveryPreparation.md). |
-| `deliver` | Uses protected dispatch settings and their independently retained hash. | Durable upload/email receipts and journal state. Confirm both provider outcomes. Delivery is not Crestron's acceptance decision. [Delivery details](DeliveryCommand.md). |
+Keep the producer and candidate stable. Prepare the form, annex, email, package
+inspection, applicability and delivery payload during the interval. Do not perform
+interruptions/removal within it. Do not wait for a human or an AI wake-up to collect
+the endpoint. Preserve every sample and failure; a monitor fault is not necessarily
+a driver fault. If the strict collector cannot export, retain that outcome and
+assess originals honestly through the supported reviewed-evidence route. Never
+fabricate a passing export, concatenate interrupted intervals or restart by default.
 
-Before `deliver`, generate and review the private dispatch settings using [delivery setup](DeliverySetup.md), retain their independently reviewed digest, and supply provider credentials through the documented protected mechanism. For GitHub execution, also configure the protected environment's settings path/hash. Do not put credentials in workflow inputs. Signing approval does not authorize sending, and an expired approval must not be silently extended.
+## One prepared human period
 
-Preparation commands do not send anything. Direct console execution preserves exact-form and delivery authorization and uses the same durable journal; it is not a way to bypass configured approvals. Keep driver-specific settings, evidence and signatures private, regardless of the execution route. Private inputs do not require private workflow code.
+Before inviting the human, finish builds, discovery, source review, navigation and
+observer setup. Have all targets, original/restored states, outage method, timing
+method and action prompts ready. Batch compatible checks into one app session.
+Use the existing supported observer; do not build new timing machinery after Ready.
 
-The table describes complete mode. For a signed submission with disclosed gaps, use the public [declared-gap commands](DeclaredGaps.md) and [review approval and delivery guide](ReviewApproval.md). If using GitHub, select `review_mode: declared-gaps` and follow the [declared-gap CI sequence](WorkflowSetup.md#signed-submissions-with-declared-gaps). Both routes retain the review/sign/delivery-plan/deliver stages, but use different delivery-plan settings and verify an explicitly approved review plan. The final delivery command still revalidates all evidence. Do not feed a declared-gap review into the complete-only preparation command or silently switch modes after a failure.
+First capture endpoint functionality/performance while the endurance configuration
+is intact. Then perform only the remaining applicable physical/control/outage and
+removal checks, restoring each target. Readiness is not the action: give separate
+precise prompts for each interruption and restoration. Keep the human's job to
+observation or the physical action; the agent records app/API evidence. No extra
+visit merely to satisfy an invented timing rule, unavailable model or optional
+group test. Ask only if an actual uncovered requirement remains. See [operator steps](OperatorSteps.md).
 
-## Resume after an interruption
+If the prepared observer fails, restore first and diagnose the failure. Do not turn
+the session into a cycle of new launchers and repeated physical actions. Preserve
+what succeeded; finish with a truthful qualification if the developer chooses it,
+or report the specific exception. A separate test must not erase an earlier pass.
 
-| Last observed state | Next action |
-|---|---|
-| Endurance collector still running | Observe that existing run using [endurance monitoring](EnduranceNotifications.md). Do not restart it merely because observation timed out. |
-| Preparation failed, or output has no valid `COMPLETE` receipt | Keep the failure for diagnosis. Correct the input and prepare a new output directory; do not consume partial output. |
-| Completed review or signing stage | Verify its retained receipt, files and exact approval, then continue with the next stage. Do not rebuild the candidate to resume. |
-| Approval expired or approved bytes changed | Obtain approval for the current exact artifacts before continuing. |
-| Upload/email outcome is uncertain | Inspect and reconcile the existing [delivery journal](DeliveryJournal.md). Never start a new journal or resend blindly. |
-| Provider delivery completed | Retain receipts and wait for Crestron's actual response. Record that response separately. |
+## Reconcile, approve and deliver
 
-If a required test or document cannot be supplied, the normal path stops. A developer can deliberately choose the separate [declared-gaps route](DeclaredGaps.md), with each unmet requirement and reason disclosed. Do not substitute that route without their decision, mark missing tests as passed, or assume Crestron will accept the request.
+Generate the form from the coverage table and actual evidence. Check every official
+row against the final PDF's canonical fields and rendered marks. Keep checked scope
+notes, N/A reasons, unverified features and genuine failures consistent across form,
+annex and email. Complete technical review before presenting it. Use concise outward
+explanations; retain internal receipt inventories and tool failures privately unless
+needed to explain the claim. Do not edit already sent artifacts to apply this guidance.
 
-For a useful handoff, record the selected driver and candidate identity, tooling version/commit, private settings locations, last completed stage and receipt hashes, any active run handle, unresolved failures, and the exact next action. Keep secrets out of that summary. No step should depend on remembering a prior chat.
+Arrange one review period, with the exact authorization exchanges required by the
+selected route. The standard complete-mode flow requires signing authorization for
+the exact unsigned form, then review of the produced signed copy and a separate
+delivery authorization bound to its actual hashes. These can occur in one period;
+they are not one interchangeable approval. Do not manufacture future signed hashes
+or assume an unsigned-packet approval satisfies that tool contract. A separately
+validated route may support explicitly approved signature/date and verified-URL
+substitutions; establish that capability during preparation. Signing alone is not
+sending authority. Material content/recipient changes require new approval.
 
-## Retire completed or superseded attempts
+Use the supported [declared-gaps route](DeclaredGaps.md) only when the developer
+chooses it, never as a shortcut for unfinished authorized work. Review the concrete
+artifacts and limitations, not an empty form or a technical approval packet.
 
-Submission closeout includes the notification processes, not just delivery.
-Inventory the exact evidence/protected workers, per-run operator listeners and
-external status observers for the attempt. Verify there are no live tests,
-pending restoration actions or unresolved sends before stopping them. Retain
-task definitions, original status, diagnostic logs and delivery receipts; remove
-only registrations/processes dedicated to that closed attempt. Keep persistent
-release listeners that still serve other active profiles.
+Before upload, prepare and parse the complete outgoing MIME message locally with a
+non-sendable URL placeholder. Verify CRLF/LF handling, exact sender/recipient/subject,
+body and **every intended attachment**. The stock SMTP provider accepts one PDF;
+when more are approved, select the existing validated transport that supports them
+before the human period. Never silently drop annex/help or construct an untested
+mailer at the send step. See [SMTP](SmtpDelivery.md).
 
-If delivery was completed through a separately reviewed recovery route, an older
-attempt may correctly remain `Failed`. Do not rewrite it as `Completed` to silence
-alerts. Record the recovery/delivery reference, retire its dedicated alert
-watcher, and verify it does not restart at sign-in or boot. An external manual
-delivery cannot currently be inferred automatically by the old worker: this
-closeout check is required even when Crestron has subsequently published the driver.
+After explicit approval, sign/date and check the signed appearance and unchanged
+content. Upload the exact package, download and hash-check it, insert its verified
+URL and send the approved message. Use one [delivery journal](DeliveryJournal.md).
+An uncertain provider result requires evidence-based reconciliation, not a fresh
+journal or blind retry. A local parsing error before SMTP does not require reuploading
+an already verified package. Retain the failed attempt separately.
 
-## Collecting reusable inputs
+## Close once
 
-For the source version that includes it, the [Windows setup app](SetupApp.md) captures editable developer, driver and submission profiles before execution. Read the supplied encrypted snapshot through the public APIs rather than asking for those facts again. Snapshot data is not test evidence or signing/delivery authorization.
+Verify the retained sent message, recipient, body, attachment bytes and SMTP
+acceptance; record the upload URL/package hash. Verify task-owned resources and
+processes are settled. Stop only this attempt's monitors/listeners, retain originals
+and report delivery once. Do not schedule further hardware tests or recreate a
+completion monitor. Record any later Crestron response separately.
+An earlier failed worker remains failed when a separate reviewed route completes
+delivery. Link its recovery receipt and retire only its dedicated observer; do not
+rewrite its outcome to silence alerts. Preserve registrations and diagnostics and
+check that retired task-owned observers cannot restart at sign-in or boot. Keep
+shared persistent listeners needed by other active work.
+
+This revised schedule is operational guidance, not a claim that the preview worker
+already implements it or that a 48-hour/single-period full run has been demonstrated.
+[Validation status](ValidationStatus.md) and each selected tool's real contract remain
+explicit. Missing capabilities become bounded engineering follow-up, not new hidden
+submission requirements.
+
+## Compare values according to their meaning
+
+Choose and document comparison semantics when authoring a fixture or workflow guard; do not rely on the language's default string comparison or make every string case-insensitive.
+
+- SHA-256 pins: validate the required hexadecimal length and syntax, then compare decoded digest bytes. Uppercase and lowercase hex represent the same digest; changed or malformed digests must still fail. This does not permit changing the pinned file bytes.
+- Presentation text: when casing is only a rendering choice and is not part of the requirement, use an explicit ordinal case-insensitive comparison, or pin the exact observed rendered value. Check an authentic hierarchy before live execution; a model/property value may render differently. Preserve exact resource, application, front-layer, uniqueness and expected-value checks. Do not use fuzzy matching or broadly strip whitespace/punctuation to make a failed guard pass.
+- Credentials, tokens, opaque identifiers, resource IDs, paths and protocol values: follow the field's documented contract. Preserve case-sensitive equality wherever required or unspecified; do not lowercase them globally. UI presentation rules do not change the semantics of embedded values such as endpoint paths or identifiers.
+
+Validate the chosen comparator offline with permitted casing variants and a genuinely different value that must fail. A corrected comparison must preserve the original failed evidence and candidate identity; it is not permission to replay uncertain input. See [Android fixture guidance](AndroidEvidence.md#fixture-string-comparisons).

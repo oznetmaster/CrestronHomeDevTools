@@ -46,6 +46,18 @@ Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are tra
 
 ## Unreleased
 
+- Add `published-drivers` and `PublishedDriverCatalogue` for anonymous, read-only searches of Crestron's published non-beta portal catalogue independently of installed/sideloaded copies. Validate the complete response before searching; report that the general catalogue does not establish Home compatibility. Document the processor search's 200-result limit.
+
+- Retain original private validator diagnostics and safe JSON error positions. Publish staged review artifacts by verified byte copy with completion last, avoiding Windows directory rename locks.
+- Add public pinned `snapshot-inputs` and receipt-derived `prepare-signing-plan`; reject stale review identity before named signature access. Planning never decrypts a signature or grants authority.
+- Add bounded read-only post-update readiness and a whitelist developer metadata projection. Document full-row evidence reconciliation, exact final-form verification, fresh sessions, reviewed continuation and bounded monitoring.
+- Include all public-command Python dependencies in the runtime and test the import closure. Console/setup/acceptance build scripts accept an explicit `NUnitWorkflowProject` for coordinated source validation; this does not publish or install a package.
+- Preserve historical interrupted Android identities and truthful checklist notes, including declared gaps and human/reviewer provenance. Existing official criteria and completed delivery journals are unchanged.
+
+- Declared-gap Android reviews can bind individual interpretations to complete historical runs while preserving interrupted originals. Historical raw null source commits remain null; separately pinned source reviews and original producer/capture checks are required. This does not create current-candidate test passes or relax complete-mode auditing.
+
+- Declared-gap source reviews can retain independently inventoried Android runs interrupted before terminal records. Candidate and producer checks remain mandatory; incomplete runs cannot support passed Android scopes, and complete-mode audits remain unchanged.
+
 - Rehearsal email supports an approval-bound, hash-verified package download link and a single PDF attachment. New automated rehearsals use the selected release asset; existing journals and production delivery remain unchanged.
 
 ## [1.26.1](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.26.1) — 2026-10-07

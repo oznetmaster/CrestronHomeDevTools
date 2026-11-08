@@ -15,6 +15,23 @@ from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.platypus import Flowable, KeepTogether, Paragraph, SimpleDocTemplate, Spacer
 
 
+def note_explanation(row):
+    """Describe the recorded state without inventing evidence for an empty rationale."""
+    if row['rationale'].strip():
+        return row['rationale']
+    if row['state'] == 'NotTested':
+        return 'This requirement has not been evaluated. No supporting test result is claimed for this item.'
+    if row['state'] == 'GapDeclared':
+        return 'Full verification has not been established for this item. It remains unchecked; no pass is claimed.'
+    if not row.get('observationIds'):
+        return 'No supporting observation mapping is supplied for this item. This note does not establish a test result.'
+    if row.get('interpretationReviewed'):
+        return ('This item is checked using the recorded reviewer interpretation of the supplied mapped observations. '
+                'This is not a new automatic pass.')
+    return ('This item is checked against the supplied mapped observations. '
+            'This note does not add evidence or extend their scope.')
+
+
 def notes_document(title, author, rows, identity, draft, signing_copy=False, declared_gaps=False):
     positions = {}
 
@@ -53,7 +70,7 @@ def notes_document(title, author, rows, identity, draft, signing_copy=False, dec
     for number, row in enumerate((row for row in rows if row['state'] != 'NotApplicable'), 1):
         story.append(KeepTogether([NoteAnchor(number), paragraph(f'{number}. {row["label"]}', subheading),
                                   paragraph('Checked - reviewed interpretation' if row['state']=='Passed' and row.get('interpretationReviewed') else statuses[row['state']]),
-                                  paragraph(row['rationale'] or 'The mapped evidence supports the recorded checklist result.'),
+                                  paragraph(note_explanation(row)),
                                   Spacer(1, 6)]))
     story.append(paragraph('Document identification', subheading))
     for key, value in identity.items():

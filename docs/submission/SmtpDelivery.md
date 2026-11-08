@@ -1,5 +1,24 @@
 # SMTP submission delivery
 
+## Select and validate the actual message before upload
+
+The standard complete-mode `SendAsync` sends **one PDF** and its standard body.
+The reviewed-disclosure `SendReviewAsync` route supports the reviewed correspondence
+override described in [ReviewDelivery.md](ReviewDelivery.md), still with one PDF.
+That is not general multi-PDF support. An explicitly approved annex/help set needs
+an already-validated consumer supporting that exact payload through the same
+authorized delivery journal. Inspect the selected installed version and mode;
+do not infer a newer capability from source documentation. If none exists, identify the gap during preparation, before the
+human period or upload. Do not silently discard attachments or invent a new mailer
+at the send step.
+
+Compose and parse the complete MIME message offline first, using a non-sendable
+URL placeholder. Verify sender, recipient, subject, approved wording, attachment
+names and decoded hashes. Accept normal CRLF and LF line endings without changing
+the approved body. After verified upload, substitute only the actual URL and
+recheck the final MIME. A body/header parsing failure must be caught before any
+provider call. This is local verification, not another live test email.
+
 `SubmissionSmtpMailer` is available in CrestronHomeDevTools 1.8.0 and later. It sends the approved signed PDF and verified package download link through an explicitly configured SMTP account. Outlook does not need to be installed or running.
 
 ## Configuration and use

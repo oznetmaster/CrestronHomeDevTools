@@ -1,5 +1,17 @@
 # Discover and prepare the submission worker
 
+Discovery has a bounded purpose: establish the route for the next required
+measurement. Use the [execution protocol](ExecutionProtocol.md#5-bound-failure-and-stop-correctly)
+when lookup stalls; do not repeatedly rediscover the same access route. Preserve
+host-qualified paths and dated capability receipts in the [handoff](Transfer.md).
+
+For GitHub hardware execution, inspect the configured central hardware-orchestration
+repository in addition to the driver repository. Read actual workflow labels and
+protected-environment gates at the selected revision. Runner online/idle state,
+processor availability and submission-worker permissions are separate checks.
+Historical schedule-disable comments are not current manual-run results. Record
+observed routing rather than hard-coding a previously used machine in this guide.
+
 Use this guide before freezing a new attempt's executable settings. The operator
 owns routine discovery and provisioning. A missing path, tool or first-driver
 profile is a setup task to investigate, not by itself a reason to stop and ask
@@ -48,13 +60,33 @@ Windows user-scoped encrypted stores are not portable between computers or
 accounts. Provision selected credentials through the documented worker setup;
 do not broaden access to an entire setup store.
 
+Preserve the execution host of a proven processor API route as part of its trust
+binding. A successful worker-hosted connection does not prove that the same
+certificate will be presented to a controller-local connection. Before moving a
+read or workflow between hosts, compare the retained successful host/account,
+credential reference, client build and endpoint/trust receipts. The current
+processor client authenticates over WebSocket, then may select the HTTPS port
+from the authenticated `HttpPort` response; a requested port alone is not proof
+of the actual HTTP endpoint. WebSocket login success does not prove subsequent
+HTTP certificate validation succeeded. Preserve the exact failing phase and
+do not infer certificate replacement, add trusted pins or bypass validation from
+that difference. Reuse the established verified route before designing another.
+
 If no authorized route is documented or discoverable, report the specific missing
 endpoint, trust information or credential reference, the locations inspected and
 the original connection result. Ask only for what cannot be established through
 authorized read-only discovery. Do not ask the developer to locate an executable
 that can be installed through the public distribution procedure.
 
+Use the maintained [worker path and private terminal contract](../WorkerExecutionPaths.md)
+for concrete input/output access checks and collection manifests. This file contract
+does not launch, reserve or establish a test pass.
+
 ## 3. Verify and provision public tools
+
+Before a remote invocation, bind each path to its owning computer and account: controller source, worker input, worker scratch/output and controller collection destination. A path that exists on the controller is not a worker path. Successful UNC reads do not establish UNC write access, and successful SSH authentication does not establish access to either. Prefer a task-owned worker-local output directory and the established collection route. Do not broaden share permissions merely to accommodate a new receipt path.
+
+Validate the complete launcher and receipt contract before the device operation: supported shell parameters, argument/path handling, exact runtime dependency resolution, fresh output creation, duplicate-output refusal, exit/error capture and collection. Use offline fixtures for those mechanics first. Any later worker-only preflight must run under the actual worker identity and exercise the actual output/collection route without acquiring a processor or operating a device. Keep it separate from the live test and do not count it as checklist evidence. A parser check or a successful build alone cannot prove this contract.
 
 Inventory the selected worker's configured tool directories and task/service
 definitions, then check the exact paths. `PATH` and conventional SDK directories
@@ -85,7 +117,40 @@ Provisioning a missing tool is operator work within the authorized submission
 scope; preserve existing installations and active runs. Use noninteractive,
 hidden background execution rather than flashing console windows on a desktop.
 
-## 4. Verify Android infrastructure separately from driver tests
+## 4. Select the current configuration app and its desktop worker
+
+Before inspecting installer or configuration screens, read the saved equipment
+inventory and the successful configuration-app receipts from earlier submissions.
+Reuse the verified application, intended computer/account and supported interactive
+access route; recheck current readiness without importing another driver's results.
+An executable found on the controller computer is not a reason to change workers.
+Honor the developer's preferred desktop host and do not silently fall back to their
+working desktop because the same application is installed there.
+
+Use the configuration application appropriate to the target processor and firmware.
+The current [Crestron Home manual](https://docs.crestron.com/en-us/9599/Content/Topics/Configuration/Configuration.htm)
+uses **Configure Pro** and identifies Crestron Home Setup as a legacy route. Do not
+select Setup from an old executable path or assume its menu sequence applies to
+Configure Pro. Bind the actual installed app identity and observe the current UI.
+Keep this configuration-app scope separate from the end-user Crestron Home Android
+app; an end-user screenshot does not prove an installer-screen requirement.
+
+Use the [ConfigureProUi resource role and desktop readiness guidance](../WindowsResources.md#desktop-and-headless-use).
+Record the selected host, interactive account, app identity, supported control
+transport and current target system in the run's private settings. A local desktop
+control tool does not control a remote desktop merely because SSH works there.
+Existing installation and historical success do not by themselves prove that the
+current interactive session is usable. Diagnose a failed supported tool route from
+its original error before declaring the application unavailable or substituting a
+legacy application. Preserve unrelated sessions and emulator state.
+
+Acquire the configured reservations for the resources the inspection actually
+uses, just in time; follow [resource-specific coexistence](DevelopmentConfigurations.md#concurrent-ci-from-different-computers) rather than inferring whole-computer exclusivity from a background job. For a visual-only check, navigate without saving settings, creating an
+instance or operating devices; restore the starting navigation and verify release.
+A missing visual observation remains explicit and is not replaced by a protocol
+response or a pass from another submission.
+
+## 5. Verify Android infrastructure separately from driver tests
 
 Read the existing private Android profile and emulator task configuration. Verify
 on the worker the absolute ADB path, selected serial, booted device, app package,
@@ -103,7 +168,7 @@ candidate identity and expectations. Do not copy another driver's test plan,
 criteria, results or approval. Never run a duplicate emulator or bypass its shared
 reservation because a new driver has no profile yet.
 
-## 5. Continue or ask for the missing fact
+## 6. Continue or ask for the missing fact
 
 | Finding | Operator's next action |
 |---|---|

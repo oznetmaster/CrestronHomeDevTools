@@ -1,5 +1,28 @@
 # Submission workflow validation
 
+## Procedure audit, 30 October 2026
+
+The [execution protocol](ExecutionProtocol.md) and [transfer guide](Transfer.md)
+add explicit phase exits, bounded procedure repair, physical-action accounting,
+user-stop precedence and a portable current-state/coverage handoff. The normal
+runbook, worker gate and signing/delivery instructions have been reconciled.
+These are documentation/procedure changes, not a released runtime change or a
+new hardware/provider result. Offline consistency and scenario review cannot
+establish an independent, complete 48-hour submission. Existing validation records
+below retain their dates, scope and limitations. Check the selected installed
+version instead of assuming every source-preview feature is available.
+
+## Operational target added 20 October 2026
+
+The [normal runbook](Runbook.md) now targets 48 hours including one 24-hour
+endurance interval and one coordinated human period. This is a process correction,
+not a validated end-to-end performance claim or a new runtime release. In particular,
+the existing worker's full initial-evidence gate does not support arbitrary deferred
+human checks, and the stock SMTP provider still accepts one PDF. The established
+direct APIs and a validated multi-attachment consumer can be selected where needed;
+their demonstrated individual stages do not prove the entire target schedule.
+Keep new shared-tool development separate from a live submission.
+
 This page records the shared tooling's verified scope, with released-tooling updates through 29 September 2026. It contains no driver-specific submission files or progress details. Use the [normal-path runbook](Runbook.md) to configure your own workflow.
 
 ## Current complete-sequence validation
@@ -61,10 +84,11 @@ wrong destinations and old receipts that lack working links. A real LibreOffice
 conversion preserved the support and repository link annotations and its contact
 page was visually inspected. These changes are included in DevTools 1.20.0; previously delivered packages are not rewritten.
 
-The initial sequence allowed missing physical-event and outage checks to remain
-declared gaps while starting endurance. That is a workflow defect, not successful
-validation of complete initial coverage. DevTools 1.20.0 checks the full pinned
-policy before starting a new collection in either mode. Local regression tests
+The initial automation-worker sequence allowed missing physical-event and outage
+checks despite that worker's complete-initial-coverage contract. That was a worker
+gate defect, not successful validation of that contract. The DevTools 1.20.0 worker
+checks the full pinned policy before a new collection in either worker mode. This
+history does not impose the worker's ordering on the separate direct collector. Local regression tests
 exercise missing and non-passing evidence, producer identity and integrity,
 policy-permitted N/A and shortened rehearsal handling. Hardware validation of the
 corrected full sequence remains pending; earlier evidence is preserved without
@@ -134,7 +158,7 @@ The real submission used the explicitly reviewed declared-gaps route. It demonst
 - Obtain the applicable official templates and configure the help renderer/fonts. Keep candidate packages immutable after validation.
 - Provide private signing material and exact-form authorization, followed by separate approval of the outgoing packet and correspondence.
 - Configure uploader and SMTP credentials for the account that will execute delivery. A credential encrypted for an interactive Windows user is not automatically available to a service account. Check that the worker can read the approved inputs and write its receipts without granting ordinary build jobs that access.
-- Supply any physical interruption equipment or additional device targets required by the chosen verification plan. Applicable functional, physical-event and outage checks must pass before endurance starts. The [pre-endurance gate](AutomationWorker.md#required-checks-before-endurance) enforces this in both modes. The [declared-gaps route](DeclaredGaps.md) preserves honest disclosure during review of existing evidence; it does not waive initial test prerequisites or prove successful end-to-end validation.
+- Supply the interruption equipment and targets required by the selected plan. The automation worker's [pre-endurance gate](AutomationWorker.md#required-checks-before-endurance) requires its initial policy observations in both worker modes; arbitrary human control/outage checks cannot be deferred there. The direct collector has a different contract, described in the [runbook](Runbook.md#prepare-each-candidate), requiring a real functional baseline, complete feasible coverage plan and endpoint assessment. Do not generalize the worker gate into a universal vendor ordering rule, or use the direct route to hide unresolved prerequisites. The [declared-gaps route](DeclaredGaps.md) preserves explicit disclosure; it does not waive a worker gate or prove complete verification.
 
 No signature, credential, private receipt or driver-specific test result is distributed with the tools. See the individual guides for supported commands and environment setup. Broad provider-failure coverage is simulated; no universal provider, clean-machine or hardware compatibility guarantee is implied.
 

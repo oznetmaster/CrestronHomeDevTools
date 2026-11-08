@@ -47,6 +47,14 @@ The complete console archive supplies the internal runtime and pinned dependenci
 
 The report says `AndroidEvidenceAudited`, `submissionReady: false`, `producerAuthenticated: false` and `officialRequirementsSatisfied: []`. These are deliberate limits, not placeholders to change to true. The report is a point-in-time consistency check, not an immutable archive or proof that a physical action occurred. Preserve the files through the [private evidence bundle](EvidenceBundle.md) and authenticate the producer through trusted CI before using their observations.
 
+## Fixture string comparisons
+
+Apply the [workflow comparison rules](Runbook.md#compare-values-according-to-their-meaning) before starting live UI tests. Compare presentation-only text using explicitly chosen case semantics; do not change global selector equality. For example, a connection summary can render `SIGNED LAN` while its backing property says `Signed LAN`. Match the rendered label without relaxing the endpoint, polling interval, resource identity, front-layer or uniqueness checks. If a summary includes case-sensitive values, validate those components under their own contracts.
+
+Retain authentic hierarchy examples for offline positive and negative checks: equivalent display casing may pass where permitted, while a different endpoint or interval, wrong page, obscuring overlay or ambiguous match must fail. If the official assertion concerns exact label casing, retain an exact comparison for that assertion.
+
+A failed destination guard must retain its last available capture and diagnostic reason. Restoration must independently identify the actual supported page; waiting only on the same failed assertion can prevent cleanup. Never replay uncertain input or release ownership merely because a text comparison was corrected.
+
 ## From test results to official requirements
 
 A passing NUnit test is not automatically a completed Crestron form checkbox. The [coverage plan](CoveragePlanning.md) gives each required subcondition its own target and expected behavior. A reviewed producer binding must establish which assertions actually measured it, with any required response timing, restoration and physical feedback. The resulting observations still have to pass the normal [evidence validator](EvidenceCli.md), complete mapping and [unsigned review stage](ReviewStage.md).
@@ -58,3 +66,21 @@ For example, reading every displayed choice and cancelling an editor proves only
 Offline regressions cover Release identity, independent pins, changed dependencies and runtime settings, missing or unlisted files, replacement manifests, nested resource assemblies, missing restoration, changed captures, incomplete runs, duplicate execution IDs, repeated test names, malformed JSON/XML and escaping paths. Parsing was also exercised on retained Debug workflow and fixture results with matching capture pairs. Debug runs are not accepted as submission evidence.
 
 On 18 September 2026, a complete read-only suite against an unchanged installed Release candidate passed through the released NUnit 1.11.1 Android stage. The DevTools 1.8.0 source auditor accepted all discovered cases, the complete producer inventory and retained captures against separately recorded pre-execution pins. The coordinator verified original state, temporary-device cleanup and reservation release. This exercised a private integration coordinator invoking the released stage, not the complete public workflow or protected CI handoff. Same-account pin retention did not authenticate an independent worker. Complete requirement mapping and the real final review stage remain outstanding. Older results without a manifest pinned before execution must not be upgraded by inventing one afterward; retain their original scope or perform a new candidate run.
+
+## Interrupted runs
+
+The standalone audit above still requires a successful terminal run. The unreleased source review workflow provides an explicit [interrupted-run preservation route](DeclaredGaps.md#interrupted-raw-runs-unreleased-source-workflow) for declared gaps. It preserves independently inventoried originals without creating completion records or asserting a passing audit.
+
+
+### Preserving interrupted evidence from an older candidate
+
+In declared-gaps review, a run with `interruptedFiles` may use `archivedReview`
+with the same `{ identity, sourceReview }` structure as `historicalReview`.
+The two fields are mutually exclusive. Pin the original context identity,
+original package bytes and independent source-review files; preserve a raw null
+commit as null. The report retains `InterruptedAndroidEvidencePreserved`,
+`completePassingRun: false` and unknown executed/restoration outcomes. Its
+`identity` remains the original identity and `targetIdentity` identifies the
+current candidate separately. An archive cannot supply an observation binding,
+a passing result or a scoped interpretation. Complete mode, terminal records,
+altered captures and missing inventory files still fail validation.

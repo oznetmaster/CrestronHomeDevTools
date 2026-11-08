@@ -195,4 +195,18 @@ public sealed partial class SubmissionReviewFilesTests
 			Assert.That (error.ToString (), Is.Not.Empty);
 			}
 		}
+    [Test]
+    public void ConsoleSchemaErrorIdentifiesCategoryWithoutEchoingPrivateInput ()
+        {
+        File.WriteAllText (PathFor ("declarations.json"), "{\"private-secret-marker\":");
+        _declarationsPin = Digest ("declarations.json");
+        using var output = new StringWriter ();
+        using var error = new StringWriter ();
+        Assert.That (SubmissionReviewAssessmentCommand.Run (Arguments (), output, error), Is.EqualTo (2));
+        Assert.That (output.ToString (), Is.Empty);
+        Assert.That (error.ToString (), Does.Contain ("Invalid submission JSON"));
+        Assert.That (error.ToString (), Does.Contain ("line"));
+        Assert.That (error.ToString (), Does.Not.Contain ("private-secret-marker"));
+        }
+
 	}

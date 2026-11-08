@@ -1,5 +1,21 @@
 # Generating the official self-test review form
 
+## Review the meaning before rendering the approval copy
+
+Reconcile the [coverage table](Runbook.md#prepare-each-candidate) first. The author
+must check every official row against the actual evidence and final checkbox,
+including supported-but-untested features, button use, historical endurance and
+accepted outage scope. Do not leave the developer to find these errors in repeated
+approval PDFs. One corrected row must flow consistently into form, annex and email.
+
+Keep outward notes concise: what was checked, result, version and material limit.
+Avoid repeating the same rationale in observation and interpretation text, internal
+pass counters and long tool-repair histories. Keep those originals in private
+evidence. Preserve the official printed wording and every material qualification.
+Rendering cannot fix a wrong disposition. Check canonical field values as well as
+visible marks; verify unchanged pages by comparison and visually inspect changed
+pages of each revision. Do not regenerate or re-review unrelated unchanged evidence.
+
 Command examples use the [bundled submission console](ConsoleTools.md); see that guide for source/release availability and setup.
 
 The `submission self-test-form` command generates an unsigned, interactive review PDF. It preserves the official form's printed pages, adds numbered notes after the checklist, and can populate checkboxes from evidence checked by the existing DevTools offline validator. It does not apply a signature/date, upload, email, authorize delivery or claim Crestron acceptance. Use the matching bundled console; the document runtime is not a dependency of the NuGet configuration library.
@@ -23,6 +39,15 @@ CrestronHomeDevTools.Console.exe submission self-test-form draft --template OFFI
 ```
 
 This produces the original form followed by numbered review notes. Every item is marked not evaluated and all checkboxes remain off. Signature/date fields stay blank. Candidate/evidence arguments are rejected in this mode so an unevaluated draft cannot be mistaken for an evidence-backed result. Use fresh output/report paths; an existing artifact is never overwritten.
+
+Source-preview note rendering now describes an unevaluated item explicitly without
+claiming a supporting test result. Empty explanations for checked items refer only
+to the supplied observation mapping; reviewer interpretations remain distinguished
+from new automatic passes, and qualified items remain unchecked. Nonempty supplied
+explanations and the existing N/A checkbox behavior are preserved. A note never
+adds evidence or broadens its scope. Previously generated drafts are unchanged;
+regenerate with fresh output paths and review the new exact bytes before later
+signing or disclosure. This wording repair is not yet in a published console.
 
 The sample driver draft was generated with the actual pinned Extension form. All seven pages were rendered and inspected. Its matrix contains no passing claims, and all original printed page streams, field identities and blank signature/date values were verified. This is not a test result for a sample driver submission candidate.
 
@@ -77,3 +102,27 @@ The synthetic integration test invokes the real .NET validator, generates a popu
 Render and inspect every page before proceeding. `visualReviewRequired`, `signingAuthorizationRequired` and `submissionReady: false` remain explicit in every generated report. These checks are point-in-time validation, not an immutable bundle or authenticated producer. The later bundle/signing stage must protect and revalidate the exact package, completed form and authorization. An output PDF without a successful report is not a successful generation step.
 
 For the separate [authorized signing step](FormSigning.md), use `for-signing` with the same evidence arguments. It produces a neutral companion summary, still with blank signature/date fields, for review of the exact bytes to be signed. This mode cannot accept a blank draft or omit evidence validation. Ordinary `from-evidence` output keeps its prominent unsigned-review notice and is deliberately refused by the signer. Real signatures, final visual review and delivery remain separately authorized work.
+
+### Diagnosing a local review failure
+
+Use the pinned inventory's signing field names and verify canonical values against
+page widgets; do not guess field names from another form. When using pypdf, resolve
+indirect annotation arrays before inspecting their length. Check the available
+renderer first, and retain its actual exit status and stderr before assertions.
+A failed inspector is not evidence that form generation failed.
+
+Keep the original PDF and render hashes when investigating apparent missing text.
+Inspect the affected page at full resolution and, if needed, a crop of the existing
+render and an independent renderer. Reconcile conflicting observations against the
+same saved bytes before attributing a layout defect or regenerating. Text extraction
+and coordinates support diagnosis but do not replace visual inspection. Withdraw
+unsupported findings explicitly without deleting their original review record.
+
+If a renderer cannot open a long input path, retain the failure and try a shorter
+copy only after verifying byte identity. This is a local path workaround, not a
+change to the reviewed PDF or proof of a fixed renderer. Keep unresolved causes
+and any nonfatal renderer warnings in the review record.
+
+## Retained validation failures
+
+A nonzero evidence validator result is retained beside the requested private output in a fresh `validator-failure-*` directory, including original stdout, stderr, exit and hashes. Inspect the complete exit-1 assessment before changing inputs; a valid negative report must not be discarded as a generic exception. Do not publish these private diagnostics or replay equipment tests to repair input/schema errors. See [workflow reliability](WorkflowReliability.md).

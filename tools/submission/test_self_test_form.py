@@ -153,10 +153,56 @@ class SelfTestFormTests(unittest.TestCase):
             row.update(state="NotTested", observationIds=[])
         report = self.write(rows, draft=True)
         self.assertEqual(report["checkedRequirements"], [])
+        notes = "\n".join(page.extract_text() for page in PdfReader(self.output).pages[report["notesStartPage"]:])
+        self.assertEqual(notes.count("This requirement has not been evaluated."), len(rows))
+        self.assertEqual(notes.count("No supporting test result is claimed for this item."), len(rows))
+        self.assertNotIn("The mapped evidence supports", notes)
         reader = PdfReader(self.output)
         for i, page in enumerate(PdfReader(self.template).pages):
             actual = reader.pages[i + report["officialStartPage"]]
             self.assertEqual(page.get_contents().get_data(), actual.get_contents().get_data())
+
+    def test_empty_pass_rationale_refers_only_to_supplied_observation_mapping(self):
+        report = self.write(self.decisions())
+        reader = PdfReader(self.output)
+        notes = "\n".join(page.extract_text() for page in reader.pages[report["notesStartPage"]:])
+        self.assertIn("checked against the supplied mapped observations", notes)
+        self.assertIn("does not add evidence or extend their scope", notes)
+        self.assertNotIn("The mapped evidence supports", notes)
+        self.assertEqual(reader.get_fields()["First"]["/V"], "/Yes")
+
+    def test_empty_qualification_rationale_never_claims_a_pass(self):
+        rows = self.decisions()
+        rows[0].update(state="GapDeclared", rationale="")
+        report = forms.write_form(self.source, self.inventory, self.output, "SYNTHETIC QUALIFIED FIXTURE",
+                                  "Example Developer", rows, {"reviewMode": "DeclaredGaps", "verificationStatus": "GapsDeclared",
+                                  "declarationsSha256": "a" * 64}, False, declared_gaps=True)
+        reader = PdfReader(self.output)
+        notes = "\n".join(page.extract_text() for page in reader.pages[report["notesStartPage"]:])
+        self.assertIn("Full verification has not been established", notes)
+        self.assertIn("remains unchecked; no pass is claimed", notes)
+        self.assertEqual(reader.get_fields()["First"]["/V"], "/Off")
+
+    def test_reviewer_interpretation_fallback_does_not_invent_an_automatic_pass(self):
+        rows = self.decisions()
+        rows[0]["interpretationReviewed"] = True
+        report = forms.write_form(self.source, self.inventory, self.output, "SYNTHETIC INTERPRETATION FIXTURE",
+                                  "Example Developer", rows, {"reviewMode": "DeclaredGaps", "verificationStatus": "GapsDeclared",
+                                  "declarationsSha256": "a" * 64}, False, declared_gaps=True)
+        reader = PdfReader(self.output)
+        notes = "\n".join(page.extract_text() for page in reader.pages[report["notesStartPage"]:])
+        self.assertIn("recorded reviewer interpretation", notes)
+        self.assertIn("This is not a new automatic pass", " ".join(notes.split()))
+        self.assertEqual(reader.get_fields()["First"]["/V"], "/Yes")
+
+    def test_note_without_observation_mapping_does_not_invent_supporting_evidence(self):
+        rows = self.decisions()
+        rows[0]["observationIds"] = []
+        notes, _ = forms.notes_document("SYNTHETIC NOTES", "Example Developer", rows, {}, False)
+        text = "\n".join(page.extract_text() for page in notes.pages)
+        self.assertIn("No supporting observation mapping is supplied", text)
+        self.assertIn("does not establish a test result", text)
+        self.assertNotIn("The mapped evidence supports", text)
 
     def test_all_applicable_subconditions_pass_with_optional_absence_disclosed(self):
         self.observations["observations"][1].update(outcome="NotApplicable", rationale="This synthetic device has no optional control.")

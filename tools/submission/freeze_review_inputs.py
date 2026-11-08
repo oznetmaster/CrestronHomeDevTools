@@ -11,6 +11,7 @@ from lxml.etree import XMLSyntaxError
 from audit_android import Evidence, digest, require
 from build_help import keys, sha, strict_object
 from package_help import read_json, write_json
+from publish_artifacts import publish
 from review_android import audit_runs
 from self_test_form import pinned_json
 
@@ -51,7 +52,7 @@ def freeze(settings_path, output, candidate_digest, inventory_digest, mapping_di
         require(declarations is None and declarations_sha256 is None, "Unexpected declarations")
     _, candidate = pinned_json(settings["candidate"], candidate_digest)
     require(candidate["identity"]["sourceCommit"] == source_commit, "Candidate does not identify the selected release commit")
-    android = audit_runs(settings, android_pins, android_pins_sha256, candidate_digest)
+    android = audit_runs(settings, android_pins, android_pins_sha256, candidate_digest, review_mode=review_mode)
     expected = {"candidate": digest(candidate_digest), "inventory": digest(inventory_digest), "mapping": digest(mapping_digest),
                 "policy": digest(candidate["identity"]["policySha256"]), "template": digest(candidate["identity"]["templateSha256"]),
                 "package": digest(candidate["identity"]["packageSha256"])}
@@ -103,6 +104,9 @@ def freeze(settings_path, output, candidate_digest, inventory_digest, mapping_di
             options["declarations"] = copy(declarations, "documents/declarations.json", declarations_sha256)
             options["declarationsSha256"] = digest(declarations_sha256)
         if android is not None:
+            for item in android.get("reviewFiles", []):
+                name = relative(item["relativePath"])
+                copy(evidence / name, "evidence/" + name, item["sha256"])
             options["androidPins"] = copy(android_pins, "documents/android-pins.json", android_pins_sha256)
             options["androidPinsSha256"] = digest(android_pins_sha256)
             roots = {item["runId"]: Path(item["path"]) for item in settings["androidEvidence"]}
@@ -119,13 +123,9 @@ def freeze(settings_path, output, candidate_digest, inventory_digest, mapping_di
         pin = sha((staging / MANIFEST).read_bytes())
         # Validate the retained snapshot, including raw Android files, without consulting original paths.
         _, frozen_settings, frozen_options = load(staging, pin)
-        audit_runs(frozen_settings, frozen_options.get("androidPins"), frozen_options.get("androidPinsSha256"), candidate_digest)
-        output.mkdir()
-        # Publish COMPLETE last. A partial publication is retained and is never reused as complete.
-        for item in staging.iterdir():
-            item.rename(output / item.name)
-        with (output / "COMPLETE").open("x", encoding="ascii") as marker:
-            marker.write(pin + "\n")
+        audit_runs(frozen_settings, frozen_options.get("androidPins"), frozen_options.get("androidPinsSha256"), candidate_digest,
+                   review_mode=frozen_options["reviewMode"])
+        publish(staging, output, sha((staging / MANIFEST).read_bytes()))
         return {"schemaVersion": 1, "inputsSha256": pin, "fileCount": len(files), "testsExecuted": False,
                 "submissionReady": False, "deliveryAttempted": False}
 

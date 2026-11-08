@@ -57,6 +57,11 @@ static async Task<int> RunSafelyAsync (string[] args, bool interactive = false)
 
 static async Task<int> RunAsync (string[] args, bool interactive = false)
 	{
+	if (args.FirstOrDefault () == "published-drivers")
+		{
+		using var deadline = new CancellationTokenSource (TimeSpan.FromSeconds (90));
+		return await PublishedDriversCommand.RunAsync (args[1..], Console.Out, Console.Error, deadline.Token);
+		}
 	if (args.FirstOrDefault () == "submission-operator")
 		return SubmissionOperatorCommand.Run (args[1..], Console.Out, Console.Error);
 	if (args.FirstOrDefault () == "submission-release-intake")
@@ -174,6 +179,9 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
               discover                 Find Crestron Home processors on the local network.
               capabilities             Show automation features without connecting.
               drivers [--search text]  List available driver packages and their catalogue IDs.
+              published-drivers [--search text]
+                                       Search the published Crestron portal independently of local copies.
+                                       No processor required; Home compatibility is not established.
               stored-packages          Inspect retained packages and matching device references.
               compare-payload --package FILE --package-sha256 SHA256 --driver ID
                                        Reserve the processor and compare extracted package files.
@@ -228,6 +236,11 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
               credentials --help       Set up reusable encrypted private inputs without connecting or sending.
               resources --help         Inspect Windows prerequisites or select a named resource without changing it.
               configure                Choose a processor and save encrypted credentials locally.
+              driver-updates [--output updates.json]
+                                       Report available updates, versions, rooms and restart requirements.
+              update-drivers --plan updates.json --all true --journal NEW_DIRECTORY
+                [--drivers ID,ID instead of --all] [--confirm-reboot PROCESSOR]
+                                       Apply reviewed upgrades sequentially; existing credentials are reused.
               plan-update --driver ID --output plan.json
                                        Save update versions and affected device IDs for review.
 
@@ -356,6 +369,8 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 				"remove-created-child" => ["journal"],
 				"eligibility" => ["driver"],
 				"plan-update" => ["driver", "output"],
+				"driver-updates" => ["output"],
+				"update-drivers" => ["plan", "all", "drivers", "journal", "confirm-reboot"],
 				"update" => ["plan"],
 				"reload" => ["device", "tree-devices"],
 				"reload-scope" => ["device"],
@@ -473,11 +488,24 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 			Console.WriteLine (JsonSerializer.Serialize (await ProcessorDiscovery.FindAsync (cancellation.Token), jsonOptions));
 			return 0;
 			}
+		DriverUpdateReport? updateReport = null;
+		AvailableDriverUpdate[] selectedUpdates = [];
+		string? updateJournal = null;
+		if (command == "update-drivers")
+			{
+			updateReport = DriverUpdateManager.ReadReport (Required ("plan"));
+			if (options.TryGetValue ("all", out var allText) && allText != "true") throw new ArgumentException ("--all must be true.");
+			selectedUpdates = DriverUpdateManager.SelectUpdates (updateReport, options.ContainsKey ("all"),
+				options.TryGetValue ("drivers", out var chosen) ? chosen.Split (',', StringSplitOptions.TrimEntries) : [], options.ContainsKey ("confirm-reboot"));
+			updateJournal = Required ("journal");
+			if (Directory.Exists (updateJournal) || File.Exists (updateJournal)) throw new ArgumentException ("Choose a new update journal directory; never replay an earlier batch.");
+			}
 		DriverUpdatePlan? plan = null;
 		if (command == "update")
 			plan = JsonSerializer.Deserialize<DriverUpdatePlan> (await File.ReadAllTextAsync (Required ("plan"), cancellation.Token), jsonOptions)
 				 ?? throw new ArgumentException ("The plan file was empty.");
-		var output = command == "plan-update" ? Required ("output") : null;
+		var output = command == "plan-update" ? Required ("output")
+			: command == "driver-updates" && options.ContainsKey ("output") ? Required ("output") : null;
 		if (output != null && File.Exists (output))
 			throw new ArgumentException ("The plan output file already exists. Choose a new path.");
 		if (options.ContainsKey ("settings") && options.ContainsKey ("profile"))
@@ -522,7 +550,20 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 			WebSocketPort = settings.WebSocketPort,
 			CertificateSha256 = Setting ("CRESTRON_HOME_CERT_SHA256", settings.CertificateSha256)
 			};
-		if (command is "move" or "reboot" or "activate" or "remove" or "deploy" or "refresh" or "reload" or "update" or "configure-driver" or "commission-child" or "remove-created-child" or "compare-payload")
+		var updateTarget = command is "driver-updates" or "update-drivers" ? new DriverUpdateTarget (host, connectionOptions.HttpsPort,
+			connectionOptions.WebSocketPort, connectionOptions.CertificateSha256?.ToUpperInvariant () ?? "") : null;
+		if (command == "update-drivers")
+			{
+			if (updateReport!.Target != updateTarget) throw new ArgumentException ("Update report belongs to a different processor connection or certificate.");
+			if (options.TryGetValue ("confirm-reboot", out var rebootTarget) && rebootTarget != selector)
+				throw new ArgumentException ("--confirm-reboot must exactly match the selected processor name or address.");
+			if (selectedUpdates.Length == 0)
+				{
+				Console.WriteLine (JsonSerializer.Serialize (new { State = "NoUpdatesSelected", Detail = "No confirmed upgrades match this selection and restart policy." }, jsonOptions));
+				return 0;
+				}
+			}
+		if (command is "update-drivers" or "move" or "reboot" or "activate" or "remove" or "deploy" or "refresh" or "reload" or "update" or "configure-driver" or "commission-child" or "remove-created-child" or "compare-payload")
 			{
 			var leaseFingerprint = Setting ("CRESTRON_HOME_SSH_FINGERPRINT", settings.SshFingerprint)
 				?? throw new ArgumentException ("This operation requires a verified SSH fingerprint for the shared lease. Run configure first.");
@@ -649,6 +690,35 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 				mutationSubmitted = true;
 				result = await DriverDeployment.DeployAsync (client, host, new NetworkCredential (user, password), sshFingerprint, Required ("package"), timeout, cancellation.Token);
 				break;
+			case "driver-updates":
+				var updateScan = await DriverUpdateManager.InspectAsync (client, updateTarget!, cancellation.Token);
+				result = updateScan;
+				Console.Error.WriteLine ($"Updates: {updateScan.Drivers.Count (r => r.Status == "UpdateAvailable")} without restart, {updateScan.Drivers.Count (r => r.Status == "RebootRequired")} requiring restart; {updateScan.UnresolvedDevices.Length} installed instances have unresolved catalogue mapping. Review {output ?? "the console report"}.");
+				if (output != null)
+					{
+					await using var reportStream = new FileStream (output, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+					await JsonSerializer.SerializeAsync (reportStream, result, jsonOptions, cancellation.Token);
+					}
+				break;
+			case "update-drivers":
+				DriverRebootHandler? updateReboot = options.ContainsKey ("confirm-reboot") ? new (
+					(_, _) => Task.CompletedTask,
+					async (_, previous, token) =>
+						{
+						await previous.RequestProcessorRebootAsync ((_, _) => Task.FromResult (true), "Reviewed driver update", token);
+						var recovered = await ProcessorRestartRecovery.WaitAsync (previous,
+							ct => ConfigurationClient.ConnectAsync (connectionOptions, new NetworkCredential (user, password), ct), timeout, token);
+						try { await lease!.VerifyAfterReconnectAsync (host, token); return recovered; }
+						catch { await recovered.DisposeAsync (); throw; }
+						}) : null;
+				Console.Error.WriteLine ($"Applying {selectedUpdates.Length} reviewed driver updates sequentially. Journal: {updateJournal}");
+				mutationSubmitted = true;
+				var batch = await DriverUpdateManager.ApplyAsync (client, updateTarget!, updateReport!, selectedUpdates.Select (r => r.DriverId).ToArray (),
+					updateJournal!, timeout, updateReboot, cancellation.Token);
+				mutationStopped = batch.SafeToReleaseReservation;
+				Console.WriteLine (JsonSerializer.Serialize (batch, jsonOptions));
+				if (batch.State != "Completed") Console.Error.WriteLine ("Update batch stopped. Inspect its journal; no operation was automatically retried.");
+				return batch.State == "Completed" ? 0 : batch.SafeToReleaseReservation ? 1 : 3;
 			case "drivers":
 				result = await client.GetDriversAsync (options.GetValueOrDefault ("search"), cancellation.Token);
 				break;

@@ -106,3 +106,7 @@ On 16 September 2026, a separate manual workflow executed the submission validat
 ### Windows service workers
 
 The bundled console removes the need to install or select a Python interpreter on the service account. Use the same complete console and private settings as an interactive run. A source-pinned workflow calls `BuildSubmissionConsole.ps1` to provision its runtime automatically. The earlier September16 service rehearsal predates this packaging change; packaged-console service validation and real Release-candidate workflow validation remain separate from local offline acceptance.
+
+## Immutable source and tool handoffs
+
+Use `submission snapshot-inputs` for explicit pinned source/tool files and `submission freeze-review-inputs` for typed evidence inputs. Keep the root short. Neither command rewrites historical pins, normalizes source bytes, infers relative-reference domains or grants stage authority. See [workflow reliability](WorkflowReliability.md) for the input schema and review order.

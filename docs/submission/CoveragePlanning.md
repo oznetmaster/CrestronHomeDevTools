@@ -1,5 +1,28 @@
 # Plan driver-specific submission coverage
 
+Use the [blank coverage register](templates/CoverageRegister.md) to settle exact
+wording and scope before compiling a policy. The [execution protocol](ExecutionProtocol.md#2-settle-coverage-before-performing-actions)
+requires separate inventory/navigation/action/physical/timing evidence and a finite
+repetition method before consuming any physical-action allowance. These operator
+notes are not additional SDK fields or passing observations.
+
+## Decide once before execution
+
+Use one table as described in the [runbook](Runbook.md#prepare-each-candidate).
+Read the product README/help as well as UI source and automated tests so advertised
+groups, lists and optional controls are not discovered at final approval. Preserve
+agreed platform/singleton applicability. Child-device independence and independent
+root-driver instances are different assertions. UI button grouping, group command
+routing and physical group operation are also different evidence scopes.
+
+For a device with Wi-Fi rather than a cable, an approved block/unblock of that
+specific client's actual communication path can be the wireless equivalent of
+device cable removal. Retain independent loss/recovery observations and describe
+what stayed connected; do not reject that method solely because it has no cable,
+or silently claim a wider topology was interrupted. Keep any narrower scope explicit.
+Do not introduce a second physical test after the first solely to satisfy an
+unreviewed policy assumption. A lack of hardware is not a passing result.
+
 Command examples use the [bundled submission console](ConsoleTools.md); see that guide for source/release availability and setup.
 
 `submission coverage-plan` expands a reviewed source snapshot and coverage blueprint into a draft evidence policy, a complete form mapping and scoped producer tasks. It does not execute tests, generate observations, approve the policy or fill a form. Use the matching bundled console described above; its internal document runtime is included in the complete console archive, separately from the NuGet configuration library.
@@ -52,11 +75,11 @@ An `absence` proposal requires `NotApplicable` in the generated policy's `execut
 
 ### Installed controls and representative hardware
 
-Choose the representative hardware and inspect its actual capabilities before freezing the blueprint. A platform driver's source can define conditional controls for many models; this does not require owning every supported model, regional variant or mains-voltage variant. Record the distinction between supported and physically tested models in the product README. Unavailable hardware alone is not an incomplete checklist test for the installed configuration.
+Choose the representative hardware and inspect its actual capabilities before freezing the blueprint. A platform driver's source can define conditional controls for many models; this does not require owning every supported model, regional variant or mains-voltage variant. Record the distinction between supported and physically tested models in the product README. Unavailable hardware does not automatically require testing every supported model. However, a supported feature that was not exercised remains unverified at that scope; do not label the whole capability N/A just because the selected device omits it.
 
 For the control-inventory item, plan normal observations for every expected control of the selected devices. Plan an `absence` check for each source-defined conditional control that those devices do not expose. Keep its target in the mapping and require retained runtime inventory evidence, with `restore: false` and no response deadline when the check is read-only. Do not mark the whole item N/A merely because some conditional controls are absent: passing applicable controls plus justified non-applicable controls produce a checked item. If an expected control is missing, that is a failure, not evidence of non-applicability.
 
-Apply this decision before initial testing and endurance. If applicability was specified incorrectly, retain the original plan and results and create a separately identified, reviewed correction with its reason and evidence provenance. Do not overwrite frozen inputs, relabel a failed test, or claim a fresh execution merely by changing policy hashes. Adding optional hardware later does not by itself require repeating an existing endurance test.
+Apply this scope decision before testing and endurance; scheduling the remaining human checks after the interval does not change their applicability or mark them passed. If applicability was specified incorrectly, retain the original plan and results and create a separately identified, reviewed correction with its reason and evidence provenance. Do not overwrite frozen inputs, relabel a failed test, or claim a fresh execution merely by changing policy hashes. Adding optional hardware later does not by itself require repeating an existing endurance test.
 
 The source evidence validator now enforces each generated policy's `execution` fields. Observations must supply a matching target and method. Required response timestamps must be ordered within the observation interval, meet the deadline, and reference retained trigger/response files. Required restoration records must place original capture before the action and verification after restoration, confirm a match, and reference retained original/verification evidence. A passing summary alone cannot satisfy these checks. Even a non-applicable scoped observation requires retained files.
 

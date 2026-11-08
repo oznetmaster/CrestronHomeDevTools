@@ -185,14 +185,14 @@ class SignedReviewStageTests(unittest.TestCase):
         self.assertFalse(self.output.exists())
 
     def test_interrupted_publication_leaves_no_completion_and_cannot_be_reused(self):
-        original = Path.rename
+        original = Path.open
 
-        def interrupt(source, target):
-            if Path(target).parent == self.output:
+        def interrupt(path, *args, **kwargs):
+            if Path(path).parent == self.output and args and args[0] == "xb":
                 raise OSError("synthetic interrupted signing-stage publication")
-            return original(source, target)
+            return original(path, *args, **kwargs)
 
-        with patch.object(Path, "rename", interrupt):
+        with patch.object(Path, "open", interrupt):
             with self.assertRaisesRegex(OSError, "interrupted"):
                 self.run_stage()
         self.assertFalse((self.output / "COMPLETE").exists())

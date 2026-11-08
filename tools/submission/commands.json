@@ -11,8 +11,10 @@
   "prepare-review": "prepare_review",
   "prepare-review-request": "prepare_review_request",
   "prepare-signed-review": "prepare_signed_review",
+  "prepare-signing-plan": "prepare_signing_plan",
   "render-help": "render_help",
   "revalidate-delivery": "revalidate_delivery",
   "self-test-form": "self_test_form",
-  "sign-self-test-form": "sign_self_test_form"
+  "sign-self-test-form": "sign_self_test_form",
+  "snapshot-inputs": "snapshot_inputs"
 }

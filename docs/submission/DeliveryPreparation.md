@@ -1,5 +1,19 @@
 # Final delivery preparation
 
+## One human review period, distinct technical records
+
+Follow the [normal runbook](Runbook.md#reconcile-approve-and-deliver) and
+[execution protocol](ExecutionProtocol.md#7-review-approval-and-closeout). Prepare
+all content and identify the selected contract before inviting approval. The
+standard complete-mode route authorizes the exact unsigned signing copy first,
+then requires signed-page review and separate delivery authority bound to the
+actual signed hashes. Keep both exchanges in the same period where possible.
+Do not manufacture signed hashes or treat a generic approval of unsigned content
+as the required signed-copy authorization. Any separately validated route allowing
+explicit signature/date or verified-URL transformations must actually support that
+authority and payload. Preserve valid existing approvals; never invent approval,
+extend expiry or reuse it for materially changed content.
+
 This command prepares **complete-mode** submissions. Signed forms with declared gaps use the [declared-gap CI sequence](WorkflowSetup.md#signed-submissions-with-declared-gaps) and its separate exact-plan approval check, followed by full evidence revalidation in the review-request delivery command. Do not use complete-mode settings for that route.
 
 Command examples use the [bundled submission console](ConsoleTools.md); see that guide for source/release availability and setup.

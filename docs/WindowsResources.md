@@ -44,6 +44,12 @@ A computer may have no physical monitor and still have a logged-in desktop acces
 
 Service/session-zero execution does not establish desktop automation capability. Verify Configure Pro under the intended interactive account, after disconnecting the remote-control client, and after restarting Windows. Verify emulator acceleration and ADB in the intended account as well. Do not grant readiness merely because a runner service or emulator executable exists. Automatic logon and its credential/security choices are explicit setup decisions; this command does not enable it.
 
+## Reuse an established interactive application launch route
+
+Before asking someone to open a configuration application, inspect the saved worker transport, interactive-account launch scripts and original task/process receipts. An authorised remote transport can start an already installed Configure Pro Appx in its intended logged-in account through an existing interactive scheduled task. A task result and a matching responding process establish that historical launch; independently check the current account, package, session and process identity before reusing the route. Do not replay setup scripts or change task, account or security configuration merely to rediscover an existing route.
+
+Application launch and visual control are separate capabilities. A responding process with no usable window handle, image or control channel does not establish inspection of the application. Conversely, a timeout approving a local remote-desktop client launch does not show that the remote application cannot launch. Retain the actual boundary and reuse the established authorised route without substituting a legacy application or taking the primary desktop. Resource ownership and the intended interactive account still apply.
+
 ## Keep a named inventory
 
 `DevToolsResourceInventory` holds one or many Windows computers and Crestron processors. Each resource has `Planned`, `Ready` or `Disabled` state, permitted roles, capability evidence references, optional private credential-entry names, and a flag for equipment shared with real use. Save/load it using the public C# API. It has no passwords. Names and evidence are operator-maintained; a recorded assertion is not an independent verification.

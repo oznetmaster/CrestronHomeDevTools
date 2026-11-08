@@ -1,12 +1,26 @@
 # Private signing stage
 
+## One human review period, distinct technical records
+
+Follow the [normal runbook](Runbook.md#reconcile-approve-and-deliver) and
+[execution protocol](ExecutionProtocol.md#7-review-approval-and-closeout). Prepare
+all content and identify the selected contract before inviting approval. The
+standard complete-mode route authorizes the exact unsigned signing copy first,
+then requires signed-page review and separate delivery authority bound to the
+actual signed hashes. Keep both exchanges in the same period where possible.
+Do not manufacture signed hashes or treat a generic approval of unsigned content
+as the required signed-copy authorization. Any separately validated route allowing
+explicit signature/date or verified-URL transformations must actually support that
+authority and payload. Preserve valid existing approvals; never invent approval,
+extend expiry or reuse it for materially changed content.
+
 Command examples use the [bundled submission console](ConsoleTools.md); see that guide for source/release availability and setup.
 
 The source tool `tools/submission/prepare_signed_review.py` connects a completed [unsigned signing-copy review](ReviewStage.md) to the [image signer](FormSigning.md). It revalidates the retained evidence at signing time and prepares the exact package and signed form in a separate delivery folder. It never uploads or sends them. Use the complete matching console as described in the setup guide above.
 
 Use it only after the final driver Release candidate and all applicable evidence have passed review. Ordinary driver/library releases remain independent of portal submission. A completed signing stage means that authorized files were prepared, not that a driver was submitted or certified.
 
-Version 1.14.0 and later accept an explicitly reviewed declared-gap signing copy as described in [Form signing](FormSigning.md#signing-with-declared-gaps-source-update). It reassesses the declared-gap archive, binds the exact declarations and verification status to the signing authorization, and preserves unchecked requirements. For this mode, the output also retains the evidence archive, declarations, mapping, inventory and unsigned form/report privately so the review-delivery coordinator can revalidate before each provider step. Only the package and signed PDF enter `delivery/`.
+Version 1.14.0 and later accept an explicitly reviewed declared-gap signing copy as described in [Form signing](FormSigning.md#signing-with-declared-gaps-1140). It reassesses the declared-gap archive, binds the exact declarations and verification status to the signing authorization, and preserves unchecked requirements. For this mode, the output also retains the evidence archive, declarations, mapping, inventory and unsigned form/report privately so the review-delivery coordinator can revalidate before each provider step. Only the package and signed PDF enter `delivery/`.
 
 ## Trust and private inputs
 
@@ -60,3 +74,7 @@ Call this job downstream of successful release/evidence/review jobs, using indep
 ## Validation limits
 
 The actual CLI has been tested with synthetic candidate evidence, the real .NET validator and a clearly marked synthetic signature. Regressions cover changed retained inputs, missing completion, stale/failed validation, identity mismatches, expired or unrelated authorization, exact delivery contents, existing outputs and interrupted publication. The published console has also applied an explicitly authorized signature to a reviewed real Extension form, preserving its checkboxes, identification and linked notes. Its exact signed PDF was subsequently delivered through the public coordinator. That actual run used the interactive Windows account, not a service account; see [validation status](ValidationStatus.md).
+
+## Derive the invocation from the reviewed receipt
+
+Use `submission prepare-signing-plan --review-directory PRIVATE_REVIEW --review-sha256 REVIEW_PIN --authorization EXACT_AUTHORIZATION --authorization-sha256 AUTHORIZATION_PIN --output NEW_PREPARATION --signed-output NEW_SIGNED_OUTPUT --credentials PRIVATE_BINDINGS`. This preparation reads no signature and grants no approval. Review its settings digest and invoke the returned `arguments` array through `submission`; do not copy old receipt hashes into a script. The protected named-signature route now checks review completion and receipt/authorization pins before opening the signature store. Full signing validation and expiry checks remain in force. See [workflow reliability](WorkflowReliability.md).

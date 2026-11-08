@@ -1,5 +1,30 @@
 # Planned physical actions
 
+Before presenting Ready, satisfy the [execution protocol](ExecutionProtocol.md#4-execute-one-owned-operation-and-close-it):
+verify the actual capture/navigation route and retain action consumption separately
+from observation success. A capture failure after dispatch does not authorize a
+replacement physical cycle. Apply the bounded failure rule instead of building a
+new launcher during the human period. Explicit user stop cancels pending work and
+permits only necessary safe cleanup; durable readiness does not override that stop.
+
+## Plan one human period
+
+Use the [normal schedule](Runbook.md#one-prepared-human-period). Consolidate missing
+facts from saved configuration, scope decisions and all necessary physical actions
+before inviting the human. Prefer a final period after unattended endurance so
+endpoint checks, remaining actions, restoration and final artifact approval fit
+together. Readiness/action/restoration are distinct exchanges within that period,
+not reasons to arrange several visits. A human need not observe two rooms at once
+unless the actual test requires simultaneity; do not add an optional second room
+to satisfy an inapplicable two-driver-instance requirement.
+
+Use the already configured prompt/observer route. Build, discovery, navigation,
+recording setup and delivery preparation happen before Ready. The versioned API
+contracts below remain unchanged: a deadline on recording is not a deadline on
+human availability, and an acknowledgement is not a measured pass. If the chosen
+route cannot deliver the prepared sequence, diagnose that before asking for action.
+Do not retrofit a new listener or handoff protocol during the human period.
+
 ## Prepared readiness and worker timing (1.24.0)
 
 For a new frozen plan, set `PrepareBeforeReadiness: true` on each cooperating manual `InstalledAppSteps`, `PreEnduranceAppSteps` or `PostEnduranceAppSteps` entry. The entry must select exactly one test and include `OperatorInstructions`. The workflow runs preparation first. Inside the fixture, call `SubmissionPreparedReadiness.WaitAsync(inbox, target, cancellationToken)` after navigation and before refreshing the event baseline. The public NUnit 2.2.0 runner supplies the exact readiness binding; fixtures must not invent a different inbox or request.

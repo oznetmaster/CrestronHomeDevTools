@@ -52,7 +52,12 @@ internal static class SubmissionReviewAssessmentCommand
 			}
 		catch (Exception exception) when (exception is ArgumentException or InvalidDataException or IOException or UnauthorizedAccessException or JsonException)
 			{
-			error.WriteLine (exception is ArgumentException or InvalidDataException ? exception.Message : "Cannot read or assess the private submission inputs.");
+			error.WriteLine (exception switch
+                {
+                    JsonException json => $"Invalid submission JSON ({json.GetType ().Name}, line {json.LineNumber}, byte {json.BytePositionInLine}). Check the documented schema; input content is not echoed.",
+                    ArgumentException or InvalidDataException => exception.Message,
+                    _ => $"Cannot read or assess private submission inputs ({exception.GetType ().Name})."
+                });
 			return 2;
 			}
 		}

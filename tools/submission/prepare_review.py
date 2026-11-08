@@ -16,10 +16,12 @@ from lxml.etree import XMLSyntaxError
 
 from build_help import keys, sha, strict_object
 from package_help import read_json, write_json
+from publish_artifacts import publish
 from render_help import run_process
 import self_test_form as forms
-from review_android import audit_runs
+from review_android import audit_runs, validate_observation_bindings
 from validator_runtime import settings_validator
+from validator_diagnostics import require_success
 
 
 def _prepare(settings_path, candidate_digest, inventory_digest, mapping_digest, source_commit, artifact_kind, *, signing_copy=False,
@@ -68,10 +70,14 @@ def _prepare(settings_path, candidate_digest, inventory_digest, mapping_digest, 
     output = Path(settings["output"])
     if output.exists() or not output.parent.is_dir():
         raise ValueError("Use a new review output directory under an existing private parent")
-    android = audit_runs(settings, android_pins, android_pins_sha256, candidate_digest)
+    android = audit_runs(settings, android_pins, android_pins_sha256, candidate_digest, review_mode=review_mode)
     _, policy = forms.pinned_json(settings["policy"], candidate["identity"]["policySha256"])
     android_scopes = {rule["id"] for rule in policy["requirements"]
                       if isinstance(rule.get("execution"), dict) and rule["execution"].get("method") == "android"}
+    if android is not None:
+        _, observed = read_json(settings["observations"])
+        validate_observation_bindings(android, android_scopes, observed,
+                                      gap_document if declared_gaps else {}, settings["evidence"])
     if android is None and android_scopes:
         # Only wholly unperformed, explicitly declared scopes can lack Android run evidence.
         # Supplied observations still require the normal raw-run audit, regardless of pass/failure.
@@ -90,7 +96,7 @@ def _prepare(settings_path, candidate_digest, inventory_digest, mapping_digest, 
             inventory, inventory_digest, settings["mapping"], mapping_digest,
             settings["candidate"], candidate_digest, settings["policy"], settings["observations"],
             settings["package"], settings["template"], settings["evidence"], settings.get("dotnet"), settings.get("validator"),
-            **({"declarations_path": declarations, "declarations_digest": declarations_sha256} if declared_gaps else {}))
+            diagnostics_parent=output.parent, **({"declarations_path": declarations, "declarations_digest": declarations_sha256} if declared_gaps else {}))
         identity["inventorySha256"] = inventory_digest
         form = completed / "self-test.review.pdf"
         report = forms.write_form(source, inventory, form, settings["title"], settings["author"], rows, identity, False,
@@ -104,8 +110,7 @@ def _prepare(settings_path, candidate_digest, inventory_digest, mapping_digest, 
         if declared_gaps:
             arguments.extend(("--declarations", str(declarations), "--declarations-sha256", declarations_sha256, "--mode", "declared-gaps"))
         result = run_process(arguments, 180)
-        if result.returncode != 0:
-            raise ValueError("Evidence bundle validation failed; no completed review was published")
+        require_success(result, "Evidence bundle validation", output.parent)
         bundle = json.loads(result.stdout, object_pairs_hook=strict_object)
         if declared_gaps:
             reviewed = bundle["review"]
@@ -142,7 +147,7 @@ def _prepare(settings_path, candidate_digest, inventory_digest, mapping_digest, 
         # Do not accept a worker's precomputed audit summary in place of raw data.
         android_report_sha256 = None
         if android is not None:
-            if audit_runs(settings, android_pins, android_pins_sha256, candidate_digest) != android:
+            if audit_runs(settings, android_pins, android_pins_sha256, candidate_digest, review_mode=review_mode) != android:
                 raise ValueError("Android evidence changed during review preparation")
             write_json(completed / "android-audit.json", android)
             data, _ = forms.pinned_json(android_pins, android_pins_sha256)
@@ -164,12 +169,7 @@ def _prepare(settings_path, candidate_digest, inventory_digest, mapping_digest, 
             receipt["androidPinsSha256"] = android_pins_sha256
         write_json(completed / "review-receipt.json", receipt)
         # mkdir is exclusive on both Windows and POSIX. Never replace a prior run.
-        output.mkdir()
-        # An interrupted move leaves no completion marker and is not reusable.
-        for item in completed.iterdir():
-            item.rename(output / item.name)
-        with (output / "COMPLETE").open("x", encoding="ascii") as marker:
-            marker.write(sha((output / "review-receipt.json").read_bytes()) + "\n")
+        publish(completed, output, sha((completed / "review-receipt.json").read_bytes()))
         return receipt
 
 

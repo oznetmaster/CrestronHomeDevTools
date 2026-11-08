@@ -1,6 +1,6 @@
 # Copyright (c) 2026 Neil Colvin. Licensed under the MIT License; see LICENSE.
 [CmdletBinding()]
-param([Parameter(Mandatory)][string] $ConsoleDirectory)
+param([Parameter(Mandatory)][string] $ConsoleDirectory, [string] $NUnitWorkflowProject)
 $ErrorActionPreference = 'Stop'
 $directory = [IO.Path]::GetFullPath($ConsoleDirectory)
 $console = Join-Path $directory 'CrestronHomeDevTools.Console.exe'
@@ -20,7 +20,14 @@ foreach ($name in @('InstallSubmissionAutomationWorker.ps1','InstallSubmissionAn
     $null = [Management.Automation.Language.Parser]::ParseFile($script, [ref]$parseTokens, [ref]$parseErrors)
     if ($parseErrors.Count) { throw "Invalid packaged automation setup script: $name" }
 }
-dotnet build (Join-Path $PSScriptRoot '../CrestronHomeDevTools.Tests.Probe/CrestronHomeDevTools.Tests.Probe.csproj') -c Release --verbosity quiet
+$sourceProperties = @()
+if ($NUnitWorkflowProject) {
+    $workflowProject = [IO.Path]::GetFullPath($NUnitWorkflowProject)
+    if (-not (Test-Path -LiteralPath $workflowProject -PathType Leaf) -or [IO.Path]::GetFileName($workflowProject) -ne 'CrestronHomeNUnit.Workflow.csproj') { throw 'Supply the exact maintained NUnit workflow project.' }
+    $devToolsProject = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../CrestronHomeDevTools/CrestronHomeDevTools.csproj'))
+    $sourceProperties += "-p:NUnitWorkflowProject=$workflowProject", "-p:DevToolsProject=$devToolsProject"
+}
+dotnet build (Join-Path $PSScriptRoot '../CrestronHomeDevTools.Tests.Probe/CrestronHomeDevTools.Tests.Probe.csproj') -c Release --verbosity quiet @sourceProperties
 if ($LASTEXITCODE -ne 0) { throw 'Synthetic delivery probe build failed.' }
 $names = @('SUBMISSION_TEST_BUNDLE', 'SUBMISSION_TEST_DOTNET', 'SUBMISSION_TEST_VALIDATOR', 'SUBMISSION_TEST_PROBE', 'SUBMISSION_TEST_PWSH')
 $previous = @{}

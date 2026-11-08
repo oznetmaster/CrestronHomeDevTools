@@ -288,16 +288,16 @@ class ReviewStageTests(unittest.TestCase):
         self.assert_interrupted_publication()
 
     def assert_interrupted_publication(self):
-        original = Path.rename
+        original = Path.open
         interrupted_targets = []
 
-        def interrupted(path, target):
-            if Path(target).parent.resolve() == self.output.resolve():
-                interrupted_targets.append(Path(target))
+        def interrupted(path, *args, **kwargs):
+            if Path(path).parent.resolve() == self.output.resolve() and args and args[0] == "xb":
+                interrupted_targets.append(Path(path))
                 raise OSError("synthetic interrupted publication")
-            return original(path, target)
+            return original(path, *args, **kwargs)
 
-        with patch.object(Path, "rename", interrupted):
+        with patch.object(Path, "open", interrupted):
             with self.assertRaisesRegex(OSError, "interrupted publication"):
                 self.run_stage()
         self.assertEqual(len(interrupted_targets), 1)

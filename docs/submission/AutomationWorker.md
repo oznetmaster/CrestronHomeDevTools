@@ -1,5 +1,16 @@
 # Windows submission automation worker
 
+## Scheduling limitation for new submissions
+
+The [normal runbook](Runbook.md) targets 48 hours including endurance and one
+human period, normally at the end. This worker's existing full initial-evidence
+gate does not yet support deferring arbitrary human checks to that period. The
+gate documented below is an implementation contract, not an official requirement
+to perform all physical tests before endurance. Use this worker when the selected
+profile genuinely fits; otherwise select the established direct route before
+launch. Do not waive the gate, narrow the policy, fake a pass or alter a frozen
+run. This documentation change does not change the worker implementation.
+
 This preview worker, included in the complete Windows release bundle, connects release discovery, the public Crestron NUnit and endurance APIs, document preparation, authorized signing and delivery, and final retention. A configured real release-to-review rehearsal completed without intervention after startup, with shortened endurance explicitly disclosed. Protected signing/delivery/retention passed separate synthetic validation. A newly published release followed by real submission remains a distinct validation boundary; see [validation status](ValidationStatus.md). Use 1.20.0 or later for the hardening checks documented here. Keep existing active runs on their pinned tooling.
 
 Observers must check `worker-status.json` as well as the workflow checkpoint and
@@ -224,7 +235,7 @@ accepted as completed test evidence.
 
 ### Required checks before endurance
 
-Both rehearsal and submission now enforce a pre-endurance evidence gate. Complete
+The automation worker's Endurance stage enforces a pre-endurance evidence gate in both rehearsal and submission modes. This guarantee applies to that stage, not every standalone collector command or manually coordinated route; see the [direct-route boundary](Runbook.md#prepare-each-candidate). Complete
 the applicable functional, configuration, UI, physical-event and outage/recovery
 checks during the initial Windows/processor/installed-app phases. For attended
 checks, establish fixture readiness and configuration prerequisites before asking
@@ -255,7 +266,7 @@ replace the initial checks.
 Existing collections remain observable and their evidence is preserved. An older
 run without a pre-endurance gate receipt does not acquire proof of correct ordering
 by upgrading the tools. Do not reset it or claim it validated the corrected sequence.
-Validate the new gate in a fresh rehearsal after the complete plan is ready.
+Validate changes to this gate in a separate tooling rehearsal. A normal driver submission does not require a new worker rehearsal when its selected route and inputs are already validated.
 
 ### Additional initial fixture
 
@@ -550,7 +561,7 @@ directory does not necessarily grant permission to write inside it. Preserve a
 setup receipt and reuse it while the account, resources and permissions remain
 unchanged. A worker must not depend on an assistant obtaining new infrastructure
 permissions between stages. The settings-completeness check does not perform
-these live access checks. See the [upfront permission setup requirements](START-DRIVER-SUBMISSION.md#complete-permission-setup-before-starting-a-run).
+these live access checks. See the [reusable setup requirements](Runbook.md#set-up-once-reuse-each-time).
 
 Run the installer from administrator PowerShell 7.6 or later:
 

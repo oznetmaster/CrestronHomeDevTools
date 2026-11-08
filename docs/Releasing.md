@@ -34,3 +34,45 @@ Commit and push the reviewed source/documentation, then dispatch `release.yml` f
 If publication stops after NuGet accepts any package, preserve the original workflow log and `release-VERSION` artifact. Do not rerun the normal release to rebuild that version. Correct the publishing restriction and publish only missing packages from the retained, checksum-verified artifact. Verify that every payload entry in any already published package matches its retained original (NuGet's added repository signature is the only expected difference). Complete the source/tag and GitHub release using the exact source commit recorded in the package metadata and the same retained assets, then verify all public downloads and a fresh-cache consumer restore. A failed original workflow remains part of the release evidence.
 
 A later dependency-only documentation/test update need not create a runtime release unless it changes the distributed product or fixes behavior. The NUnit workflow release has its own source/dependency pins; update those deliberately after DevTools becomes publicly consumable.
+
+## Local native runtime output paths and diagnostics (local, unreleased)
+
+Keep the maintained source project in its existing location. A published output
+may use a shorter excluded directory in that same project. On Windows, an
+isolated Python native module can fail to load from a deeply nested output even
+when managed file enumeration and digest checks succeed. The local console
+builder checks trusted bundled native-file output paths against a conservative
+259-character operational budget before publication. This policy is not a claim
+that every native loader has an identical limit. Reject and choose a fresh shorter
+output; never move source, change loader/search paths or alter system registry
+settings to bypass a failed guarded runtime.
+
+The locally implemented runtime-check option --private-diagnostics-directory requires an
+existing absolute ordinary private directory. A failure retains the original
+nested exception and traceback privately in a fresh exclusive directory. Public
+stderr remains concise. The build receipt retains the immediate smoke-command
+exit; the enclosing bounded caller still owns the actual process/PID receipt.
+Legacy runtime-check without this option remains supported.
+
+A successful local publish is not a NuGet/GitHub release, live UI proof or complete
+platform security attestation. Direct PKCS10.0.13 and the separately pinned
+self-contained CLR10.0.12 must be described independently. Preserve earlier
+failed outputs, diagnostic traces, source identities and qualified evidence.
+
+### Ordinary ancestor compatibility (local, unreleased)
+
+The revised guard checks every lexical ancestor, not just the diagnostic leaf.
+It must inspect the supplied path before resolving it, so a junction cannot be
+hidden by canonicalisation. Reject inaccessible ancestors; never write a fallback
+trace into the working directory. The actual C:/Projects alias is a junction.
+For this strict local contract, explicitly select the ordinary
+D:/Projects path to the same maintained project and output. Visual Studio may
+continue opening the existing C: alias. This is a path spelling for the same
+project, not a copied checkout, source move, mapping or permission change.
+
+A diagnostic write failure leaves the command failed and reports fixed concise
+retention-failure text. A newly created empty diagnostic directory may remain if
+the trace write itself fails; do not mislabel that directory as a saved exception.
+The actual bounded caller still retains original stderr and its process receipt.
+
+These changes are implemented in the local maintained checkout and validated offline. They are not committed, pushed or released at this stage; the previous published distribution remains unchanged.
