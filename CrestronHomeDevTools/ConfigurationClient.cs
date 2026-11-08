@@ -26,6 +26,58 @@ public sealed class ConfigurationClient : IAsyncDisposable
 	public Task<ProcessorCapabilityReport> GetCapabilitiesAsync (CancellationToken cancellationToken = default)
 		=> ProcessorCapabilities.ReadAsync (this, _connection as IProcessorIdentitySource, cancellationToken);
 
+	/// <summary>Reads advertised child descriptors; older/missing inline values remain unavailable. Values are opt-in and may be private.</summary>
+	public Task<ManagedChildrenSnapshot> GetManagedChildrenAsync (int parentDeviceId, bool includePropertyValues = false, CancellationToken cancellationToken = default)
+		=> ManagedChildInspection.GetAsync (this, parentDeviceId, includePropertyValues, cancellationToken);
+
+	/// <summary>Subscribes locally before reading baselines. It never commissions children or treats a snapshot as a change event.</summary>
+	public async Task<ManagedChildMonitor> MonitorManagedChildrenAsync (IReadOnlyCollection<int> parentDeviceIds,
+		bool includePropertyValues = false, int bufferCapacity = 32, CancellationToken cancellationToken = default)
+		{
+		ArgumentNullException.ThrowIfNull (parentDeviceIds);
+		var parents = parentDeviceIds.ToArray ();
+		if (parents.Length is < 1 or > 64 || parents.Distinct ().Count () != parents.Length || bufferCapacity is < 1 or > 256)
+			throw new ArgumentException ("Select 1-64 distinct parent IDs and a buffer capacity of 1-256.");
+		cancellationToken.ThrowIfCancellationRequested ();
+		IManagedChildEventSubscription? subscription = (_connection as IManagedChildEventSource)?.SubscribeManagedChildChanges (parents, bufferCapacity);
+		try
+			{
+			var snapshots = new List<ManagedChildrenSnapshot> ();
+			foreach (int parent in parents) snapshots.Add (await GetManagedChildrenAsync (parent, includePropertyValues, cancellationToken).ConfigureAwait (false));
+			return new (snapshots.AsReadOnly (), subscription, includePropertyValues, subscription?.CurrentSequence ?? 0);
+			}
+		catch { if (subscription != null) await subscription.DisposeAsync ().ConfigureAwait (false); throw; }
+		}
+
+	/// <summary>Reads dynamic-settings metadata, and optionally values, without invoking any settings command.</summary>
+	public Task<DeviceSettingsSnapshot> InspectDeviceSettingsAsync (int deviceId, bool includeValues = false, CancellationToken cancellationToken = default)
+		=> DeviceSettingsInspection.GetAsync (this, deviceId, includeValues, cancellationToken);
+
+	/// <summary>Observes one existing refresh without starting or repeating it. Missing optional completion data remains unknown.</summary>
+	public async Task<DriverRefreshReceipt> WaitForDriverRefreshReceiptAsync (string operationId, TimeSpan timeout,
+		TimeSpan? completionGrace = null, CancellationToken cancellationToken = default)
+		{
+		ArgumentException.ThrowIfNullOrWhiteSpace (operationId);
+		var grace = completionGrace ?? TimeSpan.FromSeconds (2);
+		if (operationId.Length > 256 || timeout <= TimeSpan.Zero || timeout > TimeSpan.FromHours (1) || grace < TimeSpan.Zero || grace > TimeSpan.FromSeconds (10))
+			throw new ArgumentOutOfRangeException (nameof (timeout));
+		var elapsed = System.Diagnostics.Stopwatch.StartNew ();
+		var terminal = await _connection.WaitForOperationAsync (operationId, timeout, cancellationToken).ConfigureAwait (false);
+		if (terminal.OperationId != operationId) throw new ProcessorApiException ("Refresh operation correlation changed.");
+		if (_connection is not IDriverRefreshEventSource source) return new (operationId, terminal, false, null);
+		var remaining = timeout - elapsed.Elapsed;
+		// Failure is retained as failure; optional completion never delays or overrides it.
+		var observation = terminal.Status == "Failed" ? TimeSpan.Zero : remaining < grace ? remaining : grace;
+		DriverRefreshCompletion? completion = null;
+		if (observation > TimeSpan.Zero)
+			{
+			try { completion = await source.WaitForDriverRefreshCompletionAsync (operationId, observation, cancellationToken).ConfigureAwait (false); }
+			catch (TimeoutException) { /* Missing dedicated observation is not an empty import or a processor failure. */ }
+			if (completion != null && completion.OperationId != operationId) throw new ProcessorApiException ("Refresh completion correlation changed.");
+			}
+		return new (operationId, terminal, true, completion);
+		}
+
 	/// <summary>Executes an advertised resource command, including programming and scene configuration commands.</summary>
 	/// <remarks>This low-level operation does not validate mutation scope or authorize restoration.</remarks>
 	public Task<JsonElement?> ExecuteConfigurationCommandAsync (string resourcePath, string commandName, object? parameters = null, CancellationToken cancellationToken = default)

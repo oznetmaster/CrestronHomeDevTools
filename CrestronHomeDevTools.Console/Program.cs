@@ -193,8 +193,16 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
               devices                  List installed devices, their IDs, names and room IDs.
               locations                List configured rooms and their IDs.
               driver-configuration --device ID
-              driver-readiness --device ID --model MODEL --version VERSION
                                        Show current settings; honour driver-defined masking.
+              managed-children --device ID [--include-values true]
+                                       Inspect advertised child descriptors; values are opt-in.
+              monitor-managed-children --parents ID,ID [--duration 30] [--buffer 32]
+                                       Read-only JSON-lines snapshots and observed child deltas.
+                                       Add --include-values true only for private diagnostics.
+              device-settings --device ID [--include-values true]
+                                       Inspect advertised dynamic settings; never change them.
+              driver-readiness --device ID --model MODEL --version VERSION
+                                       Inspect current driver loading and configuration readiness.
               eligibility --driver ID  Show installed devices eligible for that driver update.
               reload-scope --device ID Show devices associated with a proposed driver reload.
 
@@ -275,7 +283,7 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
             Change processor configuration:
               deploy --package FILE    Upload a .pkg by SFTP, import it and verify its version.
                                        Does not replace any installed driver instance.
-              refresh                  Import uploaded packages into the driver catalogue.
+              refresh [--receipt true] Import uploaded packages; optionally include correlated receipt.
                                        This does not update installed driver instances.
               update --plan plan.json  Apply the reviewed update to every eligible instance.
                                        Refuses if versions or affected devices have changed.
@@ -355,7 +363,10 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 				"drivers" => ["search"],
 				"driver-configuration" => ["device"],
 				"driver-readiness" => ["device", "model", "version"],
-				"devices" or "locations" or "processor-capabilities" or "refresh" or "stored-packages" => [],
+				"devices" or "locations" or "processor-capabilities" or "stored-packages" => [],
+				"refresh" => ["receipt"],
+				"managed-children" or "device-settings" => ["device", "include-values"],
+				"monitor-managed-children" => ["parents", "duration", "buffer", "include-values"],
 				"port-value" => ["device", "model", "version", "item", "provider", "port-type", "port"],
 				"move" => ["device", "model", "version", "from-room", "room"],
 				"reboot" => ["confirm-reboot"],
@@ -393,6 +404,7 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 		var preauthorizedReboot = command == "reboot" && RebootConfirmation.ValidateCliAuthorization (
 			 options.GetValueOrDefault ("processor"), options.GetValueOrDefault ("confirm-reboot"), interactive && !Console.IsInputRedirected);
 		string Required (string key) => options.TryGetValue (key, out var value) && !string.IsNullOrWhiteSpace (value) ? value : throw new ArgumentException ($"Missing --{key}.");
+		var inspection = InspectionCommandOptions.Read (command, options);
 		var timeout = TimeSpan.FromSeconds (command == "reboot" ? 600 : 120);
 		if (options.TryGetValue ("timeout", out var timeoutText))
 			{
@@ -414,6 +426,11 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 				throw new ArgumentException ("The candidate package file does not exist.");
 			}
 		var deviceId = 0;
+		if (command is "managed-children" or "device-settings")
+			{
+			if (!int.TryParse (Required ("device"), out deviceId))
+				throw new ArgumentException ("Device ID must be an integer (system IDs including zero are allowed for inspection).");
+			}
 		if (command is "move" or "reload" or "reload-scope" or "remove" or "configure-driver" or "driver-configuration" or "driver-readiness" or "port-value")
 			{
 			if (!int.TryParse (Required ("device"), out deviceId) || deviceId <= 0)
@@ -635,6 +652,15 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 			case "processor-capabilities":
 				result = await client.GetCapabilitiesAsync (cancellation.Token);
 				break;
+			case "managed-children":
+				result = await client.GetManagedChildrenAsync (deviceId, inspection.IncludeValues, cancellation.Token);
+				break;
+			case "device-settings":
+				result = await client.InspectDeviceSettingsAsync (deviceId, inspection.IncludeValues, cancellation.Token);
+				break;
+			case "monitor-managed-children":
+				result = await InspectionCommands.MonitorAsync (client, inspection, Console.Out, cancellation.Token);
+				break;
 			case "port-value":
 				if (!int.TryParse (Required ("provider"), out var provider) || !uint.TryParse (Required ("port"), out var port))
 					throw new ArgumentException ("Provide a device ID and unsigned port number.");
@@ -777,8 +803,10 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 		if (operationId != null)
 			{
 			Console.Error.WriteLine ($"Submitted operation {operationId}; waiting for outcome.");
-			var completedOperation = await client.WaitForOperationAsync (operationId, timeout, cancellation.Token);
-			result = completedOperation;
+			var receipt = command == "refresh" && inspection.Receipt
+				? await client.WaitForDriverRefreshReceiptAsync (operationId, timeout, cancellationToken: cancellation.Token) : null;
+			var completedOperation = receipt?.Operation ?? await client.WaitForOperationAsync (operationId, timeout, cancellation.Token);
+			result = receipt is null ? completedOperation : receipt;
 			if (command == "update" && completedOperation.Status != "Failed")
 				{
 				var instances = await client.WaitForDriverVersionAsync (plan!.Eligibility.EligibleDeviceIds!, plan.Eligibility.AvailableDriverVersion!, timeout, cancellation.Token);
@@ -791,10 +819,12 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 				}
 			}
 		mutationStopped = true;
-		Console.WriteLine (JsonSerializer.Serialize (result, jsonOptions));
+		Console.WriteLine (JsonSerializer.Serialize (result, command == "monitor-managed-children" ? null : jsonOptions));
 		if (result is DriverReadinessReport readiness) return readiness.Ready ? 0 : 1;
 		if (result is ManagedDeviceResult { State: "ConfigurationRequired" })
 			return 3;
+		if (result is DriverRefreshReceipt importReceipt)
+			return importReceipt.Operation.Succeeded ? 0 : importReceipt.Operation.Status == "Failed" ? 1 : 3;
 		return result is OperationResult operation && !operation.Succeeded ? operation.Status == "Failed" ? 1 : 3 : 0;
 		}
 	catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
@@ -809,6 +839,11 @@ static async Task<int> RunAsync (string[] args, bool interactive = false)
 		}
 	catch (ArgumentException exception) { Console.Error.WriteLine (exception.Message); return 2; }
 	catch (ProcessorBusyException exception) { Console.Error.WriteLine (exception.Message); return 3; }
+	catch (Exception exception) when ((exception is IOException or InvalidDataException) && args[0] is "managed-children" or "monitor-managed-children" or "device-settings")
+		{
+		Console.Error.WriteLine ("Read-only inspection/monitoring failed: " + exception.Message);
+		return 1;
+		}
 	catch (InvalidDataException exception) when (args[0] == "compare-payload")
 		{
 		Console.Error.WriteLine (exception.Message);

@@ -1,5 +1,53 @@
 # Development history
 
+## 8 November 2026 - Import receipts and read-only state/settings APIs
+
+Adds optional connection interfaces for refresh-completion and managed-child
+events, without changing IConfigurationConnection or existing default command
+results. Refresh receipts correlate the terminal operation and dedicated
+completion, preserving absent versus empty imported-ID lists. Ended remains
+unconfirmed; deployment's independent catalogue verification is unchanged.
+
+Managed-child monitoring registers locally before reading HTTP baselines,
+distinguishes those baselines from raw server deltas and marks overlap rather
+than inventing a revision-ordered merged state. Each listener is bounded and
+fails explicitly on overflow, malformed relevant data or disconnect. Dynamic
+settings inspection projects typed advertised metadata without calling setters.
+Property values are excluded by default and explicitly opted in for private
+diagnostics. Native and JSON-encoded metadata containers are accepted.
+
+Live checks used Official Home 4.012.0194 on .244 and EAP Home 4.013.0134 on .241.
+An initial 4.12 read exposed the legitimate internal gateway ID zero; the new
+read-only APIs, CLI and event filters now accept it. Existing mutation ID rules
+are unchanged. The failed first read is retained privately; subsequent reads
+passed. Extended read-only checks covered all seven advertised parents on .241
+and thirteen on .244, including existing third-party platforms.
+
+Neither processor supplied non-null inline child property state or advertised
+dynamic device settings. No managed-child state events arrived during the
+bounded eight-second observations. These are availability observations, not
+positive live qualification of newer event/settings paths. Their positive,
+malformed, privacy, cancellation and buffering cases are covered by offline
+protocol tests and actual connection event dispatch.
+
+One empty-queue local import refresh per processor ran under an owned lease.
+Both produced Ended plus the matching dedicated completion. EAP supplied an
+empty NewDriverIds array; Official omitted the list, retained as null. Independent
+checks confirmed refresh idle and unchanged original device identities,
+placements, configuration, ports, scenes, programming and Quick Actions.
+Both reservations were released. No package was uploaded, mock installed,
+hardware controlled or processor rebooted.
+
+All 2,708 discovered offline tests passed with no skipped cases, including 87
+new receipt/inspection/monitoring/CLI cases. APICompat found no breaking changes
+against the frozen public 1.28.0 assembly. Final console checks on both firmware
+versions verified read-only commands and valid JSON-lines monitoring output,
+including system parent zero on 4.12. The release build has no warnings/errors.
+
+This remains unreleased source work. Existing releases, private submission
+artifacts, configuration and credential bindings are unchanged. Usage and
+compatibility limits are in [the inspection guide](docs/ImportReceiptsAndInspection.md).
+
 ## 8 November 2026 - Serial reconnection and complete probe cleanup
 
 A separately frozen SDK 29 V2 serial mock followed the SDK's channel lifecycle

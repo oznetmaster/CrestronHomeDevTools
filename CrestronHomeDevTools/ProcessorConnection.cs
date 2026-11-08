@@ -11,7 +11,7 @@ using System.Text.Json;
 
 namespace CrestronHomeDevTools;
 
-public sealed class ProcessorConnection : IConfigurationConnection, ICloudBackupEventSource, IProcessorIdentitySource
+public sealed class ProcessorConnection : IConfigurationConnection, ICloudBackupEventSource, IProcessorIdentitySource, IDriverRefreshEventSource, IManagedChildEventSource
 	{
 	private static readonly JsonSerializerOptions JsonOptions = new () { PropertyNameCaseInsensitive = true };
 	private readonly HttpClient _http;
@@ -21,6 +21,12 @@ public sealed class ProcessorConnection : IConfigurationConnection, ICloudBackup
 	private readonly OperationTracker _operations = new ();
 	private readonly CloudBackupTracker _cloudBackups = new ();
 	private readonly DriverSwapTracker _swaps = new ();
+	private readonly DriverRefreshTracker _refreshes = new ();
+	private readonly ManagedChildEventHub _managedChildren = new ();
+	public IManagedChildEventSubscription SubscribeManagedChildChanges (IReadOnlyCollection<int> parentDeviceIds, int bufferCapacity = 32)
+		=> _managedChildren.Subscribe (parentDeviceIds, bufferCapacity);
+	public Task<DriverRefreshCompletion> WaitForDriverRefreshCompletionAsync (string operationId, TimeSpan timeout, CancellationToken cancellationToken = default)
+		=> _refreshes.WaitAsync (operationId, timeout, cancellationToken);
 	public Task<DriverSwapResult> WaitForDriverSwapAsync (string operationId, string driverId, TimeSpan timeout, CancellationToken cancellationToken = default) => _swaps.WaitAsync (operationId, driverId, timeout, cancellationToken);
 	private Task? _eventsTask;
 	private readonly TaskCompletionSource _disconnected = new (TaskCreationOptions.RunContinuationsAsynchronously);
@@ -191,9 +197,7 @@ public sealed class ProcessorConnection : IConfigurationConnection, ICloudBackup
 			while (!_lifetime.IsCancellationRequested)
 				{
 				using var message = await ReadMessageAsync (_socket!, _lifetime.Token).ConfigureAwait (false);
-				_operations.Accept (message.RootElement);
-				_cloudBackups.Accept (message.RootElement);
-				_swaps.Accept (message.RootElement);
+				AcceptEvent (message.RootElement);
 				}
 			}
 		catch (Exception exception)
@@ -201,8 +205,20 @@ public sealed class ProcessorConnection : IConfigurationConnection, ICloudBackup
 			_operations.Fail (new IOException ("The processor event stream ended.", exception));
 			_cloudBackups.Fail (new IOException ("The processor event stream ended.", exception));
 			_swaps.Fail (new IOException ("The processor event stream ended.", exception));
+			_refreshes.Fail (new IOException ("The processor event stream ended.", exception));
+			_managedChildren.Fail (new IOException ("The processor event stream ended.", exception));
 			}
 		finally { _disconnected.TrySetResult (); }
+		}
+
+	internal void AcceptEvent (JsonElement message)
+		{
+		if (message.ValueKind != JsonValueKind.Object || !message.TryGetProperty ("EventType", out var type) || type.ValueKind != JsonValueKind.String) return;
+		_operations.Accept (message);
+		_cloudBackups.Accept (message);
+		_swaps.Accept (message);
+		_refreshes.Accept (message);
+		_managedChildren.Accept (message);
 		}
 
 	private static async Task<JsonDocument> ReadMessageAsync (ClientWebSocket socket, CancellationToken cancellationToken)
@@ -270,6 +286,8 @@ public sealed class ProcessorConnection : IConfigurationConnection, ICloudBackup
 		_operations.Fail (new ObjectDisposedException (nameof (ProcessorConnection)));
 		_cloudBackups.Fail (new ObjectDisposedException (nameof (ProcessorConnection)));
 		_swaps.Fail (new ObjectDisposedException (nameof (ProcessorConnection)));
+		_refreshes.Fail (new ObjectDisposedException (nameof (ProcessorConnection)));
+		_managedChildren.Fail (new ObjectDisposedException (nameof (ProcessorConnection)));
 		_socket?.Dispose ();
 		_http.Dispose ();
 		_lifetime.Dispose ();
