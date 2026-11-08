@@ -1,5 +1,37 @@
 # Development history
 
+## 8 November 2026 - Serial reconnection and complete probe cleanup
+
+A separately frozen SDK 29 V2 serial mock followed the SDK's channel lifecycle
+instead of the earlier transport-free fixture. The user confirmed processor COM3
+was physically disconnected. Preflight verified it was unassigned and matched
+the fixed RS-232 9600/8/N/1 settings with no handshaking. IL inspection found no
+Send/TX invocation, device commands, direct I/O objects or timers in the mock;
+reviewed SDK lifecycle methods register and subscribe the channel without
+transmitting application data.
+
+On Home 4.013.0134, the typed selection attached the serial channel and the mock
+became configured, online and ready. After an isolated V2 reload, a different
+instance token, restored channel, matching processor/Serial/port-3 connection and
+ready state confirmed successful reconnection without configuration replay.
+The Ended operation notification alone was not treated as proof of success.
+The external-device communication path, other port types and Official Home 4.12
+server assignment are still unqualified. No production API or driver code change
+was required for this qualification.
+
+The mock was removed and original identities, placements, programming, scenes,
+Quick Actions and port settings matched the ten-device baseline. Exact-hash
+stored/extracted payload cleanup completed. Configure Pro's verified full refresh
+cleared the earlier probe listing, but the latest test listing remained in memory
+after a bounded second refresh, while both LocalRad and CloudRad persistent
+sources contained no probe entries. A configuration backup and exact one-reboot
+plan were prepared; the user explicitly approved that full lab-processor reboot.
+Authenticated startup checks confirmed the original configuration and port
+settings, both probe catalogue entries absent, and exact lease release. This
+reboot was test-catalogue cleanup, not a requirement for the V2 driver reload.
+All original failures and partial observations from the earlier fixture remain
+retained separately; they were not rewritten as passing tests.
+
 ## 8 November 2026 - Isolated EAP serial-selection test
 
 An authorized transport-free SDK 29 V2 mock on Home 4.013.0134 received a typed

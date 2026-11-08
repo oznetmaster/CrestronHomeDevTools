@@ -54,11 +54,31 @@ The read-only preparation helper also passed against that completed live setting
 The initial flat item list was empty; the advertised wizard supplied the initial
 prompt. This does not add automatic wizard handling to the helper.
 
-The mock had no transport or physical I/O calls. After reload Home delayed applying
-its saved settings pending restoration of the previous port connection, which
-this mock never establishes. Consequently a full connected/ready lifecycle is
-not qualified. Physical communication and server assignment on Home 4.12 remain
-unqualified. Existing raw configuration APIs retain their behaviour.
+The first mock had no transport or physical I/O calls. After reload Home delayed
+applying its saved settings pending restoration of the previous port connection,
+which that mock never establishes. That test did not qualify runtime reconnection.
+
+A subsequent isolated SDK 29 V2 mock followed the SDK serial-channel sample,
+registering the transport callbacks and channel ID without calling Send or a TX
+delegate. On a physically disconnected, unassigned processor COM3 with unchanged
+9600/8/N/1 RS-232 settings and no handshaking, Home accepted the typed selection,
+attached the channel and reported the mock configured, online and ready. After
+an isolated reload, a new instance token, restored channel, ready state and
+connection to the same processor/Serial/port-3 tuple independently confirmed
+reconnection without configuration replay. The operation's Ended notification
+alone was not treated as success.
+
+This qualifies that serial configuration/reconnection path on Home 4.013.0134.
+Communication with an external serial device, other physical port types and
+server assignment on Home 4.12 remain unqualified. Existing raw configuration
+APIs retain their behaviour.
+
+Teardown verified removal of both test instances, stored packages, extracted
+payloads and catalogue listings while preserving the original configuration,
+programming and port settings. The last cached listing remained after full
+catalogue refreshes despite clear persistent sources, then disappeared after a
+separately approved processor reboot. The V2 reconnection test itself passed
+without a reboot; that later reboot was catalogue-cache cleanup.
 
 To prepare one value with live checks, use
 `IoPortConnections.PrepareValueAsync(client, target, itemId, selection)`, or:
