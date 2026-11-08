@@ -59,7 +59,7 @@ The [source-built driver-update desktop app](https://github.com/oznetmaster/Cres
 
 ## What is included
 
-Search Crestron's published catalogue independently of processor installations with `published-drivers --search "Neil Colvin"`. No processor or credentials are required. The general catalogue does not establish Crestron Home compatibility; see [published driver search](docs/PublishedDrivers.md) for scope, completeness checks and the difference from the processor's merged `drivers` search.
+Search Crestron's published catalogue independently of processor installations with `published-drivers --search "Neil Colvin"`. No processor or credentials are required. The general catalogue does not establish Crestron Home compatibility; see [published driver search](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/PublishedDrivers.md) for scope, completeness checks and the difference from the processor's merged `drivers` search.
 
 | Component | Purpose |
 |---|---|
