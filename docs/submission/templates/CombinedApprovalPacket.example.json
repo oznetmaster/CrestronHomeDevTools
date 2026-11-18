@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "unsignedForm": { "path": "C:/Private/Submission/self-test.review.pdf", "sha256": "REPLACE_WITH_EXACT_SHA256" },
+  "inventory": { "path": "C:/Private/Submission/inventory.json", "sha256": "REPLACE_WITH_EXACT_SHA256" },
+  "package": { "path": "C:/Private/Submission/Developer_Platform_Example_IP.pkg", "sha256": "REPLACE_WITH_EXACT_SHA256" },
+  "coverLetter": { "path": "C:/Private/Submission/letter.txt", "sha256": "REPLACE_WITH_EXACT_SHA256" },
+  "evidenceReview": { "path": "C:/Private/Submission/technical-review.json", "sha256": "REPLACE_WITH_EXACT_SHA256" },
+  "signing": {
+    "signer": "REPLACE_WITH_AUTHORIZED_SIGNER",
+    "date": "YYYY-MM-DD",
+    "signatureField": "REPLACE_WITH_OFFICIAL_FIELD_NAME",
+    "dateField": "REPLACE_WITH_OFFICIAL_FIELD_NAME",
+    "signatureImageSha256": "REPLACE_WITH_PRIVATE_SIGNATURE_IDENTITY"
+  },
+  "delivery": {
+    "sender": "developer@example.org",
+    "recipient": "drivers@crestron.com",
+    "subject": "Driver Submission Package",
+    "urlToken": "{{PACKAGE_DOWNLOAD_URL}}"
+  },
+  "provider": {
+    "uploadHost": "uploader.crestron.com",
+    "formSha256": "REPLACE_WITH_CURRENT_REVIEWED_FORM_SHA256",
+    "termsSha256": "REPLACE_WITH_CURRENT_REVIEWED_TERMS_SHA256"
+  }
+}

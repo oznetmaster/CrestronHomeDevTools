@@ -1,5 +1,12 @@
 # Resumable endurance collection
 
+Retain collector failures separately from observed device/driver failures. A cloud
+transport's reconnecting indication alone does not establish unavailable or failed
+device functionality. Record availability, functionality, process continuity and
+maximum sample gap independently. Do not interrupt a running interval for
+installer checks, tooling migration, outages or removal; collect the endpoint first.
+See [retained endurance and cleanup lessons](RetainedEvidenceAndApprovals.md).
+
 Before entry, retain the functional baseline and planned endpoint/performance
 comparison in the [coverage register](templates/CoverageRegister.md). At the
 endpoint, review those observations before disruption; sample count and elapsed

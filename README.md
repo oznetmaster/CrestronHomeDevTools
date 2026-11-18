@@ -35,6 +35,8 @@ The [source-built driver-update desktop app](https://github.com/oznetmaster/Cres
 - [Deployment and tests](#deployment-and-tests)
 - [Submission preparation console](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/ConsoleTools.md) (no Python setup)
 - [Submission runbook](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/Runbook.md) (normal path, expected results and resuming work)
+- [Retained-evidence and timing lessons](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/RetainedEvidenceAndApprovals.md) (custom collectors, honest test scope, cloud timing, endurance and cleanup)
+- [Combined signing/submission approval](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/CombinedApproval.md) (normal operator procedure; new offline source guard and existing integration limits)
 - [Single submission starting document](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/START-DRIVER-SUBMISSION.md) (give an assistant this document and your driver repository; independent validation pending)
 - [Release-to-submission automation](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/ReleaseAutomation.md) (source-preview intake/controller, tested scope and remaining integration)
 - [Reviewed evidence mapping](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/EvidenceMapping.md) (C# API and CLI, requires 1.11.0)

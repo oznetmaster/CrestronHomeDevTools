@@ -1,5 +1,14 @@
 # Configure the optional submission workflow
 
+The [normal approval procedure](CombinedApproval.md) uses one explicit human
+authorization to sign and submit, with narrowly scoped transformations and internal
+signed-output verification. These older CI templates still consume separate
+technical stage records; they do not automatically convert combined authority.
+Configure a compatible trusted coordinator before choosing that route. Environment
+review gates are deployment policy, not a Crestron requirement for multiple human
+decisions. Do not disable protections, forge stage receipts or claim this new scope
+guard alone supplies an end-to-end adapter.
+
 Start with the [normal-path runbook](Runbook.md) for stage order, expected results and resuming an interrupted attempt. This page supplies the one-time worker and repository configuration.
 
 For an assistant starting with only a driver repository, use the [single starting document](START-DRIVER-SUBMISSION.md). The [release automation implementation](ReleaseAutomation.md) describes the new source-preview intake/controller and the integrations still required; it does not replace these manual stage templates yet.

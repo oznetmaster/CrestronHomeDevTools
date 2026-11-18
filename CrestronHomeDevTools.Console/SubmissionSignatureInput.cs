@@ -17,9 +17,10 @@ internal sealed class SubmissionSignatureInput (string[] arguments, byte[]? imag
 		int index = Array.IndexOf (args, "--credentials");
 		if (index < 0)
 			return new (args, null);
-		if (args[0] is not ("sign-self-test-form" or "prepare-signed-review") || index != args.Length - 2 || args.Contains ("--signature-image") || args.Contains ("--signature-stdin"))
+		if (args[0] is not ("sign-self-test-form" or "prepare-signed-review" or "sign-reviewed-packet") || index != args.Length - 2 || args.Contains ("--signature-image") || args.Contains ("--signature-stdin"))
 			throw new ArgumentException ("Signing credentials must be a final --credentials PRIVATE_BINDINGS pair, replacing --signature-image.");
 		if (args[0] == "prepare-signed-review") CheckReviewIdentity (args);
+		if (args[0] == "sign-reviewed-packet") CheckCombinedIdentity (args);
 		if (!OperatingSystem.IsWindows ())
 			throw new PlatformNotSupportedException ("Named encrypted signatures require Windows.");
 		var bindings = DevToolsCredentialBindings.Read (args[index + 1]);
@@ -64,6 +65,44 @@ internal sealed class SubmissionSignatureInput (string[] arguments, byte[]? imag
         Pinned(Read(authorization),Option("--authorization-sha256"));
         // Full schema, form/evidence, scope, expiry and signature authorization checks still run in the signing stage.
         }
+
+	internal static void CheckCombinedIdentity (string[] args)
+		{
+		string Option (string name)
+			{
+			int index = Array.IndexOf (args, name);
+			if (index < 0 || index + 1 >= args.Length || Array.LastIndexOf (args, name) != index)
+				throw new ArgumentException ("Supply each exact combined-approval input once.");
+			return args[index + 1];
+			}
+		JsonDocument Pinned (string name, string pin)
+			{
+			string path = Option (name), digest = Option (pin);
+			if (!Path.IsPathFullyQualified (path) || digest.Length != 64 || !digest.All (Uri.IsHexDigit))
+				throw new InvalidDataException ("Combined approval needs absolute inputs and independent pins.");
+			using var stream = File.OpenRead (path);
+			if (stream.Length > 4 * 1024 * 1024) throw new InvalidDataException ("Combined approval metadata exceeds its bound.");
+			var bytes = new byte[checked((int)stream.Length)]; stream.ReadExactly (bytes);
+			if (!CryptographicOperations.FixedTimeEquals (SHA256.HashData (bytes), Convert.FromHexString (digest)))
+				throw new InvalidDataException ("Combined approval changed; no signature was accessed.");
+			var json = JsonDocument.Parse (bytes);
+			if (json.RootElement.EnumerateObject ().Select (p => p.Name).Distinct ().Count () != json.RootElement.EnumerateObject ().Count ())
+				{
+				json.Dispose ();
+				throw new InvalidDataException ("Ambiguous combined approval.");
+				}
+			return json;
+			}
+		using var packet = Pinned ("--packet", "--packet-sha256");
+		using var approval = Pinned ("--authorization", "--authorization-sha256");
+		var a = approval.RootElement;
+		if (a.GetProperty ("packetSha256").GetString () != Option ("--packet-sha256") ||
+			a.GetProperty ("approvalMode").GetString () != "CombinedSigningAndSubmission" ||
+			!a.GetProperty ("signingAuthorized").GetBoolean () || !a.GetProperty ("deliveryAuthorized").GetBoolean () ||
+			!a.GetProperty ("visualReviewCompleted").GetBoolean () || a.GetProperty ("expiresUtc").GetDateTimeOffset () <= DateTimeOffset.UtcNow)
+			throw new InvalidDataException ("Exact current combined authority is required before signature access.");
+		// The Python stage checks the full schema, files, coverage and date before signing.
+		}
 
 	public void Dispose ()
 		{

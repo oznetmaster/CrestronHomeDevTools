@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+- Reconcile the reusable submission procedure with retained live-test evidence:
+  distinguish manual technical review from automated producer validation, absent
+  features from incomplete tests, cloud/provider/driver/tile timing, and actual
+  network interruptions from power loss and cleanup reboots.
+- Default to one explicit signing-and-submission approval for the concrete packet,
+  with only approved signature/date and verified-URL transformations. Preserve
+  existing validators, actual signed-output inspection and original authority expiry.
+- Add the offline source `submission check-combined-approval` scope guard and
+  private packet/review/inspection templates. It verifies artifact/authority scope
+  without signing, sending, authenticating a producer or claiming a new test pass.
+  Existing CI stage adapters still require compatible authority records.
+- Add the separate source `submission sign-reviewed-packet` route for an explicitly
+  approved manual technical review, using the existing in-memory named signature.
+  It preserves that review method and does not bypass or fabricate the automated
+  evidence signer's validation records.
+
 ## [1.29.0](https://github.com/oznetmaster/CrestronHomeDevTools/releases/tag/v1.29.0) - 2026-11-08
 
 Adds authenticated processor capability discovery, correlated import receipts,

@@ -2,6 +2,11 @@
 
 **Availability:** the complete Windows console archive includes these commands and their document runtime starting in version 1.9.0. Earlier console downloads do not contain them.
 
+The [combined-approval guard and explicit manual-review signer](CombinedApproval.md)
+are unreleased source additions; they are not in the 1.29.0 download. Use a new
+complete console built from the reviewed source rather than copying modules into
+an installed bundle or weakening its manifest check.
+
 Driver authors use the DevTools console and their own C# test fixtures. There is no requirement to install Python, edit Python scripts, manage a virtual environment or run a package installer. Submission is optional and applies only to drivers; ordinary development and client/library releases do not require it.
 
 ## Start here

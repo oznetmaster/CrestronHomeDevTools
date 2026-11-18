@@ -1,6 +1,7 @@
 {
   "audit-android": "audit_android",
   "build-help": "build_help",
+  "check-combined-approval": "combined_approval",
   "coverage-plan": "coverage_plan",
   "dependency-notices": "dependency_notices",
   "freeze-review-inputs": "freeze_review_inputs",
@@ -16,5 +17,6 @@
   "revalidate-delivery": "revalidate_delivery",
   "self-test-form": "self_test_form",
   "sign-self-test-form": "sign_self_test_form",
+  "sign-reviewed-packet": "sign_reviewed_packet",
   "snapshot-inputs": "snapshot_inputs"
 }

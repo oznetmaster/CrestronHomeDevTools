@@ -1,5 +1,38 @@
 # Submission workflow validation
 
+## Retained-evidence and approval correction, 18 November 2026
+
+The normal operator procedure now defaults to one explicit approval covering the
+exact unsigned packet, signing/date and verified-URL transformations, with internal
+signed-output review before delivery. Separate stage records are not themselves
+separate human decisions. The new source `check-combined-approval` command has
+synthetic offline regression coverage for both stages, altered files/marks,
+incomplete scope, signing-only authority, expiry and exact signed inspection.
+It accesses no signature, authenticates no producer and contacts no provider.
+Existing protected validators and CI adapters retain their contracts; the new
+guard is not an end-to-end automatic combined-approval adapter.
+
+The source `sign-reviewed-packet` command adds an explicit manual-review signer,
+with synthetic signature/field-preservation checks and pre-decryption authority
+checks. It rejects an automated review rather than bypassing its validator. This
+shared implementation has not been used with a real signature/provider; the real
+submission below used its retained direct helpers. These are different validation
+claims. No sent artifact is rewritten to use the new implementation.
+
+The direct initial-submission sequence retained real native timing/recovery,
+network interruptions and a complete endurance interval, then delivered the
+developer-approved signed form and verified package with disclosed incomplete
+physical tests. The provider upload was downloaded/hash-checked and SMTP accepted
+the reviewed message and attachment. Its custom collectors required named manual
+technical evidence reconciliation; this does not validate the automatic NUnit
+producer route or prove an intervention-free 48-hour workflow. No Crestron
+acceptance, interpretation approval or publication is asserted here. Private
+candidate details, signatures, raw evidence and correspondence stay private.
+
+See [the reusable lessons](RetainedEvidenceAndApprovals.md) and
+[combined authority and integration limits](CombinedApproval.md). These changes
+are unreleased source/procedure work, not a new public runtime release.
+
 ## Procedure audit, 30 October 2026
 
 The [execution protocol](ExecutionProtocol.md) and [transfer guide](Transfer.md)

@@ -4,6 +4,13 @@ The reviewed plan defines the recovery clock and deadline. Network recovery uses
 network restoration; power recovery uses program load. Keep those test steps
 separate, including when the processor gets power through its network cable.
 
+For cloud drivers, also separate physical interruption, provider availability,
+driver publication and visible tile response. An unexposed cloud receipt clock
+remains unknown; neither a late operator reply nor the first driver read establishes
+it. A reviewed publication-to-tile interpretation must disclose the separate full
+interruption-to-status interval and must not be presented as Crestron's accepted
+policy. See [timing and network/power lessons](RetainedEvidenceAndApprovals.md).
+
 ## Manual network restoration
 
 The operator's reconnect acknowledgement is an audit record, not the instant the

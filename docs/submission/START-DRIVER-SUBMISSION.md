@@ -12,6 +12,12 @@ The protocol supplies observable exit conditions and stop rules; the runbook
 supplies the schedule. Version-specific command schemas still govern execution.
 Neither document grants authority or changes a tool's checks.
 
+Apply [retained-evidence and timing lessons](RetainedEvidenceAndApprovals.md).
+Default to [one combined signing/submission approval](CombinedApproval.md) for
+the concrete final packet, followed by internal signed-output verification.
+Select a compatible adapter before asking for approval; different stage records
+do not, by themselves, require another human decision.
+
 ## Assignment
 
 Use one responsible operator, one current candidate, one coverage register and
@@ -73,6 +79,8 @@ failure rules before beginning another attempt.
 | Endurance and endpoint | [Collection](EnduranceCollection.md), [Windows worker](WindowsEnduranceWorker.md) |
 | Help, packaging and form | [Help](HelpBuild.md), [notices](DependencyNotices.md), [form](FormGeneration.md), [review](ReviewStage.md) |
 | Exact approval and external delivery | [Signing](SigningStage.md), [preparation](DeliveryPreparation.md), [SMTP](SmtpDelivery.md), [journal](DeliveryJournal.md) |
+| One approval, inspected signature/date transformation | [Combined approval](CombinedApproval.md) |
+| Custom retained evidence, cloud timing and network/power distinctions | [Retained-evidence lessons](RetainedEvidenceAndApprovals.md) |
 | Optional automation and proven limits | [CI setup](WorkflowSetup.md), [worker](AutomationWorker.md), [validation status](ValidationStatus.md) |
 | Closeout | [Retention](RoutineRunRetention.md) |
 

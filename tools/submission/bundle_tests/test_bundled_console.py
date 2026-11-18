@@ -24,6 +24,13 @@ from build_help import sha
 
 
 class BundledConsoleTests(unittest.TestCase):
+    def test_combined_scope_and_manual_review_signer_are_in_the_isolated_bundle(self):
+        for command in ("check-combined-approval", "sign-reviewed-packet"):
+            with self.subTest(command=command):
+                output, _ = self.invoke(command, "--help")
+                self.assertIn("--packet-sha256", output)
+                self.assertIn("--authorization-sha256", output)
+
     def setUp(self):
         self.console = Path(os.environ["SUBMISSION_TEST_BUNDLE"]).resolve()
         self.assertTrue(self.console.is_file())

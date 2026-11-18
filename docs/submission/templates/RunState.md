@@ -21,6 +21,8 @@ link detailed evidence instead of pasting historical logs into it.
 - Repair budget: [fault, diagnosed change, attempts used, next escalation boundary]
 - Artifacts: [latest reviewed package/help/form/annex/message paths and hashes; unsigned/signed]
 - Approval: [signing/delivery pending or exact authority reference, artifact identity and expiry]
+- Approval mode / adapter: [combined or explicitly separate; parent human authority, allowed transformations, stage records, unchanged expiry; actual integration restriction or none]
+- Evidence-review method: [automated producer review or named manual technical review; actual provenance limits, never fabricated validator records]
 - Delivery: [not attempted OR same journal, upload verification and SMTP acceptance/uncertainty receipts]
 - Restoration: [original state, remaining obligation or final verification + releases]
 - Supporting handoff: [environment bindings, evidence index, historical record locations]

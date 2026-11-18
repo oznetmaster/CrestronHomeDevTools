@@ -1,5 +1,12 @@
 # Final approval of a reviewed request
 
+Default to [one explicit combined human approval](CombinedApproval.md) when the
+prepared packet and chosen adapter support it. The exact delivery-authority
+document below is still required by this API; a trusted compatible coordinator
+may derive a stage record from the original combined authority after inspecting
+the signed result. It must retain the original approval source and expiry, not
+pretend a new user decision or an automated producer authentication occurred.
+
 **Requires 1.13.0 or later.** These APIs and commands connect an independently reviewed packet to C# and protected console delivery. The existing `submission-deliver` command remains complete-only; unsigned requests use the separate command below.
 
 Approval covers the exact candidate, prepared request receipt, package and PDF bytes and filenames, sender and recipient, verification mode, every disclosure pin, public explanations and generated email wording. **Complete means complete against our interpretation of Crestron's published submission requirements**, including testing, evidence and documents. Only Crestron can decide acceptance, publication or certification; approval by the developer and confirmed provider delivery do not establish any of those decisions.

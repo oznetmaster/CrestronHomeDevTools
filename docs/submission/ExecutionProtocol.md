@@ -184,14 +184,15 @@ annex and email. Identify complete versus explicitly chosen declared-gap mode.
 Keep whole-row qualifications until every applicable subcondition is supported.
 Finish all authorized preparation before asking for exact artifact approval.
 
-Select the installed signing/delivery contract during preparation. The standard
-complete-mode flow authorizes the exact unsigned form for signing, then requires
-review of the signed output and a separate delivery authorization bound to its
-actual hashes. Both exchanges can occur in the same human period. Do not invent
-future signed hashes, silently derive sending authority from signing, or promise
-one-click delivery when the tool needs signed-copy confirmation. A different
-already-validated route must explicitly support any approved transformations and
-attachment set. Preserve valid existing approvals; material changes need review.
+Select the installed signing/delivery contract during preparation. Default to
+[one explicit combined approval](CombinedApproval.md) for the exact unsigned
+form, package, correspondence and narrowly permitted transformations. Inspect the
+actual signed result before delivery and bind its real hash to that authority.
+Distinct technical records do not inherently require another human decision.
+Do not invent future signed hashes or silently derive delivery authority from
+signing-only permission. An existing protected adapter still needs compatible
+records and evidence; explain any separate-approval restriction before asking.
+Preserve valid approvals and original expiry; material changes need new review.
 
 Parse the exact MIME draft offline before upload. After approved signing, inspect
 unchanged content/marks and signature/date appearance. After authorized upload,

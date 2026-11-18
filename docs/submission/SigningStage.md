@@ -1,5 +1,11 @@
 # Private signing stage
 
+The [combined-approval procedure](CombinedApproval.md) normally obtains signing
+and submission authority once. This stage still consumes its exact signing
+record; a compatible trusted coordinator may derive it from that authority.
+It does not grant delivery merely by signing, or remove the required internal
+inspection of the signed result. Existing evidence and schema guards remain.
+
 ## One human review period, distinct technical records
 
 Follow the [normal runbook](Runbook.md#reconcile-approve-and-deliver) and

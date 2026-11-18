@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "packetSha256": "REPLACE_WITH_INDEPENDENTLY_REVIEWED_PACKET_SHA256",
+  "approvalMode": "CombinedSigningAndSubmission",
+  "signingAuthorized": false,
+  "deliveryAuthorized": false,
+  "visualReviewCompleted": false,
+  "expiresUtc": "REPLACE_WITH_ACTUAL_APPROVED_UTC_DEADLINE"
+}

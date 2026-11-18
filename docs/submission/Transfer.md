@@ -11,6 +11,12 @@ Keep the matching documentation and executable tool identities together. Include
 the following private files or references; do not require the recipient to read
 the whole conversation or hundreds of historical checkpoints to find current facts.
 
+Include the selected [evidence-review method](RetainedEvidenceAndApprovals.md)
+and [approval mode](CombinedApproval.md). Preserve combined authority as combined;
+do not ask again simply because the next technical stage needs a new record.
+Conversely, signing-only approval, another candidate's approval or an expired
+approval cannot supply delivery authority. Record any actual adapter limitation.
+
 1. **Current state:** complete the [RunState template](templates/RunState.md), with
    one active stage, an explicit operation or none, dated observations, actual
    ownership, blocker, next action and latest user instruction. Replace its current

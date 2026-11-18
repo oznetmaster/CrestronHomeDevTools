@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "method": "ManualTechnicalReview",
+  "reviewer": "REPLACE_WITH_NAMED_TECHNICAL_REVIEWER",
+  "packageSha256": "REPLACE_WITH_EXACT_PACKAGE_SHA256",
+  "inventorySha256": "REPLACE_WITH_EXACT_INVENTORY_SHA256",
+  "rows": [
+    {
+      "id": "REPLACE_WITH_EVERY_OFFICIAL_INVENTORY_ID_EXACTLY_ONCE",
+      "disposition": "Incomplete",
+      "rationale": "Replace with the actual measured scope, absence-based N/A reason or disclosed missing test. Checked requires retained evidence; do not fabricate an original outcome.",
+      "evidence": []
+    }
+  ]
+}

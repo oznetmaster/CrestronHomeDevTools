@@ -6,6 +6,12 @@ apply the [execution protocol](submission/ExecutionProtocol.md), and use the
 references, not separate competing workflows. Maintenance of these documents does
 not resume a stopped driver submission.
 
+Apply the [retained-evidence and timing lessons](submission/RetainedEvidenceAndApprovals.md).
+The normal operator procedure uses [one explicit signing-and-submission approval](submission/CombinedApproval.md)
+after reviewing the exact unsigned form, package and letter. Distinct technical
+stage records do not inherently require separate human approvals. Installed
+protected adapters retain their own schemas and must explicitly support that authority.
+
 Start with the [48-hour, single-human-period runbook](submission/Runbook.md). Use [workflow setup](submission/WorkflowSetup.md) only when selecting or changing optional CI/automation; it is not another prerequisite for the established direct route. The [self-contained Windows console](submission/ConsoleTools.md) and C# APIs provide the shared workflow. Driver authors supply their own C# tests and reviewed configuration; no Python or Linux knowledge is required.
 
 Submission is optional and applies only to Crestron drivers. Client, library and processor-test releases do not enter these stages. Ordinary driver development, hardware/UI testing and GitHub releases also remain independent of submission.
@@ -32,8 +38,8 @@ The help PDF itself is intended for users and must contain only approved public 
 4. Install/configure the exact production candidate and run its applicable processor, live-device and Android checks. A passing test package alone does not prove the production driver works.
 5. Exercise the applicable official requirements, including persistence, recovery, endurance and removal. Record justified non-applicability and preserve failed or incomplete attempts.
 6. Validate and retain the evidence with the official form inventory and full requirement mapping. Review producer provenance and behavioral coverage, not just file hashes.
-7. Generate the official checklist and its numbered notes. Review every page, then obtain authorization to apply the signature to that exact form. A revised form needs its own approval.
-8. Review the exact outgoing package, signed PDF, sender, recipient and email wording. Obtain separate sending approval. Keep help review distinct from signing and delivery approval.
+7. Generate the official checklist and its numbered notes. Review every page, the package, sender/recipient, letter, signer/date and provider terms. Normally obtain one explicit approval for signing and submission, limited to the approved signature/date and verified-URL transformations. A material revision needs fresh approval.
+8. Apply the authorized signature/date and inspect the actual signed output. Bind its resulting hash to the original combined authority without inventing a prior signed-file hash. Keep any required technical stage records distinct. Request separate sending approval only when authority was signing-only, the developer wants separate decisions, or the selected integration requires it.
 9. Upload the package, retain the downloader URL, verify the downloaded package, then email that URL with the signed checklist. Never email a placeholder or assume a URL before upload.
 10. Retain upload and SMTP receipts. Record Crestron's later response separately; provider acceptance does not establish inbox delivery or certification.
 

@@ -1,5 +1,14 @@
 # Discover and prepare the submission worker
 
+Distinguish DevTools API inspection from native Configure Pro UI inspection.
+Use APIs for the data/schema checks they actually support; use a functioning remote
+app observer for visual fields, popups and layout. Launching Configure Pro or finding
+a process/window handle does not prove screenshot/input control. Verify the actual
+host, foreground app and harmless capture/control before requesting a physical
+action. Preserve the desktop and an unrelated endurance collector while diagnosing
+the UI route; do not change security, scheduled tasks or existing sessions merely
+to test whether a launcher works.
+
 Discovery has a bounded purpose: establish the route for the next required
 measurement. Use the [execution protocol](ExecutionProtocol.md#5-bound-failure-and-stop-correctly)
 when lookup stalls; do not repeatedly rediscover the same access route. Preserve

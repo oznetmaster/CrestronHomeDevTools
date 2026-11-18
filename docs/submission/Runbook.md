@@ -147,14 +147,15 @@ explanations; retain internal receipt inventories and tool failures privately un
 needed to explain the claim. Do not edit already sent artifacts to apply this guidance.
 
 Arrange one review period, with the exact authorization exchanges required by the
-selected route. The standard complete-mode flow requires signing authorization for
-the exact unsigned form, then review of the produced signed copy and a separate
-delivery authorization bound to its actual hashes. These can occur in one period;
-they are not one interchangeable approval. Do not manufacture future signed hashes
-or assume an unsigned-packet approval satisfies that tool contract. A separately
-validated route may support explicitly approved signature/date and verified-URL
-substitutions; establish that capability during preparation. Signing alone is not
-sending authority. Material content/recipient changes require new approval.
+selected route. Normally ask once for explicit approval to sign and submit the
+exact [combined packet](CombinedApproval.md), permitting only the reviewed
+signature/date and verified-URL transformations. Inspect the signed output and
+bind its actual hash to that authority internally. Separate technical stage
+records are not necessarily separate human decisions. Existing protected adapters
+retain their own contracts; establish compatible authority derivation before
+asking, or explain any integration that really requires separate approvals.
+Never manufacture future signed hashes, extend expiry, expand signing-only
+permission into delivery authority or reuse approval for material changes.
 
 Use the supported [declared-gaps route](DeclaredGaps.md) only when the developer
 chooses it, never as a shortcut for unfinished authorized work. Review the concrete

@@ -1,18 +1,22 @@
 # Final delivery preparation
 
-## One human review period, distinct technical records
+## Combined human approval, distinct technical records
 
 Follow the [normal runbook](Runbook.md#reconcile-approve-and-deliver) and
 [execution protocol](ExecutionProtocol.md#7-review-approval-and-closeout). Prepare
-all content and identify the selected contract before inviting approval. The
-standard complete-mode route authorizes the exact unsigned signing copy first,
-then requires signed-page review and separate delivery authority bound to the
-actual signed hashes. Keep both exchanges in the same period where possible.
-Do not manufacture signed hashes or treat a generic approval of unsigned content
-as the required signed-copy authorization. Any separately validated route allowing
-explicit signature/date or verified-URL transformations must actually support that
-authority and payload. Preserve valid existing approvals; never invent approval,
-extend expiry or reuse it for materially changed content.
+all content and identify the selected contract before inviting approval. Normally
+obtain [one explicit approval to sign and submit](CombinedApproval.md), limited to
+the exact unsigned content and approved signature/date and verified-URL changes.
+Review the actual signed result internally; derive any technical delivery record
+from that original authority only through a compatible protected adapter. Never
+invent a future signed hash, extend expiry or reuse authority for changed scope.
+
+The complete-mode command described below still requires its exact signed-stage
+records. The new scope guard does not replace those records or the evidence
+validator. Separate technical authorization files may share one human approval;
+they must preserve its source, scope and deadline. When the selected integration
+cannot do that, explain the limitation in preparation or choose a compatible
+direct route. Signing-only approval continues to require delivery approval.
 
 This command prepares **complete-mode** submissions. Signed forms with declared gaps use the [declared-gap CI sequence](WorkflowSetup.md#signed-submissions-with-declared-gaps) and its separate exact-plan approval check, followed by full evidence revalidation in the review-request delivery command. Do not use complete-mode settings for that route.
 

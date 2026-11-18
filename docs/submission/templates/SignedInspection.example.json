@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "signedFormSha256": "REPLACE_WITH_ACTUAL_SIGNED_OUTPUT_SHA256",
+  "reviewer": "REPLACE_WITH_ACTUAL_INSPECTOR",
+  "reviewedUtc": "REPLACE_WITH_ACTUAL_UTC_INSPECTION_TIME",
+  "signatureAndDateLegible": false,
+  "unchangedOutsideSignatureDate": false
+}

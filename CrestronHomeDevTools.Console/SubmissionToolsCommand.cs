@@ -26,6 +26,8 @@ internal static class SubmissionToolsCommand
                   submission normalize-package      Normalize the candidate package structure.
                   submission dependency-notices     Generate notices from the dependency inventory.
                   submission coverage-plan          Check the declared official test coverage.
+                  submission check-combined-approval Check combined authority and bind inspected signed output.
+                  submission sign-reviewed-packet    Sign an explicitly approved manual technical review.
                   submission audit-android          Audit pinned Android run evidence.
                   submission self-test-form         Create a draft or evidence-populated review form.
                   submission freeze-review-inputs   Retain portable inputs without running tests.

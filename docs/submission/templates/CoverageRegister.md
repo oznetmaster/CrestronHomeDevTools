@@ -7,6 +7,8 @@ Operator notes only; this is not an SDK policy, passing evidence or a waiver.
 - Tool route and interpretation owner: [values]
 - Register revision and reason for last change: [values]
 - Submission choice: [complete intended / declared gaps explicitly chosen, authority reference / undecided]
+- Evidence route: [actual collector/export/review/signer compatibility; manual technical review or automated producer validation, with its limits]
+- Final approval route: [combined by default; compatible coordinator or explicit separate-approval restriction]
 
 Create one row per official item and enough subordinate rows for its applicable
 subconditions and modes. Keep full original wording, including alternatives and
@@ -31,3 +33,8 @@ Rules:
   subcondition detail; do not count both a parent row and its children as items.
 - Derive form marks, annex and email claims from this same reviewed register.
 - A missing observation route is a preparation blocker; it is not N/A or a pass.
+- For cloud timing, record physical loss, provider availability if exposed, driver
+  publication and visible tile response separately. Keep unavailable clocks unknown
+  and name any reviewed interpretation; do not attribute an unmeasured delay.
+- Network-only, power-loss and cleanup-reboot observations are different predicates.
+  Record separate/simultaneous interruption methods exactly as performed.

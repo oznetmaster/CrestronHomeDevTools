@@ -1,5 +1,12 @@
 # Signing a reviewed self-test form
 
+Normally obtain [one explicit approval for signing and submission](CombinedApproval.md)
+of the concrete packet, with only the approved signature/date and verified-URL
+transformations. The exact signing records and internal signed-output inspection
+below still apply. Those technical records need not represent separate human
+decisions. Signing-only authority grants no delivery permission; existing tool
+contracts cannot be bypassed by a generic approval flag.
+
 Command examples use the [bundled submission console](ConsoleTools.md); see that guide for source/release availability and setup.
 
 The source tool `tools/submission/sign_self_test_form.py` applies a private PNG or JPEG signature and a date to the two reviewed official text fields. It preserves the printed pages, companion matrix and checkbox values. This is an image signature, not a certificate-backed PDF signature, authentication of the test producer, permission to send email, or evidence of Crestron acceptance.

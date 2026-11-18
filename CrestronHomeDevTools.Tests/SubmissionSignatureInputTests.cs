@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Neil Colvin.
 // Licensed under the MIT License. See LICENSE in the repository root.
 
+using System.Security.Cryptography;
 using System.Text.Json;
 
 using NUnit.Framework;
@@ -64,5 +65,34 @@ public sealed class SubmissionSignatureInputTests
             }
         finally { Directory.Delete(root,true); }
         }
+
+	[TestCase (false)]
+	[TestCase (true)]
+	public void CombinedAuthorityIsCheckedBeforeAnyNamedSignatureAccess (bool deliveryAuthorized)
+		{
+		string root = Path.Combine (TestContext.CurrentContext.WorkDirectory, "combined-signing-" + Guid.NewGuid ().ToString ("N"));
+		Directory.CreateDirectory (root);
+		try
+			{
+			string packet = Path.Combine (root, "packet.json"), approval = Path.Combine (root, "approval.json");
+			File.WriteAllText (packet, "{\"schemaVersion\":1}");
+			string Digest (string path) => Convert.ToHexStringLower (SHA256.HashData (File.ReadAllBytes (path)));
+			File.WriteAllText (approval, JsonSerializer.Serialize (new
+				{
+				packetSha256 = Digest (packet), approvalMode = "CombinedSigningAndSubmission",
+				signingAuthorized = true, deliveryAuthorized, visualReviewCompleted = true,
+				expiresUtc = DateTimeOffset.UtcNow.AddMinutes (5)
+				}));
+			string[] args = ["sign-reviewed-packet", "--packet", packet, "--packet-sha256", Digest (packet),
+				"--authorization", approval, "--authorization-sha256", Digest (approval)];
+			if (deliveryAuthorized)
+				{
+				Assert.DoesNotThrow (() => SubmissionSignatureInput.CheckCombinedIdentity (args));
+				File.AppendAllText (packet, " ");
+				}
+			Assert.Throws<InvalidDataException> (() => SubmissionSignatureInput.Prepare ([.. args, "--credentials", Path.Combine (root, "must-not-be-read.json")]));
+			}
+		finally { Directory.Delete (root, true); }
+		}
 
 	}
