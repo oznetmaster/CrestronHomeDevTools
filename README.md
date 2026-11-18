@@ -1,6 +1,6 @@
 # CrestronHomeDevTools
 
-Version 1.29.0 adds processor compatibility discovery, import receipts, managed-child monitoring and read-only dynamic-settings inspection, together with the reconciled driver-update and submission tooling. [Validation scope and remaining limits](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/DevelopmentStatus.md) are recorded separately from individual driver submissions.
+Version 1.30.0 adds combined signing/submission approval checks and an explicit manual-review signing command to the complete Windows console. The reusable submission procedure now covers retained custom-collector evidence, cloud timing, endurance and cleanup, while preserving existing automated evidence validators. [Combined approval and command usage](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/CombinedApproval.md) explain the scope and integration limits.
 
 Read-only [processor capability discovery and version-aware I/O preparation](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/ProcessorCapabilities.md) support Official and Early Access Home connections without rewriting existing configuration inputs.
 

@@ -20,6 +20,7 @@ import test_revalidate_delivery as revalidation
 import test_prepare_review_request as request
 import test_msbuild_help as build
 import test_sign_self_test_form as signing
+import test_combined_approval as combined_tests
 from build_help import sha
 
 
@@ -143,6 +144,47 @@ class BundledConsoleTests(unittest.TestCase):
         self.assertFalse(result["submissionReady"])
         added = set(f.fixture.root.rglob("*")) - before
         self.assertEqual(added, {f.output, f.fixture.root / "signed-report.json"})
+
+    def test_combined_manual_review_signs_with_saved_synthetic_signature_and_binds_delivery(self):
+        f = combined_tests.CombinedApprovalTests()
+        f.setUp()
+        self.addCleanup(f.doCleanups)
+        now = datetime.now(timezone.utc)
+        f.packet["signing"]["date"] = now.date().isoformat()
+        f.auth["expiresUtc"] = (now + timedelta(hours=1)).isoformat()
+        packet, authority = f.freeze()
+        store = f.root / "combined-private-store"
+        for arguments in (("create", "--store", store),
+                          ("signature", "--store", store, "--name", "synthetic", "--file", f.signing.image)):
+            result = subprocess.run([str(self.console), "credentials", *map(str, arguments)],
+                                    env=self.env, cwd=self.hostile, capture_output=True, timeout=30)
+            self.assertEqual(result.returncode, 0, result.stderr.decode(errors="replace"))
+        f.signing.image.unlink()
+        bindings = f.root / "combined-bindings.json"
+        bindings.write_text(json.dumps({"StoreDirectory": str(store), "Signature": "synthetic"}))
+        common = ("--packet", f.packet_path, "--packet-sha256", packet["sha256"],
+                  "--authorization", f.auth_path, "--authorization-sha256", authority["sha256"])
+        signed_pdf, signing_report = f.root / "combined.signed.pdf", f.root / "combined-signing.json"
+        before = set(f.root.rglob("*"))
+        output, _ = self.invoke("sign-reviewed-packet", *common, "--output", signed_pdf,
+                                "--report", signing_report, "--credentials", bindings)
+        result = json.loads(output)
+        self.assertTrue(result["signatureApplied"])
+        self.assertEqual(result["evidenceReviewMethod"], "ManualTechnicalReview")
+        self.assertFalse(result["producerAuthenticationPerformed"])
+        self.assertEqual(set(f.root.rglob("*")) - before, {signed_pdf, signing_report})
+        f.write(f.visual_path, {"schemaVersion": 1, "signedFormSha256": sha(signed_pdf.read_bytes()),
+                "reviewer": "Synthetic inspector", "reviewedUtc": datetime.now(timezone.utc).isoformat(),
+                "signatureAndDateLegible": True, "unchangedOutsideSignatureDate": True})
+        output, _ = self.invoke("check-combined-approval", *common, "--output", f.root / "combined-scope.json",
+                "--signed-form", signed_pdf, "--signed-form-sha256", sha(signed_pdf.read_bytes()),
+                "--signed-visual-review", f.visual_path, "--signed-visual-review-sha256", sha(f.visual_path.read_bytes()))
+        bound = json.loads(output)
+        self.assertEqual(bound["state"], "SignedOutputBoundToCombinedAuthority")
+        self.assertEqual(bound["expiresUtc"], f.auth["expiresUtc"])
+        self.assertTrue(bound["deliveryAuthorizedUnderOriginalApproval"])
+        self.assertFalse(bound["newHumanApprovalCreated"])
+        self.assertFalse(bound["deliveryAttempted"])
 
     def test_review_creates_real_form_and_bundle_with_bundled_validator(self):
         f = self.fixture(review.ReviewStageTests)

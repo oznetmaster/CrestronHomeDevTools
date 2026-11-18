@@ -29,11 +29,11 @@ Use the private [packet](templates/CombinedApprovalPacket.example.json),
 intentionally non-executable placeholders, not approvals or evidence. Provide
 every official inventory row and actual digests; keep the filled files private.
 
-## Executable scope guard (unreleased source)
+## Executable scope guard (1.30.0)
 
-`submission check-combined-approval` is a new, offline source command. DevTools
-1.29.0 does not contain it; use a complete console built from the reviewed source,
-or run `tools/submission/combined_approval.py` with the document dependencies.
+`submission check-combined-approval` is included in the complete Windows console
+from DevTools 1.30.0. DevTools 1.29.0 does not contain it. Source consumers can
+also run `tools/submission/combined_approval.py` with the document dependencies.
 It reads no signature or credentials and performs no network operations.
 
 ```text
@@ -47,9 +47,9 @@ reviewer's stated disposition, not a newly authenticated or automatically passed
 test. It preserves `ManualTechnicalReview` versus `AutomatedEvidenceReview` and
 reports `producerAuthenticationPerformed: false` and `testOutcomesReassessed: false`.
 
-## Signing a manual technical review (unreleased source)
+## Signing a manual technical review (1.30.0)
 
-For the explicitly selected manual review route, the new source command is:
+For the explicitly selected manual review route, the console command is:
 
 ```text
 submission sign-reviewed-packet --packet PRIVATE_PACKET --packet-sha256 PACKET_PIN --authorization PRIVATE_AUTHORITY --authorization-sha256 AUTHORITY_PIN --output NEW_ABSOLUTE_DRIVER.signed.pdf --report NEW_PRIVATE_SIGNING_REPORT --credentials PRIVATE_BINDINGS

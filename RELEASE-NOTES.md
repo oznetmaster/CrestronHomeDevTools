@@ -1,67 +1,48 @@
-# CrestronHomeDevTools 1.29.0
+# CrestronHomeDevTools 1.30.0
 
-Adds authenticated processor capability discovery, correlated import receipts,
-managed-child snapshots and bounded event monitoring, and read-only dynamic
-device-settings inspection. The APIs preserve existing custom configuration
-connections and Home 4.12 behaviour when newer fields or events are absent.
-Property values are excluded from inspection output unless explicitly requested.
-See [inspection commands and compatibility](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/ImportReceiptsAndInspection.md).
+Adds two submission commands to the complete Windows console:
 
-Import receipts keep terminal-operation and dedicated-completion observations
-separate, including unavailable versus empty imported-ID lists. Ended is not
-treated as proof of import success; existing deployment catalogue verification
-is unchanged. Managed-child monitors subscribe before reading baselines, mark
-overlap without inventing server ordering, and fail explicitly on overflow or
-lost continuity. Dynamic-settings inspection uses typed metadata and never
-executes settings commands. System IDs, including zero, are supported by these
-read-only operations.
+- `submission check-combined-approval` checks one explicit authority covering
+  signing and submission. It binds the exact unsigned packet and correspondence,
+  then checks the actual signed output without inventing its future hash or
+  requiring another human decision. Only the approved signature/date and verified
+  uploader URL may change. Changed scope or expired authority stops the operation;
+  deriving a technical stage record never renews that authority.
+- `submission sign-reviewed-packet` signs an explicitly selected manual technical
+  review using the encrypted named-signature store and in-memory handoff. It
+  preserves printed notes and checklist marks, checks the approved signature
+  identity, and emits a receipt that remains explicitly manual. It does not
+  fabricate automated producer validation or bypass the existing evidence signer.
+  It performs no upload or email.
 
-Adds read-only, version-aware I/O connection preparation for legacy Home 4.7–4.12
-and typed Home 4.13 formats, including Serial/Com normalization and CEC direction
-checks. Unknown versions and unconfirmed selections stop before commands.
-Existing raw configuration strings remain unchanged. Discovery and inspection
-were checked on Official Home 4.012.0194 and EAP Home 4.013.0134. A no-transmit
-SDK 29 serial probe on a physically disconnected EAP processor port restored
-its channel and ready state after an isolated V2 reload; external-device
-communication and other port types remain unqualified.
+[Combined approval and command usage](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/CombinedApproval.md)
+include private packet, authority, technical-review and signed-inspection templates.
+The normal operator procedure defaults to one combined approval after review of
+the concrete final packet. Internal signature inspection remains required. Existing
+protected stages retain their schemas; legacy CI adapters do not automatically
+convert combined authority into their own stage records.
 
-Includes the reconciled driver-update manager, console assessment/reviewed
-sequential updates and source-built Windows checklist, plus independent public
-driver-catalogue search. Update processing retains processor reservations,
-explicit restart consent, version/readiness checks and durable recovery journals.
-Actual multi-driver update/restart behaviour still requires controlled live
-qualification. Portal search does not establish Crestron Home compatibility.
-See [driver updates](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/DriverUpdates.md)
-and [published catalogue search](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/PublishedDrivers.md).
+The [reusable submission procedure](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/START-DRIVER-SUBMISSION.md)
+and [retained-evidence guide](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/submission/RetainedEvidenceAndApprovals.md)
+now distinguish genuine retained measurements from missing producer schema,
+absent features from untested supported features, provider/driver/tile clocks,
+network interruptions from power loss, and collector faults from device failures.
+They cover change-scoped updates, endurance continuity, restoration and uncertain
+external-operation reconciliation. These are documented interpretations, not new
+claims of Crestron acceptance or waived requirements.
 
-Also incorporates retained submission evidence/review repairs, artifact
-publication checks, pinned signing-plan preparation, complete bundled Python
-import closure, bounded native output paths, and explicit worker-local versus
-controller-share input/output contracts with private terminal diagnostics.
-Existing frozen submissions and their evidence are unchanged. These tooling
-changes do not establish new compliance passes or authorize signing, uploading,
-emailing, hardware actions or processor reboots.
+No existing submitted package, signature or evidence is rewritten. No production
+driver, device-client or processor protocol changes are included. Requires .NET 10;
+configuration-management compatibility remains as documented for Home 4.12 and 4.13.
+The interface remains unofficial and firmware-dependent.
 
-Validation includes all 2,708 discovered offline .NET tests and API compatibility
-against public 1.28.0, with package-consumer, documentation and packaged-console
-checks in release validation. Live empty-queue import receipts preserved device
-configuration, programming and port settings on both firmware versions, with
-reservations released. Neither lab processor advertised dynamic settings or
-supplied non-null inline managed-child state, and no new child-state events
-arrived during bounded observation. Positive settings/event paths have offline
-protocol and connection-dispatch coverage rather than positive live server
-qualification. See [validation scope](https://github.com/oznetmaster/CrestronHomeDevTools/blob/main/docs/DevelopmentStatus.md).
-
-The SDK 30 video probe was rejected at import because its manifest declared
-minimum SDK 30 while Home reported a maximum of 29. This establishes a
-manifest-version gate, not general SDK 30 binary incompatibility. A shade probe
-built with SDK 30 and declaring minimum SDK 29 imported but did not complete
-configuration. Native SDK 30 video/shade support remains unqualified.
-
-Requires .NET 10 and Crestron Home NUnit 2.3.0 for the existing
-Automation/SubmissionTests consumer. The configuration interface is unofficial,
-undocumented and firmware-dependent. No production driver or device-client
-payload changes are included.
+Validation covers synthetic approval/signature cases, altered inputs and marks,
+expiry, signature access guards, existing automated signing and mocked delivery,
+and the isolated Windows console, including the new manual-review command with
+a saved synthetic signature. The Windows help/packaging workflow now allows
+25 minutes after its previous 10-minute limit cancelled a progressing run.
+Required tests and packaging checks remain enabled. Synthetic validation is not
+a new real-signature/provider or physical-device test.
 
 Copyright (c) 2026 Neil Colvin. MIT licensed. Crestron and Crestron Home are
 trademarks of Crestron Electronics, Inc. This independent project is not

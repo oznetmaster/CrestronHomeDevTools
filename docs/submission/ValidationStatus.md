@@ -5,14 +5,14 @@
 The normal operator procedure now defaults to one explicit approval covering the
 exact unsigned packet, signing/date and verified-URL transformations, with internal
 signed-output review before delivery. Separate stage records are not themselves
-separate human decisions. The new source `check-combined-approval` command has
+separate human decisions. The `check-combined-approval` command has
 synthetic offline regression coverage for both stages, altered files/marks,
 incomplete scope, signing-only authority, expiry and exact signed inspection.
 It accesses no signature, authenticates no producer and contacts no provider.
 Existing protected validators and CI adapters retain their contracts; the new
 guard is not an end-to-end automatic combined-approval adapter.
 
-The source `sign-reviewed-packet` command adds an explicit manual-review signer,
+The `sign-reviewed-packet` command adds an explicit manual-review signer,
 with synthetic signature/field-preservation checks and pre-decryption authority
 checks. It rejects an automated review rather than bypassing its validator. This
 shared implementation has not been used with a real signature/provider; the real
@@ -31,7 +31,8 @@ candidate details, signatures, raw evidence and correspondence stay private.
 
 See [the reusable lessons](RetainedEvidenceAndApprovals.md) and
 [combined authority and integration limits](CombinedApproval.md). These changes
-are unreleased source/procedure work, not a new public runtime release.
+are included in 1.30.0. The commands are distributed in the complete Windows
+console; this does not claim automatic integration of the legacy CI stages.
 
 ## Procedure audit, 30 October 2026
 
